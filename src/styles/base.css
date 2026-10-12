@@ -1,0 +1,44 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-md);
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* Keyboard/controller focus is drawn by the focus manager via [data-focused];
+   suppress the default outline so there is exactly one indicator. */
+:focus {
+  outline: none;
+}
+
+/* While a game is running the app pauses all animation work. */
+.paused *,
+.paused *::before,
+.paused *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}

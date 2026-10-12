@@ -1,0 +1,23 @@
+# Build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Local config / secrets (API keys live in the OS keychain; never commit fallbacks)
+*.local.json
+*.local.toml
+.env
+.env.*
+secrets.*
+
+# Generated test libraries (milestone f)
+tools/gen-library/out/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+Thumbs.db
+.DS_Store
