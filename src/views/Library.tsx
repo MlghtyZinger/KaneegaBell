@@ -1,8 +1,10 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
-import { library } from "../state/library";
+import { library, type PlatformFilter } from "../state/library";
+import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
+import { Hint } from "../components/Hints";
 import { GameInfo } from "./GameInfo";
 import { api } from "../api";
 
@@ -18,9 +20,10 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
 
   const games = library.visibleGames;
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
+  const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
 
-  // New platform -> start at the top.
-  createEffect(on(library.platform, () => setFocused(0), { defer: true }));
+  // New tab or new search -> start at the top.
+  createEffect(on([library.platform, library.query], () => setFocused(0), { defer: true }));
   // Clamp when the list shrinks (rescan).
   createEffect(() => {
     const n = games().length;
@@ -60,6 +63,21 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
     await library.reload();
   }
 
+  function openSearch() {
+    const before = library.query();
+    osk.open({
+      title: "Search all games",
+      value: before,
+      onInput: (v) => library.setQuery(v),
+      status: () => {
+        const n = library.visibleGames().length;
+        return library.query().trim() ? `${n} match${n === 1 ? "" : "es"}` : "Type to search every platform";
+      },
+      onDone: (v) => library.setQuery(v.trim()),
+      onCancel: () => library.setQuery(before),
+    });
+  }
+
   const onAction = (a: Action): boolean => {
     switch (a) {
       case "left": move(-1); return true;
@@ -71,46 +89,70 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
       case "prevLetter": jumpLetter(-1); return true;
       case "nextLetter": jumpLetter(1); return true;
       case "favorite": void toggleFavorite(); return true;
+      case "secondary": openSearch(); return true;
       case "select": {
         const g = games()[focused()];
         if (g) setInfoId(g.id);
         return true;
       }
+      case "back":
+        if (library.query()) {
+          library.setQuery("");
+          return true;
+        }
+        return false;
       case "menu": props.onOpenSettings(); return true;
       default: return false;
     }
   };
   onCleanup(pushHandler(onAction));
 
+  const tabLabel = (id: PlatformFilter) => {
+    if (id === "all") return "All";
+    if (id === "favorites") return "★ Favorites";
+    if (id === "recent") return "Recent";
+    return library.platforms().find((x) => x.id === id)?.shortName ?? id;
+  };
+  const tabCount = (id: PlatformFilter) => {
+    if (id === "all") return library.games().length;
+    if (id === "favorites") return library.favorites().length;
+    if (id === "recent") return library.recent().length;
+    return library.platforms().find((x) => x.id === id)?.count ?? 0;
+  };
+
   return (
     <div class="library">
       <header class="topbar">
         <nav class="platform-tabs" aria-label="Platforms">
-          <For each={library.platformTabs()}>
-            {(id) => {
-              const p = () => library.platforms().find((x) => x.id === id);
-              const count = () => (id === "all" ? library.games().length : p()?.count ?? 0);
-              return (
+          <Show
+            when={!library.query()}
+            fallback={
+              <button class="tab active" onClick={() => library.setQuery("")} title="Clear search">
+                Search: “{library.query()}” <span class="tab-count">✕</span>
+              </button>
+            }
+          >
+            <For each={library.platformTabs()}>
+              {(id) => (
                 <button
                   class="tab"
                   classList={{ active: library.platform() === id }}
                   onClick={() => library.setPlatform(id)}
                 >
-                  {id === "all" ? "All" : p()?.shortName}
-                  <span class="tab-count">{count()}</span>
+                  {tabLabel(id)}
+                  <span class="tab-count">{tabCount(id)}</span>
                 </button>
-              );
-            }}
-          </For>
+              )}
+            </For>
+          </Show>
         </nav>
         <div class="topbar-right">
           <Show when={library.scanProgress()}>
-            {(p) => (
-              <span class="scan-pill">
-                Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}
-              </span>
-            )}
+            {(p) => <span class="scan-pill">Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}</span>}
           </Show>
+          <button class="btn ghost" onClick={openSearch}>
+            Search
+          </button>
           <button class="btn ghost" onClick={props.onOpenSettings}>
             Settings
           </button>
@@ -122,11 +164,25 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
         fallback={
           <div class="empty">
             <Show when={library.loaded()} fallback={<p>Loading…</p>}>
-              <h2>No games yet</h2>
-              <p>Add your ROM folders and emulator paths in Settings, then run a scan.</p>
-              <button class="btn primary" onClick={props.onOpenSettings}>
-                Open Settings
-              </button>
+              <Show
+                when={library.games().length > 0}
+                fallback={
+                  <>
+                    <h2>No games yet</h2>
+                    <p>Add your ROM folders and emulator paths in Settings, then run a scan.</p>
+                    <button class="btn primary" onClick={props.onOpenSettings}>
+                      Open Settings
+                    </button>
+                  </>
+                }
+              >
+                <h2>No matches</h2>
+                <p>Nothing matches “{library.query()}”.</p>
+                <div class="hints-row">
+                  <Hint action="secondary" label="Search again" />
+                  <Hint action="back" label="Clear search" />
+                </div>
+              </Show>
             </Show>
           </div>
         }
@@ -145,23 +201,27 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
               <GameCard
                 game={g}
                 focused={isFocused}
-                platformLabel={library.platform() === "all" ? shortNames().get(g().platformId) : undefined}
+                platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined}
               />
             )}
           />
         </div>
         <footer class="hints">
-          <span><kbd>Enter</kbd> Details</span>
-          <span><kbd>Q</kbd>/<kbd>E</kbd> Platform</span>
-          <span><kbd>Home</kbd>/<kbd>End</kbd> Letter</span>
-          <span><kbd>F</kbd> Favorite</span>
+          <Hint action="select" label="Details" />
+          <Hint action="secondary" label="Search" />
+          <Hint action="favorite" label="Favorite" />
+          <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
+          <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
+          <Hint action="menu" label="Settings" />
           <span class="hint-count">
             {focused() + 1} / {games().length}
           </span>
         </footer>
       </Show>
 
-      <Show when={infoId()}>{(id) => <GameInfo id={id()} onClose={() => setInfoId(null)} />}</Show>
+      <Show when={infoId()} keyed>
+        {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}
+      </Show>
     </div>
   );
 }

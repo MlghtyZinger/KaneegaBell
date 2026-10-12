@@ -3,10 +3,11 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { events } from "./api";
 import { library } from "./state/library";
 import { session } from "./state/session";
-import { dispatch, installKeyboard, type Action } from "./input/actions";
+import { dispatchFromGamepad, installKeyboard, type Action } from "./input/actions";
 import { LibraryView } from "./views/Library";
 import { SettingsView } from "./views/Settings";
 import { NowPlaying } from "./views/NowPlaying";
+import { OskHost } from "./components/OnScreenKeyboard";
 import "./styles/app.css";
 
 type View = "library" | "settings";
@@ -34,7 +35,7 @@ export default function App() {
     session.listen();
     // Controller actions from the Rust gamepad thread go through the same
     // dispatcher as the keyboard.
-    void events.onNav((a) => dispatch(a as Action));
+    void events.onNav((a) => dispatchFromGamepad(a as Action));
     library.reload().catch((e) => console.error("library load failed", e));
   });
 
@@ -42,7 +43,9 @@ export default function App() {
     <main class="app">
       <Switch>
         {/* While a game runs the library is unmounted entirely: no grid, no work. */}
-        <Match when={session.running()}>{(g) => <NowPlaying game={g()} />}</Match>
+        <Match when={session.running()} keyed>
+          {(g) => <NowPlaying game={g} />}
+        </Match>
         <Match when={view() === "library"}>
           <LibraryView onOpenSettings={() => setView("settings")} />
         </Match>
@@ -50,6 +53,7 @@ export default function App() {
           <SettingsView onClose={() => setView("library")} />
         </Match>
       </Switch>
+      <OskHost />
     </main>
   );
 }

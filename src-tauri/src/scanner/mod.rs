@@ -12,6 +12,7 @@
 
 pub mod cue_m3u;
 pub mod detect;
+pub mod hints;
 pub mod multidisc;
 pub mod normalize;
 pub mod ps3;
@@ -31,6 +32,10 @@ use multidisc::Item;
 use normalize::ParsedName;
 
 pub const DOLPHIN_PLATFORMS: &[&str] = &["gc", "wii"];
+/// Bump when platform detection changes, so the next scan re-sniffs files the
+/// old logic classified instead of trusting the size/mtime cache.
+/// 2: PS1 vs PS2 via SYSTEM.CNF (v1 called every "PLAYSTATION" disc PS1).
+const DETECT_VERSION: i64 = 2;
 const MAX_DEPTH: usize = 8;
 const SKIP_DIRS: &[&str] = &["$recycle.bin", "system volume information"];
 
@@ -167,6 +172,7 @@ fn referenced_files(l: &Listed) -> Vec<PathBuf> {
 
 struct Resolver<'a> {
     source_platform: Option<&'a str>,
+    source_root: &'a Path,
     /// ext -> platforms accepting it (auto mode)
     ext_map: &'a HashMap<String, Vec<String>>,
     known: &'a HashMap<String, Known>,
@@ -192,23 +198,25 @@ impl Resolver<'_> {
             }
         }
 
-        // Playlists/sheets: sniff the first file they reference.
-        let (probe, probe_ext) = match (l.ext.as_str(), refs.first()) {
+        // Playlists/sheets: sniff the first file they reference; an .m3u of
+        // .cue files goes one level further, to the first track.
+        let (mut probe, mut probe_ext) = match (l.ext.as_str(), refs.first()) {
             ("m3u" | "cue", Some(first)) => (first.clone(), ext_of(first)),
             _ => (l.path.clone(), l.ext.clone()),
         };
-        let mut sniff = detect::sniff(&probe, &probe_ext);
-        if sniff.platform.is_none() && matches!(probe_ext.as_str(), "bin" | "img" | "iso") {
-            sniff.platform = detect::sniff_cd_track(&probe);
-        }
-        // An .m3u of .cue files: look one level further.
-        if sniff.platform.is_none() && l.ext == "m3u" && probe_ext == "cue" {
-            if let Some(bin) = fs::read_to_string(&probe)
+        if probe_ext == "cue" {
+            if let Some(track) = fs::read_to_string(&probe)
                 .ok()
                 .and_then(|c| cue_m3u::cue_files(&c, probe.parent()?).into_iter().next())
             {
-                sniff.platform = detect::sniff_cd_track(&bin);
+                probe_ext = ext_of(&track);
+                probe = track;
             }
+        }
+        let mut sniff = detect::sniff(&probe, &probe_ext);
+        // Optical discs: Sega CD / PSP / PS1 vs PS2 (via SYSTEM.CNF) + serial.
+        if sniff.platform.is_none() && matches!(probe_ext.as_str(), "bin" | "img" | "iso") {
+            sniff = detect::sniff_disc(&probe);
         }
 
         let platform = match (self.source_platform, sniff.platform) {
@@ -218,11 +226,17 @@ impl Resolver<'_> {
             (None, _) if candidates.len() == 1 => candidates[0].to_string(),
             (None, Some(s)) if candidates.contains(&s) => s.to_string(),
             (None, _) => {
-                return Err(format!(
-                    "can't tell which platform ({}) this file is; assign a platform to its folder: {}",
-                    candidates.join("/"),
-                    l.path.display()
-                ))
+                // Headers couldn't decide: fall back to folder names ("PS2", "PSX"...).
+                match hints::for_file(&l.path, self.source_root).into_iter().find(|h| candidates.contains(h)) {
+                    Some(h) => h.to_string(),
+                    None => {
+                        return Err(format!(
+                            "can't tell which platform ({}) this file is; assign a platform to its folder: {}",
+                            candidates.join("/"),
+                            l.path.display()
+                        ))
+                    }
+                }
             }
         };
         Ok((platform, sniff.serial))
@@ -273,7 +287,7 @@ pub fn scan_files(
     let refs: Vec<Vec<PathBuf>> = listed.iter().map(referenced_files).collect();
     let hidden: HashSet<String> = refs.iter().flatten().map(|p| path_key(p)).collect();
 
-    let resolver = Resolver { source_platform: src.platform_id.as_deref(), ext_map: &ext_map, known };
+    let resolver = Resolver { source_platform: src.platform_id.as_deref(), source_root: &src.path, ext_map: &ext_map, known };
     let mut items = Vec::new();
     // path key -> (size incl. companions, mtime, sniffed serial)
     let mut meta: HashMap<String, (u64, i64, Option<String>)> = HashMap::new();
@@ -363,6 +377,10 @@ pub fn run(conn: &mut Connection, progress: &dyn Fn(Progress)) -> Result<Summary
     let rules = queries::platform_rules(conn)?;
     let sources = queries::sources(conn)?;
     let known = queries::known_games(conn)?;
+    // After a detector upgrade, don't reuse cached platform decisions.
+    let redetect = queries::get_setting::<i64>(conn, "detectVersion")? != Some(DETECT_VERSION);
+    let empty = HashMap::new();
+    let sniff_cache = if redetect { &empty } else { &known };
 
     for (i, src) in sources.iter().enumerate() {
         let label = src.path.display().to_string();
@@ -375,7 +393,7 @@ pub fn run(conn: &mut Connection, progress: &dyn Fn(Progress)) -> Result<Summary
         let candidates = if src.platform_id.as_deref() == Some("ps3") || src.kind == "ps3_hdd0" {
             scan_ps3(src)
         } else {
-            scan_files(src, &rules, &known, &mut summary.warnings)
+            scan_files(src, &rules, sniff_cache, &mut summary.warnings)
         };
         let tx = conn.transaction()?;
         let (added, updated, missing) = queries::apply_scan(&tx, src.id, &candidates, &known)?;
@@ -385,6 +403,9 @@ pub fn run(conn: &mut Connection, progress: &dyn Fn(Progress)) -> Result<Summary
         summary.missing += missing;
     }
 
+    if redetect {
+        queries::set_setting(conn, "detectVersion", &DETECT_VERSION.into())?;
+    }
     summary.games_total = queries::count_games(conn)?;
     summary.duration_ms = started.elapsed().as_millis();
     progress(Progress { phase: "done", source: String::new(), done: sources.len(), total: sources.len() });

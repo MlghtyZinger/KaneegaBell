@@ -217,6 +217,37 @@ fn ambiguous_files_in_auto_mode_are_skipped_with_a_warning() {
 }
 
 #[test]
+fn auto_folder_of_ps2_isos_is_ps2_not_ps1() {
+    // The user's report: an Auto source pointed at the PS2 folder showed PS1.
+    let t = tempfile::tempdir().unwrap();
+    let ps2 = detect::tests::build_disc(
+        detect::SectorLayout { size: 2048, data: 0 },
+        "PLAYSTATION",
+        Some("BOOT2 = cdrom0:\\SCUS_971.24;1\r\n"),
+    );
+    write(&t.path().join("Jak II (USA)").join("Jak II (USA).iso"), &ps2);
+    let (c, w) = scan(t.path(), None);
+    assert!(w.is_empty(), "{w:?}");
+    assert_eq!(c[0].platform, "ps2");
+    assert_eq!(c[0].serial.as_deref(), Some("SCUS-97124"));
+}
+
+#[test]
+fn folder_name_breaks_ties_when_headers_cant() {
+    let t = tempfile::tempdir().unwrap();
+    // A PlayStation disc with no SYSTEM.CNF, and an unreadable CHD: only the
+    // folder names can tell.
+    let bare = detect::tests::build_disc(detect::SectorLayout { size: 2048, data: 0 }, "PLAYSTATION", None);
+    write(&t.path().join("PS2").join("Game A.iso"), &bare);
+    write(&t.path().join("PSX").join("Game B.chd"), &[0; 64]);
+    write(&t.path().join("Unsorted").join("Game C.chd"), &[0; 64]);
+    let (c, w) = scan(t.path(), None);
+    let plats: Vec<_> = c.iter().map(|c| (c.name.title.as_str(), c.platform.as_str())).collect();
+    assert_eq!(plats, [("Game A", "ps2"), ("Game B", "ps1")]);
+    assert_eq!(w.len(), 1, "Unsorted/Game C stays ambiguous: {w:?}");
+}
+
+#[test]
 fn non_recursive_source_stays_at_top_level() {
     let t = tempfile::tempdir().unwrap();
     write(&t.path().join("Top (USA).sfc"), &[0; 8]);

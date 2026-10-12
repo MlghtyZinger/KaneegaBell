@@ -501,6 +501,224 @@ input[type="checkbox"] {
   margin: 0;
 }
 
+/* ------------------------------------------------------------ controller focus */
+
+/* Keyboard/controller navigation draws one clear ring on the focused control;
+   mouse users don't get rings (html.nav-mode is toggled by input/actions.ts). */
+html.nav-mode :focus {
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 2;
+}
+
+html.nav-mode input[type="checkbox"]:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------ hints */
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.hint-sep {
+  color: var(--text-faint);
+}
+
+.hints-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  margin-right: auto;
+}
+
+/* PlayStation face-button colors. */
+kbd.ps-select { color: #7cb2ff; }
+kbd.ps-back { color: #ff6b81; }
+kbd.ps-secondary { color: #f39ce0; }
+kbd.ps-favorite { color: #4fe0c0; }
+
+/* ------------------------------------------------------------ picker */
+
+.picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 14ch;
+  cursor: pointer;
+  text-align: left;
+}
+
+.picker-caret {
+  color: var(--text-dim);
+}
+
+.picker-panel {
+  width: min(520px, 92vw);
+}
+
+.picker-list,
+.fb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.picker-option,
+.fb-entry {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.picker-option:hover,
+.fb-entry:hover {
+  background: var(--surface);
+}
+
+.picker-option.selected {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* ------------------------------------------------------------ file browser */
+
+.fb {
+  width: min(860px, 94vw);
+}
+
+.fb-path {
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.fb-entry.dir {
+  font-weight: 500;
+}
+
+.fb-icon {
+  width: 1.4em;
+  text-align: center;
+  flex: none;
+}
+
+/* ------------------------------------------------------------ on-screen keyboard */
+
+.osk-overlay {
+  align-items: flex-end;
+  padding-bottom: 4vh;
+  z-index: 20;
+}
+
+.osk {
+  width: min(1100px, 96vw);
+}
+
+.osk-title {
+  font-size: var(--fs-sm);
+}
+
+.osk-value {
+  font-size: var(--fs-lg);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 8px 0;
+  min-height: 1.6em;
+  overflow-wrap: anywhere;
+}
+
+.osk-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.osk-status {
+  font-size: var(--fs-sm);
+  margin-bottom: 8px;
+}
+
+.osk-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: var(--gap) 0;
+}
+
+.osk-row {
+  display: flex;
+  gap: 8px;
+}
+
+.osk-key {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 0;
+  font-size: var(--fs-md);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.osk-key:hover {
+  background: var(--surface-hover);
+}
+
+.osk-key.wide {
+  flex: 1.6;
+}
+
+.osk-key.space {
+  flex: 4;
+}
+
+.osk-key.on {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.osk-key.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08101f;
+  font-weight: 600;
+}
+
+.fav-on {
+  color: var(--focus);
+}
+
 /* ------------------------------------------------------------ overlay */
 
 .overlay {

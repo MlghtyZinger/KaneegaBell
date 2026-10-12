@@ -57,6 +57,19 @@ export interface ExitCombo {
   holdMs: number;
 }
 
+export interface DirEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+}
+
+export interface DirListing {
+  path: string | null;
+  parent: string | null;
+  entries: DirEntry[];
+  truncated: boolean;
+}
+
 export interface PadInfo {
   name: string;
   family: "playstation" | "xbox" | "nintendo" | "generic";
@@ -149,6 +162,9 @@ export const api = {
   updateSource: (id: number, platformId: string | null, recursive: boolean) =>
     invoke<void>("update_source", { id, platformId, recursive }),
   removeSource: (id: number) => invoke<void>("remove_source", { id }),
+  suggestPlatform: (path: string) => invoke<string | null>("suggest_platform", { path }),
+  listDir: (path: string | null, extensions: string[] = []) =>
+    invoke<DirListing>("list_dir", { path, extensions }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
   startScan: () => invoke<boolean>("start_scan"),
 };

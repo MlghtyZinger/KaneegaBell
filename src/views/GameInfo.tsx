@@ -1,7 +1,9 @@
-import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { createResource, createSignal, For, Show } from "solid-js";
 import { api, errorText } from "../api";
-import { pushHandler } from "../input/actions";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
+import { library } from "../state/library";
+import { NavScope } from "../components/NavScope";
+import { Hint } from "../components/Hints";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -27,6 +29,15 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   );
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
+  const [favorite, setFavorite] = createSignal<boolean | null>(null);
+  const isFavorite = () => favorite() ?? library.games().find((g) => g.id === props.id)?.favorite ?? false;
+
+  async function toggleFavorite() {
+    const next = !isFavorite();
+    setFavorite(next);
+    await api.setFavorite(props.id, next);
+    await library.reload();
+  }
 
   async function play() {
     if (launching()) return;
@@ -42,18 +53,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     }
   }
 
-  // Modal: A/Enter plays, B/Esc closes, everything else is swallowed.
-  onCleanup(
-    pushHandler((a) => {
-      if (a === "select") void play();
-      else if (a === "back") props.onClose();
-      return true;
-    }),
-  );
-
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <div class="panel info-panel" role="dialog" aria-modal="true">
+      <NavScope class="panel info-panel" modal onBack={props.onClose} onFavorite={() => void toggleFavorite()}>
         <Show when={game()} fallback={<p>Loading…</p>}>
           {(g) => (
             <>
@@ -62,8 +64,11 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 <p class="dim">{g().variant}</p>
               </Show>
               <div class="row">
-                <button class="btn primary big" disabled={launching()} onClick={() => void play()}>
+                <button class="btn primary big" data-autofocus disabled={launching()} onClick={() => void play()}>
                   {launching() ? "Starting…" : "▶ Play"}
+                </button>
+                <button class="btn big" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
+                  {isFavorite() ? "★ Favorite" : "☆ Favorite"}
                 </button>
                 <span class="dim">
                   {formatPlayTime(g().playSeconds)} played · Last played {formatLastPlayed(g().lastPlayed)}
@@ -112,11 +117,16 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           )}
         </Show>
         <div class="panel-actions">
+          <div class="hints-row">
+            <Hint action="select" label="Select" />
+            <Hint action="favorite" label="Favorite" />
+            <Hint action="back" label="Close" />
+          </div>
           <button class="btn" onClick={props.onClose}>
             Close
           </button>
         </div>
-      </div>
+      </NavScope>
     </div>
   );
 }

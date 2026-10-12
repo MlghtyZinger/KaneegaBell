@@ -55,10 +55,12 @@ cargo test --manifest-path src-tauri/Cargo.toml
 1. **Settings → Emulators → "Find emulators in a folder…"** and pick the folder that holds your
    emulators (e.g. `E:\Emulators`). It fills in every emulator it recognizes and the RetroArch
    cores folder. Or set each path by hand.
-2. **Settings → Library → ROM folders**: add each ROM folder and assign its platform.
-   - Use **Auto** only for mixed folders (e.g. a romhack folder with GBA and DS games, or a
-     GameCube + Wii folder). Auto decides by extension and disc headers and lists anything it
-     can't place under the scan's warnings.
+2. **Settings → Library → ROM folders**: add each ROM folder. The platform is preselected
+   from the folder name ("PS2", "GBA", "GameCube"...); change it if needed.
+   - **Auto** works out each file's platform from its type and contents: GameCube vs Wii from
+     the disc header, PS1 vs PS2 from the disc's `SYSTEM.CNF`, PSP and Sega CD from their disc
+     signatures. When the contents can't decide, folder names along the path ("PS2", "PSX")
+     break the tie. Anything still ambiguous is listed under the scan's warnings.
    - A folder assigned to GameCube or Wii accepts both; each disc is placed by its header.
    - **PS3**: assign disc-dump folders (containing `PS3_GAME`) to PlayStation 3, and use
      "Add RPCS3 installed games" for PSN/HDD titles in RPCS3's `dev_hdd0`.
@@ -71,18 +73,30 @@ fullscreen.
 
 ## Controllers
 
-| Action | PlayStation | Xbox |
-|---|---|---|
-| Move | D-pad / left stick (hold to repeat) | D-pad / left stick |
-| Details, then Play | Cross | A |
-| Back | Circle | B |
-| Favorite | Triangle | Y |
-| Previous / next platform | L1 / R1 | LB / RB |
-| Previous / next letter | L2 / R2 | LT / RT |
-| Settings | Options | Menu |
-| **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** |
+| Action | PlayStation | Xbox | Keyboard |
+|---|---|---|---|
+| Move | D-pad / left stick (hold to repeat) | D-pad / left stick | Arrows |
+| Select / details, then Play | Cross | A | Enter |
+| Back / close | Circle | B | Esc |
+| Search | Square | X | `/` |
+| Favorite | Triangle | Y | F |
+| Previous / next tab (platform, Settings section) | L1 / R1 | LB / RB | Q / E |
+| Previous / next letter | L2 / R2 | LT / RT | Home / End |
+| Settings | Options | Menu | F1 |
+| **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
-The exit combo is configurable in Settings → General.
+The exit combo is configurable in Settings → General. Every screen works with a controller
+alone: D-pad moves focus to the nearest control, A/Cross presses it, and the hints bar shows
+the buttons for the device you used last.
+
+- **Text fields** open an on-screen keyboard (□/X space, ○/B delete, △/Y shift, Options/Menu
+  done). A physical keyboard types into it too.
+- **Search** (□ / X / `/`) searches every platform as you type; ○ / B clears it.
+- **Dropdowns** are pickers you can open with A, and **Browse…** opens an in-app folder/file
+  browser (A enters, B goes up, □ / X picks the current folder). The native Windows dialog
+  can't be used with a controller.
+- **Tabs**: All, ★ Favorites and Recent (most recently played first) appear next to the
+  platforms once they have games.
 
 Controller input uses SDL3 rather than gilrs: gilrs' Windows backend (Windows.Gaming.Input)
 only delivers input to the focused window, so the exit combo couldn't work while an emulator
@@ -148,7 +162,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] 0. Repo + scaffold
 - [x] a. Settings, library scanning, SQLite, basic grid
 - [x] b. Launching, process tracking, exit hotkey, play time
-- [ ] c. Full controller navigation
+- [x] c. Full controller navigation
 - [ ] d. Metadata (IGDB, MobyGames) and artwork (SteamGridDB)
 - [ ] e. RetroAchievements
 - [ ] f. Performance pass

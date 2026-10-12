@@ -1,6 +1,7 @@
 mod commands;
 mod db;
 mod error;
+mod fsbrowse;
 mod input;
 mod launcher;
 mod platforms;
@@ -16,7 +17,6 @@ pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("emu_frontend_lib=info")).init();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -62,6 +62,8 @@ pub fn run() {
             commands::detect_emulators,
             commands::update_platform,
             commands::validate_template,
+            commands::list_dir,
+            commands::suggest_platform,
             commands::add_source,
             commands::add_rpcs3_installed_source,
             commands::update_source,

@@ -1,5 +1,6 @@
-// Abstract UI actions. Keyboard maps here today; the Rust gamepad thread will
-// emit the same actions in milestone c, so views never care about the device.
+// Abstract UI actions. The keyboard maps here, and the Rust gamepad thread
+// emits the same actions, so views never care which device is used.
+import { createRoot, createSignal } from "solid-js";
 
 export type Action =
   | "up"
@@ -8,6 +9,7 @@ export type Action =
   | "right"
   | "select"
   | "back"
+  | "secondary"
   | "prevPlatform"
   | "nextPlatform"
   | "prevLetter"
@@ -23,6 +25,7 @@ const KEYMAP: Record<string, Action> = {
   Enter: "select",
   Escape: "back",
   Backspace: "back",
+  "/": "secondary",
   PageUp: "prevPlatform",
   PageDown: "nextPlatform",
   q: "prevPlatform",
@@ -32,6 +35,20 @@ const KEYMAP: Record<string, Action> = {
   f: "favorite",
   F1: "menu",
 };
+
+export type Device = "pointer" | "keyboard" | "gamepad";
+
+/** The device used last: drives focus-ring visibility and button-hint glyphs. */
+export const { device, setDevice } = createRoot(() => {
+  const [device, setDeviceRaw] = createSignal<Device>("pointer");
+  const setDevice = (d: Device) => {
+    if (device() === d) return;
+    setDeviceRaw(d);
+    // Focus rings only when navigating without a mouse.
+    document.documentElement.classList.toggle("nav-mode", d !== "pointer");
+  };
+  return { device, setDevice };
+});
 
 type Handler = (action: Action) => boolean;
 
@@ -51,14 +68,29 @@ export function dispatch(action: Action): boolean {
   return false;
 }
 
-function isTextField(t: EventTarget | null): boolean {
+const TEXT_INPUT_TYPES = new Set(["text", "search", "number", "password", "email", "url", "tel", ""]);
+
+/** Fields where keys are typing (checkboxes and buttons are not). */
+export function isTextField(t: EventTarget | null): t is HTMLInputElement | HTMLTextAreaElement {
   if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT";
+  if (t.isContentEditable || t.tagName === "TEXTAREA") return true;
+  return t instanceof HTMLInputElement && TEXT_INPUT_TYPES.has(t.type);
+}
+
+/** Lets an overlay (the on-screen keyboard) see raw key presses first. */
+let keyInterceptor: ((e: KeyboardEvent) => boolean) | null = null;
+export function setKeyInterceptor(f: ((e: KeyboardEvent) => boolean) | null) {
+  keyInterceptor = f;
 }
 
 export function installKeyboard(): () => void {
   const onKey = (e: KeyboardEvent) => {
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    setDevice("keyboard");
+    if (keyInterceptor?.(e)) {
+      e.preventDefault();
+      return;
+    }
     // In text fields only Escape is ours (to leave the field); the rest is typing.
     if (isTextField(e.target)) {
       if (e.key === "Escape") (e.target as HTMLElement).blur();
@@ -67,6 +99,19 @@ export function installKeyboard(): () => void {
     const action = KEYMAP[e.key];
     if (action && dispatch(action)) e.preventDefault();
   };
+  const onPointer = () => setDevice("pointer");
   window.addEventListener("keydown", onKey);
-  return () => window.removeEventListener("keydown", onKey);
+  window.addEventListener("mousedown", onPointer, { passive: true });
+  window.addEventListener("mousemove", onPointer, { passive: true });
+  return () => {
+    window.removeEventListener("keydown", onKey);
+    window.removeEventListener("mousedown", onPointer);
+    window.removeEventListener("mousemove", onPointer);
+  };
+}
+
+/** Entry point for controller actions from Rust. */
+export function dispatchFromGamepad(action: Action) {
+  setDevice("gamepad");
+  dispatch(action);
 }

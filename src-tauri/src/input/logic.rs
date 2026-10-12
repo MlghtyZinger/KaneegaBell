@@ -15,6 +15,8 @@ pub enum Action {
     Right,
     Select,
     Back,
+    /// West face button (Square / X): search, space on the on-screen keyboard.
+    Secondary,
     PrevPlatform,
     NextPlatform,
     PrevLetter,
@@ -32,6 +34,7 @@ impl Action {
             Action::Right => "right",
             Action::Select => "select",
             Action::Back => "back",
+            Action::Secondary => "secondary",
             Action::PrevPlatform => "prevPlatform",
             Action::NextPlatform => "nextPlatform",
             Action::PrevLetter => "prevLetter",

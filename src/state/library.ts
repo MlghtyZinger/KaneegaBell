@@ -1,8 +1,20 @@
 import { createMemo, createRoot, createSignal } from "solid-js";
 import { api, events, type GameRow, type PlatformSummary, type ScanProgress, type ScanSummary } from "../api";
 
-/** "all" shows every platform; otherwise a platform id. */
-export type PlatformFilter = "all" | string;
+/** A library tab: everything, a pseudo-filter, or one platform id. */
+export type PlatformFilter = "all" | "favorites" | "recent" | string;
+
+/** Lowercase ASCII words, like the Rust side's search key. */
+export function searchKey(s: string): string {
+  return s
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function createLibraryStore() {
   const [platforms, setPlatforms] = createSignal<PlatformSummary[]>([]);
@@ -12,29 +24,56 @@ function createLibraryStore() {
   // Lives here (not in the view) so it survives the grid being unmounted while
   // a game runs: you come back to the game you launched.
   const [focused, setFocused] = createSignal(0);
+  /** Active search text; when set, results span all platforms. */
+  const [query, setQuery] = createSignal("");
   const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
   const [lastScan, setLastScan] = createSignal<ScanSummary | null>(null);
   const [scanError, setScanError] = createSignal<string | null>(null);
 
-  // Rows arrive pre-sorted (platform order, then title), so a filter keeps order.
+  // Computed once per library load, not per keystroke.
+  const keys = createMemo(() => games().map((g) => searchKey(`${g.title} ${g.variant ?? ""}`)));
+
+  const favorites = createMemo(() => games().filter((g) => g.favorite));
+  const recent = createMemo(() =>
+    games()
+      .filter((g) => g.lastPlayed !== null)
+      .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0)),
+  );
+
+  // Rows arrive pre-sorted (platform order, then title), so filters keep order.
   const visibleGames = createMemo(() => {
+    const words = searchKey(query()).split(" ").filter(Boolean);
+    if (words.length > 0) {
+      const all = games();
+      const k = keys();
+      // Every typed word must appear somewhere in the title (or variant).
+      return all.filter((_, i) => words.every((w) => k[i].includes(w)));
+    }
     const p = platform();
-    const all = games();
-    return p === "all" ? all : all.filter((g) => g.platformId === p);
+    if (p === "all") return games();
+    if (p === "favorites") return favorites();
+    if (p === "recent") return recent();
+    return games().filter((g) => g.platformId === p);
   });
 
-  const platformTabs = createMemo<PlatformFilter[]>(() => ["all", ...platforms().map((p) => p.id)]);
+  const platformTabs = createMemo<PlatformFilter[]>(() => [
+    "all",
+    ...(favorites().length ? ["favorites"] : []),
+    ...(recent().length ? ["recent"] : []),
+    ...platforms().map((p) => p.id),
+  ]);
 
   async function reload() {
     const lib = await api.getLibrary();
     setPlatforms(lib.platforms);
     setGames(lib.games);
-    // Keep the current platform if it still has games.
-    if (platform() !== "all" && !lib.platforms.some((p) => p.id === platform())) setPlatform("all");
+    // Keep the current tab if it still exists.
+    if (!platformTabs().includes(platform())) setPlatform("all");
     setLoaded(true);
   }
 
   function cyclePlatform(delta: number) {
+    setQuery("");
     const tabs = platformTabs();
     const i = tabs.indexOf(platform());
     setPlatform(tabs[(i + delta + tabs.length) % tabs.length]);
@@ -69,7 +108,11 @@ function createLibraryStore() {
     setPlatform,
     focused,
     setFocused,
+    query,
+    setQuery,
     platformTabs,
+    favorites,
+    recent,
     visibleGames,
     cyclePlatform,
     reload,

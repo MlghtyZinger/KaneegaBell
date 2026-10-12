@@ -117,6 +117,17 @@ export function installMockIpc() {
       }
       case "preview_launch":
         return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
+      case "list_dir": {
+        const p = (args as { path: string | null }).path;
+        if (!p) return { path: null, parent: null, truncated: false, entries: [{ name: "C:\\", path: "C:\\", isDir: true }, { name: "E:\\", path: "E:\\", isDir: true }] };
+        const names = ["Emulator Games", "Emulators", "LaunchBox", "SteamLibrary"];
+        return {
+          path: p,
+          parent: p.length > 3 ? p.replace(/\\[^\\]+\\?$/, "") || null : null,
+          truncated: false,
+          entries: names.map((n) => ({ name: n, path: `${p.replace(/\\$/, "")}\\${n}`, isDir: true })),
+        };
+      }
       default:
         return null;
     }

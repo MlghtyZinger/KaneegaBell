@@ -7,6 +7,9 @@ async function start() {
   // Outside Tauri (plain browser during development) serve fake data instead.
   if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) {
     (await import("./dev/mockIpc")).installMockIpc();
+    // Test hook: simulate controller actions in the mock (no Rust gamepad thread).
+    const { dispatchFromGamepad } = await import("./input/actions");
+    Object.assign(window, { __pad: dispatchFromGamepad });
   }
   render(() => <App />, document.getElementById("root")!);
 }

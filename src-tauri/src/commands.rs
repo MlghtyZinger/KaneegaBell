@@ -198,6 +198,21 @@ pub fn add_source(state: State<'_, AppState>, path: String, platform_id: Option<
     queries::add_source(&state.db(), &p.to_string_lossy(), platform_id.as_deref(), "files")
 }
 
+/// The platform a folder's name suggests ("PS2" -> ps2), to preselect when adding it.
+#[tauri::command]
+pub fn suggest_platform(path: String) -> Option<&'static str> {
+    let name = Path::new(path.trim().trim_end_matches(['\\', '/'])).file_name()?.to_string_lossy().into_owned();
+    scanner::hints::suggest(&name)
+}
+
+/// Directory listing for the in-app browser. `path` None = drives; a path that
+/// doesn't exist opens its nearest existing parent.
+#[tauri::command]
+pub fn list_dir(path: Option<String>, extensions: Vec<String>) -> Result<crate::fsbrowse::Listing> {
+    let dir = path.as_deref().and_then(crate::fsbrowse::nearest_existing_dir);
+    crate::fsbrowse::list(dir.as_deref(), &extensions)
+}
+
 /// Adds RPCS3's installed-games folder (dev_hdd0/game) as a PS3 source.
 #[tauri::command]
 pub fn add_rpcs3_installed_source(state: State<'_, AppState>) -> Result<i64> {

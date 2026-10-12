@@ -87,6 +87,7 @@ fn button_action(b: Button) -> Option<Action> {
         Button::South => Action::Select,  // A / Cross
         Button::East => Action::Back,     // B / Circle
         Button::North => Action::Favorite, // Y / Triangle
+        Button::West => Action::Secondary, // X / Square
         Button::LeftShoulder => Action::PrevPlatform,
         Button::RightShoulder => Action::NextPlatform,
         Button::Start => Action::Menu,

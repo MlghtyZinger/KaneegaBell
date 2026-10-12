@@ -1,55 +1,58 @@
-import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
-import { open } from "@tauri-apps/plugin-dialog";
+import { createSignal, For, onMount, Show } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
 import { buttonLabel, COMBO_BUTTONS, session } from "../state/session";
-import { pushHandler } from "../input/actions";
+import { NavScope } from "../components/NavScope";
+import { Picker } from "../components/Picker";
+import { FileBrowser } from "../components/FileBrowser";
+import { Hint } from "../components/Hints";
 
 type Section = "library" | "emulators" | "platforms" | "general";
+const SECTIONS: [Section, string][] = [
+  ["library", "Library"],
+  ["emulators", "Emulators"],
+  ["platforms", "Platforms"],
+  ["general", "General"],
+];
+
+type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
 
 export function SettingsView(props: { onClose: () => void }) {
-  const [settings, { refetch }] = createResource(api.getSettings);
+  // A store reconciled by id: after each change only the edited row updates,
+  // so the focused control (and controller navigation) stays put.
+  const [store, setStore] = createStore<{ s: Settings | null }>({ s: null });
   const [section, setSection] = createSignal<Section>("library");
   const [error, setError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
 
-  onCleanup(
-    pushHandler((a) => {
-      if (a === "back" || a === "menu") {
-        props.onClose();
-        return true;
-      }
-      return false;
-    }),
-  );
+  const refresh = async () => setStore("s", reconcile(await api.getSettings(), { key: "id" }));
+  onMount(() => void refresh().catch((e) => setError(errorText(e))));
 
-  /** Runs a mutation, surfaces errors, refreshes settings (and the library if asked). */
-  async function run(fn: () => Promise<unknown>, opts: { notice?: string; reloadLibrary?: boolean } = {}) {
+  const run: Run = async (fn, opts = {}) => {
     setError(null);
+    setNotice(null);
     try {
       await fn();
       if (opts.notice) setNotice(opts.notice);
-      await refetch();
       if (opts.reloadLibrary) await library.reload();
     } catch (e) {
       setError(errorText(e));
-      await refetch();
     }
-  }
+    await refresh();
+  };
 
-  const sections: [Section, string][] = [
-    ["library", "Library"],
-    ["emulators", "Emulators"],
-    ["platforms", "Platforms"],
-    ["general", "General"],
-  ];
+  const cycle = (d: 1 | -1) => {
+    const i = SECTIONS.findIndex(([id]) => id === section());
+    setSection(SECTIONS[(i + d + SECTIONS.length) % SECTIONS.length][0]);
+  };
 
   return (
-    <div class="settings">
+    <NavScope class="settings" onBack={props.onClose} onMenu={props.onClose} onTab={cycle}>
       <header class="topbar">
         <h1>Settings</h1>
         <nav class="platform-tabs">
-          <For each={sections}>
+          <For each={SECTIONS}>
             {([id, label]) => (
               <button class="tab" classList={{ active: section() === id }} onClick={() => setSection(id)}>
                 {label}
@@ -59,23 +62,23 @@ export function SettingsView(props: { onClose: () => void }) {
         </nav>
         <div class="topbar-right">
           <button class="btn ghost" onClick={props.onClose}>
-            Done <kbd>Esc</kbd>
+            Done
           </button>
         </div>
       </header>
 
       <div class="settings-body">
         <Show when={error()}>
-          <div class="banner error" onClick={() => setError(null)}>
+          <div class="banner error" role="alert">
             {error()}
           </div>
         </Show>
         <Show when={notice()}>
-          <div class="banner ok" onClick={() => setNotice(null)}>
+          <div class="banner ok" role="status">
             {notice()}
           </div>
         </Show>
-        <Show when={settings()} fallback={<p>Loading…</p>}>
+        <Show when={store.s} fallback={<p>Loading…</p>}>
           {(s) => (
             <>
               <Show when={section() === "library"}>
@@ -94,28 +97,46 @@ export function SettingsView(props: { onClose: () => void }) {
           )}
         </Show>
       </div>
-    </div>
+      <footer class="hints">
+        <Hint actions={["prevPlatform", "nextPlatform"]} label="Section" />
+        <Hint action="select" label="Select / edit" />
+        <Hint action="back" label="Back" />
+      </footer>
+    </NavScope>
   );
 }
 
-type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
-
-async function pickFolder(): Promise<string | null> {
-  const r = await open({ directory: true, multiple: false });
-  return typeof r === "string" ? r : null;
+function platformOptions(platforms: PlatformRow[]) {
+  return [
+    { value: "", label: "Auto (mixed folder)" },
+    ...platforms.filter((p) => p.enabled).map((p) => ({ value: p.id, label: p.name })),
+  ];
 }
 
 // ------------------------------------------------------------------ library
 
 function LibrarySection(props: { s: Settings; run: Run }) {
   const [newPath, setNewPath] = createSignal("");
-  const [newPlatform, setNewPlatform] = createSignal<string>("");
+  const [newPlatform, setNewPlatform] = createSignal("");
+  // Once the user picks a platform themselves, stop auto-suggesting.
+  const [platformChosen, setPlatformChosen] = createSignal(false);
+  const [browsing, setBrowsing] = createSignal(false);
+
+  /** Sets the path and preselects the platform its folder name suggests ("PS2" -> PlayStation 2). */
+  const changePath = async (p: string) => {
+    setNewPath(p);
+    if (platformChosen()) return;
+    const suggested = p.trim() ? await api.suggestPlatform(p).catch(() => null) : null;
+    if (newPath() === p) setNewPlatform(suggested ?? "");
+  };
 
   const add = () =>
     props.run(
       async () => {
         await api.addSource(newPath(), newPlatform() || null);
         setNewPath("");
+        setNewPlatform("");
+        setPlatformChosen(false);
       },
       { notice: "Folder added. Run a scan to pick up its games." },
     );
@@ -159,8 +180,9 @@ function LibrarySection(props: { s: Settings; run: Run }) {
 
       <h2>ROM folders</h2>
       <p class="dim">
-        Assign a platform to each folder. Use <b>Auto</b> only for mixed folders: it decides by file
-        extension and disc headers (GameCube vs Wii, Sega CD vs PS1) and skips files it can't place.
+        <b>Auto</b> works out each game's platform from its file type and disc contents (GameCube/Wii, PS1/PS2/PSP,
+        Sega CD), falling back to folder names like "PS2" or "PSX". Files it still can't place are listed under the
+        scan's warnings; assigning a platform to the folder always works.
       </p>
       <table class="table">
         <thead>
@@ -179,15 +201,24 @@ function LibrarySection(props: { s: Settings; run: Run }) {
       <div class="row add-row">
         <input
           class="input grow mono"
+          aria-label="Folder path"
           placeholder="Folder path, e.g. E:\Emulator Games\Nintendo\GBA"
           value={newPath()}
-          onInput={(e) => setNewPath(e.currentTarget.value)}
+          onInput={(e) => void changePath(e.currentTarget.value)}
           onKeyDown={(e) => e.key === "Enter" && newPath().trim() && void add()}
         />
-        <button class="btn" onClick={async () => { const p = await pickFolder(); if (p) setNewPath(p); }}>
+        <button class="btn" onClick={() => setBrowsing(true)}>
           Browse…
         </button>
-        <PlatformSelect platforms={props.s.platforms} value={newPlatform()} onChange={setNewPlatform} />
+        <Picker
+          title="Platform for this folder"
+          value={newPlatform()}
+          options={platformOptions(props.s.platforms)}
+          onChange={(v) => {
+            setNewPlatform(v);
+            setPlatformChosen(true);
+          }}
+        />
         <button class="btn primary" disabled={!newPath().trim()} onClick={() => void add()}>
           Add folder
         </button>
@@ -202,16 +233,19 @@ function LibrarySection(props: { s: Settings; run: Run }) {
           Add RPCS3 installed games (dev_hdd0)
         </button>
       </div>
+      <Show when={browsing()}>
+        <FileBrowser
+          title="Choose a ROM folder"
+          mode="folder"
+          start={newPath() || props.s.sources.at(-1)?.path}
+          onPick={(p) => {
+            void changePath(p);
+            setBrowsing(false);
+          }}
+          onClose={() => setBrowsing(false)}
+        />
+      </Show>
     </section>
-  );
-}
-
-function PlatformSelect(props: { platforms: PlatformRow[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <select class="input" value={props.value} onChange={(e) => props.onChange(e.currentTarget.value)}>
-      <option value="">Auto</option>
-      <For each={props.platforms.filter((p) => p.enabled)}>{(p) => <option value={p.id}>{p.name}</option>}</For>
-    </select>
   );
 }
 
@@ -227,9 +261,10 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
       </td>
       <td>
         <Show when={!hdd0()} fallback={<span class="dim">PS3 (installed)</span>}>
-          <PlatformSelect
-            platforms={props.s.platforms}
+          <Picker
+            title="Platform for this folder"
             value={props.src.platformId ?? ""}
+            options={platformOptions(props.s.platforms)}
             onChange={(v) => props.run(() => api.updateSource(props.src.id, v || null, props.src.recursive))}
           />
         </Show>
@@ -238,10 +273,9 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
         <Show when={!hdd0()}>
           <input
             type="checkbox"
+            aria-label="Include subfolders"
             checked={props.src.recursive}
-            onChange={(e) =>
-              props.run(() => api.updateSource(props.src.id, props.src.platformId, e.currentTarget.checked))
-            }
+            onChange={(e) => props.run(() => api.updateSource(props.src.id, props.src.platformId, e.currentTarget.checked))}
           />
         </Show>
       </td>
@@ -260,42 +294,53 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
 // ------------------------------------------------------------------ emulators
 
 function EmulatorsSection(props: { s: Settings; run: Run }) {
+  const [browsing, setBrowsing] = createSignal(false);
   const coresDir = () => (props.s.values.retroarchCoresDir as string | undefined) ?? "";
 
-  const detect = async () => {
-    const folder = await pickFolder();
-    if (!folder) return;
-    await props.run(async () => {
-      const found = await api.detectEmulators(folder);
-      if (found.length === 0) throw "No known emulator executables found in that folder.";
-    }, { notice: "Emulator paths filled in from the folder." });
-  };
+  const detect = (folder: string) =>
+    props.run(
+      async () => {
+        const found = await api.detectEmulators(folder);
+        if (found.length === 0) throw "No known emulator executables found in that folder.";
+      },
+      { notice: "Emulator paths filled in from the folder." },
+    );
 
   return (
     <section class="card-section">
       <div class="row">
-        <button class="btn primary" onClick={() => void detect()}>
+        <button class="btn primary" onClick={() => setBrowsing(true)}>
           Find emulators in a folder…
         </button>
         <span class="dim">Looks for the six supported emulators up to two folders deep.</span>
       </div>
-      <For each={props.s.emulators}>
-        {(emu) => <EmulatorEditor emu={emu} run={props.run} />}
-      </For>
+      <For each={props.s.emulators}>{(emu) => <EmulatorEditor emu={emu} run={props.run} />}</For>
       <h2>RetroArch cores folder</h2>
       <PathField
+        label="RetroArch cores folder"
         value={coresDir()}
         placeholder="e.g. E:\Emulators\RetroArch\cores"
-        directory
+        mode="folder"
         onCommit={(v) => props.run(() => api.setSetting("retroarchCoresDir", v))}
       />
+      <Show when={browsing()}>
+        <FileBrowser
+          title="Folder containing your emulators"
+          mode="folder"
+          start={props.s.emulators.find((e) => e.exePath)?.exePath}
+          onPick={(p) => {
+            setBrowsing(false);
+            void detect(p);
+          }}
+          onClose={() => setBrowsing(false)}
+        />
+      </Show>
     </section>
   );
 }
 
 function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
-  const save = (exe: string | null, tpl: string | null) =>
-    props.run(() => api.updateEmulator(props.emu.id, exe, tpl));
+  const save = (exe: string | null, tpl: string | null) => props.run(() => api.updateEmulator(props.emu.id, exe, tpl));
   return (
     <div class="emu">
       <h2>
@@ -306,13 +351,16 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
       </h2>
       <label class="field-label">Executable</label>
       <PathField
+        label={`${props.emu.name} executable`}
         value={props.emu.exePath ?? ""}
         placeholder="Path to the emulator .exe"
+        mode="file"
         onCommit={(v) => save(v || null, props.emu.templateOverride)}
       />
       <label class="field-label">Launch template</label>
       <input
         class="input mono"
+        aria-label={`${props.emu.name} launch template`}
         value={props.emu.templateOverride ?? ""}
         placeholder={props.emu.defaultTemplate}
         onChange={(e) => save(props.emu.exePath, e.currentTarget.value || null)}
@@ -325,29 +373,39 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
   );
 }
 
-function PathField(props: { value: string; placeholder: string; directory?: boolean; onCommit: (v: string) => void }) {
-  let input!: HTMLInputElement;
-  const browse = async () => {
-    const r = props.directory
-      ? await open({ directory: true })
-      : await open({ filters: [{ name: "Executable", extensions: ["exe"] }] });
-    if (typeof r === "string") {
-      input.value = r;
-      props.onCommit(r);
-    }
-  };
+function PathField(props: {
+  label: string;
+  value: string;
+  placeholder: string;
+  mode: "folder" | "file";
+  onCommit: (v: string) => void;
+}) {
+  const [browsing, setBrowsing] = createSignal(false);
   return (
     <div class="row">
       <input
-        ref={input}
         class="input grow mono"
+        aria-label={props.label}
         value={props.value}
         placeholder={props.placeholder}
         onChange={(e) => props.onCommit(e.currentTarget.value.trim())}
       />
-      <button class="btn" onClick={() => void browse()}>
+      <button class="btn" onClick={() => setBrowsing(true)}>
         Browse…
       </button>
+      <Show when={browsing()}>
+        <FileBrowser
+          title={props.label}
+          mode={props.mode}
+          extensions={["exe"]}
+          start={props.value}
+          onPick={(p) => {
+            setBrowsing(false);
+            props.onCommit(p);
+          }}
+          onClose={() => setBrowsing(false)}
+        />
+      </Show>
     </div>
   );
 }
@@ -384,8 +442,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
   return (
     <section class="card-section">
       <p class="dim">
-        Overrides are optional; empty fields use the defaults shown in grey. Extension changes apply on the next
-        scan.
+        Overrides are optional; empty fields use the defaults shown in grey. Extension changes apply on the next scan.
       </p>
       <table class="table platforms-table">
         <thead>
@@ -404,7 +461,12 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
             {(p) => (
               <tr classList={{ disabled: !p.enabled }}>
                 <td>
-                  <input type="checkbox" checked={p.enabled} onChange={(e) => save(p, { enabled: e.currentTarget.checked })} />
+                  <input
+                    type="checkbox"
+                    aria-label={`Enable ${p.name}`}
+                    checked={p.enabled}
+                    onChange={(e) => save(p, { enabled: e.currentTarget.checked })}
+                  />
                 </td>
                 <td>{p.name}</td>
                 <td>{emuName(p.emulatorId)}</td>
@@ -412,6 +474,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                   <Show when={p.emulatorId === "retroarch"} fallback={<span class="dim">—</span>}>
                     <input
                       class="input mono narrow"
+                      aria-label={`${p.name} core`}
                       value={p.coreOverride ?? ""}
                       placeholder={p.defaultCore ?? ""}
                       onChange={(e) => save(p, { coreOverride: e.currentTarget.value.trim() || null })}
@@ -421,6 +484,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                 <td>
                   <input
                     class="input mono"
+                    aria-label={`${p.name} launch template`}
                     value={p.templateOverride ?? ""}
                     placeholder={emuTemplate(p.emulatorId)}
                     onChange={(e) => save(p, { templateOverride: e.currentTarget.value.trim() || null })}
@@ -430,6 +494,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                   <Show when={p.id !== "ps3"} fallback={<span class="dim">folders (PS3_GAME)</span>}>
                     <input
                       class="input mono"
+                      aria-label={`${p.name} extensions`}
                       value={p.extensionsOverride?.join(", ") ?? ""}
                       placeholder={p.defaultExtensions.join(", ")}
                       onChange={(e) => save(p, { extensionsOverride: parseExts(e.currentTarget.value) })}
@@ -481,13 +546,12 @@ function GeneralSection(props: { s: Settings; run: Run }) {
       </div>
       <div class="row">
         <span>Hold for</span>
-        <select
-          class="input"
+        <Picker
+          title="Hold the combo for"
           value={String(combo().holdMs)}
-          onChange={(e) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(e.currentTarget.value) }))}
-        >
-          <For each={[500, 1000, 1500, 2000, 3000]}>{(ms) => <option value={ms}>{ms / 1000} s</option>}</For>
-        </select>
+          options={[500, 1000, 1500, 2000, 3000].map((ms) => ({ value: String(ms), label: `${ms / 1000} s` }))}
+          onChange={(v) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(v) }))}
+        />
       </div>
 
       <h2>Display</h2>
@@ -497,10 +561,11 @@ function GeneralSection(props: { s: Settings; run: Run }) {
           checked={props.s.values.tvMode === true}
           onChange={(e) => props.run(() => api.setSetting("tvMode", e.currentTarget.checked))}
         />
-        Start in fullscreen TV mode
+        Start fullscreen
       </label>
       <p class="dim small">
-        <kbd>F11</kbd> toggles fullscreen at any time.
+        <kbd>F11</kbd> toggles fullscreen at any time. (The animated Big-Picture-style TV Mode comes in a later
+        milestone.)
       </p>
     </section>
   );
