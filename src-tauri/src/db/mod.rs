@@ -9,7 +9,10 @@ use std::path::Path;
 use crate::error::Result;
 
 /// Ordered migrations; index + 1 == the `user_version` after applying it.
-const MIGRATIONS: &[&str] = &[include_str!("migrations/001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("migrations/001_init.sql"),
+    include_str!("migrations/002_metadata.sql"),
+];
 
 pub fn open(path: &Path) -> Result<Connection> {
     let conn = Connection::open(path)?;

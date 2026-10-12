@@ -1,3 +1,4 @@
+mod art;
 mod commands;
 mod db;
 mod error;
@@ -17,6 +18,12 @@ pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("emu_frontend_lib=info")).init();
 
     tauri::Builder::default()
+        // Cached artwork, read from disk off the UI thread.
+        .register_asynchronous_uri_scheme_protocol("thumb", |ctx, request, responder| {
+            let dir = ctx.app_handle().path().app_data_dir().unwrap_or_default();
+            let path = request.uri().path().to_string();
+            tauri::async_runtime::spawn_blocking(move || responder.respond(art::protocol::respond(&dir, &path)));
+        })
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -71,6 +78,8 @@ pub fn run() {
             commands::set_setting,
             commands::start_scan,
             commands::cancel_scan,
+            commands::fetch_art,
+            commands::refresh_art,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

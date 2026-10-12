@@ -150,6 +150,13 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Show when={library.scanProgress()}>
             {(p) => <span class="scan-pill">Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}</span>}
           </Show>
+          <Show when={!library.scanProgress() && library.artProgress()}>
+            {(p) => (
+              <span class="scan-pill">
+                Covers {p().done}/{p().total}
+              </span>
+            )}
+          </Show>
           <button class="btn ghost" onClick={openSearch}>
             Search
           </button>

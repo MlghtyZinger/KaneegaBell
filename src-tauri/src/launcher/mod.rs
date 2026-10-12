@@ -249,6 +249,8 @@ mod tests {
             is_multidisc: multi,
             play_seconds: 0,
             last_played: None,
+            art: 0,
+            art_source: None,
             files: files.iter().enumerate().map(|(i, f)| (f.to_string(), Some(i as u32 + 1))).collect(),
         }
     }

@@ -13,6 +13,8 @@ export interface GameRow {
   playSeconds: number;
   lastPlayed: number | null;
   isMultidisc: boolean;
+  /** Art version (cache-buster) when the game has art, else 0. */
+  art: number;
 }
 
 export interface PlatformSummary {
@@ -39,7 +41,32 @@ export interface GameDetail {
   isMultidisc: boolean;
   playSeconds: number;
   lastPlayed: number | null;
+  art: number;
+  artSource: "libretro" | "local" | "igdb" | "sgdb" | null;
   files: [string, number | null][];
+}
+
+export interface ArtProgress {
+  done: number;
+  total: number;
+  found: number;
+}
+
+export interface ArtSummary {
+  found: number;
+  notFound: number;
+  failed: number;
+  cancelled: boolean;
+  durationMs: number;
+}
+
+/**
+ * URL of a game's cached artwork, served by the app's `thumb` protocol
+ * (Windows webviews address custom protocols as http://<scheme>.localhost).
+ */
+export function artUrl(gameId: number, version: number, size: "t" | "f" = "t"): string {
+  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
+  return `${base}/${size}/${gameId}?v=${version}`;
 }
 
 export interface RunningGame {
@@ -176,6 +203,8 @@ export const api = {
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
   startScan: () => invoke<boolean>("start_scan"),
   cancelScan: () => invoke<void>("cancel_scan"),
+  fetchArt: () => invoke<boolean>("fetch_art"),
+  refreshArt: (id: number) => invoke<boolean>("refresh_art", { id }),
 };
 
 export const events = {
@@ -185,6 +214,14 @@ export const events = {
     listen<ScanSummary>("scan-finished", (e) => cb(e.payload)),
   onScanFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
     listen<string>("scan-failed", (e) => cb(e.payload)),
+  onArtProgress: (cb: (p: ArtProgress) => void): Promise<UnlistenFn> =>
+    listen<ArtProgress>("art-progress", (e) => cb(e.payload)),
+  onArtFinished: (cb: (s: ArtSummary) => void): Promise<UnlistenFn> =>
+    listen<ArtSummary>("art-finished", (e) => cb(e.payload)),
+  onArtFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
+    listen<string>("art-failed", (e) => cb(e.payload)),
+  /** Data changed in the background (e.g. covers arriving): reload the library. */
+  onLibraryChanged: (cb: () => void): Promise<UnlistenFn> => listen("library-changed", () => cb()),
   onGameStarted: (cb: (g: RunningGame) => void): Promise<UnlistenFn> =>
     listen<RunningGame>("game-started", (e) => cb(e.payload)),
   onGameExited: (cb: (g: GameExited) => void): Promise<UnlistenFn> =>

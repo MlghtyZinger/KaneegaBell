@@ -121,6 +121,24 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - Play time is the session's wall-clock duration, added when the game exits. If the frontend
   crashes mid-session, "last played" is kept but that session's duration isn't guessed.
 
+## Covers and metadata
+
+Everything works without accounts or API keys:
+
+- **Box art** comes from [libretro-thumbnails](https://thumbnails.libretro.com) (the set RetroArch
+  uses), matched by game name: exact No-Intro/Redump file name first, then the cleaned title
+  with your region preferred, then a strict word-overlap match for loose names. Sequel numbers
+  must agree, so a wrong game is never picked just because the titles look alike.
+- **PS3** games use the icon from their own files (`ICON0.PNG`, as shown by RPCS3) when
+  libretro has no cover, which is most of the time.
+- Covers are fetched in the background after each scan (toggle in Settings → Library), cached
+  as small WebP thumbnails for the grid plus a larger image for details, and served from disk,
+  so they work offline. Games without a match are retried weekly; "Refresh cover" in a game's
+  details fetches again.
+- Optional upgrades with your own free keys (milestone d2/d3): IGDB for descriptions, genres and
+  release info; SteamGridDB for alternative covers, backgrounds and logos. MobyGames isn't used:
+  its API now requires a paid subscription.
+
 ## Scanning rules
 
 - Only files with the platform's extensions are considered, so saves, states, patches and

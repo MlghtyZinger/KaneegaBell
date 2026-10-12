@@ -31,6 +31,8 @@ pub struct PlatformDef {
     pub emulator: &'static str,
     pub core: Option<&'static str>,
     pub extensions: &'static [&'static str],
+    /// Folder on thumbnails.libretro.com with this platform's box art.
+    pub libretro: Option<&'static str>,
 }
 
 pub const EMULATORS: &[EmulatorDef] = &[
@@ -81,6 +83,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("snes9x"),
         extensions: &["sfc", "smc", "swc", "fig", "bs"],
+        libretro: Some("Nintendo - Super Nintendo Entertainment System"),
     },
     PlatformDef {
         id: "n64",
@@ -89,6 +92,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("mupen64plus_next"),
         extensions: &["z64", "n64", "v64", "ndd"],
+        libretro: Some("Nintendo - Nintendo 64"),
     },
     PlatformDef {
         id: "gba",
@@ -97,6 +101,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("mgba"),
         extensions: &["gba"],
+        libretro: Some("Nintendo - Game Boy Advance"),
     },
     PlatformDef {
         id: "gc",
@@ -105,6 +110,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "dolphin",
         core: None,
         extensions: &["iso", "gcm", "tgc", "ciso", "gcz", "rvz", "wia", "m3u"],
+        libretro: Some("Nintendo - GameCube"),
     },
     PlatformDef {
         id: "nds",
@@ -113,6 +119,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("melondsds"),
         extensions: &["nds", "dsi", "ids"],
+        libretro: Some("Nintendo - Nintendo DS"),
     },
     PlatformDef {
         id: "wii",
@@ -121,6 +128,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "dolphin",
         core: None,
         extensions: &["iso", "wbfs", "ciso", "gcz", "rvz", "wia", "wad", "m3u"],
+        libretro: Some("Nintendo - Wii"),
     },
     PlatformDef {
         id: "3ds",
@@ -129,6 +137,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "azahar",
         core: None,
         extensions: &["3ds", "cci", "cxi", "3dsx", "zcci", "zcxi", "z3dsx"],
+        libretro: Some("Nintendo - Nintendo 3DS"),
     },
     PlatformDef {
         id: "segacd",
@@ -137,6 +146,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("genesis_plus_gx"),
         extensions: &["cue", "chd", "iso", "m3u"],
+        libretro: Some("Sega - Mega-CD - Sega CD"),
     },
     PlatformDef {
         id: "ps1",
@@ -145,6 +155,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "duckstation",
         core: None,
         extensions: &["cue", "chd", "pbp", "m3u", "ccd", "mds", "ecm", "img", "iso", "bin"],
+        libretro: Some("Sony - PlayStation"),
     },
     PlatformDef {
         id: "ps2",
@@ -153,6 +164,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "pcsx2",
         core: None,
         extensions: &["iso", "chd", "cso", "zso", "gz", "bin", "img", "mdf"],
+        libretro: Some("Sony - PlayStation 2"),
     },
     PlatformDef {
         id: "psp",
@@ -161,6 +173,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         emulator: "retroarch",
         core: Some("ppsspp"),
         extensions: &["iso", "cso", "pbp", "chd"],
+        libretro: Some("Sony - PlayStation Portable"),
     },
     PlatformDef {
         id: "ps3",
@@ -170,6 +183,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         core: None,
         // PS3 games are folders (PS3_GAME/PARAM.SFO), not files; see scanner::ps3.
         extensions: &[],
+        libretro: Some("Sony - PlayStation 3"),
     },
 ];
 
@@ -238,15 +252,16 @@ pub fn seed(conn: &Connection) -> Result<()> {
     }
 
     let mut plat = conn.prepare_cached(
-        "INSERT INTO platforms (id, name, short_name, sort_order, emulator_id, default_core, extensions)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        "INSERT INTO platforms (id, name, short_name, sort_order, emulator_id, default_core, extensions, libretro_system)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, short_name = excluded.short_name,
              sort_order = excluded.sort_order, emulator_id = excluded.emulator_id,
-             default_core = excluded.default_core, extensions = excluded.extensions",
+             default_core = excluded.default_core, extensions = excluded.extensions,
+             libretro_system = excluded.libretro_system",
     )?;
     for (i, p) in PLATFORMS.iter().enumerate() {
         let exts = serde_json::to_string(p.extensions)?;
-        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts])?;
+        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro])?;
     }
     Ok(())
 }

@@ -193,6 +193,49 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         )}
       </Show>
 
+      <h2>Covers</h2>
+      <p class="dim">
+        Box art comes from libretro-thumbnails (no account needed) and is matched by game name; PS3 games use the
+        icon from their own files when there's no box art. Everything is cached, so covers stay available offline.
+      </p>
+      <div class="row">
+        <Show
+          when={library.artProgress()}
+          fallback={
+            <button class="btn" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
+              Fetch missing covers
+            </button>
+          }
+        >
+          {(p) => (
+            <>
+              <button class="btn" onClick={() => void api.cancelScan()}>
+                Stop
+              </button>
+              <span class="dim">
+                Fetching covers: {p().done} / {p().total} · {p().found} found
+              </span>
+            </>
+          )}
+        </Show>
+        <Show when={!library.artProgress() && library.lastArt()}>
+          {(s) => (
+            <span class="dim">
+              Last run: {s().found} found · {s().notFound} not found
+              {s().failed > 0 ? ` · ${s().failed} failed (retried next time)` : ""}
+            </span>
+          )}
+        </Show>
+      </div>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={props.s.values.autoArt !== false}
+          onChange={(e) => props.run(() => api.setSetting("autoArt", e.currentTarget.checked))}
+        />
+        Fetch covers automatically after each scan
+      </label>
+
       <h2>ROM folders</h2>
       <p class="dim">
         <b>Auto</b> works out each game's platform from its file type and disc contents (GameCube/Wii, PS1/PS2/PSP,

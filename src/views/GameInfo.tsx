@@ -1,5 +1,5 @@
-import { createResource, createSignal, For, Show } from "solid-js";
-import { api, errorText } from "../api";
+import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
+import { api, artUrl, errorText, events } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
@@ -17,12 +17,27 @@ function showArg(a: string): string {
 }
 
 /**
- * Game details with a Play button: what the scanner found, play time, and the
- * exact command a launch runs. (Milestone d turns this into the full detail
- * view with art and metadata.)
+ * Game details with a Play button: cover, play time, what the scanner found,
+ * and the exact command a launch runs.
  */
 export function GameInfo(props: { id: number; onClose: () => void }) {
-  const [game] = createResource(() => props.id, api.getGame);
+  const [game, { refetch }] = createResource(() => props.id, api.getGame);
+  const [refreshing, setRefreshing] = createSignal(false);
+
+  async function refreshCover() {
+    setRefreshing(true);
+    try {
+      await api.refreshArt(props.id);
+    } catch {
+      setRefreshing(false);
+    }
+  }
+  // The art job reports back when it's done; show the new cover then.
+  const unlisten = events.onArtFinished(() => {
+    setRefreshing(false);
+    void refetch();
+  });
+  onCleanup(() => void unlisten.then((f) => f()));
   const [argv] = createResource(
     () => props.id,
     (id) => api.previewLaunch(id).then((a) => ({ ok: true as const, a }), (e) => ({ ok: false as const, e: errorText(e) })),
@@ -58,7 +73,24 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
       <NavScope class="panel info-panel" modal onBack={props.onClose} onFavorite={() => void toggleFavorite()}>
         <Show when={game()} fallback={<p>Loading…</p>}>
           {(g) => (
-            <>
+            <div class="info-layout">
+              <div class="info-art">
+                <Show
+                  when={g().art > 0}
+                  fallback={<div class="info-art-empty dim">No cover yet</div>}
+                >
+                  <img src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
+                </Show>
+                <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
+                  {refreshing() ? "Looking for a cover…" : "Refresh cover"}
+                </button>
+                <Show when={g().artSource}>
+                  <span class="dim small">
+                    Cover: {g().artSource === "libretro" ? "libretro-thumbnails" : g().artSource === "local" ? "from the game files" : g().artSource}
+                  </span>
+                </Show>
+              </div>
+              <div class="info-main">
               <h2>{g().title}</h2>
               <Show when={g().variant}>
                 <p class="dim">{g().variant}</p>
@@ -71,7 +103,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   {isFavorite() ? "★ Favorite" : "☆ Favorite"}
                 </button>
                 <span class="dim">
-                  {formatPlayTime(g().playSeconds)} played · Last played {formatLastPlayed(g().lastPlayed)}
+                  {g().playSeconds > 0
+                    ? `${formatPlayTime(g().playSeconds)} played · Last played ${formatLastPlayed(g().lastPlayed)}`
+                    : "Never played"}
                 </span>
               </div>
               <Show when={launchError()}>
@@ -113,7 +147,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   return res.ok ? <pre class="cmd">{res.a.map(showArg).join(" ")}</pre> : <p class="warn">{res.e}</p>;
                 }}
               </Show>
-            </>
+              </div>
+            </div>
           )}
         </Show>
         <div class="panel-actions">

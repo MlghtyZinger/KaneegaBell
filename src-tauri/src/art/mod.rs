@@ -1,0 +1,440 @@
+//! Artwork: keyless box art from libretro-thumbnails, cached locally as WebP.
+//!
+//! The job runs in the background (after scans, or on demand): for each game
+//! without art it matches the game against its platform's cached thumbnail
+//! index, downloads the cover, and stores a grid thumbnail plus a larger image
+//! for the details view. Everything is cached (index listings in `api_cache`,
+//! images on disk), so the library works fully offline afterwards.
+
+pub mod http;
+pub mod images;
+pub mod libretro;
+pub mod matcher;
+pub mod protocol;
+
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::time::Instant;
+
+use rusqlite::Connection;
+use serde::Serialize;
+
+use crate::db::queries;
+use crate::error::Result;
+use http::Fetch;
+
+/// Thumbnail index listings are refreshed after this long (new covers appear upstream).
+const INDEX_MAX_AGE_SECS: i64 = 14 * 24 * 3600;
+/// Games with no match are retried after this long.
+pub const NOTFOUND_RETRY_SECS: i64 = 7 * 24 * 3600;
+/// Parallel downloads (the libretro server is a plain file server; be polite).
+const WORKERS: usize = 4;
+
+/// A game that needs art.
+#[derive(Debug, Clone)]
+pub struct Target {
+    pub id: i64,
+    pub libretro_system: String,
+    pub launch_path: String,
+    pub title: String,
+    pub search_key: String,
+    pub region: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    pub done: usize,
+    pub total: usize,
+    pub found: usize,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Summary {
+    pub found: usize,
+    pub not_found: usize,
+    pub failed: usize,
+    pub cancelled: bool,
+    pub duration_ms: u128,
+}
+
+/// Names worth trying verbatim against thumbnail names: the file stem, and for
+/// folder-based games (PS3 EBOOT.BIN) the game folder's name.
+fn candidate_names(launch_path: &str) -> Vec<String> {
+    let p = Path::new(launch_path);
+    let mut out = Vec::new();
+    if let Some(stem) = p.file_stem().map(|s| s.to_string_lossy().into_owned()) {
+        if !stem.eq_ignore_ascii_case("eboot") {
+            out.push(stem);
+        }
+    }
+    // .../<Game (USA)>/PS3_GAME/USRDIR/EBOOT.BIN -> "<Game (USA)>"
+    if p.file_name().is_some_and(|n| n.eq_ignore_ascii_case("EBOOT.BIN")) {
+        if let Some(game_dir) = p.ancestors().nth(3) {
+            if let Some(name) = game_dir.file_name() {
+                out.push(name.to_string_lossy().into_owned());
+            }
+        }
+    }
+    out
+}
+
+/// The thumbnail index for a system: cached listing if fresh, else downloaded
+/// (falling back to a stale cached copy when offline).
+fn load_index(conn: &Connection, fetch: &dyn Fetch, system: &str) -> Result<Option<matcher::Index>> {
+    let key = format!("libretro-index:{system}");
+    let cached = queries::cache_get(conn, &key)?;
+    let now = queries::now();
+    let names: Vec<String> = match cached {
+        Some((body, at)) if now - at < INDEX_MAX_AGE_SECS => serde_json::from_slice(&body)?,
+        stale => match fetch.get(&libretro::index_url(system)) {
+            Ok(Some(html)) => {
+                let names = libretro::parse_index(&String::from_utf8_lossy(&html));
+                queries::cache_put(conn, &key, &serde_json::to_vec(&names)?, now)?;
+                names
+            }
+            Ok(None) => return Ok(None),
+            Err(e) => match stale {
+                Some((body, _)) => {
+                    log::warn!("couldn't refresh {system} thumbnail index ({e}); using cached copy");
+                    serde_json::from_slice(&body)?
+                }
+                None => return Err(e),
+            },
+        },
+    };
+    Ok(Some(matcher::Index::new(names)))
+}
+
+/// A game's own artwork shipped with the dump. PS3 games carry `ICON0.PNG`
+/// next to `USRDIR` (disc folders and dev_hdd0 installs alike), which is what
+/// RPCS3 shows; libretro has very few PS3 covers, so this is the keyless fallback.
+fn local_icon(launch_path: &str) -> Option<std::path::PathBuf> {
+    let p = Path::new(launch_path);
+    if !p.file_name()?.eq_ignore_ascii_case("EBOOT.BIN") {
+        return None;
+    }
+    let icon = p.parent()?.parent()?.join("ICON0.PNG");
+    icon.is_file().then_some(icon)
+}
+
+#[derive(Clone)]
+enum Src {
+    Remote(String),
+    Local(std::path::PathBuf),
+}
+
+#[derive(Clone)]
+struct Job {
+    id: i64,
+    name: String,
+    src: Src,
+}
+
+enum Outcome {
+    Found { id: i64, source: &'static str, name: String, url: String, width: u32, height: u32 },
+    NotFound { id: i64 },
+    Failed { id: i64, error: String },
+}
+
+/// Fetches box art for every game that needs it.
+pub fn run(
+    conn: &mut Connection,
+    data_dir: &Path,
+    fetch: &dyn Fetch,
+    progress: &dyn Fn(Progress),
+    cancel: &AtomicBool,
+) -> Result<Summary> {
+    let started = Instant::now();
+    let mut summary = Summary::default();
+    let targets = queries::games_needing_art(conn, queries::now())?;
+    if targets.is_empty() {
+        return Ok(summary);
+    }
+    let total = targets.len();
+    log::info!("fetching box art for {total} games");
+
+    // Match everything first (fast, local), then download in parallel.
+    let mut by_system: HashMap<String, Vec<Target>> = HashMap::new();
+    for t in targets {
+        by_system.entry(t.libretro_system.clone()).or_default().push(t);
+    }
+    let mut jobs: Vec<Job> = Vec::new();
+    let mut outcomes: Vec<Outcome> = Vec::new();
+    for (system, games) in &by_system {
+        let index = load_index(conn, fetch, system);
+        for g in games {
+            let remote = match &index {
+                Ok(Some(index)) => {
+                    let q = matcher::Query {
+                        names: candidate_names(&g.launch_path),
+                        search_key: &g.search_key,
+                        region: g.region.as_deref(),
+                    };
+                    index.best(&q).map(|m| {
+                        if m.score < 1.0 {
+                            log::info!("art: fuzzy match {:.2} '{}' -> '{}'", m.score, g.title, m.name);
+                        }
+                        Job { id: g.id, name: m.name.to_string(), src: Src::Remote(libretro::boxart_url(system, m.name)) }
+                    })
+                }
+                _ => None,
+            };
+            let local = || {
+                local_icon(&g.launch_path).map(|p| Job {
+                    id: g.id,
+                    name: p.to_string_lossy().into_owned(),
+                    src: Src::Local(p),
+                })
+            };
+            match (remote.or_else(local), &index) {
+                (Some(job), _) => jobs.push(job),
+                (None, Err(e)) => outcomes.push(Outcome::Failed { id: g.id, error: e.to_string() }),
+                (None, _) => outcomes.push(Outcome::NotFound { id: g.id }),
+            }
+        }
+    }
+
+    // Record no-match / failure outcomes right away.
+    let done = AtomicUsize::new(0);
+    for o in outcomes.drain(..) {
+        record(conn, &o, &mut summary)?;
+        done.fetch_add(1, Ordering::Relaxed);
+    }
+    progress(Progress { done: done.load(Ordering::Relaxed), total, found: summary.found });
+
+    // Download + encode on workers; write results to the DB on this thread.
+    let next = AtomicUsize::new(0);
+    let (tx, rx) = mpsc::channel::<Outcome>();
+    std::thread::scope(|s| -> Result<()> {
+        for _ in 0..WORKERS.min(jobs.len()) {
+            let tx = tx.clone();
+            let (jobs, next) = (&jobs, &next);
+            s.spawn(move || loop {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                let Some(Job { id, name, src }) = jobs.get(i).cloned() else { break };
+                let (source, url, bytes) = match &src {
+                    Src::Remote(url) => ("libretro", url.clone(), fetch.get(url)),
+                    Src::Local(p) => ("local", p.to_string_lossy().into_owned(), std::fs::read(p).map(Some).map_err(Into::into)),
+                };
+                let outcome = match bytes {
+                    Ok(Some(bytes)) => match images::process(&bytes).and_then(|p| {
+                        images::store(data_dir, id, &p)?;
+                        Ok(p)
+                    }) {
+                        Ok(p) => Outcome::Found { id, source, name, url, width: p.width, height: p.height },
+                        Err(e) => Outcome::Failed { id, error: e.to_string() },
+                    },
+                    Ok(None) => Outcome::NotFound { id },
+                    Err(e) => Outcome::Failed { id, error: e.to_string() },
+                };
+                if tx.send(outcome).is_err() {
+                    break;
+                }
+            });
+        }
+        drop(tx);
+        for o in rx {
+            record(conn, &o, &mut summary)?;
+            let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+            progress(Progress { done: n, total, found: summary.found });
+        }
+        Ok(())
+    })?;
+
+    summary.cancelled = cancel.load(Ordering::Relaxed);
+    summary.duration_ms = started.elapsed().as_millis();
+    log::info!("box art: {summary:?}");
+    Ok(summary)
+}
+
+fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
+    let now = queries::now();
+    match o {
+        Outcome::Found { id, source, name, url, width, height } => {
+            queries::set_boxart(conn, *id, source, name, url, *width, *height, now)?;
+            summary.found += 1;
+        }
+        Outcome::NotFound { id } => {
+            queries::set_art_status(conn, *id, "notfound", now)?;
+            summary.not_found += 1;
+        }
+        Outcome::Failed { id, error } => {
+            log::warn!("art for game {id} failed: {error}");
+            queries::set_art_status(conn, *id, "error", now)?;
+            summary.failed += 1;
+        }
+    }
+    Ok(())
+}
+
+/// Forgets a game's art so the next job fetches it again ("Refresh art").
+pub fn reset(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
+    for p in [images::thumb_path(data_dir, game_id), images::full_path(data_dir, game_id)] {
+        let _ = std::fs::remove_file(p);
+    }
+    queries::reset_art(conn, game_id)
+}
+
+#[cfg(test)]
+fn key_for(title: &str) -> String {
+    crate::scanner::normalize::search_key(title)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::fake::FakeHttp;
+
+    const PS2: &str = "Sony - PlayStation 2";
+
+    fn db_with_games(games: &[(&str, &str, &str)]) -> Connection {
+        let conn = crate::db::test_db();
+        for (title, path, region) in games {
+            conn.execute(
+                "INSERT INTO games (platform_id, title, sort_title, search_key, region, launch_path, added_at)
+                 VALUES ('ps2', ?1, ?1, ?2, ?3, ?4, 0)",
+                rusqlite::params![title, key_for(title), region, path],
+            )
+            .unwrap();
+        }
+        conn
+    }
+
+    fn listing(names: &[&str]) -> Vec<u8> {
+        names
+            .iter()
+            .map(|n| format!("<a href=\"{}.png\">x</a>\n", percent_encoding::utf8_percent_encode(n, percent_encoding::NON_ALPHANUMERIC)))
+            .collect::<String>()
+            .into_bytes()
+    }
+
+    fn status(conn: &Connection, title: &str) -> (String, i64) {
+        conn.query_row("SELECT art_status, art_version FROM games WHERE title = ?1", [title], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+    }
+
+    #[test]
+    fn fetches_matches_caches_and_skips_done_games() {
+        let mut conn = db_with_games(&[
+            ("Jak II", r"E:\PS2\Jak II (USA) (En,Ja,Fr,De,Es,It,Ko) (v1.00).iso", "USA"),
+            ("Shadow of the Colossus", r"E:\PS2\Shadow of the Colossus (USA).iso", "USA"),
+            ("Homebrew Thing", r"E:\PS2\homebrew.iso", ""),
+        ]);
+        let data = tempfile::tempdir().unwrap();
+        let mut http = FakeHttp::default();
+        http.pages.insert(
+            libretro::index_url(PS2),
+            listing(&["Jak II (USA) (En,Ja,Fr,De,Es,It,Ko) (v1.00)", "Shadow of the Colossus (USA)"]),
+        );
+        http.pages.insert(libretro::boxart_url(PS2, "Jak II (USA) (En,Ja,Fr,De,Es,It,Ko) (v1.00)"), images::test_png(600, 850));
+        http.pages.insert(libretro::boxart_url(PS2, "Shadow of the Colossus (USA)"), images::test_png(600, 850));
+
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!((s.found, s.not_found, s.failed), (2, 1, 0));
+        assert_eq!(status(&conn, "Jak II").0, "ok");
+        assert!(status(&conn, "Jak II").1 > 0);
+        assert_eq!(status(&conn, "Homebrew Thing").0, "notfound");
+        let jak: i64 = conn.query_row("SELECT id FROM games WHERE title = 'Jak II'", [], |r| r.get(0)).unwrap();
+        assert!(images::thumb_path(data.path(), jak).is_file());
+
+        // Second run: nothing to do, and the index isn't downloaded again.
+        let before = http.requests.lock().unwrap().len();
+        let s2 = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!((s2.found, s2.not_found), (0, 0));
+        assert_eq!(http.requests.lock().unwrap().len(), before);
+    }
+
+    #[test]
+    fn offline_with_no_cached_index_marks_errors_and_retries_later() {
+        let mut conn = db_with_games(&[("Jak II", r"E:\PS2\Jak II (USA).iso", "USA")]);
+        let data = tempfile::tempdir().unwrap();
+        let http = FakeHttp { offline: true, ..Default::default() };
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(s.failed, 1);
+        assert_eq!(status(&conn, "Jak II").0, "error");
+        // 'error' games are picked up again on the next run.
+        assert_eq!(queries::games_needing_art(&conn, queries::now()).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn stale_cached_index_is_used_when_offline() {
+        let mut conn = db_with_games(&[("Jak II", r"E:\PS2\Jak II (USA).iso", "USA")]);
+        queries::cache_put(&conn, &format!("libretro-index:{PS2}"), br#"["Jak II (USA)"]"#, 0).unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let http = FakeHttp { offline: true, ..Default::default() };
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        // Index came from the cache; only the image download failed.
+        assert_eq!(s.failed, 1);
+        let reqs = http.requests.lock().unwrap();
+        assert!(reqs.iter().any(|u| u.ends_with("Jak%20II%20(USA).png")), "{reqs:?}");
+    }
+
+    /// Live run against a *copy* of a real library.db (network required):
+    /// `EMU_DB_COPY=copy.db EMU_ART_DIR=tmpdir cargo test real_art_fetch -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn real_art_fetch() {
+        let db = std::env::var("EMU_DB_COPY").expect("EMU_DB_COPY");
+        let dir = std::env::var("EMU_ART_DIR").expect("EMU_ART_DIR");
+        let mut conn = crate::db::open(Path::new(&db)).unwrap();
+        crate::db::migrate(&mut conn).unwrap();
+        crate::platforms::seed(&conn).unwrap();
+        let s = run(&mut conn, Path::new(&dir), &http::Http::new(), &|p| {
+            if p.done % 20 == 0 || p.done == p.total {
+                println!("progress {}/{} found {}", p.done, p.total, p.found);
+            }
+        }, &AtomicBool::new(false))
+        .unwrap();
+        println!("summary: {s:#?}");
+        let mut stmt = conn
+            .prepare("SELECT platform_id, title, art_status, (SELECT remote_id FROM artwork a WHERE a.game_id = g.id AND a.selected = 1) FROM games g WHERE missing = 0 ORDER BY platform_id, sort_title")
+            .unwrap();
+        for row in stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?)))
+            .unwrap()
+        {
+            let (p, t, s, n) = row.unwrap();
+            println!("{p:<6} {s:<8} {t:<45} -> {}", n.unwrap_or_default());
+        }
+    }
+
+    #[test]
+    fn ps3_games_fall_back_to_their_own_icon_even_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let game = dir.path().join("NPUA80480");
+        std::fs::create_dir_all(game.join("USRDIR")).unwrap();
+        std::fs::write(game.join("USRDIR").join("EBOOT.BIN"), b"SCE").unwrap();
+        std::fs::write(game.join("ICON0.PNG"), images::test_png(320, 176)).unwrap();
+        let eboot = game.join("USRDIR").join("EBOOT.BIN").to_string_lossy().into_owned();
+
+        let mut conn = crate::db::test_db();
+        conn.execute(
+            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at)
+             VALUES ('ps3', 'inFamous', 'infamous', 'infamous', ?1, 0)",
+            [&eboot],
+        )
+        .unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let http = FakeHttp { offline: true, ..Default::default() };
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!((s.found, s.failed), (1, 0));
+        let src: String = conn.query_row("SELECT source FROM artwork", [], |r| r.get(0)).unwrap();
+        assert_eq!(src, "local");
+    }
+
+    #[test]
+    fn ps3_folder_names_are_tried() {
+        assert_eq!(
+            candidate_names(r"E:\PS3\Darkness, The (USA)\PS3_GAME\USRDIR\EBOOT.BIN"),
+            ["Darkness, The (USA)"]
+        );
+        assert_eq!(candidate_names(r"E:\PS1\FF7 (Disc 1).cue"), ["FF7 (Disc 1)"]);
+    }
+}

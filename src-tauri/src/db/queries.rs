@@ -29,6 +29,8 @@ pub struct GameRow {
     pub play_seconds: i64,
     pub last_played: Option<i64>,
     pub is_multidisc: bool,
+    /// Art version when the game has art (thumbnail URL cache-buster), else 0.
+    pub art: i64,
 }
 
 /// Every present game, ordered by platform display order then title. This is
@@ -36,7 +38,7 @@ pub struct GameRow {
 pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
     let mut stmt = conn.prepare_cached(
         "SELECT g.id, g.platform_id, g.title, g.variant, g.region, g.favorite, g.play_seconds,
-                g.last_played, g.is_multidisc
+                g.last_played, g.is_multidisc, CASE WHEN g.art_status = 'ok' THEN g.art_version ELSE 0 END
          FROM games g JOIN platforms p ON p.id = g.platform_id
          WHERE g.missing = 0 AND p.enabled = 1
          ORDER BY p.sort_order, g.sort_title, g.id",
@@ -52,6 +54,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             play_seconds: r.get(6)?,
             last_played: r.get(7)?,
             is_multidisc: r.get(8)?,
+            art: r.get(9)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -80,13 +83,18 @@ pub struct GameDetail {
     pub is_multidisc: bool,
     pub play_seconds: i64,
     pub last_played: Option<i64>,
+    /// Art version when the game has art, else 0.
+    pub art: i64,
+    /// Where the art came from ("libretro", "igdb", "sgdb").
+    pub art_source: Option<String>,
     pub files: Vec<(String, Option<u32>)>,
 }
 
 pub fn game_detail(conn: &Connection, id: i64) -> Result<GameDetail> {
     let mut d = conn.query_row(
         "SELECT id, platform_id, title, variant, region, serial, launch_path, total_size, is_multidisc,
-                play_seconds, last_played
+                play_seconds, last_played, CASE WHEN art_status = 'ok' THEN art_version ELSE 0 END,
+                (SELECT source FROM artwork a WHERE a.game_id = games.id AND a.kind = 'boxart' AND a.selected = 1)
          FROM games WHERE id = ?1",
         [id],
         |r| {
@@ -102,6 +110,8 @@ pub fn game_detail(conn: &Connection, id: i64) -> Result<GameDetail> {
                 is_multidisc: r.get(8)?,
                 play_seconds: r.get(9)?,
                 last_played: r.get(10)?,
+                art: r.get(11)?,
+                art_source: r.get(12)?,
                 files: Vec::new(),
             })
         },
@@ -131,6 +141,96 @@ pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
     conn.execute(
         "UPDATE games SET last_played = running_since, running_since = NULL WHERE running_since IS NOT NULL",
         [],
+    )?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- artwork
+
+/// Games whose platform has a libretro thumbnail set and that have no art:
+/// never tried, failed last time, or not found more than a week ago.
+pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::Target>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region
+         FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1 AND p.libretro_system IS NOT NULL
+           AND (g.art_status IN ('none', 'error')
+                OR (g.art_status = 'notfound' AND COALESCE(g.art_checked_at, 0) < ?1))
+         ORDER BY p.sort_order, g.sort_title",
+    )?;
+    let rows = stmt.query_map([now - crate::art::NOTFOUND_RETRY_SECS], |r| {
+        Ok(crate::art::Target {
+            id: r.get(0)?,
+            libretro_system: r.get(1)?,
+            launch_path: r.get(2)?,
+            title: r.get(3)?,
+            search_key: r.get(4)?,
+            region: r.get(5)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn count_games_needing_art(conn: &Connection, now: i64) -> Result<usize> {
+    Ok(games_needing_art(conn, now)?.len())
+}
+
+/// Records new box art as the game's selected art and bumps its version.
+#[allow(clippy::too_many_arguments)]
+pub fn set_boxart(
+    conn: &Connection,
+    game_id: i64,
+    source: &str,
+    remote_id: &str,
+    url: &str,
+    width: u32,
+    height: u32,
+    now: i64,
+) -> Result<()> {
+    conn.execute("UPDATE artwork SET selected = 0 WHERE game_id = ?1 AND kind = 'boxart'", [game_id])?;
+    conn.execute(
+        "INSERT INTO artwork (game_id, kind, source, remote_id, url, width, height, selected, fetched_at)
+         VALUES (?1, 'boxart', ?2, ?3, ?4, ?5, ?6, 1, ?7)
+         ON CONFLICT(game_id, kind, source, remote_id) DO UPDATE SET
+             url = excluded.url, width = excluded.width, height = excluded.height,
+             selected = 1, fetched_at = excluded.fetched_at",
+        params![game_id, source, remote_id, url, width, height, now],
+    )?;
+    conn.execute(
+        "UPDATE games SET art_status = 'ok', art_version = art_version + 1, art_checked_at = ?2 WHERE id = ?1",
+        params![game_id, now],
+    )?;
+    Ok(())
+}
+
+pub fn set_art_status(conn: &Connection, game_id: i64, status: &str, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE games SET art_status = ?2, art_checked_at = ?3 WHERE id = ?1 AND art_status != 'ok'",
+        params![game_id, status, now],
+    )?;
+    Ok(())
+}
+
+pub fn reset_art(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = 'boxart'", [game_id])?;
+    conn.execute(
+        "UPDATE games SET art_status = 'none', art_version = art_version + 1, art_checked_at = NULL WHERE id = ?1",
+        [game_id],
+    )?;
+    Ok(())
+}
+
+pub fn cache_get(conn: &Connection, key: &str) -> Result<Option<(Vec<u8>, i64)>> {
+    Ok(conn
+        .query_row("SELECT body, fetched_at FROM api_cache WHERE key = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()?)
+}
+
+pub fn cache_put(conn: &Connection, key: &str, body: &[u8], now: i64) -> Result<()> {
+    conn.execute(
+        "INSERT INTO api_cache (key, body, fetched_at) VALUES (?1, ?2, ?3)
+         ON CONFLICT(key) DO UPDATE SET body = excluded.body, fetched_at = excluded.fetched_at",
+        params![key, body, now],
     )?;
     Ok(())
 }

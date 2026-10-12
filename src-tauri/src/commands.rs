@@ -9,6 +9,7 @@ use rusqlite::Connection;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::art;
 use crate::db::{self, queries};
 use crate::error::{Error, Result};
 use crate::input::{ExitCombo, InputShared};
@@ -21,6 +22,7 @@ pub struct AppState {
     db_path: PathBuf,
     scanning: Arc<AtomicBool>,
     rescan_pending: Arc<AtomicBool>,
+    art_pending: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -33,10 +35,16 @@ impl AppState {
             db_path,
             scanning: Arc::default(),
             rescan_pending: Arc::default(),
+            art_pending: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
         }
+    }
+
+    /// The app's data folder (library.db, art cache, playlists).
+    pub fn data_dir(&self) -> &Path {
+        self.db_path.parent().unwrap_or(Path::new("."))
     }
 
     pub fn db(&self) -> MutexGuard<'_, Connection> {
@@ -270,74 +278,157 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
     queries::set_setting(&state.db(), &key, &value)
 }
 
-// ---------------------------------------------------------------- scanning
+// ---------------------------------------------------------------- background jobs
+//
+// Scans and artwork fetches share one worker thread, fed by two "pending"
+// flags: requests made while it's busy are queued, never dropped, and the two
+// jobs never contend for the database. A scan that finds games without art is
+// followed by an art pass automatically (unless "autoArt" is off).
 
-/// Stops a running scan after the file it's on; sources already finished keep
-/// their results, the rest stay as they were.
+/// Stops the running job after the item it's on, and drops queued ones.
+/// Finished work is kept; an interrupted scan leaves its folder unchanged.
 #[tauri::command]
 pub fn cancel_scan(state: State<'_, AppState>) {
     state.rescan_pending.store(false, Ordering::Release);
+    state.art_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
-/// Starts a background scan, or queues one more if a scan is already running
-/// (settings changes made mid-scan must not be missed). Returns true if a scan
-/// will run. Emits `scan-progress` while running and `scan-finished` /
-/// `scan-failed` at the end of each pass.
+/// Queues a library scan (followed by an art pass for new games).
+/// Emits `scan-progress`, then `scan-finished` / `scan-failed`.
 #[tauri::command]
 pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
+    state.rescan_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
+}
+
+/// Queues a box-art pass for games without art.
+/// Emits `art-progress`, then `art-finished` / `art-failed`.
+#[tauri::command]
+pub fn fetch_art(app: AppHandle, state: State<'_, AppState>) -> bool {
+    state.art_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
+}
+
+/// Forgets one game's art and fetches it again.
+#[tauri::command]
+pub fn refresh_art(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<bool> {
+    art::reset(&state.db(), state.data_dir(), id)?;
+    state.art_pending.store(true, Ordering::Release);
+    Ok(kick_worker(app, &state))
+}
+
+/// Starts the worker thread unless it's already running (it then picks up the
+/// pending flags itself). Returns false only if the thread couldn't start.
+fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     if state.scanning.swap(true, Ordering::AcqRel) {
-        state.rescan_pending.store(true, Ordering::Release);
         return true;
     }
-    let flag = state.scanning.clone();
-    let pending = state.rescan_pending.clone();
+    let busy = state.scanning.clone();
+    let scan_pending = state.rescan_pending.clone();
+    let art_pending = state.art_pending.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
+    let data_dir = state.data_dir().to_path_buf();
     std::thread::Builder::new()
-        .name("scanner".into())
+        .name("library-jobs".into())
         .spawn(move || loop {
-            pending.store(false, Ordering::Release);
             cancel.store(false, Ordering::Release);
-            let result = db::open(&db_path).and_then(|mut conn| {
-                let last_emit = std::cell::Cell::new(None::<std::time::Instant>);
-                scanner::run(
-                    &mut conn,
-                    &|p| {
-                        // Throttle progress events; the UI only needs a few per second.
-                        let due = last_emit.get().is_none_or(|t| t.elapsed().as_millis() >= 100);
-                        if p.phase == "done" || due {
-                            last_emit.set(Some(std::time::Instant::now()));
-                            let _ = app.emit("scan-progress", &p);
-                        }
-                    },
-                    &cancel,
-                )
-            });
-            let cancelled = result.as_ref().is_ok_and(|s| s.cancelled);
-            match result {
-                Ok(summary) => {
-                    log::info!("scan finished: {summary:?}");
-                    let _ = app.emit("scan-finished", &summary);
+            if scan_pending.swap(false, Ordering::AcqRel) {
+                let auto_art = run_scan(&app, &db_path, &cancel);
+                if auto_art {
+                    art_pending.store(true, Ordering::Release);
                 }
-                Err(e) => {
-                    log::error!("scan failed: {e}");
-                    let _ = app.emit("scan-failed", e.to_string());
-                }
-            }
-            if cancelled || !pending.load(Ordering::Acquire) {
-                pending.store(false, Ordering::Release);
-                flag.store(false, Ordering::Release);
-                // A request may have slipped in between the check and the reset.
-                if !pending.load(Ordering::Acquire) || flag.swap(true, Ordering::AcqRel) {
+            } else if art_pending.swap(false, Ordering::AcqRel) {
+                run_art(&app, &db_path, &data_dir, &cancel);
+            } else {
+                busy.store(false, Ordering::Release);
+                // A request may have slipped in after the checks above.
+                let more = scan_pending.load(Ordering::Acquire) || art_pending.load(Ordering::Acquire);
+                if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
             }
         })
         .map(|_| true)
         .unwrap_or_else(|e| {
-            log::error!("could not start scanner thread: {e}");
+            log::error!("could not start the library worker: {e}");
             state.scanning.store(false, Ordering::Release);
             false
         })
+}
+
+/// Emits at most a few events per second (plus the final one).
+fn throttled(min_ms: u128) -> impl Fn(bool) -> bool {
+    let last = std::cell::Cell::new(None::<std::time::Instant>);
+    move |force| {
+        let due = force || last.get().is_none_or(|t| t.elapsed().as_millis() >= min_ms);
+        if due {
+            last.set(Some(std::time::Instant::now()));
+        }
+        due
+    }
+}
+
+/// Runs one scan. Returns whether an art pass should follow.
+fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> bool {
+    let due = throttled(100);
+    let result = db::open(db_path).and_then(|mut conn| {
+        let summary = scanner::run(
+            &mut conn,
+            &|p| {
+                if due(p.phase == "done") {
+                    let _ = app.emit("scan-progress", &p);
+                }
+            },
+            cancel,
+        )?;
+        let auto_art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
+        let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
+        Ok((summary, auto_art && needs_art))
+    });
+    match result {
+        Ok((summary, art_next)) => {
+            log::info!("scan finished: {summary:?}");
+            let _ = app.emit("scan-finished", &summary);
+            art_next && !summary.cancelled
+        }
+        Err(e) => {
+            log::error!("scan failed: {e}");
+            let _ = app.emit("scan-failed", e.to_string());
+            false
+        }
+    }
+}
+
+fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
+    let due = throttled(250);
+    // Ask the UI to reload every couple of seconds so covers appear progressively.
+    let reload_due = throttled(2000);
+    let http = art::http::Http::new();
+    let result = db::open(db_path).and_then(|mut conn| {
+        art::run(
+            &mut conn,
+            data_dir,
+            &http,
+            &|p| {
+                if due(p.done == p.total) {
+                    let _ = app.emit("art-progress", &p);
+                }
+                if p.found > 0 && reload_due(false) {
+                    let _ = app.emit("library-changed", ());
+                }
+            },
+            cancel,
+        )
+    });
+    match result {
+        Ok(summary) => {
+            let _ = app.emit("art-finished", &summary);
+        }
+        Err(e) => {
+            log::error!("artwork fetch failed: {e}");
+            let _ = app.emit("art-failed", e.to_string());
+        }
+    }
 }

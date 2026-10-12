@@ -1,5 +1,14 @@
 import { createMemo, createRoot, createSignal } from "solid-js";
-import { api, events, type GameRow, type PlatformSummary, type ScanProgress, type ScanSummary } from "../api";
+import {
+  api,
+  events,
+  type ArtProgress,
+  type ArtSummary,
+  type GameRow,
+  type PlatformSummary,
+  type ScanProgress,
+  type ScanSummary,
+} from "../api";
 
 /** A library tab: everything, a pseudo-filter, or one platform id. */
 export type PlatformFilter = "all" | "favorites" | "recent" | string;
@@ -29,6 +38,8 @@ function createLibraryStore() {
   const [scanProgress, setScanProgress] = createSignal<ScanProgress | null>(null);
   const [lastScan, setLastScan] = createSignal<ScanSummary | null>(null);
   const [scanError, setScanError] = createSignal<string | null>(null);
+  const [artProgress, setArtProgress] = createSignal<ArtProgress | null>(null);
+  const [lastArt, setLastArt] = createSignal<ArtSummary | null>(null);
 
   // Computed once per library load, not per keystroke.
   const keys = createMemo(() => games().map((g) => searchKey(`${g.title} ${g.variant ?? ""}`)));
@@ -99,6 +110,18 @@ function createLibraryStore() {
       setScanProgress(null);
       setScanError(msg);
     });
+    void events.onArtProgress((p) => setArtProgress(p.done >= p.total ? null : p));
+    void events.onArtFinished((s) => {
+      setArtProgress(null);
+      setLastArt(s);
+      void reload();
+    });
+    void events.onArtFailed(() => setArtProgress(null));
+    void events.onLibraryChanged(() => void reload());
+  }
+
+  async function fetchArt() {
+    await api.fetchArt();
   }
 
   return {
@@ -122,6 +145,9 @@ function createLibraryStore() {
     scanProgress,
     lastScan,
     scanError,
+    artProgress,
+    lastArt,
+    fetchArt,
   };
 }
 
