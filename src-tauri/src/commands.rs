@@ -21,6 +21,7 @@ pub struct AppState {
     db_path: PathBuf,
     scanning: Arc<AtomicBool>,
     rescan_pending: Arc<AtomicBool>,
+    scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
 }
@@ -32,6 +33,7 @@ impl AppState {
             db_path,
             scanning: Arc::default(),
             rescan_pending: Arc::default(),
+            scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
         }
@@ -206,11 +208,14 @@ pub fn add_source(state: State<'_, AppState>, path: String, platform_id: Option<
     queries::add_source(&state.db(), &p.to_string_lossy(), platform_id.as_deref(), "files")
 }
 
-/// The platform a folder's name suggests ("PS2" -> ps2), to preselect when adding it.
+/// The platform a folder's name suggests ("PS2" -> ps2), to preselect when
+/// adding it. Only platforms that are set up and enabled are suggested.
 #[tauri::command]
-pub fn suggest_platform(path: String) -> Option<&'static str> {
-    let name = Path::new(path.trim().trim_end_matches(['\\', '/'])).file_name()?.to_string_lossy().into_owned();
-    scanner::hints::suggest(&name)
+pub fn suggest_platform(state: State<'_, AppState>, path: String) -> Result<Option<String>> {
+    let Some(name) = Path::new(path.trim().trim_end_matches(['\\', '/'])).file_name() else { return Ok(None) };
+    let Some(id) = scanner::hints::suggest(&name.to_string_lossy()) else { return Ok(None) };
+    let enabled = queries::platform_rules(&state.db())?.iter().any(|r| r.id == id);
+    Ok(enabled.then(|| id.to_string()))
 }
 
 /// Directory listing for the in-app browser. `path` None = drives; a path that
@@ -267,6 +272,14 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
 
 // ---------------------------------------------------------------- scanning
 
+/// Stops a running scan after the file it's on; sources already finished keep
+/// their results, the rest stay as they were.
+#[tauri::command]
+pub fn cancel_scan(state: State<'_, AppState>) {
+    state.rescan_pending.store(false, Ordering::Release);
+    state.scan_cancel.store(true, Ordering::Release);
+}
+
 /// Starts a background scan, or queues one more if a scan is already running
 /// (settings changes made mid-scan must not be missed). Returns true if a scan
 /// will run. Emits `scan-progress` while running and `scan-finished` /
@@ -279,22 +292,29 @@ pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
     }
     let flag = state.scanning.clone();
     let pending = state.rescan_pending.clone();
+    let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     std::thread::Builder::new()
         .name("scanner".into())
         .spawn(move || loop {
             pending.store(false, Ordering::Release);
+            cancel.store(false, Ordering::Release);
             let result = db::open(&db_path).and_then(|mut conn| {
                 let last_emit = std::cell::Cell::new(None::<std::time::Instant>);
-                scanner::run(&mut conn, &|p| {
-                    // Throttle progress events; the UI only needs a few per second.
-                    let due = last_emit.get().is_none_or(|t| t.elapsed().as_millis() >= 100);
-                    if p.phase == "done" || due {
-                        last_emit.set(Some(std::time::Instant::now()));
-                        let _ = app.emit("scan-progress", &p);
-                    }
-                })
+                scanner::run(
+                    &mut conn,
+                    &|p| {
+                        // Throttle progress events; the UI only needs a few per second.
+                        let due = last_emit.get().is_none_or(|t| t.elapsed().as_millis() >= 100);
+                        if p.phase == "done" || due {
+                            last_emit.set(Some(std::time::Instant::now()));
+                            let _ = app.emit("scan-progress", &p);
+                        }
+                    },
+                    &cancel,
+                )
             });
+            let cancelled = result.as_ref().is_ok_and(|s| s.cancelled);
             match result {
                 Ok(summary) => {
                     log::info!("scan finished: {summary:?}");
@@ -305,7 +325,8 @@ pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
                     let _ = app.emit("scan-failed", e.to_string());
                 }
             }
-            if !pending.load(Ordering::Acquire) {
+            if cancelled || !pending.load(Ordering::Acquire) {
+                pending.store(false, Ordering::Release);
                 flag.store(false, Ordering::Release);
                 // A request may have slipped in between the check and the reset.
                 if !pending.load(Ordering::Acquire) || flag.swap(true, Ordering::AcqRel) {

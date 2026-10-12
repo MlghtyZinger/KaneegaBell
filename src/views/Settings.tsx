@@ -146,14 +146,25 @@ function LibrarySection(props: { s: Settings; run: Run }) {
     <section class="card-section">
       <h2>Scan</h2>
       <div class="row">
-        <button class="btn primary" disabled={!!library.scanProgress()} onClick={() => void library.scan()}>
-          {library.scanProgress() ? "Scanning…" : "Scan library"}
-        </button>
-        <Show when={library.scanProgress()}>
+        <Show
+          when={library.scanProgress()}
+          fallback={
+            <button class="btn primary" onClick={() => void library.scan()}>
+              Scan library
+            </button>
+          }
+        >
           {(p) => (
-            <span class="dim">
-              Folder {p().done + 1} of {p().total}: <span class="mono">{p().source}</span>
-            </span>
+            <>
+              <button class="btn" onClick={() => void api.cancelScan()}>
+                Cancel scan
+              </button>
+              <span class="dim">
+                Folder {Math.min(p().done + 1, Math.max(p().total, 1))} of {Math.max(p().total, 1)}
+                {p().filesTotal > 0 ? ` · ${p().filesDone.toLocaleString()} / ${p().filesTotal.toLocaleString()} files` : ""}
+                : <span class="mono">{p().source}</span>
+              </span>
+            </>
           )}
         </Show>
       </div>
@@ -164,7 +175,10 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         {(s) => (
           <div class="scan-summary">
             <p>
-              {s().gamesTotal} games · {s().added} added · {s().updated} updated · {s().missing} missing ·{" "}
+              {s().cancelled ? "Scan cancelled · " : ""}
+              {s().gamesTotal} games · {s().added} added · {s().updated} updated
+              {s().removed > 0 ? ` · ${s().removed} removed` : ""}
+              {s().missing > 0 ? ` · ${s().missing} missing (kept: played or favorite)` : ""} ·{" "}
               {(s().durationMs / 1000).toFixed(1)} s
             </p>
             <Show when={s().warnings.length > 0}>

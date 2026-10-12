@@ -127,14 +127,22 @@ export interface PlatformUpdate {
 export interface ScanProgress {
   phase: "scanning" | "done";
   source: string;
+  /** Folders finished / total. */
   done: number;
   total: number;
+  /** Files examined in the current folder / total. */
+  filesDone: number;
+  filesTotal: number;
 }
 
 export interface ScanSummary {
   added: number;
   updated: number;
+  /** Gone from disk, kept hidden because they have play time or are favorites. */
   missing: number;
+  /** Gone from disk and deleted. */
+  removed: number;
+  cancelled: boolean;
   gamesTotal: number;
   durationMs: number;
   warnings: string[];
@@ -167,6 +175,7 @@ export const api = {
     invoke<DirListing>("list_dir", { path, extensions }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
   startScan: () => invoke<boolean>("start_scan"),
+  cancelScan: () => invoke<void>("cancel_scan"),
 };
 
 export const events = {

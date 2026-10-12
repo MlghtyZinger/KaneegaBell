@@ -70,6 +70,7 @@ pub fn run() {
             commands::remove_source,
             commands::set_setting,
             commands::start_scan,
+            commands::cancel_scan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

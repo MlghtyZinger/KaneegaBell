@@ -129,6 +129,13 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
   appears once.
 - Discs named `(Disc N)` / `(Disc N of M)` / `(CD N)` in the same folder are grouped into one
   entry. A real `.m3u` always wins over grouping.
+- Auto folders also skip what is never a game: folders named like caches, shaders, logs,
+  saves, states, BIOS or firmware; disc images under 1 MB (Amiibo dumps, save data); plain
+  `.gz` files (only `name.iso.gz` counts); and folders named for a platform that isn't set up
+  yet ("Switch", "PS4", "Xbox"...). Those are scanned automatically once that platform is added.
+  PS3 game folders and an RPCS3 `dev_hdd0` are recognized inside Auto folders.
+- Entries whose files disappear are deleted unless they have play time or are a favorite. Those
+  are kept hidden, so they come back intact if the files return.
 - Titles are cleaned for display (`Legend of Zelda, The - The Wind Waker (USA)` → "The Legend
   of Zelda: The Wind Waker"), with hack/translation tags kept as a subtitle.
 
@@ -143,9 +150,12 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
 1. Add a `PlatformDef` to `PLATFORMS` in `src-tauri/src/platforms.rs` (id, names, emulator,
    default core for RetroArch, extensions). If it needs a new emulator, add an `EmulatorDef`
    with its launch template, checked against that emulator's own CLI docs/source.
-2. Restart the app: built-in definitions are re-seeded on every start without touching your
+2. Make sure `src-tauri/src/scanner/hints.rs` maps the platform's usual folder names to the
+   new id (Switch, PS4, Xbox, Saturn and others are already listed), so Auto scans pick up its
+   folders and Settings preselects it.
+3. Restart the app: built-in definitions are re-seeded on every start without touching your
    settings.
-3. If its extensions overlap another platform's (`.iso`, `.cue`, `.chd`…), files in Auto
+4. If its extensions overlap another platform's (`.iso`, `.cue`, `.chd`…), files in Auto
    folders stay ambiguous unless you add a header check in `src-tauri/src/scanner/detect.rs`.
    Folders with an assigned platform always work.
 

@@ -5,20 +5,28 @@ use super::*;
 use std::fs;
 use tempfile::TempDir;
 
+/// Auto scans ignore disc images under 1 MiB, so fake discs are padded to this.
+const DISC: usize = 1 << 20;
+
+fn big(mut v: Vec<u8>) -> Vec<u8> {
+    v.resize(v.len().max(DISC), 0);
+    v
+}
+
 fn write(path: &Path, bytes: &[u8]) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, bytes).unwrap();
 }
 
 fn gc_iso(id: &[u8; 6]) -> Vec<u8> {
-    let mut b = vec![0u8; 0x400];
+    let mut b = vec![0u8; DISC];
     b[..6].copy_from_slice(id);
     b[0x1C..0x20].copy_from_slice(&0xC233_9F3Du32.to_be_bytes());
     b
 }
 
 fn wbfs(id: &[u8; 6]) -> Vec<u8> {
-    let mut b = vec![0u8; 0x400];
+    let mut b = vec![0u8; DISC];
     b[..4].copy_from_slice(b"WBFS");
     b[8] = 9;
     b[0x200..0x206].copy_from_slice(id);
@@ -203,8 +211,8 @@ fn romhack_folder_auto_mode_ignores_saves_patches_and_tools() {
 #[test]
 fn ambiguous_files_in_auto_mode_are_skipped_with_a_warning() {
     let t = tempfile::tempdir().unwrap();
-    write(&t.path().join("Mystery.chd"), &[0; 64]);
-    let mut psp = vec![0u8; 0x8100];
+    write(&t.path().join("Mystery.chd"), &vec![0; DISC]);
+    let mut psp = vec![0u8; DISC];
     psp[0x8001..0x8006].copy_from_slice(b"CD001");
     psp[0x8008..0x8010].copy_from_slice(b"PSP GAME");
     write(&t.path().join("Persona 2 - Eternal Punishment (English v1.00).iso"), &psp);
@@ -225,7 +233,7 @@ fn auto_folder_of_ps2_isos_is_ps2_not_ps1() {
         "PLAYSTATION",
         Some("BOOT2 = cdrom0:\\SCUS_971.24;1\r\n"),
     );
-    write(&t.path().join("Jak II (USA)").join("Jak II (USA).iso"), &ps2);
+    write(&t.path().join("Jak II (USA)").join("Jak II (USA).iso"), &big(ps2));
     let (c, w) = scan(t.path(), None);
     assert!(w.is_empty(), "{w:?}");
     assert_eq!(c[0].platform, "ps2");
@@ -238,13 +246,81 @@ fn folder_name_breaks_ties_when_headers_cant() {
     // A PlayStation disc with no SYSTEM.CNF, and an unreadable CHD: only the
     // folder names can tell.
     let bare = detect::tests::build_disc(detect::SectorLayout { size: 2048, data: 0 }, "PLAYSTATION", None);
-    write(&t.path().join("PS2").join("Game A.iso"), &bare);
-    write(&t.path().join("PSX").join("Game B.chd"), &[0; 64]);
-    write(&t.path().join("Unsorted").join("Game C.chd"), &[0; 64]);
+    write(&t.path().join("PS2").join("Game A.iso"), &big(bare));
+    write(&t.path().join("PSX").join("Game B.chd"), &vec![0; DISC]);
+    write(&t.path().join("Unsorted").join("Game C.chd"), &vec![0; DISC]);
     let (c, w) = scan(t.path(), None);
     let plats: Vec<_> = c.iter().map(|c| (c.name.title.as_str(), c.platform.as_str())).collect();
     assert_eq!(plats, [("Game A", "ps2"), ("Game B", "ps1")]);
     assert_eq!(w.len(), 1, "Unsorted/Game C stays ambiguous: {w:?}");
+}
+
+#[test]
+fn auto_scan_of_an_emulator_folder_ignores_caches_logs_and_junk() {
+    // What happened with E:\Emulators\RPCS3 as an Auto source: thousands of
+    // "*.obj.gz" shader-cache files and "RPCS3.log.gz" became PS2 games.
+    let t = tempfile::tempdir().unwrap();
+    let r = t.path();
+    write(&r.join("RPCS3.log.gz"), &vec![0; DISC]);
+    write(&r.join("cache").join("ppu-x").join("v6-kusa-0bbhgz-00001G-znver4.obj.gz"), &vec![0; DISC]);
+    write(&r.join("dev_hdd0").join("home").join("x.obj.gz"), &vec![0; DISC]);
+    write(&r.join("shaders").join("x.bin"), &vec![0; DISC]);
+    // A real compressed PS2 image is still accepted.
+    write(&r.join("Games").join("Real Game (USA).iso.gz"), &vec![0; DISC]);
+    let (c, w) = scan(r, None);
+    assert_eq!(titles(&c), ["Real Game"], "{w:?}");
+    assert_eq!(c[0].platform, "ps2");
+}
+
+#[test]
+fn auto_ignores_tiny_disc_images_like_amiibo_dumps() {
+    let t = tempfile::tempdir().unwrap();
+    write(&t.path().join("Figures").join("Mario.bin"), &[0; 540]);
+    write(&t.path().join("Figures").join("Link.bin"), &[0; 540]);
+    let (c, w) = scan(t.path(), None);
+    assert!(c.is_empty() && w.is_empty(), "{c:?} {w:?}");
+    // Assigned folders are trusted as-is (a small loose PS1 .bin still counts).
+    write(&t.path().join("Tiny (USA).bin"), &[0; 540]);
+    let (c, _) = scan(t.path(), Some("ps1"));
+    assert_eq!(c.len(), 3);
+}
+
+#[test]
+fn auto_skips_folders_of_platforms_that_are_not_set_up_yet() {
+    let t = tempfile::tempdir().unwrap();
+    let r = t.path();
+    write(&r.join("Xbox").join("Halo (USA).iso"), &vec![0; DISC]);
+    write(&r.join("Nintendo").join("Switch").join("Game.iso"), &vec![0; DISC]);
+    write(&r.join("Sega").join("Saturn").join("Policenauts").join("Track 01.bin"), &vec![0; DISC]);
+    write(&r.join("Nintendo").join("GBA").join("Golden Sun (USA, Europe).gba"), &[0; 0xC0]);
+    let (c, w) = scan(r, None);
+    assert_eq!(titles(&c), ["Golden Sun"]);
+    assert!(w.is_empty(), "skipped silently, not warned about: {w:?}");
+
+    // Once such a platform exists and is enabled, its folders are scanned.
+    let mut rules = rules();
+    rules.push(PlatformRule { id: "xbox".into(), extensions: vec!["iso".into()] });
+    let found = scan_files(&src(r, None), &rules, &HashMap::new(), &mut Vec::new());
+    assert!(found.iter().any(|g| g.platform == "xbox" && g.name.title == "Halo"), "{found:?}");
+}
+
+#[test]
+fn auto_finds_ps3_disc_folders_and_rpcs3_installed_games() {
+    let t = tempfile::tempdir().unwrap();
+    let r = t.path();
+    let disc = r.join("PS3").join("Darkness, The (USA)").join("PS3_GAME");
+    write(&disc.join("PARAM.SFO"), &sfo::build(&[("TITLE", "THE DARKNESS"), ("TITLE_ID", "BLUS30035"), ("CATEGORY", "DG")]));
+    write(&disc.join("USRDIR").join("EBOOT.BIN"), b"SCE\0");
+    // Files inside a PS3 game must not be looked at as other platforms' games.
+    write(&disc.join("USRDIR").join("data.bin"), &vec![0; DISC]);
+    let hg = r.join("Emulators").join("RPCS3").join("dev_hdd0").join("game").join("NPUA80480");
+    write(&hg.join("PARAM.SFO"), &sfo::build(&[("TITLE", "inFamous"), ("TITLE_ID", "NPUA80480"), ("CATEGORY", "HG")]));
+    write(&hg.join("USRDIR").join("EBOOT.BIN"), b"SCE\0");
+
+    let (c, w) = scan(r, None);
+    assert!(w.is_empty(), "{w:?}");
+    assert_eq!(titles(&c), ["The Darkness", "inFamous"]);
+    assert!(c.iter().all(|g| g.platform == "ps3"));
 }
 
 #[test]
@@ -340,7 +416,7 @@ fn real_db_scan() {
     let path = std::env::var("EMU_DB_COPY").expect("set EMU_DB_COPY to a copy of library.db");
     let mut conn = crate::db::open(Path::new(&path)).unwrap();
     crate::db::migrate(&mut conn).unwrap();
-    let s = run(&mut conn, &|p| println!("progress: {} {}/{} {}", p.phase, p.done, p.total, p.source)).unwrap();
+    let s = run(&mut conn, &|p| println!("progress: {} {}/{} {}", p.phase, p.done, p.total, p.source), &AtomicBool::new(false)).unwrap();
     println!("summary: {s:#?}");
     let mut stmt = conn
         .prepare("SELECT source_id, platform_id, COUNT(*) FROM games WHERE missing = 0 GROUP BY 1, 2")
@@ -363,11 +439,11 @@ fn rescan_is_incremental_and_flags_missing_games() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));
 
-    let s1 = run(&mut conn, &|_| {}).unwrap();
+    let s1 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!((s1.added, s1.updated, s1.missing, s1.games_total), (4, 0, 0, 4));
     assert_eq!(queries::library(&conn).unwrap().len(), 4);
 
-    let s2 = run(&mut conn, &|_| {}).unwrap();
+    let s2 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!((s2.added, s2.updated, s2.missing, s2.games_total), (0, 0, 0, 4));
 
     // Mark a favorite, then remove the file: the row survives as missing.
@@ -378,12 +454,12 @@ fn rescan_is_incremental_and_flags_missing_games() {
     queries::set_favorite(&conn, id, true).unwrap();
     let bytes = fs::read(&luigi).unwrap();
     fs::remove_file(&luigi).unwrap();
-    let s3 = run(&mut conn, &|_| {}).unwrap();
+    let s3 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!((s3.missing, s3.games_total), (1, 3));
 
     // Restored: same row, favorite kept.
     fs::write(&luigi, bytes).unwrap();
-    let s4 = run(&mut conn, &|_| {}).unwrap();
+    let s4 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!(s4.games_total, 4);
     let fav: bool = conn.query_row("SELECT favorite FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap();
     assert!(fav);
@@ -400,26 +476,75 @@ fn rescan_is_incremental_and_flags_missing_games() {
 }
 
 #[test]
+fn vanished_games_without_user_data_are_deleted_not_kept() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    // Play one game, then delete two files: the played one is kept (hidden),
+    // the untouched one is removed outright.
+    let galaxy = t.path().join("Super Mario Galaxy").join("Super Mario Galaxy [RMGE01].wbfs");
+    let zelda = t.path().join("Legend of Zelda, The - The Wind Waker (USA).iso");
+    conn.execute(
+        "UPDATE games SET play_seconds = 60, last_played = 1 WHERE launch_path = ?1",
+        [galaxy.to_string_lossy()],
+    )
+    .unwrap();
+    fs::remove_file(&galaxy).unwrap();
+    fs::remove_file(&zelda).unwrap();
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    assert_eq!((s.missing, s.removed, s.games_total), (1, 1, 2));
+    let rows: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0)).unwrap();
+    assert_eq!(rows, 3, "played game kept as missing; untouched one deleted");
+}
+
+#[test]
+fn cancelled_scan_leaves_the_library_untouched() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(true)).unwrap();
+    assert!(s.cancelled);
+    assert_eq!(queries::count_games(&conn).unwrap(), 0);
+}
+
+#[test]
 fn unplugged_source_does_not_flag_games_missing() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));
-    run(&mut conn, &|_| {}).unwrap();
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     conn.execute("UPDATE rom_sources SET path = 'Z:/definitely/not/here'", []).unwrap();
-    let s = run(&mut conn, &|_| {}).unwrap();
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!(s.games_total, 4);
     assert_eq!(s.warnings.len(), 1);
 }
 
 #[test]
-fn removing_a_source_hides_but_keeps_games() {
+fn removing_a_source_keeps_only_games_with_user_data() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));
-    run(&mut conn, &|_| {}).unwrap();
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    conn.execute("UPDATE games SET favorite = 1 WHERE title = 'Luigi''s Mansion'", []).unwrap();
     let id: i64 = conn.query_row("SELECT id FROM rom_sources", [], |r| r.get(0)).unwrap();
     queries::remove_source(&conn, id).unwrap();
     assert!(queries::library(&conn).unwrap().is_empty());
     let rows: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0)).unwrap();
-    assert_eq!(rows, 4);
+    assert_eq!(rows, 1, "only the favorite is kept (hidden)");
+}
+
+#[test]
+fn startup_prunes_orphaned_leftovers() {
+    let conn = crate::db::test_db();
+    let now = queries::now();
+    for (path, played) in [("a.iso", 0), ("b.iso", 0), ("c.iso", 120)] {
+        conn.execute(
+            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, missing, added_at, play_seconds)
+             VALUES ('ps2', ?1, ?1, ?1, ?1, 1, ?2, ?3)",
+            rusqlite::params![path, now, played],
+        )
+        .unwrap();
+    }
+    assert_eq!(queries::prune_orphans(&conn).unwrap(), 2);
+    let rows: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0)).unwrap();
+    assert_eq!(rows, 1, "the played one survives");
 }
 
 #[test]
@@ -427,7 +552,7 @@ fn disabled_platforms_are_not_scanned_or_listed() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), None);
     conn.execute("UPDATE platforms SET enabled = 0 WHERE id = 'wii'", []).unwrap();
-    run(&mut conn, &|_| {}).unwrap();
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     let lib = queries::library(&conn).unwrap();
     assert!(lib.iter().all(|g| g.platform_id == "gc"));
     assert_eq!(lib.len(), 3);

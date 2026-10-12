@@ -176,13 +176,23 @@ pub fn known_games(conn: &Connection) -> Result<HashMap<String, Known>> {
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
-/// Writes one source's scan results. Returns (added, updated, newly missing).
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ApplyResult {
+    pub added: usize,
+    pub updated: usize,
+    /// No longer on disk, kept (hidden) because they carry user data.
+    pub missing: usize,
+    /// No longer on disk and nothing worth keeping: deleted.
+    pub removed: usize,
+}
+
+/// Writes one source's scan results.
 pub fn apply_scan(
     tx: &Transaction,
     source_id: i64,
     candidates: &[Candidate],
     known: &HashMap<String, Known>,
-) -> Result<(usize, usize, usize)> {
+) -> Result<ApplyResult> {
     tx.execute_batch("CREATE TEMP TABLE IF NOT EXISTS scan_seen (id INTEGER PRIMARY KEY); DELETE FROM scan_seen;")?;
     let mut upsert = tx.prepare_cached(
         "INSERT INTO games (platform_id, title, variant, sort_title, search_key, region, serial, launch_path,
@@ -234,12 +244,21 @@ pub fn apply_scan(
             add_file.execute(params![id, f.path.to_string_lossy(), f.disc, f.size as i64, f.mtime])?;
         }
     }
+    // Gone from disk: delete rows with nothing worth keeping (junk that a
+    // looser scan picked up, files the user deleted); keep the rest hidden,
+    // so play time and favorites survive a file being moved back.
+    let removed = tx.execute(
+        &format!(
+            "DELETE FROM games WHERE source_id = ?1 AND id NOT IN (SELECT id FROM scan_seen) AND NOT {HAS_USER_DATA}"
+        ),
+        [source_id],
+    )?;
     let missing = tx.execute(
         "UPDATE games SET missing = 1
          WHERE source_id = ?1 AND missing = 0 AND id NOT IN (SELECT id FROM scan_seen)",
         [source_id],
     )?;
-    Ok((added, updated, missing))
+    Ok(ApplyResult { added, updated, missing, removed })
 }
 
 // ---------------------------------------------------------------- settings
@@ -459,12 +478,28 @@ pub fn update_source(conn: &Connection, id: i64, platform_id: Option<&str>, recu
     Ok(())
 }
 
-/// Removing a source hides its games but keeps their rows (play time,
-/// favorites, matched metadata) in case the folder is added back.
+/// Rows worth keeping when their files are gone: the user played or
+/// favorited them.
+const HAS_USER_DATA: &str =
+    "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL)";
+
+/// Removing a source deletes its games, except ones with play time or a
+/// favorite, which stay hidden in case the folder is added back.
 pub fn remove_source(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute(&format!("DELETE FROM games WHERE source_id = ?1 AND NOT {HAS_USER_DATA}"), [id])?;
     conn.execute("UPDATE games SET missing = 1 WHERE source_id = ?1", [id])?;
     conn.execute("DELETE FROM rom_sources WHERE id = ?1", [id])?;
     Ok(())
+}
+
+/// Startup housekeeping: hidden rows whose source is gone and that carry no
+/// user data are leftovers (e.g. junk from an over-broad Auto folder that was
+/// later removed). Returns how many were deleted.
+pub fn prune_orphans(conn: &Connection) -> Result<usize> {
+    Ok(conn.execute(
+        &format!("DELETE FROM games WHERE missing = 1 AND source_id IS NULL AND NOT {HAS_USER_DATA}"),
+        [],
+    )?)
 }
 
 pub fn get_setting<T: serde::de::DeserializeOwned>(conn: &Connection, key: &str) -> Result<Option<T>> {

@@ -53,6 +53,10 @@ pub fn init(path: &Path) -> Result<Connection> {
     migrate(&mut conn)?;
     crate::platforms::seed(&conn)?;
     queries::reconcile_interrupted_sessions(&conn)?;
+    let pruned = queries::prune_orphans(&conn)?;
+    if pruned > 0 {
+        log::info!("removed {pruned} leftover entries from deleted folders");
+    }
     Ok(conn)
 }
 

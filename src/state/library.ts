@@ -82,7 +82,9 @@ function createLibraryStore() {
   async function scan() {
     setScanError(null);
     const started = await api.startScan();
-    if (started) setScanProgress({ phase: "scanning", source: "", done: 0, total: 0 });
+    if (started && !scanProgress()) {
+      setScanProgress({ phase: "scanning", source: "", done: 0, total: 0, filesDone: 0, filesTotal: 0 });
+    }
   }
 
   /** Subscribes to scan events for the app's lifetime. Call once at startup. */

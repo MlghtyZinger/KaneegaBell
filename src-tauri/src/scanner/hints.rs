@@ -1,15 +1,23 @@
-//! Platform hints from folder names ("PS2", "PSX", "GameCube - Wii", "Sega CD").
-//! Used to break ties in Auto folders when file headers can't decide, and to
-//! preselect the platform when a folder is added in Settings.
+//! Platform hints from folder names ("PS2", "PSX", "GameCube - Wii", "Switch").
+//!
+//! Used to (1) break ties in Auto folders when file headers can't decide,
+//! (2) preselect the platform when a folder is added in Settings, and (3) skip
+//! folders, during Auto scans, that clearly belong to a platform the app isn't
+//! set up for yet. The table deliberately includes platforms without a built-in
+//! definition (Switch, PS4, Xbox...): once one is added to `platforms.rs`, its
+//! folders are scanned with no scanner changes.
 
 use super::normalize::search_key;
 
-/// (platform, names). Matched against a folder name's words, so "ps2" matches
-/// "PS2", "PS2 Games" and "Sony - PS2", but not "ps2x".
+/// (platform id, names). Matched against a folder name's words, so "ps2"
+/// matches "PS2", "PS2 Games" and "Sony - PS2", but not "ps2x".
 const NAMES: &[(&str, &[&str])] = &[
     ("ps3", &["ps3", "playstation 3"]),
     ("ps2", &["ps2", "playstation 2"]),
     ("psp", &["psp", "playstation portable"]),
+    ("ps4", &["ps4", "playstation 4"]),
+    ("ps5", &["ps5", "playstation 5"]),
+    ("vita", &["vita", "psvita", "ps vita", "playstation vita"]),
     ("ps1", &["ps1", "psx", "psone", "playstation 1", "playstation"]),
     ("3ds", &["3ds", "nintendo 3ds"]),
     ("nds", &["nds", "ds", "nintendo ds"]),
@@ -17,23 +25,43 @@ const NAMES: &[(&str, &[&str])] = &[
     ("n64", &["n64", "nintendo 64"]),
     ("snes", &["snes", "super nintendo", "super famicom", "sfc"]),
     ("gc", &["gamecube", "game cube", "gc", "ngc"]),
+    ("wiiu", &["wii u", "wiiu", "cemu"]),
     ("wii", &["wii"]),
+    ("switch", &["switch", "nintendo switch", "yuzu", "ryujinx", "suyu", "citron"]),
     ("segacd", &["sega cd", "segacd", "mega cd", "megacd"]),
+    ("saturn", &["saturn", "sega saturn"]),
+    ("dreamcast", &["dreamcast"]),
+    ("xbox360", &["xbox 360", "x360"]),
+    ("xbox", &["xbox", "original xbox"]),
+    // Not a game platform: NFC figure dumps (".bin") that would otherwise
+    // look like disc images.
+    ("amiibo", &["amiibo"]),
 ];
 
 /// Every platform a folder name points at, in table order. "Gamecube - Wii"
 /// yields both; "Emulator Games" yields none.
 pub fn platforms_for_name(name: &str) -> Vec<&'static str> {
     let key = format!(" {} ", search_key(name));
-    let mut out = Vec::new();
+    let has = |n: &str| key.contains(&format!(" {n} "));
+    let mut out: Vec<&'static str> = Vec::new();
     for (platform, names) in NAMES {
-        // "playstation" alone means PS1 only if no numbered PlayStation matched.
-        if names.iter().any(|n| key.contains(&format!(" {n} "))) && !out.contains(platform) {
-            if *platform == "ps1" && out.iter().any(|p| matches!(*p, "ps2" | "ps3" | "psp")) && !key.contains(" ps1 ") && !key.contains(" psx ") {
-                continue;
-            }
-            out.push(*platform);
+        if !names.iter().any(|n| has(n)) || out.contains(platform) {
+            continue;
         }
+        // "PlayStation 2" also contains "playstation": that alone means PS1
+        // only when no numbered PlayStation matched.
+        if *platform == "ps1" && out.iter().any(|p| matches!(*p, "ps2" | "ps3" | "ps4" | "ps5" | "psp" | "vita")) && !has("ps1") && !has("psx") {
+            continue;
+        }
+        // "Xbox 360" also contains "xbox".
+        if *platform == "xbox" && out.contains(&"xbox360") && !has("original xbox") {
+            continue;
+        }
+        // "Wii U" also contains "wii".
+        if *platform == "wii" && out.contains(&"wiiu") {
+            continue;
+        }
+        out.push(*platform);
     }
     out
 }
@@ -67,6 +95,13 @@ pub fn for_file(file: &std::path::Path, source_root: &std::path::Path) -> Vec<&'
     out
 }
 
+/// Auto scans skip a folder whose name only points at platforms that aren't
+/// enabled ("Switch" today; scanned automatically once Switch is added).
+pub fn skip_dir(name: &str, is_enabled: impl Fn(&str) -> bool) -> bool {
+    let hinted = platforms_for_name(name);
+    !hinted.is_empty() && !hinted.iter().any(|p| is_enabled(p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,6 +123,15 @@ mod tests {
         assert_eq!(suggest("Gamecube - Wii"), None);
         assert_eq!(suggest("Emulator Games"), None);
         assert_eq!(suggest("Castlevania Romhacks"), None);
+        // Platforms without a built-in definition yet are still recognized.
+        assert_eq!(suggest("Switch"), Some("switch"));
+        assert_eq!(suggest("Switch firmware"), Some("switch"));
+        assert_eq!(suggest("yuzu keys"), Some("switch"));
+        assert_eq!(suggest("PS4"), Some("ps4"));
+        assert_eq!(suggest("Xbox"), Some("xbox"));
+        assert_eq!(suggest("Xbox 360"), Some("xbox360"));
+        assert_eq!(suggest("Saturn"), Some("saturn"));
+        assert_eq!(suggest("Amiibo"), Some("amiibo"));
     }
 
     #[test]
@@ -99,8 +143,24 @@ mod tests {
         assert_eq!(suggest("Mega-CD"), Some("segacd"));
         assert_eq!(suggest("Nintendo DS"), Some("nds"));
         assert_eq!(suggest("Nintendo 3DS"), Some("3ds"));
+        assert_eq!(suggest("Wii U"), Some("wiiu"));
+        assert_eq!(suggest("PlayStation Vita"), Some("vita"));
         assert_eq!(suggest("dsiware"), None);
         assert_eq!(suggest("Wiiware"), None);
+    }
+
+    #[test]
+    fn skips_only_platforms_that_are_not_enabled() {
+        let today = |p: &str| ["gc", "wii", "ps2", "ps3"].contains(&p);
+        assert!(skip_dir("Switch", today));
+        assert!(skip_dir("Xbox 360", today));
+        assert!(skip_dir("Amiibo", today));
+        assert!(!skip_dir("Gamecube - Wii", today));
+        assert!(!skip_dir("Nintendo", today), "no hint: keep walking");
+        assert!(!skip_dir("Castlevania Romhacks", today));
+        // Once Switch is added and enabled, its folders are scanned.
+        let later = |p: &str| p == "switch";
+        assert!(!skip_dir("Switch", later));
     }
 
     #[test]
