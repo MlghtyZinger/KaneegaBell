@@ -274,6 +274,88 @@ fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- manual choice
+
+/// What the picker needs to know about a game.
+pub struct ArtInfo {
+    pub launch_path: String,
+    pub search_key: String,
+    pub region: Option<String>,
+    pub libretro_system: Option<String>,
+}
+
+/// One option in the "Change cover" picker.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Candidate {
+    /// "libretro" | "local"
+    pub source: String,
+    /// libretro name, or a file path for local images.
+    pub name: String,
+    /// What `set_cover` downloads/reads.
+    pub url: String,
+    /// Direct preview URL for the picker (remote covers only).
+    pub preview: Option<String>,
+    pub label: String,
+}
+
+/// Cover options for a game: libretro matches for its title (or for `query`,
+/// when the user searches), plus the game's own icon if it has one.
+pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Option<&str>) -> Result<Vec<Candidate>> {
+    let t = queries::art_target(conn, game_id)?;
+    let mut out = Vec::new();
+    if let Some(icon) = local_icon(&t.launch_path) {
+        out.push(Candidate {
+            source: "local".into(),
+            name: icon.to_string_lossy().into_owned(),
+            url: icon.to_string_lossy().into_owned(),
+            preview: None,
+            label: "The game's own icon".into(),
+        });
+    }
+    if let Some(system) = t.libretro_system.as_deref() {
+        if let Some(index) = load_index(conn, fetch, system)? {
+            let key = match query.map(str::trim).filter(|q| !q.is_empty()) {
+                Some(q) => crate::scanner::normalize::search_key(q),
+                None => t.search_key.clone(),
+            };
+            for m in index.ranked(&key, t.region.as_deref(), 48) {
+                let url = libretro::boxart_url(system, m.name);
+                out.push(Candidate {
+                    source: "libretro".into(),
+                    name: m.name.to_string(),
+                    preview: Some(url.clone()),
+                    url,
+                    label: m.name.to_string(),
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Sets a game's cover from a picker choice or a user image file. Manual
+/// choices are kept: automatic fetching only touches games without art.
+pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, source: &str, name: &str, url: &str) -> Result<()> {
+    let bytes = match source {
+        "libretro" => fetch.get(url)?.ok_or_else(|| crate::error::Error::msg("that cover is no longer available"))?,
+        "local" | "file" => std::fs::read(url)?,
+        other => return Err(crate::error::Error::msg(format!("unknown cover source {other}"))),
+    };
+    let p = images::process(&bytes)?;
+    images::store(data_dir, game_id, &p)?;
+    queries::set_boxart(conn, game_id, source, name, url, p.width, p.height, queries::now())
+}
+
+/// Removes a game's cover and keeps it removed (the title card shows instead).
+pub fn remove(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
+    for p in [images::thumb_path(data_dir, game_id), images::full_path(data_dir, game_id)] {
+        let _ = std::fs::remove_file(p);
+    }
+    queries::reset_art(conn, game_id)?;
+    queries::set_art_status(conn, game_id, "removed", queries::now())
+}
+
 /// Forgets a game's art so the next job fetches it again ("Refresh art").
 pub fn reset(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
     for p in [images::thumb_path(data_dir, game_id), images::full_path(data_dir, game_id)] {
@@ -427,6 +509,42 @@ mod tests {
         assert_eq!((s.found, s.failed), (1, 0));
         let src: String = conn.query_row("SELECT source FROM artwork", [], |r| r.get(0)).unwrap();
         assert_eq!(src, "local");
+    }
+
+    #[test]
+    fn manual_choice_and_removal_stick() {
+        let mut conn = db_with_games(&[("Pokemon: Radical Red", r"E:\GBA\Pokemon - Radical Red.gba", "")]);
+        let id: i64 = conn.query_row("SELECT id FROM games", [], |r| r.get(0)).unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut http = FakeHttp::default();
+        http.pages.insert(
+            libretro::index_url(PS2),
+            listing(&["Pokemon - FireRed Version (USA)", "Pokemon - LeafGreen Version (USA)"]),
+        );
+        let url = libretro::boxart_url(PS2, "Pokemon - FireRed Version (USA)");
+        http.pages.insert(url.clone(), images::test_png(500, 500));
+
+        // Searching the set finds the base game for a romhack.
+        let c = candidates(&conn, &http, id, Some("pokemon firered")).unwrap();
+        assert_eq!(c[0].name, "Pokemon - FireRed Version (USA)");
+        apply_choice(&conn, data.path(), &http, id, "libretro", &c[0].name, &c[0].url).unwrap();
+        assert_eq!(status(&conn, "Pokemon: Radical Red").0, "ok");
+        // Auto-fetch leaves a chosen cover alone.
+        assert!(queries::games_needing_art(&conn, queries::now()).unwrap().is_empty());
+
+        // Removing keeps it removed (no automatic re-fetch).
+        remove(&conn, data.path(), id).unwrap();
+        assert_eq!(status(&conn, "Pokemon: Radical Red").0, "removed");
+        assert!(!images::thumb_path(data.path(), id).exists());
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!(s.found + s.not_found, 0);
+
+        // A user image file works too.
+        let file = data.path().join("mine.png");
+        std::fs::write(&file, images::test_png(300, 300)).unwrap();
+        let path = file.to_string_lossy().into_owned();
+        apply_choice(&conn, data.path(), &http, id, "file", &path, &path).unwrap();
+        assert_eq!(status(&conn, "Pokemon: Radical Red").0, "ok");
     }
 
     #[test]

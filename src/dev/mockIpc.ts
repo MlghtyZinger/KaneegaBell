@@ -68,6 +68,7 @@ function makeLibrary(n: number): Library {
       name,
       shortName,
       count: games.filter((g) => g.platformId === id).length,
+      artAspect: null,
     })),
     games,
   };

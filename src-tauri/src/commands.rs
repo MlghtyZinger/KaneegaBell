@@ -76,6 +76,8 @@ pub struct PlatformSummary {
     name: String,
     short_name: String,
     count: i64,
+    /// Typical cover height/width for this platform, if it has covers.
+    art_aspect: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -89,10 +91,17 @@ pub struct Library {
 #[tauri::command]
 pub fn get_library(state: State<'_, AppState>) -> Result<Library> {
     let conn = state.db();
+    let aspects = queries::platform_art_aspects(&conn)?;
     let platforms = queries::platforms(&conn)?
         .into_iter()
         .filter(|p| p.enabled && p.game_count > 0)
-        .map(|p| PlatformSummary { id: p.id, name: p.name, short_name: p.short_name, count: p.game_count })
+        .map(|p| PlatformSummary {
+            art_aspect: aspects.get(&p.id).copied(),
+            id: p.id,
+            name: p.name,
+            short_name: p.short_name,
+            count: p.game_count,
+        })
         .collect();
     Ok(Library { platforms, games: queries::library(&conn)? })
 }
@@ -308,6 +317,44 @@ pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
 pub fn fetch_art(app: AppHandle, state: State<'_, AppState>) -> bool {
     state.art_pending.store(true, Ordering::Release);
     kick_worker(app, &state)
+}
+
+/// Options for the "Change cover" picker; `query` searches the platform's
+/// whole cover set by name.
+#[tauri::command]
+pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>) -> Result<Vec<art::Candidate>> {
+    // May download a cover index: keep it off the UI thread and the shared DB lock.
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        art::candidates(&conn, &art::http::Http::new(), id, query.as_deref())
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// Sets a cover from the picker (`source` "libretro" / "local") or from an
+/// image file the user picked (`source` "file", `url` = path).
+#[tauri::command]
+pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, url: String) -> Result<()> {
+    let app2 = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app2.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        art::apply_choice(&conn, state.data_dir(), &art::http::Http::new(), id, &source, &name, &url)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+/// Removes a game's cover for good (shows the title card).
+#[tauri::command]
+pub fn remove_cover(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<()> {
+    art::remove(&state.db(), state.data_dir(), id)?;
+    let _ = app.emit("library-changed", ());
+    Ok(())
 }
 
 /// Forgets one game's art and fetches it again.

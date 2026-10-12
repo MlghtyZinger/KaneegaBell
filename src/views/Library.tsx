@@ -20,6 +20,17 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
 
   const games = library.visibleGames;
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
+
+  // Card shape: in a platform tab, that platform's typical cover shape (GBA
+  // square, SNES landscape, PSP tall...); mixed views use portrait cards.
+  const DEFAULT_ASPECT = 1.4;
+  const cardAspect = createMemo(() => {
+    if (library.query()) return DEFAULT_ASPECT;
+    const p = library.platforms().find((x) => x.id === library.platform());
+    return p?.artAspect ?? DEFAULT_ASPECT;
+  });
+  // Keep each cover's area roughly constant: wide covers get wider cards.
+  const minCardWidth = createMemo(() => Math.round(210 * Math.sqrt(DEFAULT_ASPECT / cardAspect())));
   const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
 
   // New tab or new search -> start at the top.
@@ -201,8 +212,8 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
             onFocus={setFocused}
             onActivate={(i) => setInfoId(games()[i].id)}
             onColumns={setCols}
-            minCardWidth={210}
-            aspect={1.4}
+            minCardWidth={minCardWidth()}
+            aspect={cardAspect()}
             gap={18}
             renderItem={(g, isFocused) => (
               <GameCard

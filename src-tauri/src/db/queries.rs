@@ -171,6 +171,46 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
+pub fn art_target(conn: &Connection, game_id: i64) -> Result<crate::art::ArtInfo> {
+    Ok(conn.query_row(
+        "SELECT g.launch_path, g.search_key, g.region, p.libretro_system
+         FROM games g JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
+        [game_id],
+        |r| {
+            Ok(crate::art::ArtInfo {
+                launch_path: r.get(0)?,
+                search_key: r.get(1)?,
+                region: r.get(2)?,
+                libretro_system: r.get(3)?,
+            })
+        },
+    )?)
+}
+
+/// Typical cover shape (height / width) per platform: the median of the
+/// covers the library actually has, so GBA boxes come out square, SNES/N64
+/// landscape and PSP tall, and PS3 (mostly wide game icons) wide, with no
+/// hard-coded table. Platforms without covers are absent.
+pub fn platform_art_aspects(conn: &Connection) -> Result<HashMap<String, f64>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.platform_id, CAST(a.height AS REAL) / a.width
+         FROM artwork a JOIN games g ON g.id = a.game_id
+         WHERE a.kind = 'boxart' AND a.selected = 1 AND g.missing = 0 AND a.width > 0 AND a.height > 0",
+    )?;
+    let mut by_platform: HashMap<String, Vec<f64>> = HashMap::new();
+    for row in stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?)))? {
+        let (p, aspect) = row?;
+        by_platform.entry(p).or_default().push(aspect);
+    }
+    Ok(by_platform
+        .into_iter()
+        .map(|(p, mut v)| {
+            v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            (p, v[v.len() / 2].clamp(0.5, 1.8))
+        })
+        .collect())
+}
+
 pub fn count_games_needing_art(conn: &Connection, now: i64) -> Result<usize> {
     Ok(games_needing_art(conn, now)?.len())
 }

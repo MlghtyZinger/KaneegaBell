@@ -136,6 +136,38 @@ impl Index {
         r
     }
 
+    /// Candidates for a manual cover choice, best first: same title (any
+    /// region), then names containing the typed words, then loose word-overlap
+    /// matches. Unlike `best`, sequel numbers aren't enforced: the user decides.
+    pub fn ranked<'s>(&'s self, search_key: &str, region: Option<&str>, limit: usize) -> Vec<Match<'s>> {
+        let tk = title_key(search_key);
+        let ck = compact_key(search_key);
+        let qw = words(search_key);
+        let mut scored: Vec<(f32, u32, usize)> = Vec::new();
+        for i in 0..self.names.len() {
+            let key = &self.parsed[i].search_key;
+            let score = if title_key(key) == tk || compact_key(key) == ck {
+                1.0
+            } else if !tk.is_empty() && (title_key(key).contains(&tk) || compact_key(key).contains(&ck)) {
+                0.9
+            } else {
+                let d = dice(&qw, &self.words[i]);
+                if d < 0.4 {
+                    continue;
+                }
+                d * 0.85
+            };
+            scored.push((score, self.rank(i, region), i));
+        }
+        scored.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.1.cmp(&b.1))
+                .then_with(|| self.names[a.2].cmp(&self.names[b.2]))
+        });
+        scored.into_iter().take(limit).map(|(s, _, i)| Match { name: &self.names[i], score: s }).collect()
+    }
+
     pub fn best<'s>(&'s self, q: &Query) -> Option<Match<'s>> {
         for n in &q.names {
             if let Some(&i) = self.exact.get(&sanitize(n)) {
@@ -209,6 +241,22 @@ mod tests {
 
     fn best(i: &Index, query: Query) -> Option<String> {
         i.best(&query).map(|m| m.name.to_string())
+    }
+
+    #[test]
+    fn ranked_lists_regions_then_related_titles() {
+        let i = index();
+        let names: Vec<&str> = i.ranked("final fantasy x", Some("Europe"), 10).iter().map(|m| m.name).collect();
+        // Same title, own region first; then titles containing it.
+        assert_eq!(names[0], "Final Fantasy X (Europe, Australia)");
+        assert!(names[..3].contains(&"Final Fantasy X (USA)"));
+        assert!(names.contains(&"Final Fantasy X-2 (USA)"));
+        assert!(names.contains(&"Final Fantasy X International (Japan)"));
+        assert!(!names.contains(&"Jak II (Europe) (En,Fr,De,Es,It)"));
+        // Typed search for a base game (e.g. to give a romhack its cover).
+        let hack = i.ranked("shadow colossus", None, 5);
+        assert_eq!(hack[0].name, "Shadow of the Colossus (USA)");
+        assert!(i.ranked("zzz qqq", None, 5).is_empty());
     }
 
     #[test]

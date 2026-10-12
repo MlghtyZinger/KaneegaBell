@@ -22,6 +22,16 @@ export interface PlatformSummary {
   name: string;
   shortName: string;
   count: number;
+  /** Typical cover height/width on this platform (from the library's covers). */
+  artAspect: number | null;
+}
+
+export interface CoverCandidate {
+  source: "libretro" | "local";
+  name: string;
+  url: string;
+  preview: string | null;
+  label: string;
 }
 
 export interface Library {
@@ -205,6 +215,11 @@ export const api = {
   cancelScan: () => invoke<void>("cancel_scan"),
   fetchArt: () => invoke<boolean>("fetch_art"),
   refreshArt: (id: number) => invoke<boolean>("refresh_art", { id }),
+  coverCandidates: (id: number, query: string | null = null) =>
+    invoke<CoverCandidate[]>("cover_candidates", { id, query }),
+  setCover: (id: number, source: "libretro" | "local" | "file", name: string, url: string) =>
+    invoke<void>("set_cover", { id, source, name, url }),
+  removeCover: (id: number) => invoke<void>("remove_cover", { id }),
 };
 
 export const events = {

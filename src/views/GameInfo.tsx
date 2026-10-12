@@ -3,6 +3,7 @@ import { api, artUrl, errorText, events } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
+import { CoverPicker } from "../components/CoverPicker";
 import { Hint } from "../components/Hints";
 
 function formatSize(bytes: number): string {
@@ -23,6 +24,7 @@ function showArg(a: string): string {
 export function GameInfo(props: { id: number; onClose: () => void }) {
   const [game, { refetch }] = createResource(() => props.id, api.getGame);
   const [refreshing, setRefreshing] = createSignal(false);
+  const [picking, setPicking] = createSignal(false);
 
   async function refreshCover() {
     setRefreshing(true);
@@ -81,12 +83,20 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 >
                   <img src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
                 </Show>
-                <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
-                  {refreshing() ? "Looking for a cover…" : "Refresh cover"}
-                </button>
+                <div class="row tight">
+                  <button class="btn small" onClick={() => setPicking(true)}>
+                    Change cover…
+                  </button>
+                  <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
+                    {refreshing() ? "Looking…" : "Refresh"}
+                  </button>
+                </div>
                 <Show when={g().artSource}>
                   <span class="dim small">
-                    Cover: {g().artSource === "libretro" ? "libretro-thumbnails" : g().artSource === "local" ? "from the game files" : g().artSource}
+                    Cover:{" "}
+                    {({ libretro: "libretro-thumbnails", local: "from the game files", file: "your image" } as Record<string, string>)[
+                      g().artSource!
+                    ] ?? g().artSource}
                   </span>
                 </Show>
               </div>
@@ -162,6 +172,19 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           </button>
         </div>
       </NavScope>
+      <Show when={picking() && game()}>
+        {(g) => (
+          <CoverPicker
+            gameId={g().id}
+            title={g().title}
+            onClose={() => setPicking(false)}
+            onChanged={() => {
+              void refetch();
+              void library.reload();
+            }}
+          />
+        )}
+      </Show>
     </div>
   );
 }

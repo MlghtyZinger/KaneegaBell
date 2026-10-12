@@ -80,6 +80,9 @@ pub fn run() {
             commands::cancel_scan,
             commands::fetch_art,
             commands::refresh_art,
+            commands::cover_candidates,
+            commands::set_cover,
+            commands::remove_cover,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
