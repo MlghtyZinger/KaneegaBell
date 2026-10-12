@@ -137,8 +137,9 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         setNewPath("");
         setNewPlatform("");
         setPlatformChosen(false);
+        await library.scan(); // pick up the new folder's games right away
       },
-      { notice: "Folder added. Run a scan to pick up its games." },
+      { notice: "Folder added. Scanning it now…" },
     );
 
   return (
@@ -227,7 +228,13 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         <button
           class="btn"
           onClick={() =>
-            props.run(() => api.addRpcs3InstalledSource(), { notice: "Added RPCS3's installed games folder." })
+            props.run(
+              async () => {
+                await api.addRpcs3InstalledSource();
+                await library.scan();
+              },
+              { notice: "Added RPCS3's installed games. Scanning them now…" },
+            )
           }
         >
           Add RPCS3 installed games (dev_hdd0)
@@ -265,7 +272,12 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
             title="Platform for this folder"
             value={props.src.platformId ?? ""}
             options={platformOptions(props.s.platforms)}
-            onChange={(v) => props.run(() => api.updateSource(props.src.id, v || null, props.src.recursive))}
+            onChange={(v) =>
+              props.run(async () => {
+                await api.updateSource(props.src.id, v || null, props.src.recursive);
+                await library.scan(); // re-place this folder's games
+              })
+            }
           />
         </Show>
       </td>
@@ -275,7 +287,13 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
             type="checkbox"
             aria-label="Include subfolders"
             checked={props.src.recursive}
-            onChange={(e) => props.run(() => api.updateSource(props.src.id, props.src.platformId, e.currentTarget.checked))}
+            onChange={(e) => {
+              const recursive = e.currentTarget.checked;
+              return props.run(async () => {
+                await api.updateSource(props.src.id, props.src.platformId, recursive);
+                await library.scan();
+              });
+            }}
           />
         </Show>
       </td>

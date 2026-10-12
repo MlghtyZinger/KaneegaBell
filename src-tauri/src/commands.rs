@@ -20,13 +20,21 @@ pub struct AppState {
     db: Mutex<Connection>,
     db_path: PathBuf,
     scanning: Arc<AtomicBool>,
+    rescan_pending: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
 }
 
 impl AppState {
     pub fn new(conn: Connection, db_path: PathBuf, input: Arc<InputShared>) -> Self {
-        Self { db: Mutex::new(conn), db_path, scanning: Arc::default(), input, launcher: Arc::default() }
+        Self {
+            db: Mutex::new(conn),
+            db_path,
+            scanning: Arc::default(),
+            rescan_pending: Arc::default(),
+            input,
+            launcher: Arc::default(),
+        }
     }
 
     pub fn db(&self) -> MutexGuard<'_, Connection> {
@@ -259,18 +267,23 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
 
 // ---------------------------------------------------------------- scanning
 
-/// Starts a background scan. Returns false if one is already running.
-/// Emits `scan-progress` while running and `scan-finished` / `scan-failed` at the end.
+/// Starts a background scan, or queues one more if a scan is already running
+/// (settings changes made mid-scan must not be missed). Returns true if a scan
+/// will run. Emits `scan-progress` while running and `scan-finished` /
+/// `scan-failed` at the end of each pass.
 #[tauri::command]
 pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
     if state.scanning.swap(true, Ordering::AcqRel) {
-        return false;
+        state.rescan_pending.store(true, Ordering::Release);
+        return true;
     }
     let flag = state.scanning.clone();
+    let pending = state.rescan_pending.clone();
     let db_path = state.db_path.clone();
     std::thread::Builder::new()
         .name("scanner".into())
-        .spawn(move || {
+        .spawn(move || loop {
+            pending.store(false, Ordering::Release);
             let result = db::open(&db_path).and_then(|mut conn| {
                 let last_emit = std::cell::Cell::new(None::<std::time::Instant>);
                 scanner::run(&mut conn, &|p| {
@@ -282,7 +295,6 @@ pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
                     }
                 })
             });
-            flag.store(false, Ordering::Release);
             match result {
                 Ok(summary) => {
                     log::info!("scan finished: {summary:?}");
@@ -291,6 +303,13 @@ pub fn start_scan(app: AppHandle, state: State<'_, AppState>) -> bool {
                 Err(e) => {
                     log::error!("scan failed: {e}");
                     let _ = app.emit("scan-failed", e.to_string());
+                }
+            }
+            if !pending.load(Ordering::Acquire) {
+                flag.store(false, Ordering::Release);
+                // A request may have slipped in between the check and the reset.
+                if !pending.load(Ordering::Acquire) || flag.swap(true, Ordering::AcqRel) {
+                    break;
                 }
             }
         })

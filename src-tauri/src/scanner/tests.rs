@@ -331,6 +331,25 @@ fn real_library_report() {
     println!("\nTOTAL {total}");
 }
 
+/// Runs a full scan against a *copy* of a real library.db and prints the
+/// summary per platform. Not run by default:
+/// `EMU_DB_COPY=C:\path\to\copy.db cargo test real_db_scan -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn real_db_scan() {
+    let path = std::env::var("EMU_DB_COPY").expect("set EMU_DB_COPY to a copy of library.db");
+    let mut conn = crate::db::open(Path::new(&path)).unwrap();
+    crate::db::migrate(&mut conn).unwrap();
+    let s = run(&mut conn, &|p| println!("progress: {} {}/{} {}", p.phase, p.done, p.total, p.source)).unwrap();
+    println!("summary: {s:#?}");
+    let mut stmt = conn
+        .prepare("SELECT source_id, platform_id, COUNT(*) FROM games WHERE missing = 0 GROUP BY 1, 2")
+        .unwrap();
+    for row in stmt.query_map([], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))).unwrap() {
+        println!("{:?}", row.unwrap());
+    }
+}
+
 // ------------------------------------------------------------ database round-trip
 
 fn db_with_source(path: &Path, platform: Option<&str>) -> Connection {
