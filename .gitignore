@@ -4,6 +4,9 @@ dist/
 src-tauri/target/
 src-tauri/gen/schemas/
 
+# Machine-local cargo config (e.g. CMAKE path for the SDL3 source build)
+.cargo/
+
 # Local config / secrets (API keys live in the OS keychain; never commit fallbacks)
 *.local.json
 *.local.toml

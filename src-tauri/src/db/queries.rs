@@ -1,0 +1,497 @@
+//! All SQL lives here. Row structs serialize straight to the frontend (camelCase).
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use rusqlite::{named_params, params, Connection, OptionalExtension, Transaction};
+use serde::{Deserialize, Serialize};
+
+use crate::error::{Error, Result};
+use crate::scanner::{path_key, Candidate, Known, PlatformRule, SourceSpec};
+
+pub fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
+// ---------------------------------------------------------------- library
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameRow {
+    pub id: i64,
+    pub platform_id: String,
+    pub title: String,
+    pub variant: Option<String>,
+    pub region: Option<String>,
+    pub favorite: bool,
+    pub play_seconds: i64,
+    pub last_played: Option<i64>,
+    pub is_multidisc: bool,
+}
+
+/// Every present game, ordered by platform display order then title. This is
+/// the one payload the UI needs at startup; ~100 bytes/game.
+pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT g.id, g.platform_id, g.title, g.variant, g.region, g.favorite, g.play_seconds,
+                g.last_played, g.is_multidisc
+         FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1
+         ORDER BY p.sort_order, g.sort_title, g.id",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(GameRow {
+            id: r.get(0)?,
+            platform_id: r.get(1)?,
+            title: r.get(2)?,
+            variant: r.get(3)?,
+            region: r.get(4)?,
+            favorite: r.get(5)?,
+            play_seconds: r.get(6)?,
+            last_played: r.get(7)?,
+            is_multidisc: r.get(8)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn count_games(conn: &Connection) -> Result<usize> {
+    Ok(conn.query_row("SELECT COUNT(*) FROM games WHERE missing = 0", [], |r| r.get::<_, i64>(0))? as usize)
+}
+
+pub fn set_favorite(conn: &Connection, game_id: i64, favorite: bool) -> Result<()> {
+    conn.execute("UPDATE games SET favorite = ?2 WHERE id = ?1", params![game_id, favorite])?;
+    Ok(())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameDetail {
+    pub id: i64,
+    pub platform_id: String,
+    pub title: String,
+    pub variant: Option<String>,
+    pub region: Option<String>,
+    pub serial: Option<String>,
+    pub launch_path: String,
+    pub total_size: i64,
+    pub is_multidisc: bool,
+    pub play_seconds: i64,
+    pub last_played: Option<i64>,
+    pub files: Vec<(String, Option<u32>)>,
+}
+
+pub fn game_detail(conn: &Connection, id: i64) -> Result<GameDetail> {
+    let mut d = conn.query_row(
+        "SELECT id, platform_id, title, variant, region, serial, launch_path, total_size, is_multidisc,
+                play_seconds, last_played
+         FROM games WHERE id = ?1",
+        [id],
+        |r| {
+            Ok(GameDetail {
+                id: r.get(0)?,
+                platform_id: r.get(1)?,
+                title: r.get(2)?,
+                variant: r.get(3)?,
+                region: r.get(4)?,
+                serial: r.get(5)?,
+                launch_path: r.get(6)?,
+                total_size: r.get(7)?,
+                is_multidisc: r.get(8)?,
+                play_seconds: r.get(9)?,
+                last_played: r.get(10)?,
+                files: Vec::new(),
+            })
+        },
+    )?;
+    let mut stmt = conn.prepare_cached("SELECT path, disc_no FROM game_files WHERE game_id = ?1 ORDER BY disc_no, path")?;
+    d.files = stmt.query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?;
+    Ok(d)
+}
+
+pub fn start_session(conn: &Connection, game_id: i64, now: i64) -> Result<()> {
+    conn.execute("UPDATE games SET running_since = ?2 WHERE id = ?1", params![game_id, now])?;
+    Ok(())
+}
+
+/// Adds a finished session's duration and stamps last-played with the end time.
+pub fn end_session(conn: &Connection, game_id: i64, seconds: i64, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE games SET play_seconds = play_seconds + ?2, last_played = ?3, running_since = NULL WHERE id = ?1",
+        params![game_id, seconds.max(0), now],
+    )?;
+    Ok(())
+}
+
+/// A session that never recorded its end (app crash/power loss): keep the
+/// last-played time but don't guess the duration.
+pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "UPDATE games SET last_played = running_since, running_since = NULL WHERE running_since IS NOT NULL",
+        [],
+    )?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------- scanning
+
+pub fn platform_rules(conn: &Connection) -> Result<Vec<PlatformRule>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, COALESCE(extensions_override, extensions) FROM platforms WHERE enabled = 1 ORDER BY sort_order",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    let mut out = Vec::new();
+    for row in rows {
+        let (id, exts) = row?;
+        out.push(PlatformRule { id, extensions: serde_json::from_str(&exts)? });
+    }
+    Ok(out)
+}
+
+pub fn sources(conn: &Connection) -> Result<Vec<SourceSpec>> {
+    let mut stmt = conn.prepare("SELECT id, path, platform_id, recursive, kind FROM rom_sources ORDER BY id")?;
+    let rows = stmt.query_map([], |r| {
+        Ok(SourceSpec {
+            id: r.get(0)?,
+            path: PathBuf::from(r.get::<_, String>(1)?),
+            platform_id: r.get(2)?,
+            recursive: r.get(3)?,
+            kind: r.get(4)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn known_games(conn: &Connection) -> Result<HashMap<String, Known>> {
+    let mut stmt = conn.prepare("SELECT launch_path, platform_id, serial, total_size, mtime FROM games")?;
+    let rows = stmt.query_map([], |r| {
+        let path: String = r.get(0)?;
+        Ok((
+            path_key(std::path::Path::new(&path)),
+            Known { platform: r.get(1)?, serial: r.get(2)?, size: r.get::<_, i64>(3)? as u64, mtime: r.get(4)? },
+        ))
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// Writes one source's scan results. Returns (added, updated, newly missing).
+pub fn apply_scan(
+    tx: &Transaction,
+    source_id: i64,
+    candidates: &[Candidate],
+    known: &HashMap<String, Known>,
+) -> Result<(usize, usize, usize)> {
+    tx.execute_batch("CREATE TEMP TABLE IF NOT EXISTS scan_seen (id INTEGER PRIMARY KEY); DELETE FROM scan_seen;")?;
+    let mut upsert = tx.prepare_cached(
+        "INSERT INTO games (platform_id, title, variant, sort_title, search_key, region, serial, launch_path,
+                            source_id, total_size, mtime, is_multidisc, missing, added_at)
+         VALUES (:platform, :title, :variant, :sort, :search, :region, :serial, :path,
+                 :source, :size, :mtime, :multi, 0, :now)
+         ON CONFLICT(launch_path) DO UPDATE SET
+             platform_id = excluded.platform_id, title = excluded.title, variant = excluded.variant,
+             sort_title = excluded.sort_title, search_key = excluded.search_key, region = excluded.region,
+             serial = excluded.serial, source_id = excluded.source_id, total_size = excluded.total_size,
+             mtime = excluded.mtime, is_multidisc = excluded.is_multidisc, missing = 0
+         RETURNING id",
+    )?;
+    let mut seen = tx.prepare_cached("INSERT OR IGNORE INTO scan_seen (id) VALUES (?1)")?;
+    let mut clear_files = tx.prepare_cached("DELETE FROM game_files WHERE game_id = ?1")?;
+    let mut add_file = tx.prepare_cached(
+        "INSERT OR REPLACE INTO game_files (game_id, path, disc_no, size, mtime) VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?;
+
+    let now = now();
+    let (mut added, mut updated) = (0, 0);
+    for c in candidates {
+        match known.get(&path_key(&c.launch_path)) {
+            None => added += 1,
+            Some(k) if k.size != c.total_size || k.mtime != c.mtime || k.platform != c.platform => updated += 1,
+            Some(_) => {}
+        }
+        let id: i64 = upsert.query_row(
+            named_params! {
+                ":platform": c.platform,
+                ":title": c.name.title,
+                ":variant": c.name.variant,
+                ":sort": c.name.sort_title,
+                ":search": c.name.search_key,
+                ":region": c.name.region,
+                ":serial": c.serial,
+                ":path": c.launch_path.to_string_lossy(),
+                ":source": source_id,
+                ":size": c.total_size as i64,
+                ":mtime": c.mtime,
+                ":multi": c.is_multidisc,
+                ":now": now,
+            },
+            |r| r.get(0),
+        )?;
+        seen.execute([id])?;
+        clear_files.execute([id])?;
+        for f in &c.files {
+            add_file.execute(params![id, f.path.to_string_lossy(), f.disc, f.size as i64, f.mtime])?;
+        }
+    }
+    let missing = tx.execute(
+        "UPDATE games SET missing = 1
+         WHERE source_id = ?1 AND missing = 0 AND id NOT IN (SELECT id FROM scan_seen)",
+        [source_id],
+    )?;
+    Ok((added, updated, missing))
+}
+
+// ---------------------------------------------------------------- settings
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmulatorRow {
+    pub id: String,
+    pub name: String,
+    pub exe_path: Option<String>,
+    pub exe_exists: bool,
+    pub default_template: String,
+    pub template_override: Option<String>,
+    pub supports_m3u: bool,
+}
+
+pub fn emulators(conn: &Connection) -> Result<Vec<EmulatorRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, exe_path, default_template, template_override, supports_m3u FROM emulators ORDER BY name",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        let exe_path: Option<String> = r.get(2)?;
+        Ok(EmulatorRow {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            exe_exists: exe_path.as_deref().is_some_and(|p| std::path::Path::new(p).is_file()),
+            exe_path,
+            default_template: r.get(3)?,
+            template_override: r.get(4)?,
+            supports_m3u: r.get(5)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn emulator_exe(conn: &Connection, id: &str) -> Result<Option<String>> {
+    Ok(conn
+        .query_row("SELECT exe_path FROM emulators WHERE id = ?1", [id], |r| r.get(0))
+        .optional()?
+        .flatten())
+}
+
+fn empty_to_none(s: Option<String>) -> Option<String> {
+    s.map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+pub fn update_emulator(conn: &Connection, id: &str, exe_path: Option<String>, template_override: Option<String>) -> Result<()> {
+    let n = conn.execute(
+        "UPDATE emulators SET exe_path = ?2, template_override = ?3 WHERE id = ?1",
+        params![id, empty_to_none(exe_path), empty_to_none(template_override)],
+    )?;
+    if n == 0 {
+        return Err(Error::msg(format!("unknown emulator {id}")));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformRow {
+    pub id: String,
+    pub name: String,
+    pub short_name: String,
+    pub emulator_id: String,
+    pub default_core: Option<String>,
+    pub core_override: Option<String>,
+    pub template_override: Option<String>,
+    pub default_extensions: Vec<String>,
+    pub extensions_override: Option<Vec<String>>,
+    pub enabled: bool,
+    pub game_count: i64,
+}
+
+pub fn platforms(conn: &Connection) -> Result<Vec<PlatformRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.short_name, p.emulator_id, p.default_core, p.core_override, p.template_override,
+                p.extensions, p.extensions_override, p.enabled,
+                (SELECT COUNT(*) FROM games g WHERE g.platform_id = p.id AND g.missing = 0)
+         FROM platforms p ORDER BY p.sort_order",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            PlatformRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                short_name: r.get(2)?,
+                emulator_id: r.get(3)?,
+                default_core: r.get(4)?,
+                core_override: r.get(5)?,
+                template_override: r.get(6)?,
+                default_extensions: Vec::new(),
+                extensions_override: None,
+                enabled: r.get(9)?,
+                game_count: r.get(10)?,
+            },
+            r.get::<_, String>(7)?,
+            r.get::<_, Option<String>>(8)?,
+        ))
+    })?;
+    let mut out = Vec::new();
+    for row in rows {
+        let (mut p, exts, over) = row?;
+        p.default_extensions = serde_json::from_str(&exts)?;
+        p.extensions_override = over.map(|o| serde_json::from_str(&o)).transpose()?;
+        out.push(p);
+    }
+    Ok(out)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformUpdate {
+    pub id: String,
+    pub core_override: Option<String>,
+    pub template_override: Option<String>,
+    pub extensions_override: Option<Vec<String>>,
+    pub enabled: bool,
+}
+
+pub fn update_platform(conn: &Connection, u: PlatformUpdate) -> Result<()> {
+    let exts = u
+        .extensions_override
+        .map(|v| {
+            let v: Vec<String> = v
+                .into_iter()
+                .map(|e| e.trim().trim_start_matches('.').to_ascii_lowercase())
+                .filter(|e| !e.is_empty())
+                .collect();
+            serde_json::to_string(&v)
+        })
+        .transpose()?;
+    let n = conn.execute(
+        "UPDATE platforms SET core_override = ?2, template_override = ?3, extensions_override = ?4, enabled = ?5
+         WHERE id = ?1",
+        params![u.id, empty_to_none(u.core_override), empty_to_none(u.template_override), exts, u.enabled],
+    )?;
+    if n == 0 {
+        return Err(Error::msg(format!("unknown platform {}", u.id)));
+    }
+    Ok(())
+}
+
+/// Everything needed to render a launch for a platform.
+pub struct LaunchConfig {
+    pub emulator_id: String,
+    pub emulator_name: String,
+    pub exe_path: Option<String>,
+    pub template: String,
+    pub core: Option<String>,
+    pub supports_m3u: bool,
+}
+
+pub fn launch_config(conn: &Connection, platform_id: &str) -> Result<LaunchConfig> {
+    Ok(conn.query_row(
+        "SELECT e.id, e.name, e.exe_path,
+                COALESCE(p.template_override, e.template_override, e.default_template),
+                COALESCE(p.core_override, p.default_core), e.supports_m3u
+         FROM platforms p JOIN emulators e ON e.id = p.emulator_id WHERE p.id = ?1",
+        [platform_id],
+        |r| {
+            Ok(LaunchConfig {
+                emulator_id: r.get(0)?,
+                emulator_name: r.get(1)?,
+                exe_path: r.get(2)?,
+                template: r.get(3)?,
+                core: r.get(4)?,
+                supports_m3u: r.get(5)?,
+            })
+        },
+    )?)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceRow {
+    pub id: i64,
+    pub path: String,
+    pub platform_id: Option<String>,
+    pub recursive: bool,
+    pub kind: String,
+    pub exists: bool,
+}
+
+pub fn source_rows(conn: &Connection) -> Result<Vec<SourceRow>> {
+    Ok(sources(conn)?
+        .into_iter()
+        .map(|s| SourceRow {
+            exists: s.path.is_dir(),
+            id: s.id,
+            path: s.path.to_string_lossy().into_owned(),
+            platform_id: s.platform_id,
+            recursive: s.recursive,
+            kind: s.kind,
+        })
+        .collect())
+}
+
+pub fn add_source(conn: &Connection, path: &str, platform_id: Option<&str>, kind: &str) -> Result<i64> {
+    conn.execute(
+        "INSERT INTO rom_sources (path, platform_id, kind) VALUES (?1, ?2, ?3)",
+        params![path, platform_id, kind],
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::SqliteFailure(f, _) if f.code == rusqlite::ErrorCode::ConstraintViolation => {
+            Error::msg("that folder is already a source")
+        }
+        e => e.into(),
+    })?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn update_source(conn: &Connection, id: i64, platform_id: Option<&str>, recursive: bool) -> Result<()> {
+    conn.execute(
+        "UPDATE rom_sources SET platform_id = ?2, recursive = ?3 WHERE id = ?1",
+        params![id, platform_id, recursive],
+    )?;
+    Ok(())
+}
+
+/// Removing a source hides its games but keeps their rows (play time,
+/// favorites, matched metadata) in case the folder is added back.
+pub fn remove_source(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET missing = 1 WHERE source_id = ?1", [id])?;
+    conn.execute("DELETE FROM rom_sources WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+pub fn get_setting<T: serde::de::DeserializeOwned>(conn: &Connection, key: &str) -> Result<Option<T>> {
+    let raw: Option<String> =
+        conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| r.get(0)).optional()?;
+    raw.map(|v| serde_json::from_str(&v).map_err(Error::from)).transpose()
+}
+
+pub fn set_setting(conn: &Connection, key: &str, value: &serde_json::Value) -> Result<()> {
+    if value.is_null() {
+        conn.execute("DELETE FROM settings WHERE key = ?1", [key])?;
+    } else {
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value.to_string()],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn all_settings(conn: &Connection) -> Result<serde_json::Map<String, serde_json::Value>> {
+    let mut stmt = conn.prepare("SELECT key, value FROM settings")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+    let mut map = serde_json::Map::new();
+    for row in rows {
+        let (k, v) = row?;
+        map.insert(k, serde_json::from_str(&v)?);
+    }
+    Ok(map)
+}
