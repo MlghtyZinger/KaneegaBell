@@ -46,7 +46,8 @@ if (git status --porcelain) { Fail "commit or stash your changes first (the rele
 if (git tag --list "v$Version") { Fail "tag v$Version already exists" }
 $current = (& node -e "console.log(require('./src-tauri/tauri.conf.json').version)").Trim()
 $newer = (& node --input-type=module -e "import { compareVersions } from './tools/release/set-version.mjs'; console.log(compareVersions('$Version', '$current') > 0)").Trim()
-if ($newer -ne "true") { Fail "v$Version isn't newer than the current $current" }
+# The current version may be released once (its first release), else it must be newer.
+if ($newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer than the current $current" }
 
 $out = Join-Path $root "release\v$Version"
 New-Item -ItemType Directory -Force $out | Out-Null
@@ -88,7 +89,9 @@ Run node @("tools\release\latest-json.mjs", $Version, (Join-Path $out $installer
 
 Step "Commit and tag"
 Run git @("add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "package.json", "package-lock.json")
-Run git @("commit", "-q", "-m", "Release v$Version")
+# Releasing the current version as-is leaves nothing to commit; the tag marks it.
+git diff --cached --quiet
+if ($LASTEXITCODE -ne 0) { Run git @("commit", "-q", "-m", "Release v$Version") }
 Run git @("tag", "-a", "v$Version", "-m", "KaneegaBell $Version")
 
 $files = @((Join-Path $out $installerName), (Join-Path $out "$installerName.sig"), (Join-Path $out "latest.json"))
