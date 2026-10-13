@@ -265,6 +265,11 @@ pub fn remove_source(state: State<'_, AppState>, id: i64) -> Result<Vec<queries:
 }
 
 #[tauri::command]
+pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<serde_json::Value>> {
+    queries::get_setting(&state.db(), &key)
+}
+
+#[tauri::command]
 pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::Value) -> Result<()> {
     let value = match (key.as_str(), value) {
         ("retroarchCoresDir", serde_json::Value::String(s)) if !s.trim().is_empty() => {

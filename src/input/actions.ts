@@ -15,7 +15,9 @@ export type Action =
   | "prevLetter"
   | "nextLetter"
   | "favorite"
-  | "menu";
+  | "menu"
+  | "zoomIn"
+  | "zoomOut";
 
 const KEYMAP: Record<string, Action> = {
   ArrowUp: "up",
@@ -34,6 +36,9 @@ const KEYMAP: Record<string, Action> = {
   End: "nextLetter",
   f: "favorite",
   F1: "menu",
+  "+": "zoomIn",
+  "=": "zoomIn",
+  "-": "zoomOut",
 };
 
 export type Device = "pointer" | "keyboard" | "gamepad";
@@ -85,6 +90,12 @@ export function setKeyInterceptor(f: ((e: KeyboardEvent) => boolean) | null) {
 
 export function installKeyboard(): () => void {
   const onKey = (e: KeyboardEvent) => {
+    // Ctrl +/- zoom the card grid (like a browser zooms a page).
+    if (e.ctrlKey && !e.altKey && !e.metaKey && !isTextField(e.target)) {
+      const zoom = ({ "+": "zoomIn", "=": "zoomIn", "-": "zoomOut" } as Record<string, Action>)[e.key];
+      if (zoom && dispatch(zoom)) e.preventDefault();
+      return;
+    }
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     setDevice("keyboard");
     if (keyInterceptor?.(e)) {

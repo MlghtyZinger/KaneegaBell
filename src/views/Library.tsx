@@ -35,7 +35,14 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
     if (library.query()) return DEFAULT_ASPECT;
     return platformAspect().get(library.platform()) ?? DEFAULT_ASPECT;
   });
-  const minCardWidth = createMemo(() => Math.round(210 * Math.sqrt(DEFAULT_ASPECT / tabAspect())));
+  const minCardWidth = createMemo(() => Math.round(library.cardSize() * Math.sqrt(DEFAULT_ASPECT / tabAspect())));
+
+  // Ctrl + mouse wheel zooms the cards (plain wheel scrolls).
+  const onWheel = (e: WheelEvent) => {
+    if (!e.ctrlKey || e.deltaY === 0) return;
+    e.preventDefault();
+    library.zoom(e.deltaY < 0 ? 1 : -1);
+  };
   const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
 
   // New tab or new search -> start at the top.
@@ -118,6 +125,8 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
         }
         return false;
       case "menu": props.onOpenSettings(); return true;
+      case "zoomIn": library.zoom(1); return true;
+      case "zoomOut": library.zoom(-1); return true;
       default: return false;
     }
   };
@@ -210,7 +219,7 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           </div>
         }
       >
-        <div class="grid-wrap">
+        <div class="grid-wrap" onWheel={onWheel}>
           <VirtualGrid
             items={games()}
             focused={focused()}
@@ -236,6 +245,20 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
+          <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
+          <input
+            class="zoom-slider"
+            type="range"
+            aria-label="Card size"
+            min={library.CARD_MIN}
+            max={library.CARD_MAX}
+            step={5}
+            value={library.cardSize()}
+            onInput={(e) => library.setCardSize(Number(e.currentTarget.value))}
+            // Give the arrow keys back to the grid once the drag ends.
+            onPointerUp={(e) => e.currentTarget.blur()}
+            tabIndex={-1}
+          />
           <span class="hint-count">
             {focused() + 1} / {games().length}
           </span>

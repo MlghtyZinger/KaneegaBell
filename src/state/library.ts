@@ -44,6 +44,25 @@ function createLibraryStore() {
   /** What the last scan (or folder removal) changed; `seq` lets the toast tell reports apart. */
   const [report, setReport] = createSignal<{ title: string; changes: GameChange[]; seq: number } | null>(null);
   let reportSeq = 0;
+
+  // Card size (the grid's smallest card width, px): zoomed with the right
+  // stick, +/-, Ctrl+wheel or the slider; saved so it sticks across restarts.
+  const CARD_MIN = 120;
+  const CARD_MAX = 480;
+  const [cardSize, setCardSizeRaw] = createSignal(210);
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  function setCardSize(px: number) {
+    const v = Math.round(Math.min(CARD_MAX, Math.max(CARD_MIN, px)));
+    if (v === cardSize()) return;
+    setCardSizeRaw(v);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => void api.setSetting("cardSize", v).catch(() => {}), 500);
+  }
+  const zoom = (dir: 1 | -1) => setCardSize(cardSize() * (dir > 0 ? 1.15 : 1 / 1.15));
+  void api
+    .getSetting<number>("cardSize")
+    .then((v) => typeof v === "number" && setCardSizeRaw(Math.min(CARD_MAX, Math.max(CARD_MIN, v))))
+    .catch(() => {});
   const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
   // Computed once per library load, not per keystroke.
@@ -163,6 +182,11 @@ function createLibraryStore() {
     fetchArt,
     report,
     removeSource,
+    cardSize,
+    setCardSize,
+    zoom,
+    CARD_MIN,
+    CARD_MAX,
   };
 }
 

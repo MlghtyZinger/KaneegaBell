@@ -23,6 +23,9 @@ pub enum Action {
     NextLetter,
     Favorite,
     Menu,
+    /// Right stick up / down: bigger / smaller cards.
+    ZoomIn,
+    ZoomOut,
 }
 
 impl Action {
@@ -41,6 +44,8 @@ impl Action {
             Action::NextLetter => "nextLetter",
             Action::Favorite => "favorite",
             Action::Menu => "menu",
+            Action::ZoomIn => "zoomIn",
+            Action::ZoomOut => "zoomOut",
         }
     }
 

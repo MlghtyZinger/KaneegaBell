@@ -76,6 +76,7 @@ pub fn run() {
             commands::add_rpcs3_installed_source,
             commands::update_source,
             commands::remove_source,
+            commands::get_setting,
             commands::set_setting,
             commands::start_scan,
             commands::cancel_scan,

@@ -254,8 +254,14 @@
 }
 
 .hint-count {
-  margin-left: auto;
   font-variant-numeric: tabular-nums;
+}
+
+.zoom-slider {
+  margin-left: auto;
+  width: 160px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 kbd {

@@ -223,6 +223,7 @@ export const api = {
   suggestPlatform: (path: string) => invoke<string | null>("suggest_platform", { path }),
   listDir: (path: string | null, extensions: string[] = []) =>
     invoke<DirListing>("list_dir", { path, extensions }),
+  getSetting: <T,>(key: string) => invoke<T | null>("get_setting", { key }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
   startScan: () => invoke<boolean>("start_scan"),
   cancelScan: () => invoke<void>("cancel_scan"),
