@@ -87,6 +87,25 @@ export interface Services {
   sgdb: boolean;
 }
 
+export interface AppInfo {
+  version: string;
+  /** Running from a build folder: no automatic update checks. */
+  devBuild: boolean;
+}
+
+export interface UpdateInfo {
+  version: string;
+  currentVersion: string;
+  /** Changelog. */
+  notes: string | null;
+  date: string | null;
+}
+
+export interface UpdateProgress {
+  downloaded: number;
+  total: number | null;
+}
+
 export interface SgdbProgress {
   done: number;
   total: number;
@@ -404,6 +423,11 @@ export const api = {
   setRaKeys: (user: string, key: string) => invoke<string>("set_ra_keys", { user, key }),
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
+  appInfo: () => invoke<AppInfo>("app_info"),
+  /** Looks for a newer KB release; null when up to date. */
+  checkForUpdate: () => invoke<UpdateInfo | null>("check_for_update"),
+  /** Downloads and installs the update found by the last check (KB restarts). */
+  installUpdate: () => invoke<void>("install_update"),
   /** A one-time message from startup (e.g. the library was moved), or null. */
   getStartupNotice: () => invoke<string | null>("get_startup_notice"),
   /** Opens a page on a known site (Backloggd, RetroAchievements...) in the default browser. */
@@ -431,6 +455,10 @@ export const events = {
     listen<MetaSummary>("meta-finished", (e) => cb(e.payload)),
   onMetaFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
     listen<string>("meta-failed", (e) => cb(e.payload)),
+  onUpdateAvailable: (cb: (u: UpdateInfo) => void): Promise<UnlistenFn> =>
+    listen<UpdateInfo>("update-available", (e) => cb(e.payload)),
+  onUpdateProgress: (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
+    listen<UpdateProgress>("update-progress", (e) => cb(e.payload)),
   onSgdbProgress: (cb: (p: SgdbProgress) => void): Promise<UnlistenFn> =>
     listen<SgdbProgress>("sgdb-progress", (e) => cb(e.payload)),
   onSgdbFinished: (cb: (s: SgdbSummary) => void): Promise<UnlistenFn> =>

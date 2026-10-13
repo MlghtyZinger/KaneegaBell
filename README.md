@@ -56,6 +56,44 @@ with data in `%APPDATA%\com.sultanmatoo.emufrontend`: on first start KaneegaBell
 folder, checks the copy (integrity check, same number of games), switches to it, and leaves the
 old folder untouched; keys saved under `EmuFrontend:*` are picked up and copied the same way.
 
+## Installing (for players) and updates
+
+Download `KaneegaBell_<version>_x64-setup.exe` from the
+[latest release](https://github.com/SultanAlshehhi100/KaneegaBell/releases/latest) and run it:
+
+- No administrator rights needed: it installs for your Windows user (under `%LOCALAPPDATA%`),
+  adds a Start menu entry and an uninstaller (Settings → Apps). If the PC somehow lacks
+  Microsoft's WebView2 runtime, the installer fetches it.
+- The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your
+  PC" the first time: choose **More info → Run anyway**.
+- Your library, settings and keys are kept in your own profile and are never touched by updates
+  or included in releases. Get emulators only from their official sites.
+
+**Updates:** KaneegaBell checks GitHub once, ~10 s after it starts (Settings → General can turn
+this off, or "Check now"). When there's a new version it shows the changelog with **Update now /
+Later / Skip this version**. Updating never happens while a game is running; KB downloads the
+installer, verifies its signature against the key built into the app (anything not signed by
+the project's key is refused), closes, installs and starts again by itself. Copies run from a
+build folder (`target\...`) don't check automatically.
+
+## Making a release (maintainer)
+
+One-time: the updater signing key in `%USERPROFILE%\.tauri\kaneegabell.key` (made with
+`tauri signer generate`), backed up with its password. Its public half is in
+`src-tauri/tauri.conf.json` → `plugins.updater.pubkey`. **If the key or password is lost,
+installed copies can never update again.** Never commit it (`*.key` is git-ignored).
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools/release/release.ps1 -Version 0.3.0 -Notes "What changed" -Publish
+```
+
+It checks the work tree is clean, sets the version in every file, runs the tests, builds the
+installer signed with the key (asking for the password; nothing is stored), writes
+`latest.json`, commits "Release v0.3.0" and tags it. With `-Publish` it asks for confirmation,
+pushes, and creates the GitHub release with the installer, its `.sig` and `latest.json` (using
+GitHub's `gh` tool when it's installed and signed in; otherwise it prints what to upload). Leave
+"Set as the latest release" on: the app reads `releases/latest/download/latest.json`. Day-to-day
+builds (`npm run tauri build -- --no-bundle`) don't need the key.
 ## First run
 
 1. **Settings → Emulators → "Find emulators in a folder…"** and pick the folder that holds your
@@ -335,3 +373,5 @@ Built in milestones. See `CLAUDE.md` for the full spec.
       your browser (Backloggd's pages use IGDB slugs, stored with the IGDB match; without a match
       it opens a Backloggd search for the title). Backloggd has no public API (checked Oct 2026)
       and scraping is out, so syncing your backlog/played status waits for an official API.
+- [x] i. Renamed to KaneegaBell (data and saved keys migrated automatically)
+- [x] j. Installer (per-user NSIS) and signed auto-updates from GitHub Releases

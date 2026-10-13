@@ -10,6 +10,8 @@ import { SettingsView } from "./views/Settings";
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
 import { ScanToast } from "./components/ScanToast";
+import { UpdateDialog } from "./components/UpdateDialog";
+import { updates } from "./state/updates";
 import "./styles/app.css";
 
 type View = "library" | "settings";
@@ -81,6 +83,7 @@ export default function App() {
   // webview whose window is shown later. TV-mode fullscreen is applied in Rust.
   onMount(() => {
     library.listenForScans();
+    updates.listen();
     session.listen();
     // Controller actions from the Rust gamepad thread go through the same
     // dispatcher as the keyboard.
@@ -117,6 +120,7 @@ export default function App() {
           </button>
         </div>
       </Show>
+      <UpdateDialog />
       <OskHost />
       {/* Settings shows the full report itself. */}
       <ScanToast hidden={view() === "settings"} />

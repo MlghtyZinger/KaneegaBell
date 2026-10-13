@@ -861,6 +861,19 @@ pub fn get_startup_notice() -> Option<String> {
     crate::startup_notice()
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    version: String,
+    /// Running from a build folder (no automatic update checks).
+    dev_build: bool,
+}
+
+#[tauri::command]
+pub fn app_info(app: AppHandle) -> AppInfo {
+    AppInfo { version: app.package_info().version.to_string(), dev_build: crate::updates::is_dev_build() }
+}
+
 // ---------------------------------------------------------------- web links
 
 /// Sites the UI may open in the browser (game pages on Backloggd and

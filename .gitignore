@@ -28,3 +28,7 @@ perf-lib/
 *.log
 Thumbs.db
 .DS_Store
+
+# Release builds (tools/release/release.ps1) and signing keys
+/release/
+*.key

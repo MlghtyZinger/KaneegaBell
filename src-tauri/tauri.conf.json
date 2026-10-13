@@ -26,9 +26,20 @@
       "csp": "default-src 'self'; img-src 'self' thumb: http://thumb.localhost https://thumbnails.libretro.com https://art.gametdb.com https://images.igdb.com https://*.steamgriddb.com data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MkQyQThEOUYzNjhDNTEKUldSUmpEYWZqU290ZWNSajJVMGxpV0pnQTJXbHFDbjJyQXJIV0xSOVBwSDUwWitPbStuclZhcDYK",
+      "endpoints": ["https://github.com/SultanAlshehhi100/KaneegaBell/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper" },
+      "nsis": { "installMode": "currentUser" }
+    },
     "publisher": "KaneegaBell",
     "copyright": "© 2026 KaneegaBell",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]

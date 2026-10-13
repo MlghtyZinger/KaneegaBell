@@ -2,6 +2,7 @@ import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
+import { updates } from "../state/updates";
 import { buttonLabel, COMBO_BUTTONS, session } from "../state/session";
 import { NavScope } from "../components/NavScope";
 import { Picker } from "../components/Picker";
@@ -1052,6 +1053,57 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         (L3), <kbd>F10</kbd> or the TV Mode button. It shows each game's background and logo when SteamGridDB is set up
         (above), and a blurred cover otherwise.
       </p>
+
+      <UpdatesBlock s={props.s} run={props.run} />
     </section>
+  );
+}
+
+function UpdatesBlock(props: { s: Settings; run: Run }) {
+  const [info] = createResource(() => api.appInfo().catch(() => null));
+  const [checking, setChecking] = createSignal(false);
+  const [result, setResult] = createSignal<string | null>(null);
+
+  async function checkNow() {
+    setChecking(true);
+    setResult(null);
+    try {
+      // When there is one, the update dialog opens by itself.
+      if (!(await updates.checkNow())) setResult("You have the latest version.");
+    } catch (e) {
+      setResult(errorText(e));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <>
+      <h2>Updates</h2>
+      <p>
+        KaneegaBell <span class="mono">{info()?.version ?? ""}</span>
+      </p>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={props.s.values.autoUpdateCheck !== false}
+          onChange={(e) => props.run(() => api.setSetting("autoUpdateCheck", e.currentTarget.checked))}
+        />
+        Check for updates when KaneegaBell starts
+      </label>
+      <div class="row">
+        <button class="btn" disabled={checking()} onClick={() => void checkNow()}>
+          {checking() ? "Checking…" : "Check now"}
+        </button>
+        <Show when={result()}>
+          <span class="dim">{result()}</span>
+        </Show>
+      </div>
+      <p class="dim small">
+        Updates come from KaneegaBell's GitHub releases and are only installed when you choose to, never while a game
+        is running. Each one is signed, and KB refuses any download that isn't.
+        {info()?.devBuild ? " This copy runs from a build folder, so it doesn't check by itself; use Check now." : ""}
+      </p>
+    </>
   );
 }

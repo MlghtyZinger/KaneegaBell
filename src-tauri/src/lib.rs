@@ -13,6 +13,7 @@ mod perf;
 mod platforms;
 mod scanner;
 mod secrets;
+mod updates;
 
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -76,6 +77,8 @@ pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("kaneegabell_lib=info")).init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updates::Pending::default())
         // Cached artwork, read from disk off the UI thread.
         .register_asynchronous_uri_scheme_protocol("thumb", |_ctx, request, responder| {
             // Set in setup, which runs before the page loads.
@@ -104,6 +107,7 @@ pub fn run() {
             input.app_focused.store(true, Ordering::Release);
             app.manage(commands::AppState::new(conn, db_path, input.clone()));
             commands::resume_art_on_startup(app.handle().clone());
+            updates::check_on_startup(app.handle().clone());
 
             let handle = app.handle().clone();
             input::gamepad::spawn(
@@ -164,6 +168,9 @@ pub fn run() {
             commands::fetch_extras,
             commands::open_url,
             commands::get_startup_notice,
+            commands::app_info,
+            updates::check_for_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

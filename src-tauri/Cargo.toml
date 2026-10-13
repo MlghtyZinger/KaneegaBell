@@ -20,6 +20,8 @@ sdl3 = { version = "0.20", features = ["build-from-source-static"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tauri = { version = "2", features = [] }
+# In-app updates (signed installers from GitHub Releases).
+tauri-plugin-updater = "2.13.3"
 thiserror = "2.0.21"
 ureq = "3.4.2"
 webp = { version = "0.3.1", default-features = false }
