@@ -940,6 +940,50 @@ kbd.ps-favorite { color: #4fe0c0; }
   gap: 10px;
 }
 
+/* "Links" under the cover: one row per site, full width of the column. */
+.info-links {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.info-links-label {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.link-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.link-btn span {
+  color: var(--text-faint);
+}
+
 .info-art img,
 .info-art-empty {
   width: 100%;

@@ -148,8 +148,9 @@ export function installMockIpc() {
                 genres: [genre.name],
                 igdbId: 1000 + g.id,
                 matchStatus: "ok",
+                slug: g.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
               }
-            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound" },
+            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null },
         };
       }
       case "get_services": {

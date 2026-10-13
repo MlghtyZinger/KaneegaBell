@@ -17,7 +17,7 @@ function rarityText(a: Achievement): string {
  * The game's RetroAchievements: progress and the full list, unlocked ones in
  * color. Renders nothing for consoles RA doesn't cover or when RA isn't set up.
  */
-export function Achievements(props: { gameId: number }) {
+export function Achievements(props: { gameId: number; /** The game's RetroAchievements id when known (for a link). */ onRaGame?: (id: number | null) => void }) {
   const [data, setData] = createSignal<GameAchievements | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
@@ -25,7 +25,9 @@ export function Achievements(props: { gameId: number }) {
   async function load(refresh: boolean) {
     setLoading(true);
     try {
-      setData(await api.getAchievements(props.gameId, refresh));
+      const d = await api.getAchievements(props.gameId, refresh);
+      setData(d);
+      props.onRaGame?.(d.raGameId ?? null);
       setError(null);
     } catch (e) {
       setError(errorText(e));
@@ -62,17 +64,7 @@ export function Achievements(props: { gameId: number }) {
               {loading() ? "Checking…" : "Refresh"}
             </button>
           </Show>
-          <Show when={data()?.raGameId}>
-            {(id) => (
-              <button
-                class="btn small"
-                title="Opens in your browser"
-                onClick={() => void api.openUrl(`https://retroachievements.org/game/${id()}`).catch(() => {})}
-              >
-                RetroAchievements ↗
-              </button>
-            )}
-          </Show>
+
         </div>
         <Show when={error()}>
           <p class="warn">Couldn't load achievements: {error()}</p>
@@ -104,7 +96,7 @@ export function Achievements(props: { gameId: number }) {
             <Show when={data()!.accepted.some((d) => d.patched)}>
               <p class="dim small">
                 "RA patch" versions are a regular dump with a patch from RetroAchievements applied (fixes or
-                translations); the patch is listed on the game's RetroAchievements page (button above).
+                translations); the patch is listed on the game's RetroAchievements page (Links, under the cover).
               </p>
             </Show>
           </Show>

@@ -37,6 +37,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [picking, setPicking] = createSignal<PictureKind | null>(null);
   const [matching, setMatching] = createSignal(false);
   const [services] = createResource(() => api.getServices().catch(() => null));
+  // The game's RetroAchievements id, once the achievements section knows it.
+  const [raGameId, setRaGameId] = createSignal<number | null>(null);
+  const open = (url: string) => void api.openUrl(url).catch(() => {});
 
   async function refreshCover() {
     setRefreshing(true);
@@ -121,6 +124,31 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     ] ?? g().artSource}
                   </span>
                 </Show>
+                {/* Pages about the game on other sites (open in the browser). */}
+                <div class="info-links">
+                  <span class="info-links-label">Links</span>
+                  <button
+                    class="link-btn"
+                    title="Opens in your browser"
+                    onClick={() => open(backloggdUrl(g().meta.title ?? g().title, g().meta.slug))}
+                  >
+                    {g().meta.slug ? "Backloggd" : "Find on Backloggd"} <span aria-hidden="true">↗</span>
+                  </button>
+                  <Show when={g().meta.slug}>
+                    {(slug) => (
+                      <button class="link-btn" title="Opens in your browser" onClick={() => open(`https://www.igdb.com/games/${encodeURIComponent(slug())}`)}>
+                        IGDB <span aria-hidden="true">↗</span>
+                      </button>
+                    )}
+                  </Show>
+                  <Show when={raGameId()}>
+                    {(id) => (
+                      <button class="link-btn" title="Opens in your browser" onClick={() => open(`https://retroachievements.org/game/${id()}`)}>
+                        RetroAchievements <span aria-hidden="true">↗</span>
+                      </button>
+                    )}
+                  </Show>
+                </div>
               </div>
               <div class="info-main">
               <h2>{g().title}</h2>
@@ -154,15 +182,6 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={g().meta.description}>
                 <p class="description">{g().meta.description}</p>
               </Show>
-              <div class="row tight">
-                <button
-                  class="btn small"
-                  title="Opens in your browser"
-                  onClick={() => void api.openUrl(backloggdUrl(g().meta.title ?? g().title, g().meta.slug)).catch(() => {})}
-                >
-                  {g().meta.slug ? "Backloggd ↗" : "Find on Backloggd ↗"}
-                </button>
-              </div>
               <Show when={services()?.igdb}>
                 <div class="row tight">
                   <button class="btn small" onClick={() => setMatching(true)}>
@@ -177,7 +196,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   </span>
                 </div>
               </Show>
-              <Achievements gameId={g().id} />
+              <Achievements gameId={g().id} onRaGame={setRaGameId} />
               <dl class="facts">
                 <dt>Platform</dt>
                 <dd>{g().platformId.toUpperCase()}</dd>
