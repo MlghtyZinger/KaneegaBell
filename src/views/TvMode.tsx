@@ -322,9 +322,12 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
                         }}
                         onClick={() => (i === focused() ? setInfoId(g()!.id) : setFocused(i))}
                       >
-                        <Show when={g()!.art > 0} fallback={<span class="tv-card-title">{g()!.title}</span>}>
-                          <img src={artUrl(g()!.id, g()!.art)} alt="" loading="lazy" decoding="async" draggable={false} />
-                        </Show>
+                        {/* The zoom lives on the inner face: scaling the outer card would scale its translate too. */}
+                        <div class="tv-card-face">
+                          <Show when={g()!.art > 0} fallback={<span class="tv-card-title">{g()!.title}</span>}>
+                            <img src={artUrl(g()!.id, g()!.art)} alt="" loading="lazy" decoding="async" draggable={false} />
+                          </Show>
+                        </div>
                       </div>
                     </Show>
                   );

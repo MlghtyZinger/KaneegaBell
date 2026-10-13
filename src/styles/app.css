@@ -1525,27 +1525,36 @@ kbd.ps-favorite { color: #4fe0c0; }
   to { opacity: 1; translate: 0 0; }
 }
 
+/* The card is only positioned (translate); its face carries the look and the zoom. */
 .tv-card {
   position: absolute;
   left: 0;
   bottom: 0;
+  cursor: pointer;
+}
+
+.tv-card.focused {
+  z-index: 2;
+}
+
+.tv-card-face {
+  width: 100%;
+  height: 100%;
   border-radius: 10px;
   overflow: hidden;
   background: hsl(220 15% 18%);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
   transform-origin: center bottom;
   transition:
-    scale 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.25s,
     box-shadow 0.25s;
   opacity: 0.72;
-  cursor: pointer;
 }
 
-.tv-card.focused {
-  scale: 1.14;
+.tv-card.focused .tv-card-face {
+  transform: scale(1.14);
   opacity: 1;
-  z-index: 2;
   box-shadow:
     0 0 0 4px var(--focus),
     0 18px 50px rgb(0 0 0 / 0.7);
@@ -1623,7 +1632,7 @@ html.nav-mode .tv-menu-item:focus {
 @media (prefers-reduced-motion: reduce) {
   .tv-bg-layer img,
   .tv-track,
-  .tv-card,
+  .tv-card-face,
   .tv-info-inner > * {
     animation: none;
     transition: none;
