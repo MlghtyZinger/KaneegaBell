@@ -1,4 +1,4 @@
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
@@ -9,11 +9,12 @@ import { FileBrowser } from "../components/FileBrowser";
 import { Hint } from "../components/Hints";
 import { ScanReport, summarizeChanges } from "../components/ScanReport";
 
-type Section = "library" | "emulators" | "platforms" | "general";
+type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
   ["library", "Library"],
   ["emulators", "Emulators"],
   ["platforms", "Platforms"],
+  ["services", "Game info"],
   ["general", "General"],
 ];
 
@@ -90,6 +91,9 @@ export function SettingsView(props: { onClose: () => void }) {
               </Show>
               <Show when={section() === "platforms"}>
                 <PlatformsSection s={s()} run={run} />
+              </Show>
+              <Show when={section() === "services"}>
+                <ServicesSection s={s()} run={run} />
               </Show>
               <Show when={section() === "general"}>
                 <GeneralSection s={s()} run={run} />
@@ -603,6 +607,145 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
 }
 
 // ------------------------------------------------------------------ general
+
+// ------------------------------------------------------------------ services
+
+function ServicesSection(props: { s: Settings; run: Run }) {
+  const [services, { refetch }] = createResource(() => api.getServices());
+  const [clientId, setClientId] = createSignal("");
+  const [secret, setSecret] = createSignal("");
+
+  const save = () =>
+    props.run(
+      async () => {
+        await api.setIgdbKeys(clientId(), secret());
+        setClientId("");
+        setSecret("");
+        await refetch();
+      },
+      { notice: "Connected to IGDB. Looking up your games now…" },
+    );
+  const remove = () =>
+    props.run(async () => {
+      await api.removeIgdbKeys();
+      await refetch();
+    });
+
+  return (
+    <section class="card-section">
+      <h2>IGDB (optional)</h2>
+      <p class="dim">
+        Adds descriptions, release dates, developers, publishers and genres (with a genre filter in the library).
+        Covers work without it. IGDB is free for personal use, but each person needs their own key from Twitch.
+        Your keys stay on this PC, in Windows Credential Manager.
+      </p>
+      <Show when={services()}>
+        {(sv) => (
+          <Show
+            when={sv().igdb}
+            fallback={
+              <>
+                <ol class="steps">
+                  <li>
+                    Sign in at <span class="mono">dev.twitch.tv/console</span> with a free Twitch account (Twitch asks
+                    you to turn on two-factor authentication first).
+                  </li>
+                  <li>
+                    Choose <b>Register Your Application</b>: any name, OAuth Redirect URL{" "}
+                    <span class="mono">http://localhost</span>, category <b>Application Integration</b>, client type{" "}
+                    <b>Confidential</b>.
+                  </li>
+                  <li>
+                    Open the app you created: copy the <b>Client ID</b>, then press <b>New Secret</b> and copy the{" "}
+                    <b>Client Secret</b>.
+                  </li>
+                  <li>Paste both here and press Save.</li>
+                </ol>
+                <div class="form-grid">
+                  <label for="igdb-id">Client ID</label>
+                  <input
+                    id="igdb-id"
+                    class="input mono"
+                    autocomplete="off"
+                    spellcheck={false}
+                    value={clientId()}
+                    onInput={(e) => setClientId(e.currentTarget.value)}
+                  />
+                  <label for="igdb-secret">Client Secret</label>
+                  <input
+                    id="igdb-secret"
+                    class="input mono"
+                    type="password"
+                    autocomplete="off"
+                    value={secret()}
+                    onInput={(e) => setSecret(e.currentTarget.value)}
+                  />
+                </div>
+                <div class="row">
+                  <button class="btn primary" disabled={!clientId().trim() || !secret().trim()} onClick={() => void save()}>
+                    Save and connect
+                  </button>
+                </div>
+              </>
+            }
+          >
+            <p>
+              <span class="ok-text">Connected</span>{" "}
+              <span class="dim">(Client ID {sv().igdbClientId})</span>
+            </p>
+            <div class="row">
+              <Show
+                when={library.metaProgress()}
+                fallback={
+                  <button class="btn" disabled={!!library.scanProgress()} onClick={() => void api.fetchMetadata()}>
+                    Look up missing info
+                  </button>
+                }
+              >
+                {(p) => (
+                  <>
+                    <button class="btn" onClick={() => void api.cancelScan()}>
+                      Stop
+                    </button>
+                    <span class="dim">
+                      Looking up games: {p().done} / {p().total} · {p().matched} found
+                    </span>
+                  </>
+                )}
+              </Show>
+              <Show when={!library.metaProgress() && library.lastMeta()}>
+                {(m) => (
+                  <span class="dim">
+                    Last run: {m().matched} found · {m().notFound} not found
+                    {m().failed > 0 ? ` · ${m().failed} failed (retried next time)` : ""}
+                  </span>
+                )}
+              </Show>
+              <button class="btn danger" onClick={() => void remove()}>
+                Remove keys
+              </button>
+            </div>
+            <Show when={library.metaError()}>
+              <p class="warn">{library.metaError()}</p>
+            </Show>
+            <label class="check">
+              <input
+                type="checkbox"
+                checked={props.s.values.autoMeta !== false}
+                onChange={(e) => props.run(() => api.setSetting("autoMeta", e.currentTarget.checked))}
+              />
+              Look up new games automatically after each scan
+            </label>
+            <p class="dim small">
+              Wrong game? Open it and use <b>Fix match…</b> to pick the right one. Games IGDB doesn't know are tried
+              again weekly. Info from IGDB.com, used under the Twitch Developer Services Agreement.
+            </p>
+          </Show>
+        )}
+      </Show>
+    </section>
+  );
+}
 
 function GeneralSection(props: { s: Settings; run: Run }) {
   const combo = (): ExitCombo =>

@@ -17,6 +17,8 @@ export interface GameRow {
   art: number;
   /** The cover's height / width (its card takes this shape). */
   artAspect: number | null;
+  /** Genre ids (from IGDB); absent when none. */
+  genres?: number[];
 }
 
 export interface PlatformSummary {
@@ -36,9 +38,58 @@ export interface CoverCandidate {
   label: string;
 }
 
+export interface Genre {
+  id: number;
+  name: string;
+}
+
 export interface Library {
   platforms: PlatformSummary[];
   games: GameRow[];
+  /** Genres some game has (from IGDB); empty without an IGDB key. */
+  genres: Genre[];
+}
+
+/** Details from IGDB (all null until matched). */
+export interface GameMetadata {
+  title: string | null;
+  description: string | null;
+  /** Unix seconds. */
+  releaseDate: number | null;
+  developer: string | null;
+  publisher: string | null;
+  genres: string[];
+  igdbId: number | null;
+  matchStatus: "none" | "ok" | "manual" | "notfound" | "error";
+}
+
+/** One result in the "Fix match" search. */
+export interface IgdbCandidate {
+  igdbId: number;
+  name: string;
+  year: number | null;
+  cover: string | null;
+  onPlatform: boolean;
+  summary: string | null;
+}
+
+export interface Services {
+  igdb: boolean;
+  igdbClientId: string | null;
+}
+
+export interface MetaProgress {
+  done: number;
+  total: number;
+  matched: number;
+}
+
+export interface MetaSummary {
+  matched: number;
+  notFound: number;
+  failed: number;
+  cancelled: boolean;
+  durationMs: number;
 }
 
 export interface GameDetail {
@@ -56,6 +107,7 @@ export interface GameDetail {
   art: number;
   artSource: "libretro" | "gametdb" | "local" | "file" | null;
   files: [string, number | null][];
+  meta: GameMetadata;
 }
 
 export interface ArtProgress {
@@ -234,6 +286,13 @@ export const api = {
   setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string) =>
     invoke<void>("set_cover", { id, source, name, url }),
   removeCover: (id: number) => invoke<void>("remove_cover", { id }),
+
+  getServices: () => invoke<Services>("get_services"),
+  setIgdbKeys: (clientId: string, clientSecret: string) => invoke<void>("set_igdb_keys", { clientId, clientSecret }),
+  removeIgdbKeys: () => invoke<void>("remove_igdb_keys"),
+  fetchMetadata: () => invoke<boolean>("fetch_metadata"),
+  igdbSearch: (id: number, query: string | null = null) => invoke<IgdbCandidate[]>("igdb_search", { id, query }),
+  setIgdbMatch: (id: number, igdbId: number) => invoke<void>("set_igdb_match", { id, igdbId }),
 };
 
 export const events = {
@@ -249,6 +308,12 @@ export const events = {
     listen<ArtSummary>("art-finished", (e) => cb(e.payload)),
   onArtFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
     listen<string>("art-failed", (e) => cb(e.payload)),
+  onMetaProgress: (cb: (p: MetaProgress) => void): Promise<UnlistenFn> =>
+    listen<MetaProgress>("meta-progress", (e) => cb(e.payload)),
+  onMetaFinished: (cb: (s: MetaSummary) => void): Promise<UnlistenFn> =>
+    listen<MetaSummary>("meta-finished", (e) => cb(e.payload)),
+  onMetaFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
+    listen<string>("meta-failed", (e) => cb(e.payload)),
   /** Data changed in the background (e.g. covers arriving): reload the library. */
   onLibraryChanged: (cb: () => void): Promise<UnlistenFn> => listen("library-changed", () => cb()),
   onGameStarted: (cb: (g: RunningGame) => void): Promise<UnlistenFn> =>

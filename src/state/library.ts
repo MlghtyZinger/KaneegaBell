@@ -6,6 +6,9 @@ import {
   type ArtSummary,
   type GameChange,
   type GameRow,
+  type Genre,
+  type MetaProgress,
+  type MetaSummary,
   type PlatformSummary,
   type ScanProgress,
   type ScanSummary,
@@ -41,6 +44,9 @@ function createLibraryStore() {
   const [scanError, setScanError] = createSignal<string | null>(null);
   const [artProgress, setArtProgress] = createSignal<ArtProgress | null>(null);
   const [lastArt, setLastArt] = createSignal<ArtSummary | null>(null);
+  const [metaProgress, setMetaProgress] = createSignal<MetaProgress | null>(null);
+  const [lastMeta, setLastMeta] = createSignal<MetaSummary | null>(null);
+  const [metaError, setMetaError] = createSignal<string | null>(null);
   /** What the last scan (or folder removal) changed; `seq` lets the toast tell reports apart. */
   const [report, setReport] = createSignal<{ title: string; changes: GameChange[]; seq: number } | null>(null);
   let reportSeq = 0;
@@ -86,8 +92,12 @@ function createLibraryStore() {
       .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0)),
   );
 
+  /** Genres (from IGDB) and the active genre filter (applies on top of the tab or search). */
+  const [genres, setGenres] = createSignal<Genre[]>([]);
+  const [genre, setGenre] = createSignal<number | null>(null);
+
   // Rows arrive pre-sorted (platform order, then title), so filters keep order.
-  const visibleGames = createMemo(() => {
+  const tabOrSearch = createMemo(() => {
     const words = searchKey(query()).split(" ").filter(Boolean);
     if (words.length > 0) {
       const all = games();
@@ -101,6 +111,17 @@ function createLibraryStore() {
     if (p === "recent") return recent();
     return games().filter((g) => g.platformId === p);
   });
+  const visibleGames = createMemo(() => {
+    const id = genre();
+    const list = tabOrSearch();
+    return id === null ? list : list.filter((g) => g.genres?.includes(id));
+  });
+  /** How many games in the current tab/search have each genre (for the picker). */
+  const genreCounts = createMemo(() => {
+    const counts = new Map<number, number>();
+    for (const g of tabOrSearch()) for (const id of g.genres ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
+    return counts;
+  });
 
   const platformTabs = createMemo<PlatformFilter[]>(() => [
     "all",
@@ -113,6 +134,8 @@ function createLibraryStore() {
     const lib = await api.getLibrary();
     setPlatforms(lib.platforms);
     setGames(lib.games);
+    setGenres(lib.genres ?? []);
+    if (genre() !== null && !lib.genres?.some((x) => x.id === genre())) setGenre(null);
     // Keep the current tab if it still exists.
     if (!platformTabs().includes(platform())) setPlatform("all");
     setLoaded(true);
@@ -153,6 +176,17 @@ function createLibraryStore() {
       void reload();
     });
     void events.onArtFailed(() => setArtProgress(null));
+    void events.onMetaProgress((p) => setMetaProgress(p.done >= p.total ? null : p));
+    void events.onMetaFinished((s) => {
+      setMetaProgress(null);
+      setMetaError(null);
+      setLastMeta(s);
+      void reload();
+    });
+    void events.onMetaFailed((msg) => {
+      setMetaProgress(null);
+      setMetaError(msg);
+    });
     void events.onLibraryChanged(() => void reload());
   }
 
@@ -200,6 +234,13 @@ function createLibraryStore() {
     CARD_MAX,
     stacked,
     setStacked,
+    genres,
+    genre,
+    setGenre,
+    genreCounts,
+    metaProgress,
+    lastMeta,
+    metaError,
   };
 }
 

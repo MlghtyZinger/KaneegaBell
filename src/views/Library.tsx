@@ -5,6 +5,7 @@ import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
 import { Hint } from "../components/Hints";
+import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
 import { api, type GameRow } from "../api";
 
@@ -16,6 +17,15 @@ function initial(title: string): string {
 export function LibraryView(props: { onOpenSettings: () => void }) {
   const { focused, setFocused } = library;
   const [infoId, setInfoId] = createSignal<number | null>(null);
+  const [genreOpen, setGenreOpen] = createSignal(false);
+  const genreOptions = createMemo(() => [
+    { value: "", label: "All genres" },
+    ...library
+      .genres()
+      .filter((g) => library.genreCounts().has(g.id) || g.id === library.genre())
+      .map((g) => ({ value: String(g.id), label: `${g.name} (${library.genreCounts().get(g.id) ?? 0})` })),
+  ]);
+  const genreName = () => library.genres().find((g) => g.id === library.genre())?.name;
   // The grid knows where cards are (rows or stacked columns): D-pad moves ask it.
   let navigate: Navigator | undefined;
 
@@ -46,8 +56,8 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
   };
   const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
 
-  // New tab or new search -> start at the top.
-  createEffect(on([library.platform, library.query], () => setFocused(0), { defer: true }));
+  // New tab, search or genre -> start at the top.
+  createEffect(on([library.platform, library.query, library.genre], () => setFocused(0), { defer: true }));
   // Clamp when the list shrinks (rescan).
   createEffect(() => {
     const n = games().length;
@@ -110,6 +120,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
         move(a);
         return true;
       case "toggleLayout": library.setStacked(!library.stacked()); return true;
+      case "filter":
+        if (library.genres().length > 0) setGenreOpen(true);
+        return true;
       case "prevPlatform": library.cyclePlatform(-1); return true;
       case "nextPlatform": library.cyclePlatform(1); return true;
       case "prevLetter": jumpLetter(-1); return true;
@@ -124,6 +137,10 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
       case "back":
         if (library.query()) {
           library.setQuery("");
+          return true;
+        }
+        if (library.genre() !== null) {
+          library.setGenre(null);
           return true;
         }
         return false;
@@ -185,6 +202,25 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
               </span>
             )}
           </Show>
+          <Show when={!library.scanProgress() && !library.artProgress() && library.metaProgress()}>
+            {(p) => (
+              <span class="scan-pill">
+                Game info {p().done}/{p().total}
+              </span>
+            )}
+          </Show>
+          <Show when={library.genres().length > 0}>
+            <Picker
+              class={`genre-picker${library.genre() !== null ? " active" : ""}`}
+              title="Show genre"
+              value={library.genre() === null ? "" : String(library.genre())}
+              options={genreOptions()}
+              onChange={(v) => library.setGenre(v === "" ? null : Number(v))}
+              open={genreOpen()}
+              onOpenChange={setGenreOpen}
+              label={genreName() ? `Genre: ${genreName()}` : "Genre"}
+            />
+          </Show>
           <button class="btn ghost" onClick={openSearch}>
             Search
           </button>
@@ -212,10 +248,13 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
                 }
               >
                 <h2>No matches</h2>
-                <p>Nothing matches “{library.query()}”.</p>
+                <p>
+                  {library.query() ? `Nothing matches “${library.query()}”` : "No games here"}
+                  {genreName() ? ` in ${genreName()}` : ""}.
+                </p>
                 <div class="hints-row">
                   <Hint action="secondary" label="Search again" />
-                  <Hint action="back" label="Clear search" />
+                  <Hint action="back" label={library.query() ? "Clear search" : "All genres"} />
                 </div>
               </Show>
             </Show>
@@ -246,6 +285,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint action="select" label="Details" />
           <Hint action="secondary" label="Search" />
           <Hint action="favorite" label="Favorite" />
+          <Show when={library.genres().length > 0}>
+            <Hint action="filter" label="Genre" />
+          </Show>
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />

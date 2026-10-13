@@ -85,6 +85,7 @@ fullscreen.
 | Settings | Options | Menu | F1 |
 | Bigger / smaller cards | right stick up / down | right stick up / down | `+` / `-`, Ctrl + wheel |
 | Rows / stacked grid | R3 | RS (click) | V |
+| Genre filter (with IGDB) | Share | View | G |
 | **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
 The exit combo is configurable in Settings → General. Every screen works with a controller
@@ -143,9 +144,26 @@ Everything works without accounts or API keys:
   search of the whole cover set, or an image file). Your choice is never overwritten.
 - Each card takes its cover's shape (a SNES box is a wide card, a GBA box a square one), and a
   platform tab sizes its grid for that platform's usual cover shape.
-- Optional upgrades with your own free keys (milestone d2/d3): IGDB for descriptions, genres and
-  release info; SteamGridDB for alternative covers, backgrounds and logos. MobyGames isn't used:
-  its API now requires a paid subscription.
+- **Game info from IGDB (optional, free key):** descriptions, release dates, developer,
+  publisher and genres, plus a genre filter in the library (Share / View / `G`). Set it up in
+  Settings → Game info:
+  1. Sign in at [dev.twitch.tv/console](https://dev.twitch.tv/console) with a free Twitch account
+     (Twitch requires two-factor authentication).
+  2. **Register Your Application**: any name, OAuth Redirect URL `http://localhost`, category
+     *Application Integration*, client type **Confidential**.
+  3. Open the app, copy the **Client ID**, press **New Secret** and copy the **Client Secret**.
+  4. Paste both in Settings → Game info and press **Save and connect** (the keys are checked with
+     Twitch before they're saved).
+
+  The keys are stored in Windows Credential Manager (`EmuFrontend:*` entries), never in the
+  database or the repo. Lookups run in the background after covers: games are searched by title
+  on their platform (10 per request, at most 4 requests/second, IGDB's limit) and matched with
+  the same title rules as covers; matched IGDB ids are stored, so later refreshes are direct
+  lookups and details work offline. A wrong match can be fixed from the game's details
+  (**Fix match…**); your pick is never replaced. IGDB is free for non-commercial use under the
+  Twitch Developer Services Agreement.
+- SteamGridDB (alternative covers, backgrounds and logos with your own free key) is planned.
+  MobyGames isn't used: its API now requires a paid subscription.
 
 ## Scanning rules
 

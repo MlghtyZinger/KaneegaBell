@@ -35,6 +35,8 @@ function rng(seed: number) {
   };
 }
 
+const GENRES = ["Adventure", "Platform", "Role-playing (RPG)", "Shooter", "Strategy", "Racing", "Fighting"];
+
 // Typical cover shapes (height / width), for ?art=1 layout tests.
 const ASPECTS: Record<string, number> = {
   snes: 0.72, n64: 0.73, gba: 1, gc: 1.4, nds: 0.9, wii: 1.4, "3ds": 0.88,
@@ -65,6 +67,7 @@ function makeLibrary(n: number): Library {
       // No images exist in the mock: cards fall back to text, but keep the cover's shape.
       art: withArt ? 1 : 0,
       artAspect: withArt ? ASPECTS[platformId] : null,
+      genres: r() < 0.7 ? [1 + Math.floor(r() * GENRES.length)] : undefined,
     });
   }
   const order = new Map(PLATFORMS.map(([id], i) => [id as string, i]));
@@ -82,6 +85,7 @@ function makeLibrary(n: number): Library {
       artAspect: null,
     })),
     games,
+    genres: GENRES.map((name, i) => ({ id: i + 1, name })),
   };
 }
 
@@ -126,8 +130,35 @@ export function installMockIpc() {
         return settings;
       case "get_game": {
         const g = lib.games.find((x) => x.id === (args as { id: number }).id)!;
-        return { ...g, serial: null, launchPath: `E:\\Games\\${g.title}.iso`, totalSize: 1.4e9, files: [] };
+        const genre = lib.genres.find((x) => g.genres?.includes(x.id));
+        return {
+          ...g,
+          serial: null,
+          launchPath: `E:\\Games\\${g.title}.iso`,
+          totalSize: 1.4e9,
+          files: [],
+          artSource: null,
+          meta: genre
+            ? {
+                title: g.title,
+                description: `${g.title} is a made-up game for layout work.\nIt has a second paragraph, too.`,
+                releaseDate: 1_158_019_200,
+                developer: "Mock Studio",
+                publisher: "Mock Publishing",
+                genres: [genre.name],
+                igdbId: 1000 + g.id,
+                matchStatus: "ok",
+              }
+            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound" },
+        };
       }
+      case "get_services":
+        return { igdb: new URLSearchParams(location.search).get("igdb") === "1", igdbClientId: "abc123…" };
+      case "igdb_search":
+        return [
+          { igdbId: 1, name: "Okami", year: 2006, cover: null, onPlatform: true, summary: "Play as Amaterasu, the sun goddess, in wolf form." },
+          { igdbId: 2, name: "Okami HD", year: 2012, cover: null, onPlatform: false, summary: "A remaster." },
+        ];
       case "preview_launch":
         return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
       case "list_dir": {

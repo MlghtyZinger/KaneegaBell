@@ -1,15 +1,24 @@
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
-import { api, artUrl, errorText, events } from "../api";
+import { api, artUrl, errorText, events, type GameDetail } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
 import { CoverPicker } from "../components/CoverPicker";
+import { MatchPicker } from "../components/MatchPicker";
 import { Hint } from "../components/Hints";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
   if (bytes >= 1 << 20) return `${(bytes / (1 << 20)).toFixed(0)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+/** "2006 · Clover Studio · Capcom": release year, developer, publisher (when known). */
+function metaLine(g: GameDetail): string {
+  const m = g.meta;
+  const year = m.releaseDate ? new Date(m.releaseDate * 1000).getUTCFullYear() : null;
+  const pub = m.publisher && m.publisher !== m.developer ? m.publisher : null;
+  return [year, m.developer, pub].filter(Boolean).join(" · ");
 }
 
 /** Quote an argv element the way a Windows command line would show it. */
@@ -25,6 +34,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [game, { refetch }] = createResource(() => props.id, api.getGame);
   const [refreshing, setRefreshing] = createSignal(false);
   const [picking, setPicking] = createSignal(false);
+  const [matching, setMatching] = createSignal(false);
+  const [services] = createResource(() => api.getServices().catch(() => null));
 
   async function refreshCover() {
     setRefreshing(true);
@@ -105,6 +116,14 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={g().variant}>
                 <p class="dim">{g().variant}</p>
               </Show>
+              <Show when={metaLine(g())}>
+                <p class="meta-line">{metaLine(g())}</p>
+              </Show>
+              <Show when={g().meta.genres.length > 0}>
+                <div class="genre-row">
+                  <For each={g().meta.genres}>{(name) => <span class="badge">{name}</span>}</For>
+                </div>
+              </Show>
               <div class="row">
                 <button class="btn primary big" data-autofocus disabled={launching()} onClick={() => void play()}>
                   {launching() ? "Starting…" : "▶ Play"}
@@ -120,6 +139,23 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               </div>
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
+              </Show>
+              <Show when={g().meta.description}>
+                <p class="description">{g().meta.description}</p>
+              </Show>
+              <Show when={services()?.igdb}>
+                <div class="row tight">
+                  <button class="btn small" onClick={() => setMatching(true)}>
+                    Fix match…
+                  </button>
+                  <span class="dim small">
+                    {g().meta.igdbId
+                      ? `IGDB: ${g().meta.title ?? "matched"}${g().meta.matchStatus === "manual" ? " (your pick)" : ""}`
+                      : g().meta.matchStatus === "notfound"
+                        ? "Not found on IGDB"
+                        : "Not looked up on IGDB yet"}
+                  </span>
+                </div>
               </Show>
               <dl class="facts">
                 <dt>Platform</dt>
@@ -172,6 +208,19 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           </button>
         </div>
       </NavScope>
+      <Show when={matching() && game()}>
+        {(g) => (
+          <MatchPicker
+            gameId={g().id}
+            title={g().title}
+            onClose={() => setMatching(false)}
+            onChanged={() => {
+              void refetch();
+              void library.reload();
+            }}
+          />
+        )}
+      </Show>
       <Show when={picking() && game()}>
         {(g) => (
           <CoverPicker

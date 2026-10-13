@@ -17,9 +17,16 @@ export function Picker<T extends string>(props: {
   onChange: (v: T) => void;
   title?: string;
   class?: string;
+  /** Optional outside control of the list (e.g. opened by a controller button). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Button text instead of the current option's label. */
+  label?: string;
 }) {
-  const [open, setOpen] = createSignal(false);
-  const current = () => props.options.find((o) => o.value === props.value)?.label ?? props.value;
+  const [openLocal, setOpenLocal] = createSignal(false);
+  const open = () => props.open ?? openLocal();
+  const setOpen = (v: boolean) => (props.onOpenChange ? props.onOpenChange(v) : setOpenLocal(v));
+  const current = () => props.label ?? props.options.find((o) => o.value === props.value)?.label ?? props.value;
 
   const choose = (v: T) => {
     setOpen(false);

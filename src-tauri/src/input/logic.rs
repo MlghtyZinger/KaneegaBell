@@ -28,6 +28,8 @@ pub enum Action {
     ZoomOut,
     /// Right stick click: rows / stacked grid.
     ToggleLayout,
+    /// Select / Share / View: the genre filter.
+    Filter,
 }
 
 impl Action {
@@ -49,6 +51,7 @@ impl Action {
             Action::ZoomIn => "zoomIn",
             Action::ZoomOut => "zoomOut",
             Action::ToggleLayout => "toggleLayout",
+            Action::Filter => "filter",
         }
     }
 
