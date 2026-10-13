@@ -423,6 +423,78 @@ pub fn genres(conn: &Connection) -> Result<(Vec<(i64, String)>, HashMap<i64, Vec
     Ok((names, by_game))
 }
 
+// ---------------------------------------------------------------- RetroAchievements
+
+/// Games on the given RA consoles that aren't hashed yet, or are hashed but
+/// not looked up.
+pub fn games_needing_ra(
+    conn: &Connection,
+    consoles: &std::collections::HashSet<u32>,
+) -> Result<Vec<crate::achievements::Target>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, p.ra_console_id, g.launch_path, g.ra_hash
+         FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1 AND p.ra_console_id IS NOT NULL
+           AND (g.ra_hash IS NULL OR (g.ra_hash != '' AND g.ra_game_id IS NULL))
+         ORDER BY p.sort_order, g.sort_title",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(crate::achievements::Target {
+            id: r.get(0)?,
+            console: r.get(1)?,
+            launch_path: PathBuf::from(r.get::<_, String>(2)?),
+            hash: r.get(3)?,
+        })
+    })?;
+    let mut out = Vec::new();
+    for t in rows {
+        let t = t?;
+        if consoles.contains(&t.console) {
+            out.push(t);
+        }
+    }
+    Ok(out)
+}
+
+/// "RA doesn't know this hash" goes back to "not looked up" for consoles
+/// whose hash list was last fetched before `stale_before`, so the next pass
+/// fetches a fresh list and tries again.
+pub fn reopen_ra_unknown(conn: &Connection, stale_before: i64) -> Result<usize> {
+    Ok(conn.execute(
+        "UPDATE games SET ra_game_id = NULL
+         WHERE ra_game_id = 0 AND platform_id IN (
+             SELECT p.id FROM platforms p
+             WHERE COALESCE((SELECT fetched_at FROM api_cache WHERE key = 'ra:hashes:' || p.ra_console_id), 0) < ?1)",
+        [stale_before],
+    )?)
+}
+
+pub fn set_ra_hash(conn: &Connection, game_id: i64, hash: &str) -> Result<()> {
+    conn.execute("UPDATE games SET ra_hash = ?2, ra_game_id = NULL WHERE id = ?1", params![game_id, hash])?;
+    Ok(())
+}
+
+pub fn set_ra_game(conn: &Connection, game_id: i64, ra_game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET ra_game_id = ?2 WHERE id = ?1", params![game_id, ra_game_id])?;
+    Ok(())
+}
+
+/// (RA console, launch path, ra_hash, ra_game_id) for one game.
+pub fn ra_state(conn: &Connection, game_id: i64) -> Result<(Option<u32>, String, Option<String>, Option<i64>)> {
+    Ok(conn.query_row(
+        "SELECT p.ra_console_id, g.launch_path, g.ra_hash, g.ra_game_id
+         FROM games g JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
+        [game_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?)
+}
+
+/// Present games on RA consoles still to hash or look up (for deciding
+/// whether a pass is worth starting).
+pub fn count_games_needing_ra(conn: &Connection, consoles: &std::collections::HashSet<u32>) -> Result<usize> {
+    Ok(games_needing_ra(conn, consoles)?.len())
+}
+
 pub fn cache_get(conn: &Connection, key: &str) -> Result<Option<(Vec<u8>, i64)>> {
     Ok(conn
         .query_row("SELECT body, fetched_at FROM api_cache WHERE key = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -522,7 +594,12 @@ pub fn apply_scan(
              platform_id = excluded.platform_id, title = excluded.title, variant = excluded.variant,
              sort_title = excluded.sort_title, search_key = excluded.search_key, region = excluded.region,
              serial = excluded.serial, source_id = excluded.source_id, total_size = excluded.total_size,
-             mtime = excluded.mtime, is_multidisc = excluded.is_multidisc, missing = 0
+             mtime = excluded.mtime, is_multidisc = excluded.is_multidisc, missing = 0,
+             -- Changed files get hashed again for RetroAchievements.
+             ra_hash = CASE WHEN games.total_size = excluded.total_size AND games.mtime = excluded.mtime
+                            THEN games.ra_hash END,
+             ra_game_id = CASE WHEN games.total_size = excluded.total_size AND games.mtime = excluded.mtime
+                               THEN games.ra_game_id END
          RETURNING id",
     )?;
     let mut seen = tx.prepare_cached("INSERT OR IGNORE INTO scan_seen (id) VALUES (?1)")?;

@@ -10,6 +10,8 @@ import {
   type MetaProgress,
   type MetaSummary,
   type PlatformSummary,
+  type RaJobProgress,
+  type RaSummary,
   type ScanProgress,
   type ScanSummary,
 } from "../api";
@@ -47,6 +49,9 @@ function createLibraryStore() {
   const [metaProgress, setMetaProgress] = createSignal<MetaProgress | null>(null);
   const [lastMeta, setLastMeta] = createSignal<MetaSummary | null>(null);
   const [metaError, setMetaError] = createSignal<string | null>(null);
+  const [raProgress, setRaProgress] = createSignal<RaJobProgress | null>(null);
+  const [lastRa, setLastRa] = createSignal<RaSummary | null>(null);
+  const [raError, setRaError] = createSignal<string | null>(null);
   /** What the last scan (or folder removal) changed; `seq` lets the toast tell reports apart. */
   const [report, setReport] = createSignal<{ title: string; changes: GameChange[]; seq: number } | null>(null);
   let reportSeq = 0;
@@ -187,6 +192,16 @@ function createLibraryStore() {
       setMetaProgress(null);
       setMetaError(msg);
     });
+    void events.onRaProgress((p) => setRaProgress(p.done >= p.total ? null : p));
+    void events.onRaFinished((s) => {
+      setRaProgress(null);
+      setRaError(null);
+      setLastRa(s);
+    });
+    void events.onRaFailed((msg) => {
+      setRaProgress(null);
+      setRaError(msg);
+    });
     void events.onLibraryChanged(() => void reload());
   }
 
@@ -241,6 +256,9 @@ function createLibraryStore() {
     metaProgress,
     lastMeta,
     metaError,
+    raProgress,
+    lastRa,
+    raError,
   };
 }
 

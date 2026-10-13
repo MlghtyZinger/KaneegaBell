@@ -6,6 +6,7 @@ import { NavScope } from "../components/NavScope";
 import { CoverPicker } from "../components/CoverPicker";
 import { MatchPicker } from "../components/MatchPicker";
 import { Hint } from "../components/Hints";
+import { Achievements } from "../components/Achievements";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -157,6 +158,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   </span>
                 </div>
               </Show>
+              <Achievements gameId={g().id} />
               <dl class="facts">
                 <dt>Platform</dt>
                 <dd>{g().platformId.toUpperCase()}</dd>

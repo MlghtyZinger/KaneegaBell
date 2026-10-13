@@ -35,6 +35,9 @@ pub struct PlatformDef {
     pub libretro: Option<&'static str>,
     /// IGDB platform id (the `platforms` endpoint), for metadata searches.
     pub igdb: Option<u32>,
+    /// RetroAchievements console id. Whether RA currently runs achievements
+    /// for it is checked at runtime (its active-console list).
+    pub ra: Option<u32>,
 }
 
 pub const EMULATORS: &[EmulatorDef] = &[
@@ -87,6 +90,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["sfc", "smc", "swc", "fig", "bs"],
         libretro: Some("Nintendo - Super Nintendo Entertainment System"),
         igdb: Some(19),
+        ra: Some(3),
     },
     PlatformDef {
         id: "n64",
@@ -97,6 +101,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["z64", "n64", "v64", "ndd"],
         libretro: Some("Nintendo - Nintendo 64"),
         igdb: Some(4),
+        ra: Some(2),
     },
     PlatformDef {
         id: "gba",
@@ -107,6 +112,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["gba"],
         libretro: Some("Nintendo - Game Boy Advance"),
         igdb: Some(24),
+        ra: Some(5),
     },
     PlatformDef {
         id: "gc",
@@ -117,6 +123,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["iso", "gcm", "tgc", "ciso", "gcz", "rvz", "wia", "m3u"],
         libretro: Some("Nintendo - GameCube"),
         igdb: Some(21),
+        ra: Some(16),
     },
     PlatformDef {
         id: "nds",
@@ -127,6 +134,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["nds", "dsi", "ids"],
         libretro: Some("Nintendo - Nintendo DS"),
         igdb: Some(20),
+        ra: Some(18),
     },
     PlatformDef {
         id: "wii",
@@ -137,6 +145,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["iso", "wbfs", "ciso", "gcz", "rvz", "wia", "wad", "m3u"],
         libretro: Some("Nintendo - Wii"),
         igdb: Some(5),
+        ra: Some(19),
     },
     PlatformDef {
         id: "3ds",
@@ -147,6 +156,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["3ds", "cci", "cxi", "3dsx", "zcci", "zcxi", "z3dsx"],
         libretro: Some("Nintendo - Nintendo 3DS"),
         igdb: Some(37),
+        ra: None,
     },
     PlatformDef {
         id: "segacd",
@@ -157,6 +167,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["cue", "chd", "iso", "m3u"],
         libretro: Some("Sega - Mega-CD - Sega CD"),
         igdb: Some(78),
+        ra: Some(9),
     },
     PlatformDef {
         id: "ps1",
@@ -167,6 +178,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["cue", "chd", "pbp", "m3u", "ccd", "mds", "ecm", "img", "iso", "bin"],
         libretro: Some("Sony - PlayStation"),
         igdb: Some(7),
+        ra: Some(12),
     },
     PlatformDef {
         id: "ps2",
@@ -177,6 +189,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["iso", "chd", "cso", "zso", "gz", "bin", "img", "mdf"],
         libretro: Some("Sony - PlayStation 2"),
         igdb: Some(8),
+        ra: Some(21),
     },
     PlatformDef {
         id: "psp",
@@ -187,6 +200,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &["iso", "cso", "pbp", "chd"],
         libretro: Some("Sony - PlayStation Portable"),
         igdb: Some(38),
+        ra: Some(41),
     },
     PlatformDef {
         id: "ps3",
@@ -198,6 +212,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
         extensions: &[],
         libretro: Some("Sony - PlayStation 3"),
         igdb: Some(9),
+        ra: Some(82),
     },
 ];
 
@@ -267,16 +282,17 @@ pub fn seed(conn: &Connection) -> Result<()> {
 
     let mut plat = conn.prepare_cached(
         "INSERT INTO platforms (id, name, short_name, sort_order, emulator_id, default_core, extensions, libretro_system,
-                                igdb_platform)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                                igdb_platform, ra_console_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, short_name = excluded.short_name,
              sort_order = excluded.sort_order, emulator_id = excluded.emulator_id,
              default_core = excluded.default_core, extensions = excluded.extensions,
-             libretro_system = excluded.libretro_system, igdb_platform = excluded.igdb_platform",
+             libretro_system = excluded.libretro_system, igdb_platform = excluded.igdb_platform,
+             ra_console_id = excluded.ra_console_id",
     )?;
     for (i, p) in PLATFORMS.iter().enumerate() {
         let exts = serde_json::to_string(p.extensions)?;
-        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb])?;
+        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb, p.ra])?;
     }
     Ok(())
 }

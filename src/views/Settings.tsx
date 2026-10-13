@@ -94,6 +94,7 @@ export function SettingsView(props: { onClose: () => void }) {
               </Show>
               <Show when={section() === "services"}>
                 <ServicesSection s={s()} run={run} />
+                <RetroAchievementsSection run={run} />
               </Show>
               <Show when={section() === "general"}>
                 <GeneralSection s={s()} run={run} />
@@ -739,6 +740,123 @@ function ServicesSection(props: { s: Settings; run: Run }) {
             <p class="dim small">
               Wrong game? Open it and use <b>Fix match…</b> to pick the right one. Games IGDB doesn't know are tried
               again weekly. Info from IGDB.com, used under the Twitch Developer Services Agreement.
+            </p>
+          </Show>
+        )}
+      </Show>
+    </section>
+  );
+}
+
+function RetroAchievementsSection(props: { run: Run }) {
+  const [services, { refetch }] = createResource(() => api.getServices());
+  const [user, setUser] = createSignal("");
+  const [key, setKey] = createSignal("");
+
+  const save = () =>
+    props.run(
+      async () => {
+        await api.setRaKeys(user(), key());
+        setUser("");
+        setKey("");
+        await refetch();
+      },
+      { notice: "Connected to RetroAchievements. Identifying your games now…" },
+    );
+  const remove = () =>
+    props.run(async () => {
+      await api.removeRaKeys();
+      await refetch();
+    });
+
+  return (
+    <section class="card-section">
+      <h2>RetroAchievements (optional)</h2>
+      <p class="dim">
+        Shows each game's achievements and which ones you've unlocked, on its details page. Games are recognized by
+        RetroAchievements' own fingerprint of the game file, so it works whatever the files are called. Consoles
+        RetroAchievements doesn't cover (like 3DS) simply show nothing. Your key stays on this PC, in Windows
+        Credential Manager.
+      </p>
+      <Show when={services()}>
+        {(sv) => (
+          <Show
+            when={sv().raUser}
+            fallback={
+              <>
+                <ol class="steps">
+                  <li>
+                    Sign in at <span class="mono">retroachievements.org</span> (a free account; the one you use in
+                    your emulators).
+                  </li>
+                  <li>
+                    Open your settings page, <span class="mono">retroachievements.org/settings</span>, and copy your{" "}
+                    <b>Web API Key</b>. Treat it like a password.
+                  </li>
+                  <li>Enter your username and the key here and press Save.</li>
+                </ol>
+                <div class="form-grid">
+                  <label for="ra-user">Username</label>
+                  <input
+                    id="ra-user"
+                    class="input"
+                    autocomplete="off"
+                    spellcheck={false}
+                    value={user()}
+                    onInput={(e) => setUser(e.currentTarget.value)}
+                  />
+                  <label for="ra-key">Web API Key</label>
+                  <input
+                    id="ra-key"
+                    class="input mono"
+                    type="password"
+                    autocomplete="off"
+                    value={key()}
+                    onInput={(e) => setKey(e.currentTarget.value)}
+                  />
+                </div>
+                <div class="row">
+                  <button class="btn primary" disabled={!user().trim() || !key().trim()} onClick={() => void save()}>
+                    Save and connect
+                  </button>
+                </div>
+              </>
+            }
+          >
+            <p>
+              <span class="ok-text">Connected</span> <span class="dim">as {sv().raUser}</span>
+            </p>
+            <div class="row">
+              <Show when={library.raProgress()}>
+                {(p) => (
+                  <>
+                    <button class="btn" onClick={() => void api.cancelScan()}>
+                      Stop
+                    </button>
+                    <span class="dim">
+                      Identifying games: {p().done} / {p().total} · {p().matched} recognized
+                    </span>
+                  </>
+                )}
+              </Show>
+              <Show when={!library.raProgress() && library.lastRa()}>
+                {(s) => (
+                  <span class="dim">
+                    Last run: {s().matched} recognized
+                    {s().unknown > 0 ? ` · ${s().unknown} not recognized` : ""}
+                  </span>
+                )}
+              </Show>
+              <button class="btn danger" onClick={() => void remove()}>
+                Remove key
+              </button>
+            </div>
+            <Show when={library.raError()}>
+              <p class="warn">{library.raError()}</p>
+            </Show>
+            <p class="dim small">
+              A game "not recognized" means RetroAchievements doesn't list that exact dump (a hack, a translation or
+              a different revision). Achievement data from RetroAchievements.org.
             </p>
           </Show>
         )}

@@ -24,6 +24,13 @@ pub trait Post: Sync {
     fn post(&self, url: &str, headers: &[(&str, &str)], body: &str) -> Result<Response>;
 }
 
+pub trait Get: Sync {
+    /// GET `url` and hand back whatever status came back. Errors only for
+    /// transport failures, which never include the URL's query (it may hold a
+    /// key).
+    fn get_raw(&self, url: &str) -> Result<Response>;
+}
+
 pub struct Http {
     agent: ureq::Agent,
 }
@@ -69,6 +76,28 @@ impl Post for Http {
             req = req.header(*k, *v);
         }
         let mut resp = req.send(body).map_err(|e| Error::msg(format!("{host}: {}", scrub(&e.to_string()))))?;
+        let status = resp.status().as_u16();
+        let body = resp
+            .body_mut()
+            .with_config()
+            .limit(MAX_BODY)
+            .read_to_vec()
+            .map_err(|e| Error::msg(format!("reading from {host}: {}", scrub(&e.to_string()))))?;
+        Ok(Response { status, body })
+    }
+}
+
+impl Get for Http {
+    fn get_raw(&self, url: &str) -> Result<Response> {
+        let host = url.split('/').nth(2).unwrap_or("server").to_string();
+        let mut resp = self
+            .agent
+            .get(url)
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .call()
+            .map_err(|e| Error::msg(format!("{host}: {}", scrub(&e.to_string()))))?;
         let status = resp.status().as_u16();
         let body = resp
             .body_mut()
@@ -136,6 +165,12 @@ pub mod fake {
                 body.to_string(),
             ));
             Ok((self.handler)(url, headers, body))
+        }
+    }
+
+    impl<F: Fn(&str, &[(&str, &str)], &str) -> Response + Sync> Get for FakePost<F> {
+        fn get_raw(&self, url: &str) -> Result<Response> {
+            self.post(url, &[], "")
         }
     }
 

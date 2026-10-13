@@ -15,7 +15,7 @@ use crate::error::{Error, Result};
 use crate::input::{ExitCombo, InputShared};
 use crate::launcher::{self, template, Launcher};
 use crate::scanner::{self, ps3};
-use crate::{metadata, secrets};
+use crate::{achievements, metadata, secrets};
 use tauri::Manager;
 
 pub struct AppState {
@@ -25,6 +25,7 @@ pub struct AppState {
     rescan_pending: Arc<AtomicBool>,
     art_pending: Arc<AtomicBool>,
     meta_pending: Arc<AtomicBool>,
+    ra_pending: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -39,6 +40,7 @@ impl AppState {
             rescan_pending: Arc::default(),
             art_pending: Arc::default(),
             meta_pending: Arc::default(),
+            ra_pending: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
@@ -335,6 +337,7 @@ pub fn cancel_scan(state: State<'_, AppState>) {
     state.rescan_pending.store(false, Ordering::Release);
     state.art_pending.store(false, Ordering::Release);
     state.meta_pending.store(false, Ordering::Release);
+    state.ra_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -406,16 +409,17 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<(bool, bool)> {
+        let pending = (|| -> Result<(bool, bool, bool)> {
             let conn = state.db();
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
-            Ok((art, meta_wanted(&conn)?))
+            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?))
         })();
-        let (art, meta) = pending.unwrap_or((false, false));
-        if art || meta {
+        let (art, meta, ra) = pending.unwrap_or((false, false, false));
+        if art || meta || ra {
             state.art_pending.fetch_or(art, Ordering::AcqRel);
             state.meta_pending.fetch_or(meta, Ordering::AcqRel);
+            state.ra_pending.fetch_or(ra, Ordering::AcqRel);
             kick_worker(app.clone(), &state);
         }
     });
@@ -438,6 +442,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let scan_pending = state.rescan_pending.clone();
     let art_pending = state.art_pending.clone();
     let meta_pending = state.meta_pending.clone();
+    let ra_pending = state.ra_pending.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
@@ -445,22 +450,26 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .name("library-jobs".into())
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
-            // Order: scan, then covers, then details (each pass may queue the next).
+            // Order: scan, covers, details, achievements (each pass may queue another).
             if scan_pending.swap(false, Ordering::AcqRel) {
                 let next = run_scan(&app, &db_path, &cancel);
                 art_pending.fetch_or(next.art, Ordering::AcqRel);
                 meta_pending.fetch_or(next.meta, Ordering::AcqRel);
+                ra_pending.fetch_or(next.ra, Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
                 // Matches can bring covers (IGDB) for games that had none.
                 art_pending.fetch_or(run_meta(&app, &db_path, &cancel), Ordering::AcqRel);
+            } else if ra_pending.swap(false, Ordering::AcqRel) {
+                run_ra(&app, &db_path, &cancel);
             } else {
                 busy.store(false, Ordering::Release);
                 // A request may have slipped in after the checks above.
                 let more = scan_pending.load(Ordering::Acquire)
                     || art_pending.load(Ordering::Acquire)
-                    || meta_pending.load(Ordering::Acquire);
+                    || meta_pending.load(Ordering::Acquire)
+                    || ra_pending.load(Ordering::Acquire);
                 if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
@@ -491,6 +500,7 @@ fn throttled(min_ms: u128) -> impl Fn(bool) -> bool {
 struct FollowUp {
     art: bool,
     meta: bool,
+    ra: bool,
 }
 
 /// Runs one scan.
@@ -508,7 +518,11 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
         )?;
         let auto_art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
         let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
-        let next = FollowUp { art: auto_art && needs_art, meta: meta_wanted(&conn).unwrap_or(false) };
+        let next = FollowUp {
+            art: auto_art && needs_art,
+            meta: meta_wanted(&conn).unwrap_or(false),
+            ra: ra_wanted(&conn).unwrap_or(false),
+        };
         Ok((summary, next))
     });
     match result {
@@ -607,6 +621,8 @@ pub struct Services {
     igdb: bool,
     /// The saved Client ID, shortened (it isn't secret, but no need to show it all).
     igdb_client_id: Option<String>,
+    /// The RetroAchievements username, when RA is set up.
+    ra_user: Option<String>,
 }
 
 #[tauri::command]
@@ -616,6 +632,7 @@ pub fn get_services() -> Result<Services> {
     Ok(Services {
         igdb: id.is_some() && has_secret,
         igdb_client_id: id.map(|s| format!("{}…", s.chars().take(6).collect::<String>())),
+        ra_user: ra_login()?.map(|c| c.user),
     })
 }
 
@@ -696,6 +713,109 @@ pub async fn set_igdb_match(app: AppHandle, id: i64, igdb_id: i64) -> Result<()>
     }
     let _ = app.emit("library-changed", ());
     Ok(())
+}
+
+// ---------------------------------------------------------------- RetroAchievements
+
+const RA_USER: &str = "ra-user";
+const RA_KEY: &str = "ra-web-api-key";
+
+fn ra_login() -> Result<Option<achievements::ra::Credentials>> {
+    let (Some(user), Some(key)) = (secrets::get(RA_USER)?, secrets::get(RA_KEY)?) else { return Ok(None) };
+    Ok(Some(achievements::ra::Credentials { user, key }))
+}
+
+/// RA is set up and some game on an RA console still needs identifying.
+fn ra_wanted(conn: &Connection) -> Result<bool> {
+    if ra_login()?.is_none() {
+        return Ok(false);
+    }
+    Ok(match achievements::active_consoles(conn, None)? {
+        Some(active) => queries::count_games_needing_ra(conn, &active)? > 0,
+        // No console list yet: a pass fetches it.
+        None => true,
+    })
+}
+
+/// Hashes and identifies games for RetroAchievements.
+/// Emits `ra-progress`, then `ra-finished` / `ra-failed`.
+fn run_ra(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) {
+    let due = throttled(250);
+    let result = (|| {
+        let creds = ra_login()?.ok_or_else(|| Error::msg("RetroAchievements isn't set up"))?;
+        let http = art::http::Http::new();
+        let client = achievements::ra::Ra::new(&http, creds);
+        let mut conn = db::open(db_path)?;
+        achievements::run(
+            &mut conn,
+            &client,
+            &|p| {
+                if due(p.done == p.total) {
+                    let _ = app.emit("ra-progress", p);
+                }
+            },
+            cancel,
+        )
+    })();
+    match result {
+        Ok(summary) => {
+            log::info!("RetroAchievements pass: {summary:?}");
+            let _ = app.emit("ra-finished", &summary);
+        }
+        Err(e) => {
+            log::error!("RetroAchievements pass failed: {e}");
+            let _ = app.emit("ra-failed", e.to_string());
+        }
+    }
+}
+
+/// Checks the username and Web API key with RA, then saves them and
+/// identifies the library's games.
+#[tauri::command]
+pub async fn set_ra_keys(app: AppHandle, user: String, key: String) -> Result<String> {
+    let (user, key) = (user.trim().to_string(), key.trim().to_string());
+    if user.is_empty() || key.is_empty() {
+        return Err(Error::msg("Enter both your RetroAchievements username and Web API key"));
+    }
+    let name = tauri::async_runtime::spawn_blocking(move || -> Result<String> {
+        let http = art::http::Http::new();
+        let client = achievements::ra::Ra::new(&http, achievements::ra::Credentials { user: user.clone(), key: key.clone() });
+        let profile = client
+            .profile()?
+            .ok_or_else(|| Error::msg(format!("RetroAchievements has no user named \"{user}\"")))?;
+        // Store the name as RA spells it.
+        secrets::set(RA_USER, &profile.user)?;
+        secrets::set(RA_KEY, &key)?;
+        Ok(profile.user)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let state = app.state::<AppState>();
+    state.ra_pending.store(true, Ordering::Release);
+    kick_worker(app.clone(), &state);
+    Ok(name)
+}
+
+/// Forgets the RA login (identified games and cached lists stay).
+#[tauri::command]
+pub fn remove_ra_keys() -> Result<()> {
+    secrets::delete(RA_USER)?;
+    secrets::delete(RA_KEY)
+}
+
+/// A game's achievements and the user's unlocks (cached for a few minutes,
+/// and shown from the cache when offline). `refresh` asks RA again now.
+#[tauri::command]
+pub async fn get_achievements(app: AppHandle, id: i64, refresh: bool) -> Result<achievements::GameAchievements> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        let http = art::http::Http::new();
+        let client = ra_login()?.map(|c| achievements::ra::Ra::new(&http, c));
+        achievements::for_game(&conn, client.as_ref(), id, refresh)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
 }
 
 fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {

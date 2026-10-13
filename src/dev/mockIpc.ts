@@ -152,8 +152,51 @@ export function installMockIpc() {
             : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound" },
         };
       }
-      case "get_services":
-        return { igdb: new URLSearchParams(location.search).get("igdb") === "1", igdbClientId: "abc123…" };
+      case "get_services": {
+        const q = new URLSearchParams(location.search);
+        return { igdb: q.get("igdb") === "1", igdbClientId: "abc123…", raUser: q.get("ra") === "1" ? "MockUser" : null };
+      }
+      case "get_achievements": {
+        // ?ra=1: odd ids are recognized with progress, even ids aren't; 3DS is unsupported.
+        if (new URLSearchParams(location.search).get("ra") !== "1") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false };
+        const id = (args as { id: number }).id;
+        const g = lib.games.find((x) => x.id === id)!;
+        if (g.platformId === "3ds") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false };
+        if (id % 2 === 0) return { status: "unknown", hash: "0123456789abcdef0123456789abcdef", progress: null, fetchedAt: null, stale: false };
+        const r = rng(id);
+        const achievements = Array.from({ length: 24 }, (_, i) => {
+          const earned = r() < 0.4;
+          return {
+            id: i + 1,
+            title: `${WORDS[Math.floor(r() * WORDS.length)]} ${WORDS[Math.floor(r() * WORDS.length)]}`,
+            description: "Do something notable in the game, perhaps twice, without taking damage.",
+            points: [1, 2, 3, 5, 10, 25, 50][Math.floor(r() * 7)],
+            badge: String(10000 + i),
+            earned: earned ? "2025-03-14 18:22:05" : null,
+            hardcore: earned && r() < 0.5,
+            kind: r() < 0.1 ? "missable" : null,
+            rarity: r(),
+          };
+        });
+        const got = achievements.filter((a) => a.earned);
+        return {
+          status: "ok",
+          hash: "fedcba9876543210fedcba9876543210",
+          fetchedAt: Math.floor(Date.now() / 1000),
+          stale: false,
+          progress: {
+            raGameId: 1000 + id,
+            title: g.title,
+            icon: null,
+            total: achievements.length,
+            earned: got.length,
+            earnedHardcore: got.filter((a) => a.hardcore).length,
+            pointsTotal: achievements.reduce((s, a) => s + a.points, 0),
+            pointsEarned: got.reduce((s, a) => s + a.points, 0),
+            achievements,
+          },
+        };
+      }
       case "igdb_search":
         return [
           { igdbId: 1, name: "Okami", year: 2006, cover: null, onPlatform: true, summary: "Play as Amaterasu, the sun goddess, in wolf form." },

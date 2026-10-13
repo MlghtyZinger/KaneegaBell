@@ -76,6 +76,59 @@ export interface IgdbCandidate {
 export interface Services {
   igdb: boolean;
   igdbClientId: string | null;
+  /** RetroAchievements username, when RA is set up. */
+  raUser: string | null;
+}
+
+export interface Achievement {
+  id: number;
+  title: string;
+  description: string;
+  points: number;
+  /** Badge image name (see raMediaUrl). */
+  badge: string;
+  /** "YYYY-MM-DD HH:MM:SS" when unlocked. */
+  earned: string | null;
+  hardcore: boolean;
+  kind: "progression" | "win_condition" | "missable" | null;
+  /** Share of the game's players who have it (0..1). */
+  rarity: number | null;
+}
+
+export interface RaProgress {
+  raGameId: number;
+  title: string;
+  icon: string | null;
+  total: number;
+  earned: number;
+  earnedHardcore: number;
+  pointsTotal: number;
+  pointsEarned: number;
+  achievements: Achievement[];
+}
+
+export interface GameAchievements {
+  /** unsupported = no RA for this console (or RA not set up): show nothing. */
+  status: "unsupported" | "nohash" | "unknown" | "ok";
+  hash: string | null;
+  progress: RaProgress | null;
+  /** Unix seconds. */
+  fetchedAt: number | null;
+  /** Shown from the cache because RA couldn't be reached. */
+  stale: boolean;
+}
+
+export interface RaJobProgress {
+  done: number;
+  total: number;
+  matched: number;
+}
+
+export interface RaSummary {
+  hashed: number;
+  matched: number;
+  unknown: number;
+  cancelled: boolean;
 }
 
 export interface MetaProgress {
@@ -131,6 +184,12 @@ export interface ArtSummary {
 export function artUrl(gameId: number, version: number, size: "t" | "f" = "t"): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   return `${base}/${size}/${gameId}?v=${version}`;
+}
+
+/** A RetroAchievements badge ("ra") or game icon ("rai"), cached on disk by the app. */
+export function raMediaUrl(name: string, kind: "ra" | "rai" = "ra"): string {
+  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
+  return `${base}/${kind}/${encodeURIComponent(name)}`;
 }
 
 export interface RunningGame {
@@ -293,6 +352,10 @@ export const api = {
   fetchMetadata: () => invoke<boolean>("fetch_metadata"),
   igdbSearch: (id: number, query: string | null = null) => invoke<IgdbCandidate[]>("igdb_search", { id, query }),
   setIgdbMatch: (id: number, igdbId: number) => invoke<void>("set_igdb_match", { id, igdbId }),
+  /** Returns the username as RetroAchievements spells it. */
+  setRaKeys: (user: string, key: string) => invoke<string>("set_ra_keys", { user, key }),
+  removeRaKeys: () => invoke<void>("remove_ra_keys"),
+  getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
 };
 
 export const events = {
@@ -314,6 +377,12 @@ export const events = {
     listen<MetaSummary>("meta-finished", (e) => cb(e.payload)),
   onMetaFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
     listen<string>("meta-failed", (e) => cb(e.payload)),
+  onRaProgress: (cb: (p: RaJobProgress) => void): Promise<UnlistenFn> =>
+    listen<RaJobProgress>("ra-progress", (e) => cb(e.payload)),
+  onRaFinished: (cb: (s: RaSummary) => void): Promise<UnlistenFn> =>
+    listen<RaSummary>("ra-finished", (e) => cb(e.payload)),
+  onRaFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
+    listen<string>("ra-failed", (e) => cb(e.payload)),
   /** Data changed in the background (e.g. covers arriving): reload the library. */
   onLibraryChanged: (cb: () => void): Promise<UnlistenFn> => listen("library-changed", () => cb()),
   onGameStarted: (cb: (g: RunningGame) => void): Promise<UnlistenFn> =>

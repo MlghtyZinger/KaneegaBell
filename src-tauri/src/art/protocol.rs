@@ -31,13 +31,26 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
     }
 }
 
+/// RetroAchievements badge/icon requests (`/ra/{name}`, `/rai/{name}`).
+fn ra_media(path: &str) -> Option<(&str, &str)> {
+    let path = path.split('?').next()?.trim_start_matches('/');
+    let (kind, name) = path.split_once('/')?;
+    matches!(kind, "ra" | "rai").then_some((kind, name))
+}
+
 pub fn respond(data_dir: &Path, path: &str) -> tauri::http::Response<Vec<u8>> {
     let builder = tauri::http::Response::builder();
-    let found = parse(path).and_then(|a| std::fs::read(file_for(data_dir, &a)).ok());
+    let (found, mime) = match ra_media(path) {
+        Some((kind, name)) => {
+            let bytes = crate::achievements::media(data_dir, &super::http::Http::new(), kind, name);
+            (bytes, "image/png")
+        }
+        None => (parse(path).and_then(|a| std::fs::read(file_for(data_dir, &a)).ok()), "image/webp"),
+    };
     match found {
         Some(bytes) => builder
             .status(200)
-            .header("Content-Type", "image/webp")
+            .header("Content-Type", mime)
             .header("Cache-Control", "public, max-age=31536000, immutable")
             .header("Access-Control-Allow-Origin", "*")
             .body(bytes),
@@ -69,5 +82,19 @@ mod tests {
         assert_eq!(ok.status(), 200);
         assert_eq!(ok.headers()["Content-Type"], "image/webp");
         assert_eq!(respond(t.path(), "/t/6").status(), 404);
+    }
+
+    #[test]
+    fn serves_cached_achievement_badges() {
+        let t = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(t.path().join("ra/badges")).unwrap();
+        std::fs::write(t.path().join("ra/badges/12345.png"), b"png").unwrap();
+        let ok = respond(t.path(), "/ra/12345");
+        assert_eq!((ok.status().as_u16(), ok.headers()["Content-Type"].to_str().unwrap()), (200, "image/png"));
+        assert_eq!(ok.body(), b"png");
+        assert_eq!(ra_media("/rai/9?x"), Some(("rai", "9")));
+        assert_eq!(ra_media("/t/9"), None);
+        // Bad names never reach the network or the disk.
+        assert_eq!(respond(t.path(), "/ra/..%2Fsecret").status(), 404);
     }
 }

@@ -159,13 +159,45 @@ Everything works without accounts or API keys:
 
   The keys are stored in Windows Credential Manager (`EmuFrontend:*` entries), never in the
   database or the repo. Lookups run in the background after covers: games are searched by title
-  on their platform (10 per request, at most 4 requests/second, IGDB's limit) and matched with
+  on their platform (one search per request, at most 4 requests/second, IGDB's limit) and matched with
   the same title rules as covers; matched IGDB ids are stored, so later refreshes are direct
   lookups and details work offline. A wrong match can be fixed from the game's details
   (**Fix match…**); your pick is never replaced. IGDB is free for non-commercial use under the
   Twitch Developer Services Agreement.
 - SteamGridDB (alternative covers, backgrounds and logos with your own free key) is planned.
   MobyGames isn't used: its API now requires a paid subscription.
+
+## RetroAchievements
+
+Optional: each game's details show its achievements, your unlocks (softcore and hardcore),
+points and how rare each one is. Set it up in Settings → Game info:
+
+1. Sign in at [retroachievements.org](https://retroachievements.org) (free account, the one your
+   emulators use).
+2. Open [retroachievements.org/settings](https://retroachievements.org/settings) and copy your
+   **Web API Key**. It works like a password for your account's data.
+3. Enter your username and the key and press **Save and connect** (they're checked with RA first,
+   then stored in Windows Credential Manager, never in the database or the repo).
+
+How games are recognized: by RetroAchievements' own fingerprint of the game file, the same
+method its emulators use (the rcheevos hashing rules, reimplemented in
+`src-tauri/src/achievements/hash.rs`), so file names don't matter. That's whole-ROM MD5 for
+GBA, the header-stripped ROM for SNES, byte-order-normalized ROM for N64, header + code + icon
+for DS, the boot executable for PS1/PS2/PSP (read from the disc's file system, `.cue`/`.bin` or
+`.iso`), the first sector for Sega CD, apploader + main executable for GameCube and Wii
+(`.iso`, and Wii `.wbfs` read through its block table), and `PARAM.SFO` + `EBOOT.BIN` for PS3
+folders. Compressed formats (`.chd`, `.rvz`, `.cso`…) aren't hashed yet. 3DS shows no
+achievements (hashing needs console keys).
+
+- Hashing runs in the background after scans (a file is only re-hashed when it changes), then
+  each hash is looked up in RA's list of known hashes for that console, cached for a week. A
+  console RA doesn't currently support shows no achievements section at all.
+- A game "not recognized" means RA doesn't list that exact dump (ROM hacks, fan translations,
+  some revisions); its hash is shown so you can check it on RA's site.
+- Unlocks are re-checked when you open a game's details (at most every 10 minutes; Refresh
+  forces it) and shown from the cache when offline. Badge images are cached on disk.
+- RA rate-limits its API without publishing numbers, so requests are sequential and spaced
+  half a second apart.
 
 ## Scanning rules
 
@@ -221,8 +253,9 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] a. Settings, library scanning, SQLite, basic grid
 - [x] b. Launching, process tracking, exit hotkey, play time
 - [x] c. Full controller navigation
-- [ ] d. Metadata (IGDB, MobyGames) and artwork (SteamGridDB)
-- [ ] e. RetroAchievements
+- [ ] d. Metadata (IGDB) and covers (libretro-thumbnails, GameTDB, IGDB) done; SteamGridDB to do
+      (MobyGames dropped: paid API)
+- [x] e. RetroAchievements
 - [ ] f. Performance pass
 - [ ] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
       main, lean UI)

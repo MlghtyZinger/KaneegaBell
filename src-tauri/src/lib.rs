@@ -1,3 +1,4 @@
+mod achievements;
 mod art;
 mod commands;
 mod db;
@@ -94,6 +95,9 @@ pub fn run() {
             commands::fetch_metadata,
             commands::igdb_search,
             commands::set_igdb_match,
+            commands::set_ra_keys,
+            commands::remove_ra_keys,
+            commands::get_achievements,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
