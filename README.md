@@ -322,6 +322,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] f. Performance pass (see Performance)
 - [x] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
       main, lean UI), with SteamGridDB heroes and logos
-- [ ] h. Backloggd: Backloggd has no public API (checked Oct 2026), and scraping the site is out.
-      Planned: an "Open on Backloggd" link per game (its pages are keyed by IGDB slugs, which the
-      IGDB match already provides). Syncing your backlog/played status waits for an official API.
+- [x] h. Backloggd: a **Backloggd ↗** button in each game's details opens its Backloggd page in
+      your browser (Backloggd's pages use IGDB slugs, stored with the IGDB match; without a match
+      it opens a Backloggd search for the title). Backloggd has no public API (checked Oct 2026)
+      and scraping is out, so syncing your backlog/played status waits for an official API.

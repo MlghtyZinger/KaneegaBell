@@ -118,6 +118,7 @@ pub fn run() {
             commands::set_sgdb_key,
             commands::remove_sgdb_key,
             commands::fetch_extras,
+            commands::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

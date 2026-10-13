@@ -17,6 +17,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/005_igdb_retry.sql"),
     include_str!("migrations/006_igdb_covers.sql"),
     include_str!("migrations/007_sgdb.sql"),
+    include_str!("migrations/008_slugs.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

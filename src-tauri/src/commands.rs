@@ -852,6 +852,40 @@ pub fn fetch_extras(app: AppHandle, state: State<'_, AppState>) -> bool {
     kick_worker(app, &state)
 }
 
+// ---------------------------------------------------------------- web links
+
+/// Sites the UI may open in the browser (game pages on Backloggd and
+/// RetroAchievements, key pages for the services).
+const LINK_SITES: &[&str] = &["backloggd.com", "retroachievements.org", "www.steamgriddb.com", "www.igdb.com", "dev.twitch.tv"];
+
+/// An https URL on one of `LINK_SITES`, with nothing that could confuse the shell.
+fn allowed_link(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://") else { return false };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    LINK_SITES.contains(&host) && !url.chars().any(|c| c.is_control() || c == '"' || c == ' ')
+}
+
+/// Opens a web page in the default browser (only on known sites).
+#[tauri::command]
+pub fn open_url(url: String) -> Result<()> {
+    if !allowed_link(&url) {
+        return Err(Error::msg("that link can't be opened"));
+    }
+    #[cfg(windows)]
+    {
+        use windows::core::{w, HSTRING};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        // SAFETY: plain strings for the duration of the call.
+        let r = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(url.as_str()), None, None, SW_SHOWNORMAL) };
+        // Values above 32 mean success.
+        if r.0 as usize <= 32 {
+            return Err(Error::msg("couldn't open the browser"));
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- performance harness
 
 /// Milliseconds since this process was created (by the OS clock, so it
@@ -1026,5 +1060,21 @@ fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool
             log::error!("artwork fetch failed: {e}");
             let _ = app.emit("art-failed", e.to_string());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn only_https_links_to_known_sites_open() {
+        use super::allowed_link as ok;
+        assert!(ok("https://backloggd.com/games/golden-sun/"));
+        assert!(ok("https://backloggd.com/search/games/golden%20sun/"));
+        assert!(ok("https://retroachievements.org/game/2774"));
+        assert!(!ok("http://backloggd.com/games/x/"), "https only");
+        assert!(!ok("https://backloggd.com.evil.example/"));
+        assert!(!ok("https://evil.example/?backloggd.com"));
+        assert!(!ok("file:///C:/Windows/System32/calc.exe"));
+        assert!(!ok("https://backloggd.com/\" & calc"));
     }
 }

@@ -313,7 +313,8 @@ pub fn games_needing_metadata(conn: &Connection, now: i64) -> Result<Vec<crate::
          WHERE g.missing = 0 AND p.enabled = 1
            AND (g.match_status IN ('none', 'error')
                 OR (g.match_status = 'notfound' AND COALESCE(g.meta_checked_at, 0) < ?1)
-                OR (g.match_status IN ('ok', 'manual') AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.game_id = g.id)))
+                OR (g.match_status IN ('ok', 'manual')
+                    AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.game_id = g.id AND m.slug IS NOT NULL)))
          ORDER BY p.sort_order, g.sort_title",
     )?;
     let rows = stmt.query_map([now - crate::metadata::NOTFOUND_RETRY_SECS], |r| {
@@ -339,12 +340,12 @@ pub fn count_games_needing_metadata(conn: &Connection, now: i64) -> Result<usize
 /// had none, or only GameTDB's generic PSN frame), so a cover pass should run.
 pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::Game, status: &str, now: i64) -> Result<bool> {
     conn.execute(
-        "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7)
+        "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at, slug)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7, ?8)
          ON CONFLICT(game_id) DO UPDATE SET title = excluded.title, description = excluded.description,
              release_date = excluded.release_date, developer = excluded.developer, publisher = excluded.publisher,
-             source = excluded.source, fetched_at = excluded.fetched_at",
-        params![game_id, g.name, g.summary, g.first_release_date, g.developer(), g.publisher(), now],
+             source = excluded.source, fetched_at = excluded.fetched_at, slug = excluded.slug",
+        params![game_id, g.name, g.summary, g.first_release_date, g.developer(), g.publisher(), now, g.slug.clone().unwrap_or_default()],
     )?;
     conn.execute("DELETE FROM game_genres WHERE game_id = ?1", [game_id])?;
     for genre in &g.genres {
@@ -401,6 +402,8 @@ pub struct GameMetadata {
     pub genres: Vec<String>,
     pub igdb_id: Option<i64>,
     pub match_status: String,
+    /// IGDB's URL name for the game ("" when it has none).
+    pub slug: Option<String>,
 }
 
 pub fn game_metadata(conn: &Connection, game_id: i64) -> Result<GameMetadata> {
@@ -408,17 +411,17 @@ pub fn game_metadata(conn: &Connection, game_id: i64) -> Result<GameMetadata> {
         conn.query_row("SELECT igdb_id, match_status FROM games WHERE id = ?1", [game_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let row = conn
         .query_row(
-            "SELECT title, description, release_date, developer, publisher FROM metadata WHERE game_id = ?1",
+            "SELECT title, description, release_date, developer, publisher, slug FROM metadata WHERE game_id = ?1",
             [game_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .optional()?;
     let mut stmt = conn.prepare_cached(
         "SELECT g.name FROM game_genres gg JOIN genres g ON g.id = gg.genre_id WHERE gg.game_id = ?1 ORDER BY g.name",
     )?;
     let genres = stmt.query_map([game_id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-    let (title, description, release_date, developer, publisher) = row.unwrap_or_default();
-    Ok(GameMetadata { title, description, release_date, developer, publisher, genres, igdb_id, match_status })
+    let (title, description, release_date, developer, publisher, slug) = row.unwrap_or_default();
+    Ok(GameMetadata { title, description, release_date, developer, publisher, genres, igdb_id, match_status, slug })
 }
 
 /// Genre names by id, and each present game's genre ids, for the genre filter.

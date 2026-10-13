@@ -62,6 +62,17 @@ export function Achievements(props: { gameId: number }) {
               {loading() ? "Checking…" : "Refresh"}
             </button>
           </Show>
+          <Show when={data()?.raGameId}>
+            {(id) => (
+              <button
+                class="btn small"
+                title="Opens in your browser"
+                onClick={() => void api.openUrl(`https://retroachievements.org/game/${id()}`).catch(() => {})}
+              >
+                RetroAchievements ↗
+              </button>
+            )}
+          </Show>
         </div>
         <Show when={error()}>
           <p class="warn">Couldn't load achievements: {error()}</p>
@@ -93,7 +104,7 @@ export function Achievements(props: { gameId: number }) {
             <Show when={data()!.accepted.some((d) => d.patched)}>
               <p class="dim small">
                 "RA patch" versions are a regular dump with a patch from RetroAchievements applied (fixes or
-                translations); the patch is listed on the game's page at retroachievements.org.
+                translations); the patch is listed on the game's RetroAchievements page (button above).
               </p>
             </Show>
           </Show>

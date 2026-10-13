@@ -1,5 +1,5 @@
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
-import { api, artUrl, errorText, events, type GameDetail } from "../api";
+import { api, artUrl, backloggdUrl, errorText, events, type GameDetail } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
@@ -154,6 +154,15 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={g().meta.description}>
                 <p class="description">{g().meta.description}</p>
               </Show>
+              <div class="row tight">
+                <button
+                  class="btn small"
+                  title="Opens in your browser"
+                  onClick={() => void api.openUrl(backloggdUrl(g().meta.title ?? g().title, g().meta.slug)).catch(() => {})}
+                >
+                  {g().meta.slug ? "Backloggd ↗" : "Find on Backloggd ↗"}
+                </button>
+              </div>
               <Show when={services()?.igdb}>
                 <div class="row tight">
                   <button class="btn small" onClick={() => setMatching(true)}>

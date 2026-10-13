@@ -29,7 +29,7 @@ const TOKEN_MARGIN_SECS: i64 = 24 * 3600;
 /// (editions like "Collector's Edition" point at their parent).
 pub const FIELDS: &str = "name,summary,first_release_date,genres.name,platforms,cover.image_id,\
 alternative_names.name,involved_companies.company.name,involved_companies.developer,\
-involved_companies.publisher,version_parent,game_type.type";
+involved_companies.publisher,version_parent,game_type.type,slug";
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -81,6 +81,9 @@ pub struct Game {
     pub version_parent: Option<i64>,
     /// "Main Game", "Mod", "Remake", "Port"... (IGDB's game_types table).
     pub game_type: Option<GameType>,
+    /// URL name ("golden-sun"); Backloggd's game pages use the same one.
+    #[serde(default)]
+    pub slug: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
