@@ -53,6 +53,8 @@ pub struct Summary {
     pub matched: usize,
     pub not_found: usize,
     pub failed: usize,
+    /// Games that now have an IGDB cover to fetch (a cover pass should follow).
+    pub covers: usize,
     pub cancelled: bool,
     pub duration_ms: u128,
 }
@@ -138,7 +140,9 @@ impl Run<'_> {
         let now = queries::now();
         match outcome {
             Ok(Some(g)) => {
-                queries::set_metadata(self.conn, t.id, g, if t.manual { "manual" } else { "ok" }, now)?;
+                if queries::set_metadata(self.conn, t.id, g, if t.manual { "manual" } else { "ok" }, now)? {
+                    self.summary.covers += 1;
+                }
                 self.summary.matched += 1;
             }
             Ok(None) => {
@@ -289,7 +293,8 @@ pub fn search(igdb: &Igdb, query: &str, platform: Option<i64>) -> Result<Vec<Can
 }
 
 /// Links a game to the IGDB entry the user picked and stores its details.
-pub fn apply_match(conn: &Connection, igdb: &Igdb, game_id: i64, igdb_id: i64) -> Result<()> {
+/// Returns true when that brought a cover to fetch.
+pub fn apply_match(conn: &Connection, igdb: &Igdb, game_id: i64, igdb_id: i64) -> Result<bool> {
     let games = igdb.games(&igdb::ids_query(&[igdb_id]))?;
     let g = games.first().ok_or_else(|| crate::error::Error::msg("IGDB no longer has that game"))?;
     queries::set_metadata(conn, game_id, g, "manual", queries::now())
@@ -440,6 +445,22 @@ mod tests {
             let (p, title, status, igdb, date) = row.unwrap();
             println!("{p:<6} {status:<8} {title:<50} -> {} ({})", igdb.unwrap_or_default(), year(date).map(|y| y.to_string()).unwrap_or_default());
         }
+    }
+
+    #[test]
+    fn a_match_queues_its_cover_for_games_without_one_but_never_over_your_choice() {
+        let conn = db();
+        let id = |t: &str| -> i64 { conn.query_row("SELECT id FROM games WHERE title = ?1", [t], |r| r.get(0)).unwrap() };
+        let (okami, jak) = (id("Okami"), id("Jak II"));
+        conn.execute("UPDATE games SET art_status = 'notfound'", []).unwrap();
+        conn.execute("UPDATE games SET art_manual = 1 WHERE id = ?1", [jak]).unwrap();
+        let g: Game = serde_json::from_value(j!({"id": 11, "name": "Okami", "cover": {"image_id": "co1"}})).unwrap();
+        assert!(queries::set_metadata(&conn, okami, &g, "ok", 0).unwrap());
+        assert!(!queries::set_metadata(&conn, jak, &g, "ok", 0).unwrap(), "the user's choice stays");
+        let status: String = conn.query_row("SELECT art_status FROM games WHERE id = ?1", [okami], |r| r.get(0)).unwrap();
+        assert_eq!(status, "none");
+        let target = queries::games_needing_art(&conn, queries::now()).unwrap().into_iter().find(|t| t.id == okami).unwrap();
+        assert_eq!(target.igdb_cover.as_deref(), Some("https://images.igdb.com/igdb/image/upload/t_1080p/co1.jpg"));
     }
 
     #[test]

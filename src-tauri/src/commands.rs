@@ -453,7 +453,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
-                run_meta(&app, &db_path, &cancel);
+                // Matches can bring covers (IGDB) for games that had none.
+                art_pending.fetch_or(run_meta(&app, &db_path, &cancel), Ordering::AcqRel);
             } else {
                 busy.store(false, Ordering::Release);
                 // A request may have slipped in after the checks above.
@@ -558,7 +559,8 @@ fn with_igdb<T>(f: impl FnOnce(&metadata::igdb::Igdb) -> Result<T>) -> Result<T>
     out
 }
 
-fn run_meta(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) {
+/// Runs one IGDB pass. Returns whether a cover pass should follow.
+fn run_meta(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> bool {
     let due = throttled(250);
     let reload_due = throttled(2000);
     let result = db::open(db_path).and_then(|mut conn| {
@@ -581,12 +583,21 @@ fn run_meta(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) {
     match result {
         Ok(summary) => {
             let _ = app.emit("meta-finished", &summary);
+            summary.covers > 0 && auto_art(db_path)
         }
         Err(e) => {
             log::error!("IGDB details failed: {e}");
             let _ = app.emit("meta-failed", e.to_string());
+            false
         }
     }
+}
+
+fn auto_art(db_path: &Path) -> bool {
+    db::open(db_path)
+        .and_then(|conn| queries::get_setting::<bool>(&conn, "autoArt"))
+        .map(|v| v.unwrap_or(true))
+        .unwrap_or(true)
 }
 
 #[derive(Serialize)]
@@ -671,13 +682,18 @@ pub async fn igdb_search(app: AppHandle, id: i64, query: Option<String>) -> Resu
 #[tauri::command]
 pub async fn set_igdb_match(app: AppHandle, id: i64, igdb_id: i64) -> Result<()> {
     let app2 = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let new_cover = tauri::async_runtime::spawn_blocking(move || {
         let state = app2.state::<AppState>();
         let conn = db::open(&state.db_path)?;
         with_igdb(|igdb| metadata::apply_match(&conn, igdb, id, igdb_id))
     })
     .await
     .map_err(|e| Error::msg(e.to_string()))??;
+    if new_cover {
+        let state = app.state::<AppState>();
+        state.art_pending.store(true, Ordering::Release);
+        kick_worker(app.clone(), &state);
+    }
     let _ = app.emit("library-changed", ());
     Ok(())
 }

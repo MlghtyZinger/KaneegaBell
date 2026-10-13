@@ -106,10 +106,20 @@ impl Game {
     pub fn publisher(&self) -> Option<String> {
         self.companies(|c| c.publisher)
     }
-    /// Cover image URL (`t_cover_big` is 264x374; `_2x` doubles it).
+    /// Cover image URL for previews (`t_cover_big` is 264x374; `_2x` doubles it).
     pub fn cover_url(&self) -> Option<String> {
-        self.cover.as_ref().map(|c| format!("https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{}.jpg", c.image_id))
+        self.cover.as_ref().map(|c| cover_image(&c.image_id, "cover_big_2x"))
     }
+}
+
+/// An IGDB image by id and size name (`t_1080p` fits within 1920x1080).
+pub fn cover_image(image_id: &str, size: &str) -> String {
+    format!("https://images.igdb.com/igdb/image/upload/t_{size}/{image_id}.jpg")
+}
+
+/// The preview-size version of a stored full-size IGDB cover URL.
+pub fn preview_of(url: &str) -> String {
+    url.replacen("/t_1080p/", "/t_cover_big/", 1)
 }
 
 /// Apicalypse strings are double-quoted; drop characters that would end them.

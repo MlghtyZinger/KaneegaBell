@@ -162,7 +162,8 @@ pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
 /// never tried, failed last time, or not found more than a week ago.
 pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::Target>> {
     let mut stmt = conn.prepare(
-        "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region, g.platform_id, g.serial
+        "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region, g.platform_id, g.serial,
+                (SELECT a.url FROM artwork a WHERE a.game_id = g.id AND a.kind = 'boxart' AND a.source = 'igdb' LIMIT 1)
          FROM games g JOIN platforms p ON p.id = g.platform_id
          WHERE g.missing = 0 AND p.enabled = 1 AND p.libretro_system IS NOT NULL
            AND (g.art_status IN ('none', 'error')
@@ -179,6 +180,7 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
             region: r.get(5)?,
             platform_id: r.get(6)?,
             serial: r.get(7)?,
+            igdb_cover: r.get(8)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -186,13 +188,15 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
 
 pub fn art_target(conn: &Connection, game_id: i64) -> Result<crate::art::ArtInfo> {
     Ok(conn.query_row(
-        "SELECT g.launch_path, g.search_key, g.region, p.libretro_system, g.platform_id, g.serial
+        "SELECT g.launch_path, g.search_key, g.region, p.libretro_system, g.platform_id, g.serial,
+                (SELECT a.url FROM artwork a WHERE a.game_id = g.id AND a.kind = 'boxart' AND a.source = 'igdb' LIMIT 1)
          FROM games g JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
         [game_id],
         |r| {
             Ok(crate::art::ArtInfo {
                 platform_id: r.get(4)?,
                 serial: r.get(5)?,
+                igdb_cover: r.get(6)?,
                 launch_path: r.get(0)?,
                 search_key: r.get(1)?,
                 region: r.get(2)?,
@@ -266,12 +270,22 @@ pub fn set_art_status(conn: &Connection, game_id: i64, status: &str, now: i64) -
     Ok(())
 }
 
+/// Forgets a game's cover so the next pass picks one automatically again
+/// (the IGDB match's cover stays known as a source).
 pub fn reset_art(conn: &Connection, game_id: i64) -> Result<()> {
-    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = 'boxart'", [game_id])?;
+    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = 'boxart' AND source != 'igdb'", [game_id])?;
+    conn.execute("UPDATE artwork SET selected = 0 WHERE game_id = ?1 AND kind = 'boxart'", [game_id])?;
     conn.execute(
-        "UPDATE games SET art_status = 'none', art_version = art_version + 1, art_checked_at = NULL WHERE id = ?1",
+        "UPDATE games SET art_status = 'none', art_version = art_version + 1, art_checked_at = NULL, art_manual = 0
+         WHERE id = ?1",
         [game_id],
     )?;
+    Ok(())
+}
+
+/// Marks the cover as the user's choice (or removal): never replaced automatically.
+pub fn set_art_manual(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET art_manual = 1 WHERE id = ?1", [game_id])?;
     Ok(())
 }
 
@@ -308,7 +322,9 @@ pub fn count_games_needing_metadata(conn: &Connection, now: i64) -> Result<usize
 
 /// Stores an IGDB match: the game's details, genres and IGDB id.
 /// `status` is "ok" (automatic) or "manual" (the user picked it).
-pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::Game, status: &str, now: i64) -> Result<()> {
+/// Returns true when the match brought a cover the game should now get (it
+/// had none, or only GameTDB's generic PSN frame), so a cover pass should run.
+pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::Game, status: &str, now: i64) -> Result<bool> {
     conn.execute(
         "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7)
@@ -329,7 +345,27 @@ pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::
         "UPDATE games SET igdb_id = ?2, match_status = ?3, meta_checked_at = ?4 WHERE id = ?1",
         params![game_id, g.id, status, now],
     )?;
-    Ok(())
+    // The match's cover: one more automatic cover source (not selected here).
+    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND source = 'igdb' AND selected = 0", [game_id])?;
+    let Some(cover) = &g.cover else { return Ok(false) };
+    let url = crate::metadata::igdb::cover_image(&cover.image_id, "1080p");
+    conn.execute(
+        "INSERT INTO artwork (game_id, kind, source, remote_id, url, selected, fetched_at)
+         VALUES (?1, 'boxart', 'igdb', ?2, ?3, 0, ?4)
+         ON CONFLICT(game_id, kind, source, remote_id) DO UPDATE SET url = excluded.url",
+        params![game_id, cover.image_id, url, now],
+    )?;
+    // Queue it for games without a cover, or showing GameTDB's generic PSN
+    // frame (PSN title IDs start with NP); never over a cover the user chose.
+    let queued = conn.execute(
+        "UPDATE games SET art_status = 'none', art_checked_at = NULL
+         WHERE id = ?1 AND art_manual = 0
+           AND (art_status IN ('notfound', 'error')
+                OR (art_status = 'ok' AND serial LIKE 'NP%'
+                    AND EXISTS (SELECT 1 FROM artwork a WHERE a.game_id = games.id AND a.selected = 1 AND a.source = 'gametdb')))",
+        [game_id],
+    )?;
+    Ok(queued > 0)
 }
 
 /// Records a failed lookup ('notfound' / 'error') without touching a match.

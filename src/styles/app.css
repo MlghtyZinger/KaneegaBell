@@ -37,6 +37,28 @@
   scrollbar-width: none;
   flex: 1;
   min-width: 0;
+  scroll-behavior: smooth;
+}
+
+/* More tabs past an edge: fade it out so the row clearly continues. */
+.platform-tabs.fade-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+}
+
+.platform-tabs.fade-left {
+  mask-image: linear-gradient(to right, transparent, #000 48px);
+}
+
+.platform-tabs.fade-left.fade-right {
+  mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
+}
+
+.footer-jobs {
+  margin-left: auto;
+}
+
+.footer-jobs .scan-pill {
+  padding: 2px 12px;
 }
 
 .tab {
@@ -258,7 +280,6 @@
 }
 
 .zoom-slider {
-  margin-left: auto;
   width: 160px;
   accent-color: var(--accent);
   cursor: pointer;

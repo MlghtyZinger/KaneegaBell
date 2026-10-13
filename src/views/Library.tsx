@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { library, type PlatformFilter } from "../state/library";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
@@ -8,6 +8,37 @@ import { Hint } from "../components/Hints";
 import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
 import { api, type GameRow } from "../api";
+
+/** What the background worker is doing: scanning, then covers, then game info. */
+function JobPill() {
+  return (
+    <Show
+      when={library.scanProgress()}
+      fallback={
+        <Show
+          when={library.artProgress()}
+          fallback={
+            <Show when={library.metaProgress()}>
+              {(p) => (
+                <span class="scan-pill">
+                  Game info {p().done}/{p().total}
+                </span>
+              )}
+            </Show>
+          }
+        >
+          {(p) => (
+            <span class="scan-pill">
+              Covers {p().done}/{p().total}
+            </span>
+          )}
+        </Show>
+      }
+    >
+      {(p) => <span class="scan-pill">Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}</span>}
+    </Show>
+  );
+}
 
 function initial(title: string): string {
   const c = title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase();
@@ -158,6 +189,28 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
     if (id === "recent") return "Recent";
     return library.platforms().find((x) => x.id === id)?.shortName ?? id;
   };
+  // The tab row scrolls sideways when it doesn't fit: keep the active tab in
+  // view, and fade the edge(s) that have more tabs past them.
+  let tabsEl!: HTMLElement;
+  const [tabFade, setTabFade] = createSignal({ left: false, right: false });
+  const updateTabFade = () => {
+    const el = tabsEl;
+    setTabFade({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  };
+  createEffect(
+    on([library.platform, library.platformTabs, library.query], () =>
+      queueMicrotask(() => {
+        tabsEl?.querySelector(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        updateTabFade();
+      }),
+    ),
+  );
+  onMount(() => {
+    const ro = new ResizeObserver(updateTabFade);
+    ro.observe(tabsEl);
+    onCleanup(() => ro.disconnect());
+  });
+
   const tabCount = (id: PlatformFilter) => {
     if (id === "all") return library.games().length;
     if (id === "favorites") return library.favorites().length;
@@ -168,7 +221,13 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
   return (
     <div class="library">
       <header class="topbar">
-        <nav class="platform-tabs" aria-label="Platforms">
+        <nav
+          class="platform-tabs"
+          classList={{ "fade-left": tabFade().left, "fade-right": tabFade().right }}
+          aria-label="Platforms"
+          ref={tabsEl}
+          onScroll={updateTabFade}
+        >
           <Show
             when={!library.query()}
             fallback={
@@ -192,22 +251,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           </Show>
         </nav>
         <div class="topbar-right">
-          <Show when={library.scanProgress()}>
-            {(p) => <span class="scan-pill">Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}</span>}
-          </Show>
-          <Show when={!library.scanProgress() && library.artProgress()}>
-            {(p) => (
-              <span class="scan-pill">
-                Covers {p().done}/{p().total}
-              </span>
-            )}
-          </Show>
-          <Show when={!library.scanProgress() && !library.artProgress() && library.metaProgress()}>
-            {(p) => (
-              <span class="scan-pill">
-                Game info {p().done}/{p().total}
-              </span>
-            )}
+          {/* With games, progress sits in the footer, leaving room for the tabs. */}
+          <Show when={games().length === 0}>
+            <JobPill />
           </Show>
           <Show when={library.genres().length > 0}>
             <Picker
@@ -293,6 +339,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint action="menu" label="Settings" />
           <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
           <Hint action="toggleLayout" label={library.stacked() ? "Rows" : "Stacked"} />
+          <span class="footer-jobs">
+            <JobPill />
+          </span>
           <input
             class="zoom-slider"
             type="range"

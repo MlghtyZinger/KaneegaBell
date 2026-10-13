@@ -46,6 +46,8 @@ pub struct Target {
     pub search_key: String,
     pub region: Option<String>,
     pub serial: Option<String>,
+    /// Cover of the game's IGDB match, when it has one.
+    pub igdb_cover: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,14 +156,21 @@ fn gametdb_tries(platform: &str, serial: Option<&str>) -> Vec<Try> {
 }
 
 /// Where to look first: an exact ID lookup beats a name match for PS3
-/// (libretro has few PS3 covers); elsewhere libretro's sets are the most
-/// complete and GameTDB fills gaps.
-fn order_tries(platform: &str, libretro: Option<Try>, gametdb: Vec<Try>) -> Vec<Try> {
-    if platform == "ps3" {
-        gametdb.into_iter().chain(libretro).collect()
-    } else {
-        libretro.into_iter().chain(gametdb).collect()
+/// (libretro has few PS3 covers), except for PSN titles, where GameTDB only
+/// has a generic "PlayStation Network" frame and the IGDB match's cover is
+/// better; elsewhere libretro's sets are the most complete, GameTDB fills
+/// gaps, and the IGDB match's cover comes last.
+fn order_tries(platform: &str, serial: Option<&str>, libretro: Option<Try>, gametdb: Vec<Try>, igdb: Option<Try>) -> Vec<Try> {
+    let psn = serial.is_some_and(|s| s.trim().to_ascii_uppercase().starts_with("NP"));
+    match platform {
+        "ps3" if psn => igdb.into_iter().chain(gametdb).chain(libretro).collect(),
+        "ps3" => gametdb.into_iter().chain(igdb).chain(libretro).collect(),
+        _ => libretro.into_iter().chain(gametdb).chain(igdb).collect(),
     }
+}
+
+fn igdb_try(url: Option<&str>) -> Option<Try> {
+    url.map(|u| Try { source: "igdb", name: u.rsplit('/').next().unwrap_or(u).trim_end_matches(".jpg").to_string(), url: u.to_string() })
 }
 
 enum Outcome {
@@ -213,7 +222,13 @@ pub fn run(
                 }
                 _ => None,
             };
-            let tries = order_tries(&g.platform_id, libretro, gametdb_tries(&g.platform_id, g.serial.as_deref()));
+            let tries = order_tries(
+                &g.platform_id,
+                g.serial.as_deref(),
+                libretro,
+                gametdb_tries(&g.platform_id, g.serial.as_deref()),
+                igdb_try(g.igdb_cover.as_deref()),
+            );
             match (tries.is_empty(), &index) {
                 (false, _) => jobs.push(Job { id: g.id, tries, index_failed: index.is_err() }),
                 (true, Err(e)) => outcomes.push(Outcome::Failed { id: g.id, error: e.to_string() }),
@@ -323,6 +338,7 @@ fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
 pub struct ArtInfo {
     pub platform_id: String,
     pub serial: Option<String>,
+    pub igdb_cover: Option<String>,
     pub launch_path: String,
     pub search_key: String,
     pub region: Option<String>,
@@ -352,6 +368,15 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
     let mut out = Vec::new();
     let searching = query.is_some_and(|q| !q.trim().is_empty());
     if !searching {
+        if let Some(url) = &t.igdb_cover {
+            out.push(Candidate {
+                source: "igdb".into(),
+                name: igdb_try(Some(url)).map(|t| t.name).unwrap_or_default(),
+                url: url.clone(),
+                preview: Some(crate::metadata::igdb::preview_of(url)),
+                label: "IGDB".into(),
+            });
+        }
         let mut seen = Vec::new();
         for u in gametdb::cover_urls(&t.platform_id, t.serial.as_deref()) {
             if seen.contains(&u.region) {
@@ -406,7 +431,7 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
 pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, source: &str, name: &str, url: &str) -> Result<()> {
     let gone = || crate::error::Error::msg("that cover is no longer available");
     let bytes = match source {
-        "libretro" => fetch.get(url)?.ok_or_else(gone)?,
+        "libretro" | "igdb" => fetch.get(url)?.ok_or_else(gone)?,
         "gametdb" => match fetch.get(&gametdb::best_url(url))? {
             Some(b) => b,
             None => fetch.get(url)?.ok_or_else(gone)?,
@@ -416,7 +441,8 @@ pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_
     };
     let p = images::process(&bytes)?;
     images::store(data_dir, game_id, &p)?;
-    queries::set_boxart(conn, game_id, source, name, url, p.width, p.height, queries::now())
+    queries::set_boxart(conn, game_id, source, name, url, p.width, p.height, queries::now())?;
+    queries::set_art_manual(conn, game_id)
 }
 
 /// Removes a game's cover and keeps it removed (the title card shows instead).
@@ -425,6 +451,7 @@ pub fn remove(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
         let _ = std::fs::remove_file(p);
     }
     queries::reset_art(conn, game_id)?;
+    queries::set_art_manual(conn, game_id)?;
     queries::set_art_status(conn, game_id, "removed", queries::now())
 }
 
@@ -612,6 +639,21 @@ mod tests {
         let c = candidates(&conn, &http, id, None).unwrap();
         assert_eq!(c[0].url, "https://art.gametdb.com/ps3/coverM/US/BLUS30383.jpg");
         assert_eq!(c.last().unwrap().source, "local");
+    }
+
+    #[test]
+    fn psn_titles_prefer_the_igdb_cover_over_gametdbs_generic_frame() {
+        let igdb = igdb_try(Some("https://images.igdb.com/igdb/image/upload/t_1080p/co9.jpg"));
+        let tdb = gametdb_tries("ps3", Some("NPUB30024"));
+        let order: Vec<&str> =
+            order_tries("ps3", Some("NPUB30024"), None, tdb.clone(), igdb.clone()).iter().map(|t| t.source).collect::<Vec<_>>();
+        assert_eq!(order[0], "igdb");
+        let disc: Vec<&str> = order_tries("ps3", Some("BLUS30443"), None, gametdb_tries("ps3", Some("BLUS30443")), igdb.clone())
+            .iter()
+            .map(|t| t.source)
+            .collect();
+        assert_eq!((disc[0], *disc.last().unwrap()), ("gametdb", "igdb"));
+        assert_eq!(igdb.unwrap().name, "co9");
     }
 
     #[test]

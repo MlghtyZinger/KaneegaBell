@@ -31,7 +31,7 @@ export interface PlatformSummary {
 }
 
 export interface CoverCandidate {
-  source: "libretro" | "gametdb" | "local";
+  source: "libretro" | "gametdb" | "igdb" | "local";
   name: string;
   url: string;
   preview: string | null;
@@ -105,7 +105,7 @@ export interface GameDetail {
   playSeconds: number;
   lastPlayed: number | null;
   art: number;
-  artSource: "libretro" | "gametdb" | "local" | "file" | null;
+  artSource: "libretro" | "gametdb" | "igdb" | "local" | "file" | null;
   files: [string, number | null][];
   meta: GameMetadata;
 }
