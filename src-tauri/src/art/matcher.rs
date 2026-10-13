@@ -72,6 +72,20 @@ fn compact_key(search_key: &str) -> String {
     title_key(search_key).replace(' ', "")
 }
 
+/// How alike two titles (search keys) are, 0..=1, by the same rules as
+/// thumbnail matching: 1.0 for the same title (ignoring little words and
+/// spacing), else word overlap, and 0 when sequel numbers disagree.
+pub fn title_similarity(a: &str, b: &str) -> f32 {
+    if title_key(a) == title_key(b) || compact_key(a) == compact_key(b) {
+        return 1.0;
+    }
+    let (wa, wb) = (words(a), words(b));
+    if numbers(&wa) != numbers(&wb) {
+        return 0.0;
+    }
+    dice(&wa, &wb)
+}
+
 pub struct Index {
     names: Vec<String>,
     parsed: Vec<ParsedName>,

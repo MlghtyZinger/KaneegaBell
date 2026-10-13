@@ -34,6 +34,9 @@ pub struct GameRow {
     /// The cover's height / width, so its card can take the cover's shape
     /// before the image loads.
     pub art_aspect: Option<f64>,
+    /// Genre ids (from IGDB), for the genre filter.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub genres: Vec<i64>,
 }
 
 /// Every present game, ordered by platform display order then title. This is
@@ -62,6 +65,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             is_multidisc: r.get(8)?,
             art: r.get(9)?,
             art_aspect: r.get(10)?,
+            genres: Vec::new(),
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -269,6 +273,118 @@ pub fn reset_art(conn: &Connection, game_id: i64) -> Result<()> {
         [game_id],
     )?;
     Ok(())
+}
+
+// ---------------------------------------------------------------- metadata
+
+/// Games to look up on IGDB: never tried, failed last time, not found more
+/// than a week ago, or matched but missing their stored details.
+pub fn games_needing_metadata(conn: &Connection, now: i64) -> Result<Vec<crate::metadata::Target>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.title, g.search_key, p.igdb_platform, g.igdb_id, g.match_status
+         FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1
+           AND (g.match_status IN ('none', 'error')
+                OR (g.match_status = 'notfound' AND COALESCE(g.meta_checked_at, 0) < ?1)
+                OR (g.match_status IN ('ok', 'manual') AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.game_id = g.id)))
+         ORDER BY p.sort_order, g.sort_title",
+    )?;
+    let rows = stmt.query_map([now - crate::metadata::NOTFOUND_RETRY_SECS], |r| {
+        Ok(crate::metadata::Target {
+            id: r.get(0)?,
+            title: r.get(1)?,
+            search_key: r.get(2)?,
+            igdb_platform: r.get(3)?,
+            igdb_id: r.get(4)?,
+            manual: r.get::<_, String>(5)? == "manual",
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn count_games_needing_metadata(conn: &Connection, now: i64) -> Result<usize> {
+    Ok(games_needing_metadata(conn, now)?.len())
+}
+
+/// Stores an IGDB match: the game's details, genres and IGDB id.
+/// `status` is "ok" (automatic) or "manual" (the user picked it).
+pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::Game, status: &str, now: i64) -> Result<()> {
+    conn.execute(
+        "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7)
+         ON CONFLICT(game_id) DO UPDATE SET title = excluded.title, description = excluded.description,
+             release_date = excluded.release_date, developer = excluded.developer, publisher = excluded.publisher,
+             source = excluded.source, fetched_at = excluded.fetched_at",
+        params![game_id, g.name, g.summary, g.first_release_date, g.developer(), g.publisher(), now],
+    )?;
+    conn.execute("DELETE FROM game_genres WHERE game_id = ?1", [game_id])?;
+    for genre in &g.genres {
+        conn.execute("INSERT OR IGNORE INTO genres (name) VALUES (?1)", [&genre.name])?;
+        conn.execute(
+            "INSERT OR IGNORE INTO game_genres (game_id, genre_id) SELECT ?1, id FROM genres WHERE name = ?2",
+            params![game_id, genre.name],
+        )?;
+    }
+    conn.execute(
+        "UPDATE games SET igdb_id = ?2, match_status = ?3, meta_checked_at = ?4 WHERE id = ?1",
+        params![game_id, g.id, status, now],
+    )?;
+    Ok(())
+}
+
+/// Records a failed lookup ('notfound' / 'error') without touching a match.
+pub fn set_match_status(conn: &Connection, game_id: i64, status: &str, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE games SET match_status = ?2, meta_checked_at = ?3 WHERE id = ?1 AND match_status NOT IN ('ok', 'manual')",
+        params![game_id, status, now],
+    )?;
+    Ok(())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameMetadata {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub release_date: Option<i64>,
+    pub developer: Option<String>,
+    pub publisher: Option<String>,
+    pub genres: Vec<String>,
+    pub igdb_id: Option<i64>,
+    pub match_status: String,
+}
+
+pub fn game_metadata(conn: &Connection, game_id: i64) -> Result<GameMetadata> {
+    let (igdb_id, match_status): (Option<i64>, String) =
+        conn.query_row("SELECT igdb_id, match_status FROM games WHERE id = ?1", [game_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let row = conn
+        .query_row(
+            "SELECT title, description, release_date, developer, publisher FROM metadata WHERE game_id = ?1",
+            [game_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .optional()?;
+    let mut stmt = conn.prepare_cached(
+        "SELECT g.name FROM game_genres gg JOIN genres g ON g.id = gg.genre_id WHERE gg.game_id = ?1 ORDER BY g.name",
+    )?;
+    let genres = stmt.query_map([game_id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+    let (title, description, release_date, developer, publisher) = row.unwrap_or_default();
+    Ok(GameMetadata { title, description, release_date, developer, publisher, genres, igdb_id, match_status })
+}
+
+/// Genre names by id, and each present game's genre ids, for the genre filter.
+pub fn genres(conn: &Connection) -> Result<(Vec<(i64, String)>, HashMap<i64, Vec<i64>>)> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT ge.id, ge.name FROM genres ge JOIN game_genres gg ON gg.genre_id = ge.id ORDER BY ge.name",
+    )?;
+    let names = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?;
+    let mut by_game: HashMap<i64, Vec<i64>> = HashMap::new();
+    let mut stmt = conn.prepare("SELECT game_id, genre_id FROM game_genres")?;
+    for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))? {
+        let (g, ge) = row?;
+        by_game.entry(g).or_default().push(ge);
+    }
+    Ok((names, by_game))
 }
 
 pub fn cache_get(conn: &Connection, key: &str) -> Result<Option<(Vec<u8>, i64)>> {

@@ -5,8 +5,10 @@ mod error;
 mod fsbrowse;
 mod input;
 mod launcher;
+mod metadata;
 mod platforms;
 mod scanner;
+mod secrets;
 
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -27,6 +29,7 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
+            secrets::init(&dir);
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
             // TV mode: go fullscreen before the page loads, so there's no resize flash.
@@ -85,6 +88,12 @@ pub fn run() {
             commands::cover_candidates,
             commands::set_cover,
             commands::remove_cover,
+            commands::get_services,
+            commands::set_igdb_keys,
+            commands::remove_igdb_keys,
+            commands::fetch_metadata,
+            commands::igdb_search,
+            commands::set_igdb_match,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

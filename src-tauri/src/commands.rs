@@ -15,6 +15,7 @@ use crate::error::{Error, Result};
 use crate::input::{ExitCombo, InputShared};
 use crate::launcher::{self, template, Launcher};
 use crate::scanner::{self, ps3};
+use crate::{metadata, secrets};
 use tauri::Manager;
 
 pub struct AppState {
@@ -23,6 +24,7 @@ pub struct AppState {
     scanning: Arc<AtomicBool>,
     rescan_pending: Arc<AtomicBool>,
     art_pending: Arc<AtomicBool>,
+    meta_pending: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -36,6 +38,7 @@ impl AppState {
             scanning: Arc::default(),
             rescan_pending: Arc::default(),
             art_pending: Arc::default(),
+            meta_pending: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
@@ -82,9 +85,18 @@ pub struct PlatformSummary {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GenreSummary {
+    id: i64,
+    name: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Library {
     platforms: Vec<PlatformSummary>,
     games: Vec<queries::GameRow>,
+    /// Genres some game has (from IGDB); empty without IGDB.
+    genres: Vec<GenreSummary>,
 }
 
 /// Startup payload: platforms with games plus every game row, in one IPC call.
@@ -103,12 +115,29 @@ pub fn get_library(state: State<'_, AppState>) -> Result<Library> {
             count: p.game_count,
         })
         .collect();
-    Ok(Library { platforms, games: queries::library(&conn)? })
+    let (genre_names, by_game) = queries::genres(&conn)?;
+    let mut games = queries::library(&conn)?;
+    for g in &mut games {
+        if let Some(ids) = by_game.get(&g.id) {
+            g.genres.clone_from(ids);
+        }
+    }
+    let genres = genre_names.into_iter().map(|(id, name)| GenreSummary { id, name }).collect();
+    Ok(Library { platforms, games, genres })
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameInfo {
+    #[serde(flatten)]
+    detail: queries::GameDetail,
+    meta: queries::GameMetadata,
 }
 
 #[tauri::command]
-pub fn get_game(state: State<'_, AppState>, id: i64) -> Result<queries::GameDetail> {
-    queries::game_detail(&state.db(), id)
+pub fn get_game(state: State<'_, AppState>, id: i64) -> Result<GameInfo> {
+    let conn = state.db();
+    Ok(GameInfo { detail: queries::game_detail(&conn, id)?, meta: queries::game_metadata(&conn, id)? })
 }
 
 #[tauri::command]
@@ -305,6 +334,7 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
 pub fn cancel_scan(state: State<'_, AppState>) {
     state.rescan_pending.store(false, Ordering::Release);
     state.art_pending.store(false, Ordering::Release);
+    state.meta_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -376,16 +406,26 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<bool> {
+        let pending = (|| -> Result<(bool, bool)> {
             let conn = state.db();
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
-            Ok(auto && queries::count_games_needing_art(&conn, queries::now())? > 0)
+            let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
+            Ok((art, meta_wanted(&conn)?))
         })();
-        if pending.unwrap_or(false) {
-            state.art_pending.store(true, Ordering::Release);
+        let (art, meta) = pending.unwrap_or((false, false));
+        if art || meta {
+            state.art_pending.fetch_or(art, Ordering::AcqRel);
+            state.meta_pending.fetch_or(meta, Ordering::AcqRel);
             kick_worker(app.clone(), &state);
         }
     });
+}
+
+/// IGDB is set up, automatic details are on, and some game needs them.
+fn meta_wanted(conn: &Connection) -> Result<bool> {
+    Ok(queries::get_setting::<bool>(conn, "autoMeta")?.unwrap_or(true)
+        && igdb_login()?.is_some()
+        && queries::count_games_needing_metadata(conn, queries::now())? > 0)
 }
 
 /// Starts the worker thread unless it's already running (it then picks up the
@@ -397,6 +437,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let busy = state.scanning.clone();
     let scan_pending = state.rescan_pending.clone();
     let art_pending = state.art_pending.clone();
+    let meta_pending = state.meta_pending.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
@@ -404,17 +445,21 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .name("library-jobs".into())
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
+            // Order: scan, then covers, then details (each pass may queue the next).
             if scan_pending.swap(false, Ordering::AcqRel) {
-                let auto_art = run_scan(&app, &db_path, &cancel);
-                if auto_art {
-                    art_pending.store(true, Ordering::Release);
-                }
+                let next = run_scan(&app, &db_path, &cancel);
+                art_pending.fetch_or(next.art, Ordering::AcqRel);
+                meta_pending.fetch_or(next.meta, Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
+            } else if meta_pending.swap(false, Ordering::AcqRel) {
+                run_meta(&app, &db_path, &cancel);
             } else {
                 busy.store(false, Ordering::Release);
                 // A request may have slipped in after the checks above.
-                let more = scan_pending.load(Ordering::Acquire) || art_pending.load(Ordering::Acquire);
+                let more = scan_pending.load(Ordering::Acquire)
+                    || art_pending.load(Ordering::Acquire)
+                    || meta_pending.load(Ordering::Acquire);
                 if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
@@ -440,8 +485,15 @@ fn throttled(min_ms: u128) -> impl Fn(bool) -> bool {
     }
 }
 
-/// Runs one scan. Returns whether an art pass should follow.
-fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> bool {
+/// What should run after a scan.
+#[derive(Default)]
+struct FollowUp {
+    art: bool,
+    meta: bool,
+}
+
+/// Runs one scan.
+fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
     let due = throttled(100);
     let result = db::open(db_path).and_then(|mut conn| {
         let summary = scanner::run(
@@ -455,20 +507,179 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> bool {
         )?;
         let auto_art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
         let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
-        Ok((summary, auto_art && needs_art))
+        let next = FollowUp { art: auto_art && needs_art, meta: meta_wanted(&conn).unwrap_or(false) };
+        Ok((summary, next))
     });
     match result {
-        Ok((summary, art_next)) => {
+        Ok((summary, next)) => {
             log::info!("scan finished: {summary:?}");
             let _ = app.emit("scan-finished", &summary);
-            art_next && !summary.cancelled
+            if summary.cancelled {
+                FollowUp::default()
+            } else {
+                next
+            }
         }
         Err(e) => {
             log::error!("scan failed: {e}");
             let _ = app.emit("scan-failed", e.to_string());
-            false
+            FollowUp::default()
         }
     }
+}
+
+// ---------------------------------------------------------------- IGDB
+
+const IGDB_ID: &str = "igdb-client-id";
+const IGDB_SECRET: &str = "igdb-client-secret";
+const IGDB_TOKEN: &str = "igdb-token";
+
+/// The user's IGDB keys and saved token, if they've added them.
+fn igdb_login() -> Result<Option<(metadata::igdb::Credentials, Option<metadata::igdb::Token>)>> {
+    let (Some(client_id), Some(client_secret)) = (secrets::get(IGDB_ID)?, secrets::get(IGDB_SECRET)?) else {
+        return Ok(None);
+    };
+    let token = secrets::get(IGDB_TOKEN)?.and_then(|t| serde_json::from_str(&t).ok());
+    Ok(Some((metadata::igdb::Credentials { client_id, client_secret }, token)))
+}
+
+/// Runs `f` with an IGDB client, then saves the token if it changed.
+fn with_igdb<T>(f: impl FnOnce(&metadata::igdb::Igdb) -> Result<T>) -> Result<T> {
+    let (creds, token) =
+        igdb_login()?.ok_or_else(|| Error::msg("Add your IGDB keys in Settings → Services first"))?;
+    let http = art::http::Http::new();
+    let igdb = metadata::igdb::Igdb::new(&http, creds, token.clone());
+    let out = f(&igdb);
+    if let Some(t) = igdb.token().filter(|t| Some(t) != token.as_ref()) {
+        if let Err(e) = secrets::set(IGDB_TOKEN, &serde_json::to_string(&t)?) {
+            log::warn!("couldn't save the IGDB token: {e}");
+        }
+    }
+    out
+}
+
+fn run_meta(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) {
+    let due = throttled(250);
+    let reload_due = throttled(2000);
+    let result = db::open(db_path).and_then(|mut conn| {
+        with_igdb(|igdb| {
+            metadata::run(
+                &mut conn,
+                igdb,
+                &|p| {
+                    if due(p.done == p.total) {
+                        let _ = app.emit("meta-progress", &p);
+                    }
+                    if p.matched > 0 && reload_due(false) {
+                        let _ = app.emit("library-changed", ());
+                    }
+                },
+                cancel,
+            )
+        })
+    });
+    match result {
+        Ok(summary) => {
+            let _ = app.emit("meta-finished", &summary);
+        }
+        Err(e) => {
+            log::error!("IGDB details failed: {e}");
+            let _ = app.emit("meta-failed", e.to_string());
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Services {
+    /// IGDB keys are saved.
+    igdb: bool,
+    /// The saved Client ID, shortened (it isn't secret, but no need to show it all).
+    igdb_client_id: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_services() -> Result<Services> {
+    let id = secrets::get(IGDB_ID)?;
+    let has_secret = secrets::get(IGDB_SECRET)?.is_some();
+    Ok(Services {
+        igdb: id.is_some() && has_secret,
+        igdb_client_id: id.map(|s| format!("{}…", s.chars().take(6).collect::<String>())),
+    })
+}
+
+/// Checks the keys with Twitch (by getting a token), then saves them and
+/// fetches details for the library.
+#[tauri::command]
+pub async fn set_igdb_keys(app: AppHandle, client_id: String, client_secret: String) -> Result<()> {
+    let (client_id, client_secret) = (client_id.trim().to_string(), client_secret.trim().to_string());
+    if client_id.is_empty() || client_secret.is_empty() {
+        return Err(Error::msg("Enter both the Client ID and the Client Secret"));
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<()> {
+        let http = art::http::Http::new();
+        let creds = metadata::igdb::Credentials { client_id: client_id.clone(), client_secret: client_secret.clone() };
+        let token = metadata::igdb::Igdb::new(&http, creds, None).fetch_token()?;
+        secrets::set(IGDB_ID, &client_id)?;
+        secrets::set(IGDB_SECRET, &client_secret)?;
+        secrets::set(IGDB_TOKEN, &serde_json::to_string(&token)?)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let state = app.state::<AppState>();
+    state.meta_pending.store(true, Ordering::Release);
+    kick_worker(app.clone(), &state);
+    Ok(())
+}
+
+/// Forgets the IGDB keys (details already fetched stay).
+#[tauri::command]
+pub fn remove_igdb_keys() -> Result<()> {
+    for name in [IGDB_ID, IGDB_SECRET, IGDB_TOKEN] {
+        secrets::delete(name)?;
+    }
+    Ok(())
+}
+
+/// Queues an IGDB pass for games without details.
+/// Emits `meta-progress`, then `meta-finished` / `meta-failed`.
+#[tauri::command]
+pub fn fetch_metadata(app: AppHandle, state: State<'_, AppState>) -> bool {
+    state.meta_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
+}
+
+/// "Fix match": IGDB entries for `query` (default: the game's title).
+#[tauri::command]
+pub async fn igdb_search(app: AppHandle, id: i64, query: Option<String>) -> Result<Vec<metadata::Candidate>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let (title, platform): (String, Option<i64>) = state.db().query_row(
+            "SELECT g.title, p.igdb_platform FROM games g JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let q = query.map(|q| q.trim().to_string()).filter(|q| !q.is_empty()).unwrap_or(title);
+        with_igdb(|igdb| metadata::search(igdb, &q, platform))
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// Links a game to the IGDB entry picked in "Fix match".
+#[tauri::command]
+pub async fn set_igdb_match(app: AppHandle, id: i64, igdb_id: i64) -> Result<()> {
+    let app2 = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app2.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        with_igdb(|igdb| metadata::apply_match(&conn, igdb, id, igdb_id))
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let _ = app.emit("library-changed", ());
+    Ok(())
 }
 
 fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
