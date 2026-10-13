@@ -4,8 +4,9 @@
 //!   user's Client ID + Secret returns an app token (~60 days); every API
 //!   request sends `Client-ID` and `Authorization: Bearer <token>`.
 //! - Limits: 4 requests/second and at most 8 open requests; going over gives
-//!   429. This client is sequential and spaces requests >= 260 ms apart, and
-//!   batches up to 10 searches per request with the multiquery endpoint.
+//!   429. This client is sequential and spaces requests >= 260 ms apart.
+//!   (Searches can't be batched: the multiquery endpoint silently returns
+//!   empty results for `search` queries.)
 //! - Terms: free for non-commercial use under the Twitch Developer Services
 //!   Agreement. Each user brings their own key; nothing is shared.
 
@@ -23,14 +24,12 @@ pub const API: &str = "https://api.igdb.com/v4";
 const MIN_INTERVAL: Duration = Duration::from_millis(260);
 /// Renew tokens this long before IGDB says they expire.
 const TOKEN_MARGIN_SECS: i64 = 24 * 3600;
-/// Most searches one multiquery request may carry.
-pub const MULTIQUERY_MAX: usize = 10;
 
 /// Everything stored per game. `version_parent` is null for the main game
 /// (editions like "Collector's Edition" point at their parent).
 pub const FIELDS: &str = "name,summary,first_release_date,genres.name,platforms,cover.image_id,\
 alternative_names.name,involved_companies.company.name,involved_companies.developer,\
-involved_companies.publisher,version_parent";
+involved_companies.publisher,version_parent,game_type.type";
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -80,9 +79,22 @@ pub struct Game {
     #[serde(default)]
     pub involved_companies: Vec<Involved>,
     pub version_parent: Option<i64>,
+    /// "Main Game", "Mod", "Remake", "Port"... (IGDB's game_types table).
+    pub game_type: Option<GameType>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct GameType {
+    #[serde(rename = "type")]
+    pub name: String,
 }
 
 impl Game {
+    /// Fan-made modifications (ROM hacks, fan remakes) listed on IGDB.
+    pub fn is_mod(&self) -> bool {
+        self.game_type.as_ref().is_some_and(|t| t.name.eq_ignore_ascii_case("mod"))
+    }
+
     fn companies(&self, pick: impl Fn(&Involved) -> bool) -> Option<String> {
         let names: Vec<&str> =
             self.involved_companies.iter().filter(|c| pick(c)).filter_map(|c| c.company.as_ref()).map(|c| c.name.as_str()).collect();
@@ -217,22 +229,6 @@ impl<'a> Igdb<'a> {
         }
     }
 
-    /// Runs up to `MULTIQUERY_MAX` /games queries at once; returns each
-    /// labelled result list.
-    pub fn multi_games(&self, queries: &[(String, String)]) -> Result<Vec<(String, Vec<Game>)>> {
-        debug_assert!(queries.len() <= MULTIQUERY_MAX);
-        let body: String = queries.iter().map(|(label, q)| format!("query games {} {{ {q} }};\n", quote(label))).collect();
-        let v = self.query("multiquery", &body)?;
-        #[derive(Deserialize)]
-        struct Part {
-            name: String,
-            #[serde(default)]
-            result: Vec<Game>,
-        }
-        let parts: Vec<Part> = serde_json::from_value(v)?;
-        Ok(parts.into_iter().map(|p| (p.name, p.result)).collect())
-    }
-
     pub fn games(&self, query: &str) -> Result<Vec<Game>> {
         Ok(serde_json::from_value(self.query("games", query)?)?)
     }
@@ -308,28 +304,65 @@ mod tests {
         assert!(!err.contains("s&cret") && !err.contains("s%26cret"));
     }
 
+    /// Live probe with the keys saved in the app (network; prints raw responses, never the keys):
+    /// `cargo test real_igdb_probe -- --ignored --nocapture`
     #[test]
-    fn multiquery_results_come_back_labelled() {
-        let http = FakePost::new(|url: &str, _: &[(&str, &str)], body: &str| {
-            if url.starts_with(TOKEN_URL) {
-                return json(200, j!({"access_token": "t", "expires_in": 5_000_000}));
+    #[ignore]
+    fn real_igdb_probe() {
+        let (Some(client_id), Some(client_secret)) =
+            (crate::secrets::get("igdb-client-id").unwrap(), crate::secrets::get("igdb-client-secret").unwrap())
+        else {
+            panic!("no IGDB keys saved in the app");
+        };
+        let http = crate::art::http::Http::new();
+        let igdb = Igdb::new(&http, Credentials { client_id, client_secret }, None);
+        if let Ok(list) = std::env::var("IGDB_PROBE") {
+            // IGDB_PROBE="Killer 7|9;Black|8": title|platform pairs.
+            for item in list.split(';') {
+                let (title, platform) = item.split_once('|').unwrap_or((item, ""));
+                let body = format!(
+                    "search {}; fields name,alternative_names.name,platforms,game_type.type,version_parent,first_release_date;{} limit 10;",
+                    quote(title),
+                    platform.parse::<i64>().map(|p| format!(" where platforms = ({p});")).unwrap_or_default()
+                );
+                println!("== {title} [{platform}]");
+                match igdb.query("games", &body) {
+                    Ok(serde_json::Value::Array(games)) => {
+                        for g in games {
+                            let alts: Vec<_> = g["alternative_names"].as_array().map(|a| a.iter().filter_map(|n| n["name"].as_str()).collect()).unwrap_or_default();
+                            println!("   {} | type {} | parent {} | alts {:?}", g["name"], g["game_type"]["type"], g["version_parent"], alts);
+                        }
+                    }
+                    Ok(v) => println!("   {v}"),
+                    Err(e) => println!("   ERROR {e}"),
+                }
             }
-            assert!(body.contains("query games \"g1\" { search \"Okami\";"), "{body}");
-            json(200, j!([{"name": "g1", "result": [{"id": 7, "name": "Okami",
-                "involved_companies": [{"company": {"name": "Clover Studio"}, "developer": true, "publisher": false},
-                                       {"company": {"name": "Capcom"}, "developer": false, "publisher": true}],
-                "genres": [{"name": "Adventure"}], "cover": {"image_id": "abc"}}]},
-                {"name": "g2", "result": []}]))
-        });
-        let igdb = Igdb::new(&http, creds(), None);
-        let out = igdb
-            .multi_games(&[("g1".into(), search_query("Okami", Some(8), 5)), ("g2".into(), search_query("Nope", None, 5))])
-            .unwrap();
-        assert_eq!(out[0].0, "g1");
-        let okami = &out[0].1[0];
+            return;
+        }
+        for (endpoint, body) in [
+            ("games", "search \"Dante's Inferno\"; fields name,platforms;".to_string()),
+            ("games", search_query("Dante's Inferno", Some(9), 5)),
+            ("games", search_query("Dante's Inferno", None, 5)),
+            // Kept to notice if IGDB ever fixes search inside multiquery (it returns []).
+            ("multiquery", format!("query games \"a\" {{ {} }};", search_query("Dante's Inferno", None, 3))),
+        ] {
+            println!("== {endpoint}: {body}");
+            match igdb.query(endpoint, &body) {
+                Ok(v) => println!("{}", serde_json::to_string(&v).unwrap().chars().take(1500).collect::<String>()),
+                Err(e) => println!("ERROR {e}"),
+            }
+        }
+    }
+
+    #[test]
+    fn game_fields_parse() {
+        let okami: Game = serde_json::from_value(j!({"id": 7, "name": "Okami",
+            "involved_companies": [{"company": {"name": "Clover Studio"}, "developer": true, "publisher": false},
+                                   {"company": {"name": "Capcom"}, "developer": false, "publisher": true}],
+            "genres": [{"id": 31, "name": "Adventure"}], "cover": {"id": 1, "image_id": "abc"}}))
+        .unwrap();
         assert_eq!(okami.developer().as_deref(), Some("Clover Studio"));
         assert_eq!(okami.publisher().as_deref(), Some("Capcom"));
         assert_eq!(okami.cover_url().unwrap(), "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/abc.jpg");
-        assert!(out[1].1.is_empty());
     }
 }

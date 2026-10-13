@@ -40,8 +40,15 @@ fn numbers(w: &HashSet<String>) -> HashSet<&str> {
 
 /// True if two words are equal, or long enough that a one-letter typo is
 /// clearly a typo ("initital" ~ "initial", "resurreccion" ~ "resurrection").
+/// Words with digits must match exactly: "black9" is not a typo of "black".
 fn same_word(a: &str, b: &str) -> bool {
-    a == b || (a.len().min(b.len()) >= 5 && a.len().abs_diff(b.len()) <= 1 && edit_distance_le1(a, b))
+    let has_digit = |s: &str| s.bytes().any(|c| c.is_ascii_digit());
+    a == b
+        || (!has_digit(a)
+            && !has_digit(b)
+            && a.len().min(b.len()) >= 5
+            && a.len().abs_diff(b.len()) <= 1
+            && edit_distance_le1(a, b))
 }
 
 fn edit_distance_le1(a: &str, b: &str) -> bool {

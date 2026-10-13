@@ -57,12 +57,55 @@ pub struct Summary {
     pub duration_ms: u128,
 }
 
-/// How well an IGDB entry's name (or one of its alternative names) matches.
+/// How well an IGDB entry matches: its main name, or (slightly lower, so an
+/// exact main name wins a tie) one of its alternative names. Mods (ROM hacks,
+/// fan remakes) only count on an exact title.
 fn score(key: &str, g: &Game) -> f32 {
-    std::iter::once(&g.name)
-        .chain(g.alternative_names.iter().map(|n| &n.name))
-        .map(|n| title_similarity(key, &search_key(n)))
-        .fold(0.0, f32::max)
+    let main = title_similarity(key, &search_key(&g.name));
+    let alt = g.alternative_names.iter().map(|n| title_similarity(key, &search_key(&n.name)) * 0.98).fold(0.0, f32::max);
+    let s = main.max(alt);
+    if g.is_mod() && s < 0.999 {
+        0.0
+    } else {
+        s
+    }
+}
+
+/// Other spellings to search when the title itself finds nothing (IGDB's
+/// search is literal): "Killer 7" -> "Killer7", "DragonBall Z" -> "Dragon
+/// Ball Z", "Dante's Inferno HDD" -> "Dante's Inferno".
+pub fn search_variants(title: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut push = |s: String| {
+        let s = s.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !s.is_empty() && s != title && !out.contains(&s) {
+            out.push(s);
+        }
+    };
+    // Split CamelCase words.
+    let mut camel = String::new();
+    let mut prev: Option<char> = None;
+    for c in title.chars() {
+        if prev.is_some_and(|p| p.is_lowercase()) && c.is_uppercase() {
+            camel.push(' ');
+        }
+        camel.push(c);
+        prev = Some(c);
+    }
+    push(camel);
+    // "Word 7" -> "Word7" (two-word titles only; "Tenkaichi 3" stays apart).
+    let words: Vec<&str> = title.split_whitespace().collect();
+    if let [first, last] = words[..] {
+        if last.len() <= 2 && last.bytes().all(|b| b.is_ascii_digit()) {
+            push(format!("{first}{last}"));
+        }
+    }
+    // Drop a trailing word that isn't a number (editions, "HD", "HDD").
+    if words.len() >= 3 && !words.last().unwrap().bytes().all(|b| b.is_ascii_digit()) {
+        push(words[..words.len() - 1].join(" "));
+    }
+    out.truncate(3);
+    out
 }
 
 /// The best result at or above `min`; on a tie, the main game over an
@@ -152,44 +195,37 @@ pub fn run(conn: &mut Connection, igdb: &Igdb, progress: &dyn Fn(Progress), canc
         }
     }
 
-    // 2. Search by title on the game's platform; 3. leftovers without the
-    // platform filter (IGDB's platform data has gaps), exact titles only.
-    let mut leftovers = Vec::new();
-    for (pass, list) in [(2, unknown), (3, Vec::new())] {
-        let list = if pass == 3 { std::mem::take(&mut leftovers) } else { list };
-        for chunk in list.chunks(igdb::MULTIQUERY_MAX) {
-            if cancel.load(Ordering::Relaxed) {
-                break;
-            }
-            let queries: Vec<(String, String)> = chunk
-                .iter()
-                .map(|t| {
-                    let platform = if pass == 2 { t.igdb_platform } else { None };
-                    (format!("g{}", t.id), igdb::search_query(&t.title, platform, 10))
-                })
-                .collect();
-            match igdb.multi_games(&queries) {
+    // 2. Search by title on the game's platform, then (IGDB's platform data
+    // has gaps) without the filter, accepting only an exact title, then other
+    // spellings of the title on the platform. One request per search: IGDB's
+    // multiquery endpoint silently returns no results for `search` queries.
+    for t in &unknown {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
+        let mut passes: Vec<(String, Option<i64>, f32)> = vec![(t.title.clone(), t.igdb_platform, FUZZY_MIN)];
+        if t.igdb_platform.is_some() {
+            passes.push((t.title.clone(), None, STRICT));
+        }
+        passes.extend(search_variants(&t.title).into_iter().map(|v| (v, t.igdb_platform, FUZZY_MIN)));
+        let mut outcome: std::result::Result<Option<Game>, ()> = Ok(None);
+        for (query, platform, min) in passes {
+            match igdb.games(&igdb::search_query(&query, platform, 10)) {
                 Ok(results) => {
-                    let by_label: HashMap<String, Vec<Game>> = results.into_iter().collect();
-                    for t in chunk {
-                        let found = by_label.get(&format!("g{}", t.id)).map(Vec::as_slice).unwrap_or_default();
-                        let min = if pass == 2 { FUZZY_MIN } else { STRICT };
-                        match best_match(&t.search_key, found, min) {
-                            Some(g) => run.finish(t, Ok(Some(g)))?,
-                            None if pass == 2 && t.igdb_platform.is_some() => leftovers.push(t.clone()),
-                            None => run.finish(t, Ok(None))?,
-                        }
+                    if let Some(g) = best_match(&t.search_key, &results, min) {
+                        outcome = Ok(Some(g.clone()));
+                        break;
                     }
                 }
                 Err(e) if is_auth_error(&e) => return Err(e),
                 Err(e) => {
-                    log::warn!("IGDB search failed: {e}");
-                    for t in chunk {
-                        run.finish(t, Err(()))?;
-                    }
+                    log::warn!("IGDB search for '{}' failed: {e}", t.title);
+                    outcome = Err(());
+                    break;
                 }
             }
         }
+        run.finish(t, outcome.as_ref().map(Option::as_ref).map_err(|_| ()))?;
     }
 
     run.summary.cancelled = cancel.load(Ordering::Relaxed);
@@ -228,12 +264,13 @@ fn year(unix: Option<i64>) -> Option<i32> {
 
 /// IGDB entries for `query`: the game's platform first, then everything else.
 pub fn search(igdb: &Igdb, query: &str, platform: Option<i64>) -> Result<Vec<Candidate>> {
-    let mut queries = vec![("all".to_string(), igdb::search_query(query, None, 20))];
+    let mut queries = vec![igdb::search_query(query, None, 20)];
     if let Some(p) = platform {
-        queries.insert(0, ("platform".to_string(), igdb::search_query(query, Some(p), 20)));
+        queries.insert(0, igdb::search_query(query, Some(p), 20));
     }
     let mut out: Vec<Candidate> = Vec::new();
-    for (_, games) in igdb.multi_games(&queries)? {
+    for q in queries {
+        let games = igdb.games(&q)?;
         for g in games {
             if out.iter().any(|c| c.igdb_id == g.id) {
                 continue;
@@ -283,6 +320,27 @@ mod tests {
     }
 
     #[test]
+    fn numbers_mods_and_alternative_names_dont_steal_matches() {
+        let black9: Game = serde_json::from_value(j!({"id": 1, "name": "Black 9", "alternative_names": [{"name": "BLACK9"}]})).unwrap();
+        let black: Game = serde_json::from_value(j!({"id": 2, "name": "Black"})).unwrap();
+        assert_eq!(best_match("black", &[black9.clone(), black], FUZZY_MIN).unwrap().id, 2);
+        assert!(best_match("black", &[black9], FUZZY_MIN).is_none());
+        let fan: Game =
+            serde_json::from_value(j!({"id": 3, "name": "Fire Emblem: Binding Blade Plus", "game_type": {"type": "Mod"}})).unwrap();
+        assert!(best_match("fire emblem the binding blade", &[fan.clone()], FUZZY_MIN).is_none());
+        // ...but a mod with exactly your title is fine (you have the hack).
+        assert_eq!(best_match("fire emblem binding blade plus", &[fan], FUZZY_MIN).unwrap().id, 3);
+    }
+
+    #[test]
+    fn search_variants_respell_titles_igdb_misses() {
+        assert_eq!(search_variants("Killer 7"), ["Killer7"]);
+        assert_eq!(search_variants("DragonBall Z: Budokai Tenkaichi 3"), ["Dragon Ball Z: Budokai Tenkaichi 3"]);
+        assert_eq!(search_variants("Dante's Inferno HDD"), ["Dante's Inferno"]);
+        assert!(search_variants("Okami").is_empty());
+    }
+
+    #[test]
     fn year_from_unix() {
         assert_eq!(year(Some(1_158_019_200)), Some(2006)); // 2006-09-12
         assert_eq!(year(Some(0)), Some(1970));
@@ -309,28 +367,28 @@ mod tests {
             if url.starts_with(igdb::TOKEN_URL) {
                 return json(200, j!({"access_token": "t", "expires_in": 5_000_000}));
             }
-            // One multiquery for the 4 games; answer by label.
-            let mut parts = Vec::new();
-            for line in body.lines() {
-                let label = line.split('"').nth(1).unwrap().to_string();
-                let result = if line.contains("search \"Okami\"") {
+            assert!(url.ends_with("/games"), "searches go to /games, one each: {url}");
+            json(
+                200,
+                if body.contains("search \"Okami\"") {
                     j!([{"id": 11, "name": "Okami", "first_release_date": 1_158_019_200, "summary": "Wolf.",
                          "genres": [{"name": "Adventure"}, {"name": "Action"}],
                          "involved_companies": [{"company": {"name": "Clover Studio"}, "developer": true}]}])
-                } else if line.contains("search \"Jak II\"") {
+                } else if body.contains("search \"Jak II\"") {
                     j!([{"id": 22, "name": "Jak II"}])
-                } else if line.contains("search \"Pokemon Emerald\"") && line.contains("where platforms = (24)") {
+                } else if body.contains("search \"Pokemon Emerald\"") && body.contains("where platforms = (24)") {
                     j!([{"id": 33, "name": "Pokémon Emerald Version"}])
                 } else {
                     j!([])
-                };
-                parts.push(j!({"name": label, "result": result}));
-            }
-            json(200, j!(parts))
+                },
+            )
         });
         let client = Igdb::new(&http, igdb::Credentials { client_id: "c".into(), client_secret: "s".into() }, None);
         let s = run(&mut conn, &client, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!((s.matched, s.not_found, s.failed), (3, 1, 0));
+        // The unknown game was tried on its platform, then without the filter.
+        let tries = http.requests.lock().unwrap().iter().filter(|r| r.2.contains("Homebrew Thing")).count();
+        assert_eq!(tries, 2);
 
         let okami: i64 = conn.query_row("SELECT id FROM games WHERE title = 'Okami'", [], |r| r.get(0)).unwrap();
         let m = queries::game_metadata(&conn, okami).unwrap();
@@ -347,6 +405,41 @@ mod tests {
         let s2 = run(&mut conn, &client, &|_| {}, &AtomicBool::new(false)).unwrap();
         assert_eq!(s2.matched + s2.not_found, 0);
         assert_eq!(http.requests.lock().unwrap().len(), before);
+    }
+
+    /// Live run against a *copy* of a real library.db with the keys saved in the app:
+    /// `EMU_DB_COPY=copy.db cargo test real_meta_fetch -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn real_meta_fetch() {
+        let db = std::env::var("EMU_DB_COPY").expect("EMU_DB_COPY");
+        let mut conn = crate::db::open(std::path::Path::new(&db)).unwrap();
+        crate::db::migrate(&mut conn).unwrap();
+        crate::platforms::seed(&conn).unwrap();
+        let creds = igdb::Credentials {
+            client_id: crate::secrets::get("igdb-client-id").unwrap().expect("keys"),
+            client_secret: crate::secrets::get("igdb-client-secret").unwrap().expect("keys"),
+        };
+        let http = crate::art::http::Http::new();
+        let client = Igdb::new(&http, creds, None);
+        let s = run(&mut conn, &client, &|p| if p.done % 20 == 0 { println!("{}/{}", p.done, p.total) }, &AtomicBool::new(false))
+            .unwrap();
+        println!("summary: {s:?}");
+        let mut stmt = conn
+            .prepare(
+                "SELECT g.platform_id, g.title, g.match_status, m.title, m.release_date
+                 FROM games g LEFT JOIN metadata m ON m.game_id = g.id WHERE g.missing = 0 ORDER BY g.platform_id, g.sort_title",
+            )
+            .unwrap();
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, Option<i64>>(4)?))
+            })
+            .unwrap();
+        for row in rows {
+            let (p, title, status, igdb, date) = row.unwrap();
+            println!("{p:<6} {status:<8} {title:<50} -> {} ({})", igdb.unwrap_or_default(), year(date).map(|y| y.to_string()).unwrap_or_default());
+        }
     }
 
     #[test]
