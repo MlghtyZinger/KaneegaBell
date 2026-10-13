@@ -19,6 +19,9 @@ export interface GameRow {
   artAspect: number | null;
   /** Genre ids (from IGDB); absent when none. */
   genres?: number[];
+  /** TV Mode hero (wide background) / logo versions (SteamGridDB); absent when none. */
+  hero?: number;
+  logo?: number;
 }
 
 export interface PlatformSummary {
@@ -31,7 +34,7 @@ export interface PlatformSummary {
 }
 
 export interface CoverCandidate {
-  source: "libretro" | "gametdb" | "igdb" | "local";
+  source: "libretro" | "gametdb" | "igdb" | "sgdb" | "local";
   name: string;
   url: string;
   preview: string | null;
@@ -78,6 +81,24 @@ export interface Services {
   igdbClientId: string | null;
   /** RetroAchievements username, when RA is set up. */
   raUser: string | null;
+  /** A SteamGridDB key is saved. */
+  sgdb: boolean;
+}
+
+export interface SgdbProgress {
+  done: number;
+  total: number;
+  matched: number;
+}
+
+export interface SgdbSummary {
+  matched: number;
+  notFound: number;
+  failed: number;
+  heroes: number;
+  logos: number;
+  covers: number;
+  cancelled: boolean;
 }
 
 export interface Achievement {
@@ -172,7 +193,7 @@ export interface GameDetail {
   playSeconds: number;
   lastPlayed: number | null;
   art: number;
-  artSource: "libretro" | "gametdb" | "igdb" | "local" | "file" | null;
+  artSource: "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "file" | null;
   files: [string, number | null][];
   meta: GameMetadata;
 }
@@ -195,7 +216,7 @@ export interface ArtSummary {
  * URL of a game's cached artwork, served by the app's `thumb` protocol
  * (Windows webviews address custom protocols as http://<scheme>.localhost).
  */
-export function artUrl(gameId: number, version: number, size: "t" | "f" = "t"): string {
+export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" = "t"): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   return `${base}/${size}/${gameId}?v=${version}`;
 }
@@ -354,11 +375,15 @@ export const api = {
   cancelScan: () => invoke<void>("cancel_scan"),
   fetchArt: () => invoke<boolean>("fetch_art"),
   refreshArt: (id: number) => invoke<boolean>("refresh_art", { id }),
-  coverCandidates: (id: number, query: string | null = null) =>
-    invoke<CoverCandidate[]>("cover_candidates", { id, query }),
-  setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string) =>
-    invoke<void>("set_cover", { id, source, name, url }),
+  coverCandidates: (id: number, query: string | null = null, kind: "cover" | "hero" | "logo" = "cover") =>
+    invoke<CoverCandidate[]>("cover_candidates", { id, query, kind }),
+  setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string, kind: "cover" | "hero" | "logo" = "cover") =>
+    invoke<void>("set_cover", { id, source, name, url, kind }),
   removeCover: (id: number) => invoke<void>("remove_cover", { id }),
+  removeExtra: (id: number, kind: "hero" | "logo") => invoke<void>("remove_extra", { id, kind }),
+  setSgdbKey: (key: string) => invoke<void>("set_sgdb_key", { key }),
+  removeSgdbKey: () => invoke<void>("remove_sgdb_key"),
+  fetchExtras: () => invoke<boolean>("fetch_extras"),
 
   getServices: () => invoke<Services>("get_services"),
   setIgdbKeys: (clientId: string, clientSecret: string) => invoke<void>("set_igdb_keys", { clientId, clientSecret }),
@@ -393,6 +418,12 @@ export const events = {
     listen<MetaSummary>("meta-finished", (e) => cb(e.payload)),
   onMetaFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
     listen<string>("meta-failed", (e) => cb(e.payload)),
+  onSgdbProgress: (cb: (p: SgdbProgress) => void): Promise<UnlistenFn> =>
+    listen<SgdbProgress>("sgdb-progress", (e) => cb(e.payload)),
+  onSgdbFinished: (cb: (s: SgdbSummary) => void): Promise<UnlistenFn> =>
+    listen<SgdbSummary>("sgdb-finished", (e) => cb(e.payload)),
+  onSgdbFailed: (cb: (msg: string) => void): Promise<UnlistenFn> =>
+    listen<string>("sgdb-failed", (e) => cb(e.payload)),
   onRaProgress: (cb: (p: RaJobProgress) => void): Promise<UnlistenFn> =>
     listen<RaJobProgress>("ra-progress", (e) => cb(e.payload)),
   onRaFinished: (cb: (s: RaSummary) => void): Promise<UnlistenFn> =>

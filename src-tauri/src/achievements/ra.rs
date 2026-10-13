@@ -155,7 +155,7 @@ impl<'a> Ra<'a> {
         let url = self.url(endpoint, params);
         for attempt in 0..2 {
             self.wait_turn();
-            let resp = self.http.get_raw(&url)?;
+            let resp = self.http.get_raw(&url, &[])?;
             match resp.status {
                 200..=299 => return Ok(Some(resp.body)),
                 404 => return Ok(None),

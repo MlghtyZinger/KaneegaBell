@@ -5,17 +5,34 @@ import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
 
+export type PictureKind = "cover" | "hero" | "logo";
+
+const WORDS: Record<PictureKind, { title: string; noun: string; use: string }> = {
+  cover: { title: "Change cover", noun: "covers", use: "Use this cover" },
+  hero: { title: "Change background", noun: "backgrounds", use: "Use this background" },
+  logo: { title: "Change logo", noun: "logos", use: "Use this logo" },
+};
+
 /**
  * "Change cover": pick from libretro alternatives (other regions, related
- * titles), search the platform's whole cover set by name, use the game's own
- * icon, pick an image file, or remove the cover. Choices stick: automatic
- * fetching never replaces them.
+ * titles), SteamGridDB (with a key), search by name, use the game's own icon,
+ * pick an image file, or remove the cover. With `kind` "hero" / "logo" it
+ * picks TV Mode's background or logo from SteamGridDB instead. Choices stick:
+ * automatic fetching never replaces them.
  */
-export function CoverPicker(props: { gameId: number; title: string; onClose: () => void; onChanged: () => void }) {
+export function CoverPicker(props: {
+  gameId: number;
+  title: string;
+  kind?: PictureKind;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const kind = () => props.kind ?? "cover";
+  const words = () => WORDS[kind()];
   const [query, setQuery] = createSignal<string | null>(null);
   const [candidates] = createResource(
-    () => ({ id: props.gameId, q: query() }),
-    ({ id, q }) => api.coverCandidates(id, q).catch((e) => Promise.reject(new Error(errorText(e)))),
+    () => ({ id: props.gameId, q: query(), k: kind() }),
+    ({ id, q, k }) => api.coverCandidates(id, q, k).catch((e) => Promise.reject(new Error(errorText(e)))),
   );
   const [busy, setBusy] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
@@ -25,7 +42,7 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
     setBusy(name);
     setError(null);
     try {
-      await api.setCover(props.gameId, source, name, url);
+      await api.setCover(props.gameId, source, name, url, kind());
       props.onChanged();
       props.onClose();
     } catch (e) {
@@ -36,14 +53,15 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
   }
 
   async function remove() {
-    await api.removeCover(props.gameId);
+    if (kind() === "cover") await api.removeCover(props.gameId);
+    else await api.removeExtra(props.gameId, kind() as "hero" | "logo");
     props.onChanged();
     props.onClose();
   }
 
   function search() {
     osk.open({
-      title: `Search covers by name (e.g. the original game for a hack of ${props.title})`,
+      title: `Search ${words().noun} by name (e.g. the original game for a hack of ${props.title})`,
       value: query() ?? "",
       onDone: (v) => setQuery(v.trim() || null),
     });
@@ -57,35 +75,37 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
       <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={search}>
-        <h2>Change cover</h2>
+        <h2>{words().title}</h2>
         <p class="dim">
           {props.title}
           {query() ? ` · results for “${query()}”` : ""}
         </p>
         <div class="row">
           <button class="btn" onClick={search}>
-            Search covers…
+            Search {words().noun}…
           </button>
-          <button class="btn" onClick={() => setBrowsing(true)}>
-            Use an image file…
-          </button>
+          <Show when={kind() === "cover"}>
+            <button class="btn" onClick={() => setBrowsing(true)}>
+              Use an image file…
+            </button>
+          </Show>
           <button class="btn danger" onClick={() => void remove()}>
-            Remove cover
+            {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : "No logo"}
           </button>
         </div>
         <Show when={error()}>
           <p class="warn">{error()}</p>
         </Show>
         <Show when={candidates.loading}>
-          <p class="dim">Looking for covers…</p>
+          <p class="dim">Looking for {words().noun}…</p>
         </Show>
         <Show when={candidates.error}>
-          <p class="warn">Couldn't load covers: {String(candidates.error?.message ?? candidates.error)}</p>
+          <p class="warn">Couldn't load {words().noun}: {String(candidates.error?.message ?? candidates.error)}</p>
         </Show>
         <Show when={candidates.state === "ready" && list().length === 0}>
-          <p class="dim">No covers found. Try searching with a different name.</p>
+          <p class="dim">No {words().noun} found. Try searching with a different name.</p>
         </Show>
-        <div class="cover-grid">
+        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo" }}>
           <For each={list()}>
             {(c, i) => (
               <button
@@ -111,7 +131,7 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
         </div>
         <div class="panel-actions">
           <div class="hints-row">
-            <Hint action="select" label="Use this cover" />
+            <Hint action="select" label={words().use} />
             <Hint action="secondary" label="Search" />
             <Hint action="back" label="Close" />
           </div>

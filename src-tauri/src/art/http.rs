@@ -28,7 +28,7 @@ pub trait Get: Sync {
     /// GET `url` and hand back whatever status came back. Errors only for
     /// transport failures, which never include the URL's query (it may hold a
     /// key).
-    fn get_raw(&self, url: &str) -> Result<Response>;
+    fn get_raw(&self, url: &str, headers: &[(&str, &str)]) -> Result<Response>;
 }
 
 pub struct Http {
@@ -88,14 +88,13 @@ impl Post for Http {
 }
 
 impl Get for Http {
-    fn get_raw(&self, url: &str) -> Result<Response> {
+    fn get_raw(&self, url: &str, headers: &[(&str, &str)]) -> Result<Response> {
         let host = url.split('/').nth(2).unwrap_or("server").to_string();
-        let mut resp = self
-            .agent
-            .get(url)
-            .config()
-            .http_status_as_error(false)
-            .build()
+        let mut req = self.agent.get(url).config().http_status_as_error(false).build();
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let mut resp = req
             .call()
             .map_err(|e| Error::msg(format!("{host}: {}", scrub(&e.to_string()))))?;
         let status = resp.status().as_u16();
@@ -169,8 +168,8 @@ pub mod fake {
     }
 
     impl<F: Fn(&str, &[(&str, &str)], &str) -> Response + Sync> Get for FakePost<F> {
-        fn get_raw(&self, url: &str) -> Result<Response> {
-            self.post(url, &[], "")
+        fn get_raw(&self, url: &str, headers: &[(&str, &str)]) -> Result<Response> {
+            self.post(url, headers, "")
         }
     }
 

@@ -8,12 +8,14 @@
 //! view. Everything is cached (index listings in `api_cache`, images on disk),
 //! so the library works fully offline afterwards.
 
+pub mod extras;
 pub mod gametdb;
 pub mod http;
 pub mod images;
 pub mod libretro;
 pub mod matcher;
 pub mod protocol;
+pub mod sgdb;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -349,7 +351,7 @@ pub struct ArtInfo {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
-    /// "libretro" | "gametdb" | "local"
+    /// "libretro" | "gametdb" | "igdb" | "sgdb" | "local"
     pub source: String,
     /// libretro name, or a file path for local images.
     pub name: String,
@@ -362,8 +364,15 @@ pub struct Candidate {
 
 /// Cover options for a game: GameTDB covers for its ID (one per region; the
 /// picker hides regions that don't exist), libretro matches for its title (or
-/// for `query`, when the user searches), and a PS3 game's own icon.
-pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Option<&str>) -> Result<Vec<Candidate>> {
+/// for `query`, when the user searches), SteamGridDB's covers (with a key),
+/// and a PS3 game's own icon.
+pub fn candidates(
+    conn: &Connection,
+    fetch: &dyn Fetch,
+    sgdb: Option<&sgdb::Sgdb>,
+    game_id: i64,
+    query: Option<&str>,
+) -> Result<Vec<Candidate>> {
     let t = queries::art_target(conn, game_id)?;
     let mut out = Vec::new();
     let searching = query.is_some_and(|q| !q.trim().is_empty());
@@ -412,6 +421,13 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
             }
         }
     }
+    if let Some(sgdb) = sgdb {
+        // Optional extra: an unreachable SteamGridDB doesn't empty the picker.
+        match extras::candidates(conn, sgdb, game_id, sgdb::Kind::Grid, query) {
+            Ok(c) => out.extend(c),
+            Err(e) => log::warn!("SteamGridDB covers: {e}"),
+        }
+    }
     if !searching {
         if let Some(icon) = local_icon(&t.launch_path) {
             out.push(Candidate {
@@ -431,7 +447,7 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
 pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, source: &str, name: &str, url: &str) -> Result<()> {
     let gone = || crate::error::Error::msg("that cover is no longer available");
     let bytes = match source {
-        "libretro" | "igdb" => fetch.get(url)?.ok_or_else(gone)?,
+        "libretro" | "igdb" | "sgdb" => fetch.get(url)?.ok_or_else(gone)?,
         "gametdb" => match fetch.get(&gametdb::best_url(url))? {
             Some(b) => b,
             None => fetch.get(url)?.ok_or_else(gone)?,
@@ -636,7 +652,7 @@ mod tests {
 
         // The picker still offers the icon, plus GameTDB regions.
         let id: i64 = conn.query_row("SELECT id FROM games WHERE title = 'Kane & Lynch 2'", [], |r| r.get(0)).unwrap();
-        let c = candidates(&conn, &http, id, None).unwrap();
+        let c = candidates(&conn, &http, None, id, None).unwrap();
         assert_eq!(c[0].url, "https://art.gametdb.com/ps3/coverM/US/BLUS30383.jpg");
         assert_eq!(c.last().unwrap().source, "local");
     }
@@ -670,7 +686,7 @@ mod tests {
         http.pages.insert(url.clone(), images::test_png(500, 500));
 
         // Searching the set finds the base game for a romhack.
-        let c = candidates(&conn, &http, id, Some("pokemon firered")).unwrap();
+        let c = candidates(&conn, &http, None, id, Some("pokemon firered")).unwrap();
         assert_eq!(c[0].name, "Pokemon - FireRed Version (USA)");
         apply_choice(&conn, data.path(), &http, id, "libretro", &c[0].name, &c[0].url).unwrap();
         assert_eq!(status(&conn, "Pokemon: Radical Red").0, "ok");

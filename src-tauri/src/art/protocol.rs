@@ -1,5 +1,6 @@
 //! `thumb://` protocol: serves cached artwork to the webview straight from
-//! disk (`/t/{game_id}` grid thumbnail, `/f/{game_id}` details image). URLs
+//! disk (`/t/{game_id}` grid thumbnail, `/f/{game_id}` details image,
+//! `/h/{game_id}` hero background, `/l/{game_id}` logo). URLs
 //! carry `?v={art_version}`, so responses can be cached forever.
 
 use std::path::{Path, PathBuf};
@@ -10,6 +11,8 @@ use super::images;
 pub enum Asset {
     Thumb(i64),
     Full(i64),
+    Hero(i64),
+    Logo(i64),
 }
 
 /// Parses the request path ("/t/12", "/f/12"; query string ignored).
@@ -20,6 +23,8 @@ pub fn parse(path: &str) -> Option<Asset> {
     match kind {
         "t" => Some(Asset::Thumb(id)),
         "f" => Some(Asset::Full(id)),
+        "h" => Some(Asset::Hero(id)),
+        "l" => Some(Asset::Logo(id)),
         _ => None,
     }
 }
@@ -28,6 +33,8 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
     match asset {
         Asset::Thumb(id) => images::thumb_path(data_dir, *id),
         Asset::Full(id) => images::full_path(data_dir, *id),
+        Asset::Hero(id) => images::extra_path(data_dir, images::Extra::Hero, *id),
+        Asset::Logo(id) => images::extra_path(data_dir, images::Extra::Logo, *id),
     }
 }
 
@@ -68,6 +75,8 @@ mod tests {
         assert_eq!(parse("/t/12"), Some(Asset::Thumb(12)));
         assert_eq!(parse("/f/7?v=3"), Some(Asset::Full(7)));
         assert_eq!(parse("t/9.webp"), Some(Asset::Thumb(9)));
+        assert_eq!(parse("/h/4?v=2"), Some(Asset::Hero(4)));
+        assert_eq!(parse("/l/4"), Some(Asset::Logo(4)));
         assert_eq!(parse("/x/1"), None);
         assert_eq!(parse("/t/../../secret"), None);
         assert_eq!(parse("/t/"), None);

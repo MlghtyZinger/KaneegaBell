@@ -26,6 +26,7 @@ pub struct AppState {
     art_pending: Arc<AtomicBool>,
     meta_pending: Arc<AtomicBool>,
     ra_pending: Arc<AtomicBool>,
+    sgdb_pending: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -41,6 +42,7 @@ impl AppState {
             art_pending: Arc::default(),
             meta_pending: Arc::default(),
             ra_pending: Arc::default(),
+            sgdb_pending: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
@@ -338,6 +340,7 @@ pub fn cancel_scan(state: State<'_, AppState>) {
     state.art_pending.store(false, Ordering::Release);
     state.meta_pending.store(false, Ordering::Release);
     state.ra_pending.store(false, Ordering::Release);
+    state.sgdb_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -357,32 +360,69 @@ pub fn fetch_art(app: AppHandle, state: State<'_, AppState>) -> bool {
     kick_worker(app, &state)
 }
 
+/// Which picture a picker works on: "cover" (default), or "hero" / "logo"
+/// (TV Mode's background and logo, from SteamGridDB).
+fn extra_kind(kind: Option<&str>) -> Result<Option<art::images::Extra>> {
+    match kind.unwrap_or("cover") {
+        "cover" => Ok(None),
+        "hero" => Ok(Some(art::images::Extra::Hero)),
+        "logo" => Ok(Some(art::images::Extra::Logo)),
+        other => Err(Error::msg(format!("unknown picture kind {other}"))),
+    }
+}
+
 /// Options for the "Change cover" picker; `query` searches the platform's
-/// whole cover set by name.
+/// whole cover set by name (and SteamGridDB, with a key).
 #[tauri::command]
-pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>) -> Result<Vec<art::Candidate>> {
+pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, kind: Option<String>) -> Result<Vec<art::Candidate>> {
     // May download a cover index: keep it off the UI thread and the shared DB lock.
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
         let conn = db::open(&state.db_path)?;
-        art::candidates(&conn, &art::http::Http::new(), id, query.as_deref())
+        let http = art::http::Http::new();
+        let key = sgdb_key()?;
+        let sgdb = key.map(|k| art::sgdb::Sgdb::new(&http, k));
+        match extra_kind(kind.as_deref())? {
+            None => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
+            Some(extra) => {
+                let sgdb = sgdb.ok_or_else(|| Error::msg("Add a SteamGridDB key in Settings → Game info first"))?;
+                let kind = match extra {
+                    art::images::Extra::Hero => art::sgdb::Kind::Hero,
+                    art::images::Extra::Logo => art::sgdb::Kind::Logo,
+                };
+                art::extras::candidates(&conn, &sgdb, id, kind, query.as_deref())
+            }
+        }
     })
     .await
     .map_err(|e| Error::msg(e.to_string()))?
 }
 
-/// Sets a cover from the picker (`source` "libretro" / "local") or from an
-/// image file the user picked (`source` "file", `url` = path).
+/// Sets a cover (or, with `kind`, a hero/logo) from the picker, or a cover
+/// from an image file the user picked (`source` "file", `url` = path).
 #[tauri::command]
-pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, url: String) -> Result<()> {
+pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, url: String, kind: Option<String>) -> Result<()> {
     let app2 = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app2.state::<AppState>();
         let conn = db::open(&state.db_path)?;
-        art::apply_choice(&conn, state.data_dir(), &art::http::Http::new(), id, &source, &name, &url)
+        let http = art::http::Http::new();
+        match extra_kind(kind.as_deref())? {
+            None => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
+            Some(extra) => art::extras::apply(&conn, state.data_dir(), &http, id, extra, &name, &url),
+        }
     })
     .await
     .map_err(|e| Error::msg(e.to_string()))??;
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+/// Removes a game's hero or logo for good (TV Mode then uses the cover).
+#[tauri::command]
+pub fn remove_extra(app: AppHandle, state: State<'_, AppState>, id: i64, kind: String) -> Result<()> {
+    let extra = extra_kind(Some(&kind))?.ok_or_else(|| Error::msg("use remove_cover for covers"))?;
+    art::extras::remove(&state.db(), state.data_dir(), id, extra)?;
     let _ = app.emit("library-changed", ());
     Ok(())
 }
@@ -409,17 +449,18 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<(bool, bool, bool)> {
+        let pending = (|| -> Result<(bool, bool, bool, bool)> {
             let conn = state.db();
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
-            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?))
+            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?))
         })();
-        let (art, meta, ra) = pending.unwrap_or((false, false, false));
-        if art || meta || ra {
+        let (art, meta, ra, sgdb) = pending.unwrap_or_default();
+        if art || meta || ra || sgdb {
             state.art_pending.fetch_or(art, Ordering::AcqRel);
             state.meta_pending.fetch_or(meta, Ordering::AcqRel);
             state.ra_pending.fetch_or(ra, Ordering::AcqRel);
+            state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
             kick_worker(app.clone(), &state);
         }
     });
@@ -443,6 +484,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let art_pending = state.art_pending.clone();
     let meta_pending = state.meta_pending.clone();
     let ra_pending = state.ra_pending.clone();
+    let sgdb_pending = state.sgdb_pending.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
@@ -450,17 +492,21 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .name("library-jobs".into())
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
-            // Order: scan, covers, details, achievements (each pass may queue another).
+            // Order: scan, covers, details, SteamGridDB extras (after covers,
+            // so it knows which games still lack one), achievements.
             if scan_pending.swap(false, Ordering::AcqRel) {
                 let next = run_scan(&app, &db_path, &cancel);
                 art_pending.fetch_or(next.art, Ordering::AcqRel);
                 meta_pending.fetch_or(next.meta, Ordering::AcqRel);
                 ra_pending.fetch_or(next.ra, Ordering::AcqRel);
+                sgdb_pending.fetch_or(next.sgdb, Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
                 // Matches can bring covers (IGDB) for games that had none.
                 art_pending.fetch_or(run_meta(&app, &db_path, &cancel), Ordering::AcqRel);
+            } else if sgdb_pending.swap(false, Ordering::AcqRel) {
+                run_sgdb(&app, &db_path, &data_dir, &cancel);
             } else if ra_pending.swap(false, Ordering::AcqRel) {
                 run_ra(&app, &db_path, &cancel);
             } else {
@@ -469,7 +515,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 let more = scan_pending.load(Ordering::Acquire)
                     || art_pending.load(Ordering::Acquire)
                     || meta_pending.load(Ordering::Acquire)
-                    || ra_pending.load(Ordering::Acquire);
+                    || ra_pending.load(Ordering::Acquire)
+                    || sgdb_pending.load(Ordering::Acquire);
                 if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
@@ -501,6 +548,7 @@ struct FollowUp {
     art: bool,
     meta: bool,
     ra: bool,
+    sgdb: bool,
 }
 
 /// Runs one scan.
@@ -522,6 +570,7 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
             art: auto_art && needs_art,
             meta: meta_wanted(&conn).unwrap_or(false),
             ra: ra_wanted(&conn).unwrap_or(false),
+            sgdb: sgdb_wanted(&conn).unwrap_or(false),
         };
         Ok((summary, next))
     });
@@ -623,6 +672,8 @@ pub struct Services {
     igdb_client_id: Option<String>,
     /// The RetroAchievements username, when RA is set up.
     ra_user: Option<String>,
+    /// A SteamGridDB key is saved.
+    sgdb: bool,
 }
 
 #[tauri::command]
@@ -633,6 +684,7 @@ pub fn get_services() -> Result<Services> {
         igdb: id.is_some() && has_secret,
         igdb_client_id: id.map(|s| format!("{}…", s.chars().take(6).collect::<String>())),
         ra_user: ra_login()?.map(|c| c.user),
+        sgdb: sgdb_key()?.is_some(),
     })
 }
 
@@ -713,6 +765,91 @@ pub async fn set_igdb_match(app: AppHandle, id: i64, igdb_id: i64) -> Result<()>
     }
     let _ = app.emit("library-changed", ());
     Ok(())
+}
+
+// ---------------------------------------------------------------- SteamGridDB
+
+const SGDB_KEY: &str = "sgdb-key";
+
+fn sgdb_key() -> Result<Option<String>> {
+    secrets::get(SGDB_KEY)
+}
+
+/// A SteamGridDB key is saved and some game hasn't been looked up.
+fn sgdb_wanted(conn: &Connection) -> Result<bool> {
+    Ok(sgdb_key()?.is_some() && queries::count_games_needing_sgdb(conn, queries::now())? > 0)
+}
+
+/// Finds games on SteamGridDB and fetches their heroes, logos and missing covers.
+/// Emits `sgdb-progress`, then `sgdb-finished` / `sgdb-failed`.
+fn run_sgdb(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
+    let due = throttled(250);
+    let reload_due = throttled(3000);
+    let result = (|| {
+        let key = sgdb_key()?.ok_or_else(|| Error::msg("SteamGridDB isn't set up"))?;
+        let http = art::http::Http::new();
+        let sgdb = art::sgdb::Sgdb::new(&http, key);
+        let mut conn = db::open(db_path)?;
+        art::extras::run(
+            &mut conn,
+            data_dir,
+            &sgdb,
+            &http,
+            &|p| {
+                if due(p.done == p.total) {
+                    let _ = app.emit("sgdb-progress", p);
+                }
+                if p.matched > 0 && reload_due(false) {
+                    let _ = app.emit("library-changed", ());
+                }
+            },
+            cancel,
+        )
+    })();
+    match result {
+        Ok(summary) => {
+            log::info!("SteamGridDB pass: {summary:?}");
+            let _ = app.emit("sgdb-finished", &summary);
+            let _ = app.emit("library-changed", ());
+        }
+        Err(e) => {
+            log::error!("SteamGridDB pass failed: {e}");
+            let _ = app.emit("sgdb-failed", e.to_string());
+        }
+    }
+}
+
+/// Checks the key with SteamGridDB (one search), saves it, and starts a pass.
+#[tauri::command]
+pub async fn set_sgdb_key(app: AppHandle, key: String) -> Result<()> {
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        return Err(Error::msg("Enter your SteamGridDB API key"));
+    }
+    tauri::async_runtime::spawn_blocking(move || -> Result<()> {
+        let http = art::http::Http::new();
+        art::sgdb::Sgdb::new(&http, key.clone()).search("Mario")?;
+        secrets::set(SGDB_KEY, &key)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let state = app.state::<AppState>();
+    state.sgdb_pending.store(true, Ordering::Release);
+    kick_worker(app.clone(), &state);
+    Ok(())
+}
+
+/// Forgets the SteamGridDB key (pictures already fetched stay).
+#[tauri::command]
+pub fn remove_sgdb_key() -> Result<()> {
+    secrets::delete(SGDB_KEY)
+}
+
+/// Queues a SteamGridDB pass for games not looked up yet.
+#[tauri::command]
+pub fn fetch_extras(app: AppHandle, state: State<'_, AppState>) -> bool {
+    state.sgdb_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
 }
 
 // ---------------------------------------------------------------- performance harness

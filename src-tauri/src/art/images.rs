@@ -72,6 +72,52 @@ pub fn store(data_dir: &Path, game_id: i64, p: &Processed) -> Result<()> {
     Ok(())
 }
 
+/// TV Mode extras: a hero (wide background) or a logo (transparent).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Extra {
+    Hero,
+    Logo,
+}
+
+impl Extra {
+    pub fn kind(self) -> &'static str {
+        match self {
+            Extra::Hero => "hero",
+            Extra::Logo => "logo",
+        }
+    }
+    fn dir(self) -> &'static str {
+        match self {
+            Extra::Hero => "h",
+            Extra::Logo => "l",
+        }
+    }
+}
+
+/// Heroes fill a 1080p screen's width; logos sit over them.
+const HERO_MAX: (u32, u32) = (1920, 1080);
+const LOGO_MAX: (u32, u32) = (800, 400);
+
+pub fn extra_path(data_dir: &Path, extra: Extra, game_id: i64) -> PathBuf {
+    data_dir.join("art").join(extra.dir()).join(format!("{game_id}.webp"))
+}
+
+/// Resizes and stores a hero or logo (logos keep their transparency).
+/// Returns the source image's size.
+pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) -> Result<(u32, u32)> {
+    let img = image::load_from_memory(bytes).map_err(|e| Error::msg(format!("bad image: {e}")))?;
+    let (max, quality) = match extra {
+        Extra::Hero => (HERO_MAX, FULL_QUALITY),
+        Extra::Logo => (LOGO_MAX, 90.0),
+    };
+    write_atomic(&extra_path(data_dir, extra, game_id), &webp(&fit(&img, max), quality)?)?;
+    Ok((img.width(), img.height()))
+}
+
+pub fn remove_extra(data_dir: &Path, extra: Extra, game_id: i64) {
+    let _ = fs::remove_file(extra_path(data_dir, extra, game_id));
+}
+
 #[cfg(test)]
 pub fn test_png(w: u32, h: u32) -> Vec<u8> {
     let img = image::RgbImage::from_fn(w, h, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 128]));
@@ -113,6 +159,20 @@ mod tests {
     #[test]
     fn garbage_is_an_error() {
         assert!(process(b"<html>404</html>").is_err());
+    }
+
+    #[test]
+    fn heroes_are_capped_and_logos_keep_transparency() {
+        let t = tempfile::tempdir().unwrap();
+        assert_eq!(store_extra(t.path(), Extra::Hero, 3, &test_png(3840, 1240)).unwrap(), (3840, 1240));
+        assert_eq!(dims(&fs::read(extra_path(t.path(), Extra::Hero, 3)).unwrap()), (1920, 620));
+        let logo = image::RgbaImage::from_fn(1000, 300, |x, _| image::Rgba([255, 255, 255, if x < 500 { 0 } else { 255 }]));
+        let mut png = std::io::Cursor::new(Vec::new());
+        logo.write_to(&mut png, image::ImageFormat::Png).unwrap();
+        store_extra(t.path(), Extra::Logo, 3, &png.into_inner()).unwrap();
+        let d = webp::Decoder::new(&fs::read(extra_path(t.path(), Extra::Logo, 3)).unwrap()).decode().unwrap();
+        assert_eq!((d.width(), d.height()), (800, 240));
+        assert!(d.is_alpha(), "logos keep their alpha channel");
     }
 
     #[test]

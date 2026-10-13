@@ -94,6 +94,7 @@ export function SettingsView(props: { onClose: () => void }) {
               </Show>
               <Show when={section() === "services"}>
                 <ServicesSection s={s()} run={run} />
+                <SteamGridDbSection run={run} />
                 <RetroAchievementsSection run={run} />
               </Show>
               <Show when={section() === "general"}>
@@ -740,6 +741,117 @@ function ServicesSection(props: { s: Settings; run: Run }) {
             <p class="dim small">
               Wrong game? Open it and use <b>Fix match…</b> to pick the right one. Games IGDB doesn't know are tried
               again weekly. Info from IGDB.com, used under the Twitch Developer Services Agreement.
+            </p>
+          </Show>
+        )}
+      </Show>
+    </section>
+  );
+}
+
+function SteamGridDbSection(props: { run: Run }) {
+  const [services, { refetch }] = createResource(() => api.getServices());
+  const [key, setKey] = createSignal("");
+
+  const save = () =>
+    props.run(
+      async () => {
+        await api.setSgdbKey(key());
+        setKey("");
+        await refetch();
+      },
+      { notice: "Connected to SteamGridDB. Fetching backgrounds and logos now…" },
+    );
+  const remove = () =>
+    props.run(async () => {
+      await api.removeSgdbKey();
+      await refetch();
+    });
+
+  return (
+    <section class="card-section">
+      <h2>SteamGridDB (optional)</h2>
+      <p class="dim">
+        Community artwork: a wide background and a logo for each game (shown in TV Mode), more covers to choose from,
+        and covers for games the other sources don't have. Free with an account. Your key stays on this PC, in
+        Windows Credential Manager.
+      </p>
+      <Show when={services()}>
+        {(sv) => (
+          <Show
+            when={sv().sgdb}
+            fallback={
+              <>
+                <ol class="steps">
+                  <li>
+                    Sign in at <span class="mono">steamgriddb.com</span> (with Steam).
+                  </li>
+                  <li>
+                    Open your preferences, <span class="mono">steamgriddb.com/profile/preferences</span>, and generate
+                    an API key in its API section.
+                  </li>
+                  <li>Paste it here and press Save.</li>
+                </ol>
+                <div class="form-grid">
+                  <label for="sgdb-key">API key</label>
+                  <input
+                    id="sgdb-key"
+                    class="input mono"
+                    type="password"
+                    autocomplete="off"
+                    value={key()}
+                    onInput={(e) => setKey(e.currentTarget.value)}
+                  />
+                </div>
+                <div class="row">
+                  <button class="btn primary" disabled={!key().trim()} onClick={() => void save()}>
+                    Save and connect
+                  </button>
+                </div>
+              </>
+            }
+          >
+            <p>
+              <span class="ok-text">Connected</span>
+            </p>
+            <div class="row">
+              <Show
+                when={library.sgdbProgress()}
+                fallback={
+                  <button class="btn" disabled={!!library.scanProgress()} onClick={() => void api.fetchExtras()}>
+                    Look up missing artwork
+                  </button>
+                }
+              >
+                {(p) => (
+                  <>
+                    <button class="btn" onClick={() => void api.cancelScan()}>
+                      Stop
+                    </button>
+                    <span class="dim">
+                      Looking up games: {p().done} / {p().total} · {p().matched} found
+                    </span>
+                  </>
+                )}
+              </Show>
+              <Show when={!library.sgdbProgress() && library.lastSgdb()}>
+                {(s) => (
+                  <span class="dim">
+                    Last run: {s().matched} found ({s().heroes} backgrounds, {s().logos} logos, {s().covers} covers)
+                    {s().notFound > 0 ? ` · ${s().notFound} not found` : ""}
+                  </span>
+                )}
+              </Show>
+              <button class="btn danger" onClick={() => void remove()}>
+                Remove key
+              </button>
+            </div>
+            <Show when={library.sgdbError()}>
+              <p class="warn">{library.sgdbError()}</p>
+            </Show>
+            <p class="dim small">
+              Pick other pictures from a game's details (Change cover / background / logo). Games SteamGridDB doesn't
+              know are tried again weekly. Artwork from SteamGridDB.com, made by its community.
             </p>
           </Show>
         )}

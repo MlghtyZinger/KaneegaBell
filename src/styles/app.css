@@ -1245,6 +1245,27 @@ kbd.ps-favorite { color: #4fe0c0; }
   font-size: 40px;
 }
 
+/* Backgrounds are wide banners; logos are transparent, shown on a dark checkerboard. */
+.cover-grid.wide {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+}
+
+.cover-grid.wide .cover-option img {
+  aspect-ratio: 1920 / 620;
+  object-fit: cover;
+}
+
+.cover-grid.logos {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.cover-grid.logos .cover-option img {
+  aspect-ratio: 2 / 1;
+  object-fit: contain;
+  padding: 10px;
+  background: repeating-conic-gradient(#2a2e38 0% 25%, #1c1f27 0% 50%) 0 0 / 20px 20px;
+}
+
 .cover-option-label {
   font-size: var(--fs-xs);
   color: var(--text-dim);

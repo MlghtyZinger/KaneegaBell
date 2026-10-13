@@ -111,6 +111,10 @@ pub fn run() {
             commands::remove_ra_keys,
             commands::get_achievements,
             commands::perf_mark,
+            commands::remove_extra,
+            commands::set_sgdb_key,
+            commands::remove_sgdb_key,
+            commands::fetch_extras,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

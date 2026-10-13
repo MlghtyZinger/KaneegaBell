@@ -37,6 +37,15 @@ pub struct GameRow {
     /// Genre ids (from IGDB), for the genre filter.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub genres: Vec<i64>,
+    /// Hero (wide background) and logo versions for TV Mode, 0 when none.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub hero: i64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub logo: i64,
+}
+
+fn is_zero(v: &i64) -> bool {
+    *v == 0
 }
 
 /// Every present game, ordered by platform display order then title. This is
@@ -46,7 +55,9 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
         "SELECT g.id, g.platform_id, g.title, g.variant, g.region, g.favorite, g.play_seconds,
                 g.last_played, g.is_multidisc, CASE WHEN g.art_status = 'ok' THEN g.art_version ELSE 0 END,
                 CASE WHEN g.art_status = 'ok' AND a.width > 0 AND a.height > 0
-                     THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END
+                     THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END,
+                COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1), 0),
+                COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1), 0)
          FROM games g JOIN platforms p ON p.id = g.platform_id
          LEFT JOIN artwork a ON a.game_id = g.id AND a.kind = 'boxart' AND a.selected = 1
          WHERE g.missing = 0 AND p.enabled = 1
@@ -66,6 +77,8 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             art: r.get(9)?,
             art_aspect: r.get(10)?,
             genres: Vec::new(),
+            hero: r.get(11)?,
+            logo: r.get(12)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -421,6 +434,82 @@ pub fn genres(conn: &Connection) -> Result<(Vec<(i64, String)>, HashMap<i64, Vec
         by_game.entry(g).or_default().push(ge);
     }
     Ok((names, by_game))
+}
+
+// ---------------------------------------------------------------- SteamGridDB
+
+/// Games to look up on SteamGridDB: never tried, failed last time, or not
+/// found more than a week ago.
+pub fn games_needing_sgdb(conn: &Connection, now: i64) -> Result<Vec<crate::art::extras::Target>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.title, m.title, g.sgdb_id,
+                g.art_status IN ('notfound', 'error') AND g.art_manual = 0,
+                EXISTS (SELECT 1 FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1),
+                EXISTS (SELECT 1 FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1),
+                g.extras_manual
+         FROM games g JOIN platforms p ON p.id = g.platform_id LEFT JOIN metadata m ON m.game_id = g.id
+         WHERE g.missing = 0 AND p.enabled = 1
+           AND (g.sgdb_status IN ('none', 'error')
+                OR (g.sgdb_status = 'notfound' AND COALESCE(g.sgdb_checked_at, 0) < ?1))
+         ORDER BY p.sort_order, g.sort_title",
+    )?;
+    let rows = stmt.query_map([now - crate::art::extras::NOTFOUND_RETRY_SECS], |r| {
+        Ok(crate::art::extras::Target {
+            id: r.get(0)?,
+            title: r.get(1)?,
+            igdb_title: r.get(2)?,
+            sgdb_id: r.get(3)?,
+            needs_cover: r.get(4)?,
+            has_hero: r.get(5)?,
+            has_logo: r.get(6)?,
+            extras_manual: r.get(7)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn count_games_needing_sgdb(conn: &Connection, now: i64) -> Result<usize> {
+    Ok(games_needing_sgdb(conn, now)?.len())
+}
+
+/// Records a SteamGridDB lookup. A known id is never forgotten by a failure.
+pub fn set_sgdb(conn: &Connection, game_id: i64, status: &str, sgdb_id: Option<i64>, now: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE games SET sgdb_status = ?2, sgdb_id = COALESCE(?3, sgdb_id), sgdb_checked_at = ?4 WHERE id = ?1",
+        params![game_id, status, sgdb_id, now],
+    )?;
+    Ok(())
+}
+
+/// (title, IGDB title, SteamGridDB id) for one game.
+pub fn sgdb_state(conn: &Connection, game_id: i64) -> Result<(String, Option<String>, Option<i64>)> {
+    Ok(conn.query_row(
+        "SELECT g.title, m.title, g.sgdb_id FROM games g LEFT JOIN metadata m ON m.game_id = g.id WHERE g.id = ?1",
+        [game_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?)
+}
+
+/// Records a game's hero or logo (`kind`) as the selected one.
+#[allow(clippy::too_many_arguments)]
+pub fn set_extra(conn: &Connection, game_id: i64, kind: &str, remote_id: &str, url: &str, width: u32, height: u32, now: i64) -> Result<()> {
+    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = ?2", params![game_id, kind])?;
+    conn.execute(
+        "INSERT INTO artwork (game_id, kind, source, remote_id, url, width, height, selected, fetched_at)
+         VALUES (?1, ?2, 'sgdb', ?3, ?4, ?5, ?6, 1, ?7)",
+        params![game_id, kind, remote_id, url, width, height, now],
+    )?;
+    Ok(())
+}
+
+pub fn clear_extra(conn: &Connection, game_id: i64, kind: &str) -> Result<()> {
+    conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = ?2", params![game_id, kind])?;
+    Ok(())
+}
+
+pub fn set_extras_manual(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET extras_manual = 1 WHERE id = ?1", [game_id])?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------- RetroAchievements

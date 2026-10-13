@@ -9,35 +9,21 @@ import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
 import { api, type GameRow } from "../api";
 
-/** What the background worker is doing: scanning, then covers, then game info. */
+/** What the background worker is doing (one job at a time). */
 function JobPill() {
-  return (
-    <Show
-      when={library.scanProgress()}
-      fallback={
-        <Show
-          when={library.artProgress()}
-          fallback={
-            <Show when={library.metaProgress()}>
-              {(p) => (
-                <span class="scan-pill">
-                  Game info {p().done}/{p().total}
-                </span>
-              )}
-            </Show>
-          }
-        >
-          {(p) => (
-            <span class="scan-pill">
-              Covers {p().done}/{p().total}
-            </span>
-          )}
-        </Show>
-      }
-    >
-      {(p) => <span class="scan-pill">Scanning {p().total > 0 ? `${p().done + 1}/${p().total}` : "…"}</span>}
-    </Show>
-  );
+  const text = () => {
+    const scan = library.scanProgress();
+    if (scan) return `Scanning ${scan.total > 0 ? `${scan.done + 1}/${scan.total}` : "…"}`;
+    const jobs: [string, { done: number; total: number } | null][] = [
+      ["Covers", library.artProgress()],
+      ["Game info", library.metaProgress()],
+      ["Artwork", library.sgdbProgress()],
+      ["Achievements", library.raProgress()],
+    ];
+    const active = jobs.find(([, p]) => p);
+    return active ? `${active[0]} ${active[1]!.done}/${active[1]!.total}` : null;
+  };
+  return <Show when={text()}>{(t) => <span class="scan-pill">{t()}</span>}</Show>;
 }
 
 function initial(title: string): string {

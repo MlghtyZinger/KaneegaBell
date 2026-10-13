@@ -3,7 +3,7 @@ import { api, artUrl, errorText, events, type GameDetail } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
-import { CoverPicker } from "../components/CoverPicker";
+import { CoverPicker, type PictureKind } from "../components/CoverPicker";
 import { MatchPicker } from "../components/MatchPicker";
 import { Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
@@ -34,7 +34,7 @@ function showArg(a: string): string {
 export function GameInfo(props: { id: number; onClose: () => void }) {
   const [game, { refetch }] = createResource(() => props.id, api.getGame);
   const [refreshing, setRefreshing] = createSignal(false);
-  const [picking, setPicking] = createSignal(false);
+  const [picking, setPicking] = createSignal<PictureKind | null>(null);
   const [matching, setMatching] = createSignal(false);
   const [services] = createResource(() => api.getServices().catch(() => null));
 
@@ -96,17 +96,27 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <img src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
                 </Show>
                 <div class="row tight">
-                  <button class="btn small" onClick={() => setPicking(true)}>
+                  <button class="btn small" onClick={() => setPicking("cover")}>
                     Change cover…
                   </button>
                   <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
                     {refreshing() ? "Looking…" : "Refresh"}
                   </button>
                 </div>
+                <Show when={services()?.sgdb}>
+                  <div class="row tight">
+                    <button class="btn small" onClick={() => setPicking("hero")}>
+                      Background…
+                    </button>
+                    <button class="btn small" onClick={() => setPicking("logo")}>
+                      Logo…
+                    </button>
+                  </div>
+                </Show>
                 <Show when={g().artSource}>
                   <span class="dim small">
                     Cover:{" "}
-                    {({ libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
+                    {({ libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
                       g().artSource!
                     ] ?? g().artSource}
                   </span>
@@ -228,7 +238,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           <CoverPicker
             gameId={g().id}
             title={g().title}
-            onClose={() => setPicking(false)}
+            kind={picking()!}
+            onClose={() => setPicking(null)}
             onChanged={() => {
               void refetch();
               void library.reload();

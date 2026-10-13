@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' thumb: http://thumb.localhost https://thumbnails.libretro.com https://art.gametdb.com https://images.igdb.com data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' thumb: http://thumb.localhost https://thumbnails.libretro.com https://art.gametdb.com https://images.igdb.com https://*.steamgriddb.com data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {

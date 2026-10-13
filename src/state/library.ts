@@ -12,6 +12,8 @@ import {
   type PlatformSummary,
   type RaJobProgress,
   type RaSummary,
+  type SgdbProgress,
+  type SgdbSummary,
   type ScanProgress,
   type ScanSummary,
 } from "../api";
@@ -52,6 +54,9 @@ function createLibraryStore() {
   const [raProgress, setRaProgress] = createSignal<RaJobProgress | null>(null);
   const [lastRa, setLastRa] = createSignal<RaSummary | null>(null);
   const [raError, setRaError] = createSignal<string | null>(null);
+  const [sgdbProgress, setSgdbProgress] = createSignal<SgdbProgress | null>(null);
+  const [lastSgdb, setLastSgdb] = createSignal<SgdbSummary | null>(null);
+  const [sgdbError, setSgdbError] = createSignal<string | null>(null);
   /** What the last scan (or folder removal) changed; `seq` lets the toast tell reports apart. */
   const [report, setReport] = createSignal<{ title: string; changes: GameChange[]; seq: number } | null>(null);
   let reportSeq = 0;
@@ -202,6 +207,16 @@ function createLibraryStore() {
       setRaProgress(null);
       setRaError(msg);
     });
+    void events.onSgdbProgress((p) => setSgdbProgress(p.done >= p.total ? null : p));
+    void events.onSgdbFinished((s) => {
+      setSgdbProgress(null);
+      setSgdbError(null);
+      setLastSgdb(s);
+    });
+    void events.onSgdbFailed((msg) => {
+      setSgdbProgress(null);
+      setSgdbError(msg);
+    });
     void events.onLibraryChanged(() => void reload());
   }
 
@@ -259,6 +274,9 @@ function createLibraryStore() {
     raProgress,
     lastRa,
     raError,
+    sgdbProgress,
+    lastSgdb,
+    sgdbError,
   };
 }
 
