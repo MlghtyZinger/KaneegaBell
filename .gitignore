@@ -14,6 +14,8 @@ src-tauri/gen/schemas/
 .env
 .env.*
 secrets.*
+# ...but not the code that talks to the keychain.
+!src-tauri/src/secrets.rs
 
 # Generated test libraries (milestone f)
 tools/gen-library/out/
