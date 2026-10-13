@@ -83,6 +83,8 @@ fullscreen.
 | Previous / next tab (platform, Settings section) | L1 / R1 | LB / RB | Q / E |
 | Previous / next letter | L2 / R2 | LT / RT | Home / End |
 | Settings | Options | Menu | F1 |
+| Bigger / smaller cards | right stick up / down | right stick up / down | `+` / `-`, Ctrl + wheel |
+| Rows / stacked grid | R3 | RS (click) | V |
 | **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
 The exit combo is configurable in Settings → General. Every screen works with a controller
