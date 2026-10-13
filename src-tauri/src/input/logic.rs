@@ -30,6 +30,8 @@ pub enum Action {
     ToggleGroups,
     /// Select / Share / View: the genre filter.
     Filter,
+    /// Left stick click: TV Mode on / off.
+    ToggleTv,
 }
 
 impl Action {
@@ -52,6 +54,7 @@ impl Action {
             Action::ZoomOut => "zoomOut",
             Action::ToggleGroups => "toggleGroups",
             Action::Filter => "filter",
+            Action::ToggleTv => "toggleTv",
         }
     }
 

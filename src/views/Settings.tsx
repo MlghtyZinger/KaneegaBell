@@ -1039,9 +1039,18 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         />
         Start fullscreen
       </label>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={props.s.values.startInTv === true}
+          onChange={(e) => props.run(() => api.setSetting("startInTv", e.currentTarget.checked))}
+        />
+        Start in TV Mode
+      </label>
       <p class="dim small">
-        <kbd>F11</kbd> toggles fullscreen at any time. (The animated Big-Picture-style TV Mode comes in a later
-        milestone.)
+        <kbd>F11</kbd> toggles fullscreen at any time. TV Mode is the big-screen view: switch with the left stick button
+        (L3), <kbd>F10</kbd> or the TV Mode button. It shows each game's background and logo when SteamGridDB is set up
+        (above), and a blurred cover otherwise.
       </p>
     </section>
   );

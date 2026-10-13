@@ -3,8 +3,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, events } from "./api";
 import { library } from "./state/library";
 import { session } from "./state/session";
-import { dispatchFromGamepad, installKeyboard, type Action } from "./input/actions";
+import { dispatchFromGamepad, installKeyboard, pushHandler, type Action } from "./input/actions";
 import { LibraryView } from "./views/Library";
+import { TvMode } from "./views/TvMode";
 import { SettingsView } from "./views/Settings";
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
@@ -15,7 +16,39 @@ type View = "library" | "settings";
 
 export default function App() {
   const [view, setView] = createSignal<View>("library");
+  // TV Mode replaces the desktop library (Settings opens over either).
+  const [tv, setTv] = createSignal(false);
   const win = getCurrentWindow();
+  // TV Mode goes fullscreen; leaving it restores the window it found.
+  let tvMadeFullscreen = false;
+  async function setTvMode(on: boolean) {
+    if (on === tv()) return;
+    setTv(on);
+    try {
+      if (on && !(await win.isFullscreen())) {
+        await win.setFullscreen(true);
+        tvMadeFullscreen = true;
+      } else if (!on && tvMadeFullscreen) {
+        await win.setFullscreen(false);
+        tvMadeFullscreen = false;
+      }
+    } catch {
+      // Window controls unavailable (browser dev mock): the view still switches.
+    }
+  }
+  void api
+    .getSetting<boolean>("startInTv")
+    .then((v) => v === true && setTv(true))
+    .catch(() => {});
+  // L3 / F10 anywhere (views handle it first when they want to).
+  onCleanup(
+    pushHandler((a) => {
+      if (a !== "toggleTv") return false;
+      if (view() === "settings") setView("library");
+      void setTvMode(!tv());
+      return true;
+    }),
+  );
 
   onCleanup(installKeyboard());
 
@@ -51,8 +84,11 @@ export default function App() {
         <Match when={session.running()} keyed>
           {(g) => <NowPlaying game={g} />}
         </Match>
+        <Match when={view() === "library" && tv()}>
+          <TvMode onExit={() => void setTvMode(false)} onOpenSettings={() => setView("settings")} />
+        </Match>
         <Match when={view() === "library"}>
-          <LibraryView onOpenSettings={() => setView("settings")} />
+          <LibraryView onOpenSettings={() => setView("settings")} onTvMode={() => void setTvMode(true)} />
         </Match>
         <Match when={view() === "settings"}>
           <SettingsView onClose={() => setView("library")} />

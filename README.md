@@ -164,8 +164,35 @@ Everything works without accounts or API keys:
   lookups and details work offline. A wrong match can be fixed from the game's details
   (**Fix match…**); your pick is never replaced. IGDB is free for non-commercial use under the
   Twitch Developer Services Agreement.
-- SteamGridDB (alternative covers, backgrounds and logos with your own free key) is planned.
-  MobyGames isn't used: its API now requires a paid subscription.
+- **SteamGridDB (optional, free key):** community artwork. A background pass finds each game on
+  SteamGridDB by title and stores its best-voted hero (wide background) and logo for TV Mode,
+  plus a cover for games none of the other sources had. The cover picker lists SteamGridDB
+  covers too, and a game's details have **Background…** / **Logo…** pickers (your choice
+  sticks; "No background/logo" removes one). Set it up in Settings → Game info:
+  1. Sign in at [steamgriddb.com](https://www.steamgriddb.com) (with Steam).
+  2. Open [steamgriddb.com/profile/preferences](https://www.steamgriddb.com/profile/preferences)
+     and generate an API key in its API section.
+  3. Paste it in Settings → Game info and press **Save and connect** (checked with one search
+     first, then stored in Windows Credential Manager).
+
+  The key is sent as a Bearer token; SteamGridDB publishes no rate limit, so requests are
+  sequential, 250 ms apart, with a back-off on HTTP 429. Only static images without NSFW, humor
+  or epilepsy tags are used. Its terms allow personal, non-commercial use and forbid scraping:
+  the app only uses the documented API. Games not found are retried weekly.
+- MobyGames isn't used: its API now requires a paid subscription.
+
+## TV Mode
+
+A big-screen view in the spirit of Steam's Big Picture, for the couch: switch with the left stick
+button (L3), `F10` or the **TV Mode** button; Settings → General can start the app in it. It goes
+fullscreen and shows the focused game's SteamGridDB background (crossfading and slowly drifting;
+a blurred cover when there's none), its logo or title, platform, year, developer, genres, play
+time and description, with a shelf of covers along the bottom. LB/RB switch platform, LT/RT jump
+by letter, A opens the game's details, X searches, Y favorites, Start opens a menu (Search,
+Settings, Desktop mode). It shares the desktop library's tabs, search, filters and focus.
+
+Measured on the 5,000-game test library: holding right steps through the shelf with every frame
+under 14 ms; idle (background drifting) 0.2% of one core.
 
 ## RetroAchievements
 
@@ -289,12 +316,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] a. Settings, library scanning, SQLite, basic grid
 - [x] b. Launching, process tracking, exit hotkey, play time
 - [x] c. Full controller navigation
-- [ ] d. Metadata (IGDB) and covers (libretro-thumbnails, GameTDB, IGDB) done; SteamGridDB to do
+- [x] d. Metadata (IGDB) and artwork (libretro-thumbnails, GameTDB, IGDB, SteamGridDB)
       (MobyGames dropped: paid API)
 - [x] e. RetroAchievements
 - [x] f. Performance pass (see Performance)
-- [ ] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
-      main, lean UI)
+- [x] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
+      main, lean UI), with SteamGridDB heroes and logos
 - [ ] h. Backloggd: Backloggd has no public API (checked Oct 2026), and scraping the site is out.
       Planned: an "Open on Backloggd" link per game (its pages are keyed by IGDB slugs, which the
       IGDB match already provides). Syncing your backlog/played status waits for an official API.

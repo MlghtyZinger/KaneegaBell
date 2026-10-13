@@ -45,8 +45,11 @@ pub fn run() {
             secrets::init(&dir);
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
-            // TV mode: go fullscreen before the page loads, so there's no resize flash.
-            if db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true) {
+            // Fullscreen (or TV Mode) at start: go fullscreen before the page
+            // loads, so there's no resize flash.
+            let fullscreen = db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true)
+                || db::queries::get_setting::<bool>(&conn, "startInTv")? == Some(true);
+            if fullscreen {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.set_fullscreen(true);
                 }

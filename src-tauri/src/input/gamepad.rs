@@ -92,6 +92,7 @@ fn button_action(b: Button) -> Option<Action> {
         Button::RightShoulder => Action::NextPlatform,
         Button::Start => Action::Menu,
         Button::RightStick => Action::ToggleGroups,
+        Button::LeftStick => Action::ToggleTv,
         Button::Back => Action::Filter, // Select / Share / View
 
         _ => return None,

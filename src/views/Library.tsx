@@ -31,7 +31,7 @@ function initial(title: string): string {
   return c >= "A" && c <= "Z" ? c : "#";
 }
 
-export function LibraryView(props: { onOpenSettings: () => void }) {
+export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () => void }) {
   const { focused, setFocused } = library;
   const [infoId, setInfoId] = createSignal<number | null>(null);
   const [genreOpen, setGenreOpen] = createSignal(false);
@@ -270,6 +270,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <button class="btn ghost" onClick={openSearch}>
             Search
           </button>
+          <button class="btn ghost" onClick={props.onTvMode} title="Big-screen view (L3 / F10)">
+            TV Mode
+          </button>
           <button class="btn ghost" onClick={props.onOpenSettings}>
             Settings
           </button>
@@ -338,6 +341,7 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
+          <Hint action="toggleTv" label="TV Mode" />
           <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
           <Show when={mixed() && library.platform() !== "recent"}>
             <Hint action="toggleGroups" label={library.grouped() ? "One list" : "Sections"} />

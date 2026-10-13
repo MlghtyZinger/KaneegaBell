@@ -68,8 +68,7 @@ fn title(r: &mut Rng) -> String {
 }
 
 /// A cover-like image (gradient plus noise, so it compresses like art does).
-fn cover_png(aspect: f64, seed: u64) -> Vec<u8> {
-    let w = 600u32;
+fn cover_png(w: u32, aspect: f64, seed: u64) -> Vec<u8> {
     let h = (f64::from(w) * aspect).round() as u32;
     let mut r = Rng(seed | 1);
     let base = [r.below(200) as u8, r.below(200) as u8, r.below(200) as u8];
@@ -77,6 +76,20 @@ fn cover_png(aspect: f64, seed: u64) -> Vec<u8> {
         let n = (r.next() & 0x3F) as u8;
         let g = ((x + y) * 255 / (w + h)) as u8 / 2;
         image::Rgb([base[0].wrapping_add(g).wrapping_add(n), base[1].wrapping_add(n), base[2].wrapping_add(g / 2)])
+    });
+    let mut out = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut out, image::ImageFormat::Png).unwrap();
+    out.into_inner()
+}
+
+/// A logo-like image: bold light bars on a transparent background.
+fn logo_png(seed: u64) -> Vec<u8> {
+    let (w, h) = (900u32, 320u32);
+    let mut r = Rng(seed + 31);
+    let bars: Vec<(u32, u32)> = (0..5).map(|i| (60 + i * 160, 60 + r.below(120) as u32)).collect();
+    let img = image::RgbaImage::from_fn(w, h, |x, y| {
+        let on = bars.iter().any(|&(bx, top)| x >= bx && x < bx + 120 && y >= top && y < h - 40);
+        if on { image::Rgba([245, 240, 230, 255]) } else { image::Rgba([0, 0, 0, 0]) }
     });
     let mut out = std::io::Cursor::new(Vec::new());
     img.write_to(&mut out, image::ImageFormat::Png).unwrap();
@@ -149,7 +162,7 @@ fn generate_perf_library() {
     let mut pools = std::collections::HashMap::new();
     for (k, &(platform, _, _, aspect)) in PLATFORMS.iter().enumerate() {
         let pool: Vec<images::Processed> =
-            (0..6).map(|v| images::process(&cover_png(aspect, (k * 100 + v) as u64 + 7)).unwrap()).collect();
+            (0..6).map(|v| images::process(&cover_png(600, aspect, (k * 100 + v) as u64 + 7)).unwrap()).collect();
         pools.insert(platform, pool);
     }
     let games: Vec<(i64, String)> = conn
@@ -165,6 +178,31 @@ fn generate_perf_library() {
         images::store(&data, *id, p).unwrap();
         queries::set_boxart(&tx, *id, "libretro", &format!("perf-{id}"), "perf://cover", p.width, p.height, queries::now())
             .unwrap();
+    }
+    tx.commit().unwrap();
+
+    // TV Mode extras for 80% of games, as SteamGridDB would provide: a wide
+    // hero and a transparent logo (a few distinct images, reused).
+    let heroes: Vec<Vec<u8>> = (0..6).map(|v| cover_png(1920, 620.0 / 1920.0, 900 + v)).collect();
+    let logos: Vec<Vec<u8>> = (0..6).map(logo_png).collect();
+    let tx = conn.transaction().unwrap();
+    // Encode each image once, then copy the files.
+    let mut first: [Option<i64>; 6] = [None; 6];
+    for (id, _) in games.iter().filter(|(id, _)| id % 5 != 0) {
+        let k = (*id as usize) % 6;
+        for (extra, src) in [(images::Extra::Hero, &heroes[k]), (images::Extra::Logo, &logos[k])] {
+            match first[k] {
+                Some(from) => {
+                    std::fs::copy(images::extra_path(&data, extra, from), images::extra_path(&data, extra, *id)).unwrap();
+                }
+                None => {
+                    images::store_extra(&data, extra, *id, src).unwrap();
+                }
+            }
+        }
+        first[k].get_or_insert(*id);
+        queries::set_extra(&tx, *id, "hero", &format!("perf-h{k}"), "perf://hero", 1920, 620, queries::now()).unwrap();
+        queries::set_extra(&tx, *id, "logo", &format!("perf-l{k}"), "perf://logo", 800, 300, queries::now()).unwrap();
     }
     tx.commit().unwrap();
     // Nothing for the background jobs to do on startup.
