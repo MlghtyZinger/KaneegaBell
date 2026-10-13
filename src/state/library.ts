@@ -63,6 +63,17 @@ function createLibraryStore() {
     .getSetting<number>("cardSize")
     .then((v) => typeof v === "number" && setCardSizeRaw(Math.min(CARD_MAX, Math.max(CARD_MIN, v))))
     .catch(() => {});
+
+  /** Grid layout: rows (LaunchBox-style) or stacked columns with no gaps. */
+  const [stacked, setStackedRaw] = createSignal(false);
+  function setStacked(on: boolean) {
+    setStackedRaw(on);
+    void api.setSetting("gridLayout", on ? "stacked" : "rows").catch(() => {});
+  }
+  void api
+    .getSetting<string>("gridLayout")
+    .then((v) => setStackedRaw(v === "stacked"))
+    .catch(() => {});
   const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
   // Computed once per library load, not per keystroke.
@@ -187,6 +198,8 @@ function createLibraryStore() {
     zoom,
     CARD_MIN,
     CARD_MAX,
+    stacked,
+    setStacked,
   };
 }
 

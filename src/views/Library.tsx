@@ -2,7 +2,7 @@ import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from
 import { library, type PlatformFilter } from "../state/library";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
-import { VirtualGrid } from "../components/VirtualGrid";
+import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
 import { Hint } from "../components/Hints";
 import { GameInfo } from "./GameInfo";
@@ -15,8 +15,9 @@ function initial(title: string): string {
 
 export function LibraryView(props: { onOpenSettings: () => void }) {
   const { focused, setFocused } = library;
-  const [cols, setCols] = createSignal(1);
   const [infoId, setInfoId] = createSignal<number | null>(null);
+  // The grid knows where cards are (rows or stacked columns): D-pad moves ask it.
+  let navigate: Navigator | undefined;
 
   const games = library.visibleGames;
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
@@ -53,10 +54,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
     if (focused() >= n) setFocused(Math.max(0, n - 1));
   });
 
-  function move(delta: number) {
-    const n = games().length;
-    if (n === 0) return;
-    setFocused((i) => Math.min(n - 1, Math.max(0, i + delta)));
+  function move(dir: NavDir) {
+    if (games().length === 0 || !navigate) return;
+    setFocused(navigate(focused(), dir));
   }
 
   function jumpLetter(dir: 1 | -1) {
@@ -103,10 +103,13 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
 
   const onAction = (a: Action): boolean => {
     switch (a) {
-      case "left": move(-1); return true;
-      case "right": move(1); return true;
-      case "up": move(-cols()); return true;
-      case "down": move(cols()); return true;
+      case "left":
+      case "right":
+      case "up":
+      case "down":
+        move(a);
+        return true;
+      case "toggleLayout": library.setStacked(!library.stacked()); return true;
       case "prevPlatform": library.cyclePlatform(-1); return true;
       case "nextPlatform": library.cyclePlatform(1); return true;
       case "prevLetter": jumpLetter(-1); return true;
@@ -225,9 +228,10 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
             focused={focused()}
             onFocus={setFocused}
             onActivate={(i) => setInfoId(games()[i].id)}
-            onColumns={setCols}
+            onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
             itemAspect={itemAspect}
+            stacked={library.stacked()}
             gap={18}
             renderItem={(g, isFocused) => (
               <GameCard
@@ -246,6 +250,7 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
           <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
+          <Hint action="toggleLayout" label={library.stacked() ? "Rows" : "Stacked"} />
           <input
             class="zoom-slider"
             type="range"

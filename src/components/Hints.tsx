@@ -5,17 +5,17 @@ import { session } from "../state/session";
 const PS: Partial<Record<Action, string>> = {
   select: "✕", back: "○", secondary: "□", favorite: "△",
   prevPlatform: "L1", nextPlatform: "R1", prevLetter: "L2", nextLetter: "R2", menu: "Options",
-  zoomIn: "R↑", zoomOut: "R↓",
+  zoomIn: "R↑", zoomOut: "R↓", toggleLayout: "R3",
 };
 const XBOX: Partial<Record<Action, string>> = {
   select: "A", back: "B", secondary: "X", favorite: "Y",
   prevPlatform: "LB", nextPlatform: "RB", prevLetter: "LT", nextLetter: "RT", menu: "Menu",
-  zoomIn: "R↑", zoomOut: "R↓",
+  zoomIn: "R↑", zoomOut: "R↓", toggleLayout: "RS",
 };
 const KEYS: Partial<Record<Action, string>> = {
   select: "Enter", back: "Esc", secondary: "/", favorite: "F",
   prevPlatform: "Q", nextPlatform: "E", prevLetter: "Home", nextLetter: "End", menu: "F1",
-  zoomIn: "+", zoomOut: "−",
+  zoomIn: "+", zoomOut: "−", toggleLayout: "V",
 };
 
 export function glyph(a: Action): string {

@@ -17,7 +17,8 @@ export type Action =
   | "favorite"
   | "menu"
   | "zoomIn"
-  | "zoomOut";
+  | "zoomOut"
+  | "toggleLayout";
 
 const KEYMAP: Record<string, Action> = {
   ArrowUp: "up",
@@ -39,6 +40,7 @@ const KEYMAP: Record<string, Action> = {
   "+": "zoomIn",
   "=": "zoomIn",
   "-": "zoomOut",
+  v: "toggleLayout",
 };
 
 export type Device = "pointer" | "keyboard" | "gamepad";

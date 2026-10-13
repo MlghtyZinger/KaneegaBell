@@ -91,6 +91,7 @@ fn button_action(b: Button) -> Option<Action> {
         Button::LeftShoulder => Action::PrevPlatform,
         Button::RightShoulder => Action::NextPlatform,
         Button::Start => Action::Menu,
+        Button::RightStick => Action::ToggleLayout,
         _ => return None,
     })
 }

@@ -26,6 +26,8 @@ pub enum Action {
     /// Right stick up / down: bigger / smaller cards.
     ZoomIn,
     ZoomOut,
+    /// Right stick click: rows / stacked grid.
+    ToggleLayout,
 }
 
 impl Action {
@@ -46,6 +48,7 @@ impl Action {
             Action::Menu => "menu",
             Action::ZoomIn => "zoomIn",
             Action::ZoomOut => "zoomOut",
+            Action::ToggleLayout => "toggleLayout",
         }
     }
 

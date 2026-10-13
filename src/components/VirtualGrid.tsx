@@ -1,5 +1,9 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, type JSX } from "solid-js";
 
+export type NavDir = "up" | "down" | "left" | "right";
+/** The item to focus when moving from `index` in `dir` (may be `index` itself). */
+export type Navigator = (index: number, dir: NavDir) => number;
+
 interface Props<T> {
   items: T[];
   /** Index of the focused item, or -1. */
@@ -10,24 +14,43 @@ interface Props<T> {
   minCardWidth: number;
   /** Card height / width per item (its cover's shape). */
   itemAspect: (item: T) => number;
+  /**
+   * false: rows, each as tall as its tallest card (covers aligned at the top).
+   * true: stacked columns, each card placed under the shortest column's last
+   * card, so there are no gaps (order zigzags across columns).
+   */
+  stacked: boolean;
   gap: number;
   /** `item` is an accessor: a cell is reused when the list changes under it. */
   renderItem: (item: () => T, focused: () => boolean) => JSX.Element;
-  /** Reports the column count so arrow-key navigation can move by rows. */
-  onColumns?: (cols: number) => void;
+  /** Hands out the layout-aware neighbor lookup for D-pad navigation. */
+  onNavigator?: (nav: Navigator) => void;
 }
 
 /** Keeps odd covers (banners, long boxes) from making absurd cards. */
 const clampAspect = (a: number) => Math.min(1.6, Math.max(0.5, a || 1.4));
 
+interface Layout {
+  x: Float64Array;
+  y: Float64Array;
+  h: Float64Array;
+  /** Column of each item, and each column's items top to bottom. */
+  col: Int32Array;
+  columns: number[][];
+  /** Row of each item (rows mode only; -1 when stacked). */
+  row: Int32Array;
+  /** Item indices sorted by y, for finding what's on screen. */
+  byY: Int32Array;
+  maxH: number;
+  total: number;
+}
+
 /**
- * Virtualized grid: only rows inside the viewport (plus a small overscan) exist
- * in the DOM. Cards share one width; each card's height follows its cover, and
- * each row is as tall as its tallest card (covers line up at the top), so a
- * row of wide SNES boxes is short and a row of PS2 cases tall.
- * Cards are keyed by item index, so scrolling only creates/destroys the rows
- * entering/leaving view. Positioning uses transforms, so scrolling never
- * triggers layout.
+ * Virtualized card grid: only cards inside the viewport (plus overscan) exist
+ * in the DOM. Cards share one width and take their cover's height. Cards are
+ * keyed by item index, so scrolling only creates/destroys the cards entering
+ * or leaving view. Positioning uses transforms, so scrolling never triggers
+ * layout.
  */
 export function VirtualGrid<T>(props: Props<T>) {
   let el!: HTMLDivElement;
@@ -42,56 +65,107 @@ export function VirtualGrid<T>(props: Props<T>) {
   const cols = createMemo(() => Math.max(1, Math.floor((width() + props.gap) / (props.minCardWidth + props.gap))));
   const cardW = createMemo(() => (width() - props.gap * (cols() - 1)) / cols());
 
-  createEffect(() => props.onColumns?.(cols()));
-
-  // Per-item heights and per-row offsets: recomputed when the list, the
-  // column count or the card width changes, never while scrolling.
-  const layout = createMemo(() => {
+  // Positions: recomputed when the list, the columns, the card width or the
+  // mode changes, never while scrolling.
+  const layout = createMemo<Layout>(() => {
     const items = props.items;
+    const n = items.length;
     const c = cols();
     const w = cardW();
-    const heights = new Float64Array(items.length);
-    for (let i = 0; i < items.length; i++) heights[i] = w * clampAspect(props.itemAspect(items[i]));
-    const rows = Math.ceil(items.length / c);
-    const top = new Float64Array(rows + 1); // top[r] = y of row r; top[rows] = total incl. trailing gap
-    for (let r = 0; r < rows; r++) {
-      let h = 0;
-      for (let i = r * c; i < Math.min(items.length, (r + 1) * c); i++) h = Math.max(h, heights[i]);
-      top[r + 1] = top[r] + h + props.gap;
+    const gap = props.gap;
+    const x = new Float64Array(n);
+    const y = new Float64Array(n);
+    const h = new Float64Array(n);
+    const col = new Int32Array(n);
+    const row = new Int32Array(n).fill(-1);
+    const columns: number[][] = Array.from({ length: c }, () => []);
+    let maxH = 0;
+    for (let i = 0; i < n; i++) {
+      h[i] = w * clampAspect(props.itemAspect(items[i]));
+      maxH = Math.max(maxH, h[i]);
     }
-    return { heights, top, rows };
-  });
-
-  /** First row whose bottom is below `y`. */
-  const rowAt = (y: number) => {
-    const { top, rows } = layout();
-    let lo = 0;
-    let hi = rows;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (top[mid + 1] <= y) lo = mid + 1;
-      else hi = mid;
-    }
-    return Math.min(lo, Math.max(0, rows - 1));
-  };
-
-  const visible = createMemo(() => {
-    const { rows } = layout();
-    if (rows === 0 || cardW() <= 0) return [];
-    const y = scrollTop() - padTop();
-    const first = rowAt(Math.max(0, y - OVERSCAN_PX));
-    const last = rowAt(y + height() + OVERSCAN_PX);
-    const out: number[] = [];
-    const n = props.items.length;
-    const c = cols();
-    for (let r = first; r <= last; r++) {
-      for (let k = 0; k < c; k++) {
-        const i = r * c + k;
-        if (i < n) out.push(i);
+    let total = 0;
+    if (props.stacked) {
+      const bottom = new Float64Array(c);
+      for (let i = 0; i < n; i++) {
+        let k = 0;
+        for (let j = 1; j < c; j++) if (bottom[j] < bottom[k] - 0.5) k = j;
+        x[i] = k * (w + gap);
+        y[i] = bottom[k];
+        bottom[k] += h[i] + gap;
+        col[i] = k;
+        columns[k].push(i);
+      }
+      for (let k = 0; k < c; k++) total = Math.max(total, bottom[k]);
+    } else {
+      for (let r = 0; r * c < n; r++) {
+        let rowH = 0;
+        for (let i = r * c; i < Math.min(n, (r + 1) * c); i++) {
+          const k = i - r * c;
+          x[i] = k * (w + gap);
+          y[i] = total;
+          col[i] = k;
+          row[i] = r;
+          columns[k].push(i);
+          rowH = Math.max(rowH, h[i]);
+        }
+        total += rowH + gap;
       }
     }
-    return out;
+    const byY = Int32Array.from({ length: n }, (_, i) => i).sort((a, b) => y[a] - y[b]);
+    return { x, y, h, col, columns, row, byY, maxH, total: Math.max(0, total - gap) };
   });
+
+  const visible = createMemo(() => {
+    const { y, h, byY, maxH } = layout();
+    if (byY.length === 0 || cardW() <= 0) return [];
+    const top = scrollTop() - padTop() - OVERSCAN_PX;
+    const bottom = scrollTop() - padTop() + height() + OVERSCAN_PX;
+    // First item that could reach into view: y >= top - maxH.
+    let lo = 0;
+    let hi = byY.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (y[byY[mid]] < top - maxH) lo = mid + 1;
+      else hi = mid;
+    }
+    const out: number[] = [];
+    for (let k = lo; k < byY.length && y[byY[k]] <= bottom; k++) {
+      const i = byY[k];
+      if (y[i] + h[i] >= top) out.push(i);
+    }
+    return out.sort((a, b) => a - b);
+  });
+
+  const navigate: Navigator = (i, dir) => {
+    const L = layout();
+    const n = L.y.length;
+    if (n === 0 || i < 0 || i >= n) return i;
+    const c = cols();
+    if (!props.stacked) {
+      // Rows read like text: left/right walk the list, up/down jump a row.
+      if (dir === "left") return Math.max(0, i - 1);
+      if (dir === "right") return Math.min(n - 1, i + 1);
+      if (dir === "up") return i - c >= 0 ? i - c : i;
+      return i + c < n ? i + c : L.row[i] < L.row[n - 1] ? n - 1 : i;
+    }
+    // Stacked: up/down within the column, left/right to the card beside
+    // this one in the next column (closest vertical center).
+    const k = L.col[i];
+    const column = L.columns[k];
+    const p = column.indexOf(i);
+    if (dir === "up") return p > 0 ? column[p - 1] : i;
+    if (dir === "down") return p < column.length - 1 ? column[p + 1] : i;
+    const target = L.columns[k + (dir === "left" ? -1 : 1)];
+    if (!target || target.length === 0) return i;
+    const center = L.y[i] + L.h[i] / 2;
+    let best = target[0];
+    for (const j of target) {
+      if (Math.abs(L.y[j] + L.h[j] / 2 - center) < Math.abs(L.y[best] + L.h[best] / 2 - center)) best = j;
+    }
+    return best;
+  };
+  onMount(() => props.onNavigator?.(navigate));
 
   onMount(() => {
     // Measure synchronously: ResizeObserver's first callback waits for a
@@ -124,29 +198,26 @@ export function VirtualGrid<T>(props: Props<T>) {
   // Keep the focused card fully in view, with room for its focus ring and zoom.
   createEffect(() => {
     const i = props.focused;
-    const { top, heights, rows } = layout();
-    if (i < 0 || i >= heights.length || rows === 0) return;
-    const r = Math.floor(i / cols());
+    const { y, h } = layout();
+    if (i < 0 || i >= y.length) return;
     const margin = props.gap;
-    const cardTop = padTop() + top[r] - margin;
-    const cardBottom = padTop() + top[r] + heights[i] + margin;
+    const cardTop = padTop() + y[i] - margin;
+    const cardBottom = padTop() + y[i] + h[i] + margin;
     let target: number | null = null;
     if (cardTop < el.scrollTop) target = Math.max(0, cardTop);
     else if (cardBottom > el.scrollTop + height()) target = cardBottom - height();
     if (target !== null) {
       el.scrollTop = target;
-      // Render the destination rows now rather than on the next scroll frame.
+      // Render the destination cards now rather than on the next scroll frame.
       setScrollTop(el.scrollTop);
     }
   });
 
   return (
     <div class="vgrid" ref={el} role="grid">
-      <div class="vgrid-sizer" style={{ height: `${Math.max(0, layout().top[layout().rows] - props.gap)}px` }}>
+      <div class="vgrid-sizer" style={{ height: `${layout().total}px` }}>
         <For each={visible()}>
           {(i) => {
-            const x = () => (i % cols()) * (cardW() + props.gap);
-            const y = () => layout().top[Math.floor(i / cols())] ?? 0;
             const isFocused = () => props.focused === i;
             return (
               <div
@@ -154,8 +225,8 @@ export function VirtualGrid<T>(props: Props<T>) {
                 role="gridcell"
                 style={{
                   width: `${cardW()}px`,
-                  height: `${layout().heights[i] ?? 0}px`,
-                  transform: `translate3d(${x()}px, ${y()}px, 0)`,
+                  height: `${layout().h[i] ?? 0}px`,
+                  transform: `translate3d(${layout().x[i] ?? 0}px, ${layout().y[i] ?? 0}px, 0)`,
                 }}
                 onMouseDown={() => props.onFocus(i)}
                 onDblClick={() => props.onActivate(i)}
