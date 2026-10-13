@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, type JSX } from "solid-js";
-import { stackedMove, type NavDir } from "./gridNav";
+import { stackLayout, type NavDir } from "./gridNav";
 
 export type { NavDir };
 /** The item to focus when moving from `index` in `dir` (may be `index` itself). */
@@ -16,9 +16,9 @@ interface Props<T> {
   /** Card height / width per item (its cover's shape). */
   itemAspect: (item: T) => number;
   /**
-   * false: rows, each as tall as its tallest card (covers aligned at the top).
-   * true: stacked columns, each card placed under the shortest column's last
-   * card, so there are no gaps (order zigzags across columns).
+   * Both read A–Z left to right, row after row. false: rows, each as tall as
+   * its tallest card (covers aligned at the top). true: stacked, each card
+   * right under the one above it in its column (see stackLayout).
    */
   stacked: boolean;
   gap: number;
@@ -35,10 +35,7 @@ interface Layout {
   x: Float64Array;
   y: Float64Array;
   h: Float64Array;
-  /** Column of each item, and each column's items top to bottom. */
-  col: Int32Array;
-  columns: number[][];
-  /** Row of each item (rows mode only; -1 when stacked). */
+  /** Row of each item (index / columns, in both layouts). */
   row: Int32Array;
   /** Item indices sorted by y, for finding what's on screen. */
   byY: Int32Array;
@@ -77,51 +74,32 @@ export function VirtualGrid<T>(props: Props<T>) {
     const x = new Float64Array(n);
     const y = new Float64Array(n);
     const h = new Float64Array(n);
-    const col = new Int32Array(n);
-    const row = new Int32Array(n).fill(-1);
-    const columns: number[][] = Array.from({ length: c }, () => []);
+    const row = new Int32Array(n);
     let maxH = 0;
     for (let i = 0; i < n; i++) {
       h[i] = w * clampAspect(props.itemAspect(items[i]));
       maxH = Math.max(maxH, h[i]);
+      row[i] = Math.floor(i / c);
+      x[i] = (i % c) * (w + gap);
     }
     let total = 0;
     if (props.stacked) {
-      // Columns within this much of the shortest count as level, and the
-      // leftmost of them gets the next card: covers of (nearly) one shape fill
-      // left to right like rows instead of scattering over whichever column
-      // happens to be a few pixels shorter.
-      const level = w * 0.15;
-      const bottom = new Float64Array(c);
-      for (let i = 0; i < n; i++) {
-        let min = bottom[0];
-        for (let j = 1; j < c; j++) min = Math.min(min, bottom[j]);
-        let k = 0;
-        while (bottom[k] > min + level) k++;
-        x[i] = k * (w + gap);
-        y[i] = bottom[k];
-        bottom[k] += h[i] + gap;
-        col[i] = k;
-        columns[k].push(i);
-      }
-      for (let k = 0; k < c; k++) total = Math.max(total, bottom[k]);
+      // Cards packed per column; columns re-line up once a card width apart.
+      const p = stackLayout(h, c, gap, w);
+      y.set(p.y);
+      total = p.total + gap;
     } else {
       for (let r = 0; r * c < n; r++) {
         let rowH = 0;
         for (let i = r * c; i < Math.min(n, (r + 1) * c); i++) {
-          const k = i - r * c;
-          x[i] = k * (w + gap);
           y[i] = total;
-          col[i] = k;
-          row[i] = r;
-          columns[k].push(i);
           rowH = Math.max(rowH, h[i]);
         }
         total += rowH + gap;
       }
     }
     const byY = Int32Array.from({ length: n }, (_, i) => i).sort((a, b) => y[a] - y[b]);
-    return { x, y, h, col, columns, row, byY, maxH, total: Math.max(0, total - gap) };
+    return { x, y, h, row, byY, maxH, total: Math.max(0, total - gap) };
   });
 
   const visible = createMemo(() => {
@@ -150,21 +128,13 @@ export function VirtualGrid<T>(props: Props<T>) {
     const n = L.y.length;
     if (n === 0 || i < 0 || i >= n) return i;
     const c = cols();
-    if (!props.stacked) {
-      // Rows read like text: left/right walk the list, up/down jump a row.
-      if (dir === "left") return Math.max(0, i - 1);
-      if (dir === "right") return Math.min(n - 1, i + 1);
-      if (dir === "up") return i - c >= 0 ? i - c : i;
-      return i + c < n ? i + c : L.row[i] < L.row[n - 1] ? n - 1 : i;
-    }
-    // Stacked: see gridNav. The line carries over between consecutive
-    // sideways moves from the card we moved to (and resets on zoom/relayout).
-    const carried = sideLine && sideLine.layout === L && sideLine.index === i ? sideLine.line : null;
-    const m = stackedMove({ ...L, gap: props.gap }, i, dir, carried);
-    sideLine = m.line === null ? null : { layout: L, index: m.index, line: m.line };
-    return m.index;
+    // Both layouts read like text: left/right walk the list (the next game
+    // A–Z), up/down move a row within the same column.
+    if (dir === "left") return Math.max(0, i - 1);
+    if (dir === "right") return Math.min(n - 1, i + 1);
+    if (dir === "up") return i - c >= 0 ? i - c : i;
+    return i + c < n ? i + c : L.row[i] < L.row[n - 1] ? n - 1 : i;
   };
-  let sideLine: { layout: Layout; index: number; line: number } | null = null;
   onMount(() => props.onNavigator?.(navigate));
 
   onMount(() => {

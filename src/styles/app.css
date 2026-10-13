@@ -161,7 +161,9 @@
   );
   border: 1px solid hsl(var(--card-hue) 25% 30% / 0.6);
   cursor: pointer;
-  transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+  /* The ring itself switches instantly: a fading ring trails a card behind
+     when a direction is held. Only the small zoom eases. */
+  transition: transform 70ms ease-out;
   overflow: hidden;
 }
 
