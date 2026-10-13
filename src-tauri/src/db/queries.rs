@@ -489,6 +489,16 @@ pub fn ra_state(conn: &Connection, game_id: i64) -> Result<(Option<u32>, String,
     )?)
 }
 
+/// A game's names to match against RA's titles: its own and IGDB's.
+pub fn game_titles(conn: &Connection, game_id: i64) -> Result<Vec<String>> {
+    let (title, igdb): (String, Option<String>) = conn.query_row(
+        "SELECT g.title, m.title FROM games g LEFT JOIN metadata m ON m.game_id = g.id WHERE g.id = ?1",
+        [game_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    Ok(std::iter::once(title).chain(igdb).collect())
+}
+
 /// Present games on RA consoles still to hash or look up (for deciding
 /// whether a pass is worth starting).
 pub fn count_games_needing_ra(conn: &Connection, consoles: &std::collections::HashSet<u32>) -> Result<usize> {

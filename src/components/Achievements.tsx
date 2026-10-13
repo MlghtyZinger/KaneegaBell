@@ -73,9 +73,36 @@ export function Achievements(props: { gameId: number }) {
         </Show>
         <Show when={data()?.status === "unknown"}>
           <p class="dim">
-            RetroAchievements doesn't recognize this version of the game. Hacks, translations and some revisions have
-            no achievements, or need a different dump.
-            <span class="mono small ach-hash"> RA hash {data()!.hash}</span>
+            RetroAchievements has achievements for <b class="ach-ra-title">{data()!.raTitle ?? "this game"}</b>, but
+            not for this version of it.
+            <Show when={data()!.accepted.length > 0}> Versions it accepts:</Show>
+          </p>
+          <Show when={data()!.accepted.length > 0}>
+            <ul class="ach-versions">
+              <For each={[...data()!.accepted].sort((a, b) => Number(a.patched) - Number(b.patched))}>
+                {(d) => (
+                  <li tabindex="0">
+                    <span class="mono">{d.name}</span>
+                    <Show when={d.patched}>
+                      <span class="badge ach-patch">RA patch</span>
+                    </Show>
+                  </li>
+                )}
+              </For>
+            </ul>
+            <Show when={data()!.accepted.some((d) => d.patched)}>
+              <p class="dim small">
+                "RA patch" versions are a regular dump with a patch from RetroAchievements applied (fixes or
+                translations); the patch is listed on the game's page at retroachievements.org.
+              </p>
+            </Show>
+          </Show>
+          <span class="mono small ach-hash">This file's RA hash: {data()!.hash}</span>
+        </Show>
+        <Show when={data()?.status === "noset"}>
+          <p class="dim">
+            No achievements found for this game on RetroAchievements (searched its list of this console's games with
+            achievements by title).
           </p>
         </Show>
         <Show when={data()?.status === "nohash"}>

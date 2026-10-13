@@ -158,11 +158,20 @@ export function installMockIpc() {
       }
       case "get_achievements": {
         // ?ra=1: odd ids are recognized with progress, even ids aren't; 3DS is unsupported.
-        if (new URLSearchParams(location.search).get("ra") !== "1") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false };
+        if (new URLSearchParams(location.search).get("ra") !== "1") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false, raTitle: null, raGameId: null, accepted: [] };
         const id = (args as { id: number }).id;
         const g = lib.games.find((x) => x.id === id)!;
-        if (g.platformId === "3ds") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false };
-        if (id % 2 === 0) return { status: "unknown", hash: "0123456789abcdef0123456789abcdef", progress: null, fetchedAt: null, stale: false };
+        if (g.platformId === "3ds") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false, raTitle: null, raGameId: null, accepted: [] };
+        if (id % 4 === 0) return { status: "noset", hash: "0123456789abcdef0123456789abcdef", progress: null, fetchedAt: null, stale: false, raTitle: null, raGameId: null, accepted: [] };
+        if (id % 2 === 0)
+          return {
+            status: "unknown", hash: "0123456789abcdef0123456789abcdef", progress: null, fetchedAt: null, stale: false,
+            raTitle: g.title, raGameId: 2774,
+            accepted: [
+              { name: `${g.title} (USA) (Debug Patch) (Bartis1989)`, patched: true },
+              { name: `${g.title} (Europe) (En,Fr,De,Es,It)`, patched: false },
+            ],
+          };
         const r = rng(id);
         const achievements = Array.from({ length: 24 }, (_, i) => {
           const earned = r() < 0.4;
@@ -184,6 +193,9 @@ export function installMockIpc() {
           hash: "fedcba9876543210fedcba9876543210",
           fetchedAt: Math.floor(Date.now() / 1000),
           stale: false,
+          raTitle: g.title,
+          raGameId: 1000 + id,
+          accepted: [],
           progress: {
             raGameId: 1000 + id,
             title: g.title,

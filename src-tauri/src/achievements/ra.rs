@@ -54,12 +54,60 @@ pub struct ListedGame {
     #[serde(rename = "ID")]
     pub id: i64,
     #[serde(default)]
+    pub title: String,
+    #[serde(default)]
     pub hashes: Vec<String>,
+}
+
+pub fn parse_list(list_json: &[u8]) -> Result<Vec<ListedGame>> {
+    Ok(serde_json::from_slice(list_json)?)
+}
+
+/// A version of a game RA accepts (one of its hashes).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptedDump {
+    /// The dump's name, e.g. "Jak II (USA) (Debug Patch) (Bartis1989)".
+    pub name: String,
+    /// Made by applying a patch RA publishes (RAPatches), not a plain dump.
+    pub patched: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct RawHashes {
+    #[serde(default)]
+    results: Vec<RawHash>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct RawHash {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(rename = "MD5", default)]
+    md5: String,
+    #[serde(default)]
+    labels: Vec<String>,
+    #[serde(default)]
+    patch_url: Option<String>,
+}
+
+pub fn parse_game_hashes(body: &[u8]) -> Result<Vec<AcceptedDump>> {
+    let raw: RawHashes = serde_json::from_slice(body)?;
+    Ok(raw
+        .results
+        .into_iter()
+        .map(|h| AcceptedDump {
+            name: h.name.filter(|n| !n.trim().is_empty()).unwrap_or(h.md5),
+            patched: h.patch_url.is_some_and(|u| !u.is_empty()) || h.labels.iter().any(|l| l == "rapatches"),
+        })
+        .collect())
 }
 
 /// hash (lowercase hex) -> RA game id.
 pub fn hash_index(list_json: &[u8]) -> Result<HashMap<String, i64>> {
-    let games: Vec<ListedGame> = serde_json::from_slice(list_json)?;
+    let games = parse_list(list_json)?;
     let mut out = HashMap::new();
     for g in games {
         for h in g.hashes {
@@ -144,6 +192,12 @@ impl<'a> Ra<'a> {
         let Some(body) = self.call("API_GetUserProfile.php", &[("u", &self.creds.user)])? else { return Ok(None) };
         // Unknown users come back as an empty object or array on some versions.
         Ok(serde_json::from_slice::<Profile>(&body).ok())
+    }
+
+    /// The versions (hashes) RA accepts for a game (raw JSON, for caching;
+    /// see `parse_game_hashes`).
+    pub fn game_hashes(&self, game_id: i64) -> Result<Vec<u8>> {
+        self.call_required("API_GetGameHashes.php", &[("i", &game_id.to_string())])
     }
 
     /// A game's achievements with the user's unlocks (raw JSON, for caching;
@@ -376,8 +430,28 @@ mod tests {
             key: crate::secrets::get("ra-web-api-key").unwrap().unwrap(),
         };
         let http = crate::art::http::Http::new();
-        let body = Ra::new(&http, creds).call_required("API_GetGameHashes.php", &[("i", &id)]).unwrap();
+        let body = Ra::new(&http, creds).game_hashes(id.parse().unwrap()).unwrap();
         println!("{}", String::from_utf8_lossy(&body));
+    }
+
+    #[test]
+    fn accepted_versions_name_patched_dumps() {
+        let body = serde_json::to_vec(&j!({"Results": [
+            {"Name": "Jak II (USA) (Debug Patch) (Bartis1989)", "MD5": "f51c", "Labels": ["redump", "rapatches"],
+             "PatchUrl": "https://github.com/RetroAchievements/RAPatches/raw/main/PS2/x.zip"},
+            {"Name": "Jak II (Europe)", "MD5": "aaaa", "Labels": ["redump"], "PatchUrl": null},
+            {"Name": "", "MD5": "bbbb", "Labels": []}
+        ]}))
+        .unwrap();
+        let d = parse_game_hashes(&body).unwrap();
+        assert_eq!(
+            d,
+            [
+                AcceptedDump { name: "Jak II (USA) (Debug Patch) (Bartis1989)".into(), patched: true },
+                AcceptedDump { name: "Jak II (Europe)".into(), patched: false },
+                AcceptedDump { name: "bbbb".into(), patched: false },
+            ]
+        );
     }
 
     #[test]

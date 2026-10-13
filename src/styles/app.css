@@ -1099,6 +1099,33 @@ kbd.ps-favorite { color: #4fe0c0; }
   color: var(--text-faint);
 }
 
+.ach-ra-title {
+  color: var(--text);
+}
+
+.ach-versions {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ach-versions li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  font-size: var(--fs-sm);
+}
+
+.ach-patch {
+  color: var(--focus);
+}
+
 .match-list {
   display: flex;
   flex-direction: column;

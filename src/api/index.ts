@@ -107,9 +107,23 @@ export interface RaProgress {
   achievements: Achievement[];
 }
 
+/** A version of a game RetroAchievements accepts. */
+export interface AcceptedDump {
+  name: string;
+  /** Made by applying a patch RA publishes. */
+  patched: boolean;
+}
+
 export interface GameAchievements {
-  /** unsupported = no RA for this console (or RA not set up): show nothing. */
-  status: "unsupported" | "nohash" | "unknown" | "ok";
+  /**
+   * unsupported = no RA for this console (or RA not set up): show nothing.
+   * unknown = RA has this game, but not this version (see accepted).
+   * noset = RA has no achievements for a game by this title on this console.
+   */
+  status: "unsupported" | "nohash" | "unknown" | "noset" | "ok";
+  raTitle: string | null;
+  raGameId: number | null;
+  accepted: AcceptedDump[];
   hash: string | null;
   progress: RaProgress | null;
   /** Unix seconds. */

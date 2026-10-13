@@ -192,8 +192,11 @@ achievements (hashing needs console keys).
 - Hashing runs in the background after scans (a file is only re-hashed when it changes), then
   each hash is looked up in RA's list of known hashes for that console, cached for a week. A
   console RA doesn't currently support shows no achievements section at all.
-- A game "not recognized" means RA doesn't list that exact dump (ROM hacks, fan translations,
-  some revisions); its hash is shown so you can check it on RA's site.
+- When RA doesn't recognize a file, the details say why: if RA has achievements for a game by
+  that title, it lists the versions RA accepts (often another region, or a dump with an
+  official RA patch applied, marked "RA patch"); otherwise it says no achievements were found
+  for that title on that console (matched by title, so a game RA lists under another name,
+  like a Japanese title, can land here). The file's hash is shown either way.
 - Unlocks are re-checked when you open a game's details (at most every 10 minutes; Refresh
   forces it) and shown from the cache when offline. Badge images are cached on disk.
 - RA rate-limits its API without publishing numbers, so requests are sequential and spaced
@@ -259,3 +262,6 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [ ] f. Performance pass
 - [ ] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
       main, lean UI)
+- [ ] h. Backloggd: Backloggd has no public API (checked Oct 2026), and scraping the site is out.
+      Planned: an "Open on Backloggd" link per game (its pages are keyed by IGDB slugs, which the
+      IGDB match already provides). Syncing your backlog/played status waits for an official API.

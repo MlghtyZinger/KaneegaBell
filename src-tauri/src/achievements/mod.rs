@@ -198,19 +198,78 @@ pub fn media(data_dir: &Path, http: &dyn crate::art::http::Fetch, kind: &str, na
 pub struct GameAchievements {
     /// "unsupported" (RA has no achievements for this console, or RA isn't
     /// set up: the UI shows nothing), "nohash" (the files couldn't be
-    /// hashed), "unknown" (RA doesn't recognize this dump), "ok".
+    /// hashed), "unknown" (RA has achievements for this game, but not for
+    /// this version: see `accepted`), "noset" (RA has no achievements for a
+    /// game by this title on this console), "ok".
     pub status: &'static str,
     pub hash: Option<String>,
     pub progress: Option<ra::Progress>,
     pub fetched_at: Option<i64>,
     /// Shown from the cache because RA couldn't be reached.
     pub stale: bool,
+    /// For "unknown": the RA game with this title, and the versions it accepts.
+    pub ra_title: Option<String>,
+    pub ra_game_id: Option<i64>,
+    pub accepted: Vec<ra::AcceptedDump>,
 }
 
 impl GameAchievements {
     fn status(status: &'static str, hash: Option<String>) -> Self {
-        Self { status, hash, progress: None, fetched_at: None, stale: false }
+        Self {
+            status,
+            hash,
+            progress: None,
+            fetched_at: None,
+            stale: false,
+            ra_title: None,
+            ra_game_id: None,
+            accepted: Vec::new(),
+        }
     }
+}
+
+/// The RA game (with achievements) whose title matches one of `titles`, by
+/// the same title rules as covers and IGDB (sequel numbers must agree).
+/// Hacks, homebrew etc. ("~Hack~ ...") and subsets are never suggested.
+pub fn title_match<'a>(list: &'a [ra::ListedGame], titles: &[String]) -> Option<&'a ra::ListedGame> {
+    use crate::art::matcher::{title_similarity, FUZZY_MIN};
+    use crate::scanner::normalize::search_key;
+    let keys: Vec<String> = titles.iter().map(|t| search_key(t)).filter(|k| !k.is_empty()).collect();
+    let mut best: Option<(f32, &ra::ListedGame)> = None;
+    for g in list.iter().filter(|g| !g.title.starts_with('~') && !g.title.contains("[Subset")) {
+        // RA writes alternative names as "Name A | Name B".
+        for alt in g.title.split(" | ") {
+            let k = search_key(alt);
+            for q in &keys {
+                let s = title_similarity(q, &k);
+                if s >= FUZZY_MIN && best.is_none_or(|(b, _)| s > b) {
+                    best = Some((s, g));
+                }
+            }
+        }
+    }
+    best.map(|(_, g)| g)
+}
+
+/// Why RA didn't recognize a hash: another version of a game it has
+/// ("unknown", with the versions it accepts), or no such game ("noset").
+fn explain_unknown(conn: &Connection, ra: &Ra, game_id: i64, console: u32, hash: String) -> Result<GameAchievements> {
+    let (body, _, _) = cached(conn, &list_key(console), LIST_TTL_SECS, || ra.hash_list(console))?;
+    let list = ra::parse_list(&body)?;
+    let titles = queries::game_titles(conn, game_id)?;
+    let Some(g) = title_match(&list, &titles) else { return Ok(GameAchievements::status("noset", Some(hash))) };
+    let accepted = cached(conn, &format!("ra:gamehashes:{}", g.id), LIST_TTL_SECS, || ra.game_hashes(g.id))
+        .and_then(|(b, _, _)| ra::parse_game_hashes(&b))
+        .unwrap_or_else(|e| {
+            log::warn!("RetroAchievements versions of game {}: {e}", g.id);
+            Vec::new()
+        });
+    Ok(GameAchievements {
+        ra_title: Some(g.title.clone()),
+        ra_game_id: Some(g.id),
+        accepted,
+        ..GameAchievements::status("unknown", Some(hash))
+    })
 }
 
 /// A game's achievements and the user's unlocks. Identifies the game first
@@ -244,16 +303,16 @@ pub fn for_game(conn: &Connection, ra: Option<&Ra>, game_id: i64, refresh: bool)
         }
     };
     if id <= 0 {
-        return Ok(GameAchievements::status("unknown", Some(h)));
+        return explain_unknown(conn, ra, game_id, console, h);
     }
     let ttl = if refresh { 0 } else { PROGRESS_TTL_SECS };
     let (body, at, stale) = cached(conn, &progress_key(id, ra.user()), ttl, || ra.game_progress(id))?;
     Ok(GameAchievements {
-        status: "ok",
-        hash: Some(h),
         progress: Some(ra::parse_progress(id, &body)?),
         fetched_at: Some(at),
         stale,
+        ra_game_id: Some(id),
+        ..GameAchievements::status("ok", Some(h))
     })
 }
 
@@ -287,7 +346,10 @@ mod tests {
                 json(200, j!([{"ID": 5, "Name": "Game Boy Advance", "Active": true},
                               {"ID": 2, "Name": "Nintendo 64", "Active": true}]))
             } else if url.contains("API_GetGameList") && url.contains("i=5") {
-                json(200, j!([{"ID": 777, "Title": "Game", "Hashes": [hash.to_uppercase()]}]))
+                json(200, j!([{"ID": 777, "Title": "Game", "Hashes": [hash.to_uppercase()]},
+                              {"ID": 778, "Title": "~Hack~ Other Game", "Hashes": []}]))
+            } else if url.contains("API_GetGameHashes") && url.contains("i=777") {
+                json(200, j!({"Results": [{"Name": "Game (Europe)", "MD5": hash, "Labels": ["nointro"]}]}))
             } else if url.contains("API_GetGameInfoAndUserProgress") && url.contains("g=777") {
                 let date = if earned { j!("2024-01-02 03:04:05") } else { j!(null) };
                 json(200, j!({"Title": "Game", "NumDistinctPlayers": 10, "Achievements": {
@@ -343,14 +405,66 @@ mod tests {
         assert_eq!(a.progress.unwrap().earned, 0);
     }
 
+    /// What the details screen says for each unrecognized game, against a
+    /// copy of a real library.db and the saved RA login:
+    /// `RA_DB=copy.db cargo test real_unknown_explanations -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn real_unknown_explanations() {
+        let conn = db::open(Path::new(&std::env::var("RA_DB").unwrap())).unwrap();
+        let creds = ra::Credentials {
+            user: crate::secrets::get("ra-user").unwrap().unwrap(),
+            key: crate::secrets::get("ra-web-api-key").unwrap().unwrap(),
+        };
+        let http = crate::art::http::Http::new();
+        let client = Ra::new(&http, creds);
+        let ids: Vec<(i64, String)> = conn
+            .prepare("SELECT id, title FROM games WHERE ra_game_id = 0 AND missing = 0")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        for (id, title) in ids {
+            let a = for_game(&conn, Some(&client), id, false).unwrap();
+            let names: Vec<String> =
+                a.accepted.iter().map(|d| format!("{}{}", d.name, if d.patched { " [patch]" } else { "" })).collect();
+            println!("{title}: {} {:?} {names:?}", a.status, a.ra_title);
+        }
+    }
+
+    #[test]
+    fn titles_match_by_the_usual_rules() {
+        let list: Vec<ra::ListedGame> = serde_json::from_value(j!([
+            {"ID": 1, "Title": "Castlevania: The Dracula X Chronicles"},
+            {"ID": 2, "Title": "Fairy Tail: Portable Guild"},
+            {"ID": 3, "Title": "Pocket Monsters Gin | Pokemon Silver"},
+            {"ID": 4, "Title": "Jak II [Subset - Bonus]"}
+        ]))
+        .unwrap();
+        let find = |t: &str| title_match(&list, &[t.to_string()]).map(|g| g.id);
+        assert_eq!(find("Castlevania Dracula X Chronicles"), Some(1));
+        assert_eq!(find("Fairy Tail Portable Guild 2"), None, "sequel numbers must agree");
+        assert_eq!(find("Pokémon Silver"), Some(3));
+        assert_eq!(find("Jak II"), None, "subsets aren't the game");
+        assert_eq!(find("BloodRayne"), None);
+    }
+
     #[test]
     fn unknown_dumps_and_unsupported_consoles() {
         let t = tempfile::tempdir().unwrap();
         let (conn, id, _) = setup(t.path());
         let http = FakePost::new(server("0000".into(), false));
         let client = Ra::new(&http, creds());
-        assert_eq!(for_game(&conn, Some(&client), id, false).unwrap().status, "unknown");
+        // RA has "Game", just not this version: say which versions it takes.
+        let a = for_game(&conn, Some(&client), id, false).unwrap();
+        assert_eq!((a.status, a.ra_title.as_deref(), a.ra_game_id), ("unknown", Some("Game"), Some(777)));
+        assert_eq!(a.accepted[0].name, "Game (Europe)");
         assert_eq!(for_game(&conn, None, id, false).unwrap().status, "unsupported");
+
+        // No RA game with achievements by this title (hacks aren't suggested).
+        conn.execute("UPDATE games SET title = 'Other Game'", []).unwrap();
+        assert_eq!(for_game(&conn, Some(&client), id, false).unwrap().status, "noset");
 
         // GBA missing from the active list: hidden, and nothing is hashed.
         conn.execute("DELETE FROM api_cache", []).unwrap();
