@@ -114,10 +114,11 @@
   top: 0;
   /* No paint containment here: it would clip the focus ring and zoom. */
   contain: layout style;
-  /* Size container: a card with a cover shrinks to the cover's shape (below). */
+  /* Size container: the cell already has the cover's shape; a card whose
+     cover is beyond the grid's clamp shrinks to fit inside it (below). */
   container-type: size;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
 }
 
@@ -162,9 +163,8 @@
   object-fit: contain;
 }
 
-/* The card takes its cover's shape, as large as fits the cell, sitting on the
-   row's baseline: a SNES box is a wide card, a GBA box a square one, with no
-   bars around the art. */
+/* The card takes its cover's shape, as large as fits the cell: a SNES box is
+   a wide card, a GBA box a square one, with no bars around the art. */
 .card.fit {
   width: min(100cqw, calc(100cqh / var(--art-aspect)));
   height: min(100cqh, calc(100cqw * var(--art-aspect)));

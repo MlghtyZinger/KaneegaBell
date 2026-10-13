@@ -1,7 +1,8 @@
 // Dev-only: lets the UI run in a plain browser (no Tauri) with fake data, for
 // layout work and grid stress tests. Loaded via a dynamic import guarded by
 // import.meta.env.DEV, so it never ships in release builds.
-// Add ?games=N to the URL to change the library size (default 5000).
+// Add ?games=N to the URL to change the library size (default 5000), and
+// ?art=1 to give games cover shapes (for card layout work).
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { GameRow, Library, Settings } from "../api";
 
@@ -34,7 +35,14 @@ function rng(seed: number) {
   };
 }
 
+// Typical cover shapes (height / width), for ?art=1 layout tests.
+const ASPECTS: Record<string, number> = {
+  snes: 0.72, n64: 0.73, gba: 1, gc: 1.4, nds: 0.9, wii: 1.4, "3ds": 0.88,
+  segacd: 1, ps1: 1, ps2: 1.4, psp: 1.72, ps3: 1.16,
+};
+
 function makeLibrary(n: number): Library {
+  const withArt = new URLSearchParams(location.search).get("art") === "1";
   const r = rng(42);
   const pick = () => WORDS[Math.floor(r() * WORDS.length)];
   const games: GameRow[] = [];
@@ -43,9 +51,10 @@ function makeLibrary(n: number): Library {
     let title = Array.from({ length: words }, pick).join(" ");
     if (r() < 0.3) title += `: ${pick()} ${pick()}`;
     if (r() < 0.15) title += ` ${2 + Math.floor(r() * 4)}`;
+    const platformId = PLATFORMS[Math.floor(r() * PLATFORMS.length)][0];
     games.push({
       id: i + 1,
-      platformId: PLATFORMS[Math.floor(r() * PLATFORMS.length)][0],
+      platformId,
       title,
       variant: r() < 0.05 ? "T-En v1.2" : null,
       region: "USA",
@@ -53,8 +62,9 @@ function makeLibrary(n: number): Library {
       playSeconds: 0,
       lastPlayed: null,
       isMultidisc: r() < 0.03,
-      art: 0,
-      artAspect: null,
+      // No images exist in the mock: cards fall back to text, but keep the cover's shape.
+      art: withArt ? 1 : 0,
+      artAspect: withArt ? ASPECTS[platformId] : null,
     });
   }
   const order = new Map(PLATFORMS.map(([id], i) => [id as string, i]));

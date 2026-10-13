@@ -6,7 +6,7 @@ import { VirtualGrid } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
 import { Hint } from "../components/Hints";
 import { GameInfo } from "./GameInfo";
-import { api } from "../api";
+import { api, type GameRow } from "../api";
 
 function initial(title: string): string {
   const c = title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase();
@@ -21,16 +21,21 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
   const games = library.visibleGames;
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
 
-  // Card shape: in a platform tab, that platform's typical cover shape (GBA
-  // square, SNES landscape, PSP tall...); mixed views use portrait cards.
+  // Card shapes: each card follows its own cover (GBA square, SNES landscape,
+  // PSP tall...). Cards without a cover take their platform's usual shape.
   const DEFAULT_ASPECT = 1.4;
-  const cardAspect = createMemo(() => {
+  const platformAspect = createMemo(
+    () => new Map(library.platforms().map((p) => [p.id, p.artAspect ?? DEFAULT_ASPECT])),
+  );
+  const itemAspect = (g: GameRow) =>
+    (g.art > 0 ? g.artAspect : null) ?? platformAspect().get(g.platformId) ?? DEFAULT_ASPECT;
+  // A platform tab whose covers are wide gets wider cards (keeping each
+  // cover's area roughly constant); mixed views use the portrait default.
+  const tabAspect = createMemo(() => {
     if (library.query()) return DEFAULT_ASPECT;
-    const p = library.platforms().find((x) => x.id === library.platform());
-    return p?.artAspect ?? DEFAULT_ASPECT;
+    return platformAspect().get(library.platform()) ?? DEFAULT_ASPECT;
   });
-  // Keep each cover's area roughly constant: wide covers get wider cards.
-  const minCardWidth = createMemo(() => Math.round(210 * Math.sqrt(DEFAULT_ASPECT / cardAspect())));
+  const minCardWidth = createMemo(() => Math.round(210 * Math.sqrt(DEFAULT_ASPECT / tabAspect())));
   const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
 
   // New tab or new search -> start at the top.
@@ -213,7 +218,7 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
             onActivate={(i) => setInfoId(games()[i].id)}
             onColumns={setCols}
             minCardWidth={minCardWidth()}
-            aspect={cardAspect()}
+            itemAspect={itemAspect}
             gap={18}
             renderItem={(g, isFocused) => (
               <GameCard
