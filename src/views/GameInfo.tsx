@@ -94,7 +94,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 <Show when={g().artSource}>
                   <span class="dim small">
                     Cover:{" "}
-                    {({ libretro: "libretro-thumbnails", local: "from the game files", file: "your image" } as Record<string, string>)[
+                    {({ libretro: "libretro-thumbnails", gametdb: "GameTDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
                       g().artSource!
                     ] ?? g().artSource}
                   </span>

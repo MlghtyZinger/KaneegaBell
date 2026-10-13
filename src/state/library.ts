@@ -4,6 +4,7 @@ import {
   events,
   type ArtProgress,
   type ArtSummary,
+  type GameChange,
   type GameRow,
   type PlatformSummary,
   type ScanProgress,
@@ -40,6 +41,10 @@ function createLibraryStore() {
   const [scanError, setScanError] = createSignal<string | null>(null);
   const [artProgress, setArtProgress] = createSignal<ArtProgress | null>(null);
   const [lastArt, setLastArt] = createSignal<ArtSummary | null>(null);
+  /** What the last scan (or folder removal) changed; `seq` lets the toast tell reports apart. */
+  const [report, setReport] = createSignal<{ title: string; changes: GameChange[]; seq: number } | null>(null);
+  let reportSeq = 0;
+  const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
   // Computed once per library load, not per keystroke.
   const keys = createMemo(() => games().map((g) => searchKey(`${g.title} ${g.variant ?? ""}`)));
@@ -104,6 +109,7 @@ function createLibraryStore() {
     void events.onScanFinished((s) => {
       setScanProgress(null);
       setLastScan(s);
+      publishReport(s.cancelled ? "Scan cancelled" : "Scan finished", s.changes);
       void reload();
     });
     void events.onScanFailed((msg) => {
@@ -122,6 +128,13 @@ function createLibraryStore() {
 
   async function fetchArt() {
     await api.fetchArt();
+  }
+
+  /** Removes a ROM folder and reports which games left the library with it. */
+  async function removeSource(id: number) {
+    const gone = await api.removeSource(id);
+    publishReport("Folder removed", gone);
+    await reload();
   }
 
   return {
@@ -148,6 +161,8 @@ function createLibraryStore() {
     artProgress,
     lastArt,
     fetchArt,
+    report,
+    removeSource,
   };
 }
 

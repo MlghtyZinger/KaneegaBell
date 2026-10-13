@@ -7,6 +7,7 @@ import { NavScope } from "../components/NavScope";
 import { Picker } from "../components/Picker";
 import { FileBrowser } from "../components/FileBrowser";
 import { Hint } from "../components/Hints";
+import { ScanReport, summarizeChanges } from "../components/ScanReport";
 
 type Section = "library" | "emulators" | "platforms" | "general";
 const SECTIONS: [Section, string][] = [
@@ -116,6 +117,7 @@ function platformOptions(platforms: PlatformRow[]) {
 // ------------------------------------------------------------------ library
 
 function LibrarySection(props: { s: Settings; run: Run }) {
+  const platformName = (id: string) => props.s.platforms.find((p) => p.id === id)?.name ?? id.toUpperCase();
   const [newPath, setNewPath] = createSignal("");
   const [newPlatform, setNewPlatform] = createSignal("");
   // Once the user picks a platform themselves, stop auto-suggesting.
@@ -192,11 +194,25 @@ function LibrarySection(props: { s: Settings; run: Run }) {
           </div>
         )}
       </Show>
+      <Show when={library.report()} keyed>
+        {(r) => (
+          <div class="scan-summary">
+            <p>
+              <strong>{r.title}:</strong>{" "}
+              {r.changes.length > 0 ? summarizeChanges(r.changes, platformName) : "no games added or removed."}
+            </p>
+            <Show when={r.changes.length > 0}>
+              <ScanReport changes={r.changes} name={platformName} />
+            </Show>
+          </div>
+        )}
+      </Show>
 
       <h2>Covers</h2>
       <p class="dim">
-        Box art comes from libretro-thumbnails (no account needed) and is matched by game name; PS3 games use the
-        icon from their own files when there's no box art. Everything is cached, so covers stay available offline.
+        Box art comes from libretro-thumbnails (matched by game name) and GameTDB (looked up by the game's ID, which
+        covers PS3 and fills gaps for GameCube, Wii, DS and 3DS). No account needed. Everything is cached, so covers
+        stay available offline. Change any cover from the game's details.
       </p>
       <div class="row">
         <Show
@@ -357,7 +373,7 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
       <td>
         <button
           class="btn small danger"
-          onClick={() => props.run(() => api.removeSource(props.src.id), { reloadLibrary: true })}
+          onClick={() => props.run(() => library.removeSource(props.src.id))}
         >
           Remove
         </button>

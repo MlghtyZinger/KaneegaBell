@@ -15,6 +15,8 @@ export interface GameRow {
   isMultidisc: boolean;
   /** Art version (cache-buster) when the game has art, else 0. */
   art: number;
+  /** The cover's height / width (its card takes this shape). */
+  artAspect: number | null;
 }
 
 export interface PlatformSummary {
@@ -27,7 +29,7 @@ export interface PlatformSummary {
 }
 
 export interface CoverCandidate {
-  source: "libretro" | "local";
+  source: "libretro" | "gametdb" | "local";
   name: string;
   url: string;
   preview: string | null;
@@ -52,7 +54,7 @@ export interface GameDetail {
   playSeconds: number;
   lastPlayed: number | null;
   art: number;
-  artSource: "libretro" | "local" | "igdb" | "sgdb" | null;
+  artSource: "libretro" | "gametdb" | "local" | "file" | null;
   files: [string, number | null][];
 }
 
@@ -183,6 +185,17 @@ export interface ScanSummary {
   gamesTotal: number;
   durationMs: number;
   warnings: string[];
+  changes: GameChange[];
+}
+
+/** One line of the scan report. */
+export interface GameChange {
+  /** hidden = gone from disk but kept for its play time or favorite; moved = now detected as another platform. */
+  kind: "added" | "removed" | "hidden" | "moved";
+  platformId: string;
+  fromPlatform: string | null;
+  title: string;
+  variant: string | null;
 }
 
 export const api = {
@@ -206,7 +219,7 @@ export const api = {
   addRpcs3InstalledSource: () => invoke<number>("add_rpcs3_installed_source"),
   updateSource: (id: number, platformId: string | null, recursive: boolean) =>
     invoke<void>("update_source", { id, platformId, recursive }),
-  removeSource: (id: number) => invoke<void>("remove_source", { id }),
+  removeSource: (id: number) => invoke<GameChange[]>("remove_source", { id }),
   suggestPlatform: (path: string) => invoke<string | null>("suggest_platform", { path }),
   listDir: (path: string | null, extensions: string[] = []) =>
     invoke<DirListing>("list_dir", { path, extensions }),
@@ -217,7 +230,7 @@ export const api = {
   refreshArt: (id: number) => invoke<boolean>("refresh_art", { id }),
   coverCandidates: (id: number, query: string | null = null) =>
     invoke<CoverCandidate[]>("cover_candidates", { id, query }),
-  setCover: (id: number, source: "libretro" | "local" | "file", name: string, url: string) =>
+  setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string) =>
     invoke<void>("set_cover", { id, source, name, url }),
   removeCover: (id: number) => invoke<void>("remove_cover", { id }),
 };

@@ -260,7 +260,7 @@ pub fn update_source(state: State<'_, AppState>, id: i64, platform_id: Option<St
 }
 
 #[tauri::command]
-pub fn remove_source(state: State<'_, AppState>, id: i64) -> Result<()> {
+pub fn remove_source(state: State<'_, AppState>, id: i64) -> Result<Vec<queries::GameChange>> {
     queries::remove_source(&state.db(), id)
 }
 
@@ -363,6 +363,24 @@ pub fn refresh_art(app: AppHandle, state: State<'_, AppState>, id: i64) -> Resul
     art::reset(&state.db(), state.data_dir(), id)?;
     state.art_pending.store(true, Ordering::Release);
     Ok(kick_worker(app, &state))
+}
+
+/// Covers left to fetch from last time (offline, interrupted, or a new cover
+/// source): fetch them shortly after startup, out of the way of the first paint.
+pub fn resume_art_on_startup(app: AppHandle) {
+    let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let state = app.state::<AppState>();
+        let pending = (|| -> Result<bool> {
+            let conn = state.db();
+            let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
+            Ok(auto && queries::count_games_needing_art(&conn, queries::now())? > 0)
+        })();
+        if pending.unwrap_or(false) {
+            state.art_pending.store(true, Ordering::Release);
+            kick_worker(app.clone(), &state);
+        }
+    });
 }
 
 /// Starts the worker thread unless it's already running (it then picks up the

@@ -21,7 +21,7 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
   const [error, setError] = createSignal<string | null>(null);
   const [browsing, setBrowsing] = createSignal(false);
 
-  async function choose(source: "libretro" | "local" | "file", name: string, url: string) {
+  async function choose(source: CoverCandidate["source"] | "file", name: string, url: string) {
     setBusy(name);
     setError(null);
     try {
@@ -49,7 +49,10 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
     });
   }
 
-  const list = (): CoverCandidate[] => (candidates.state === "ready" ? candidates() : []);
+  // GameTDB options are guesses per region: drop the ones whose image doesn't exist.
+  const [broken, setBroken] = createSignal<ReadonlySet<string>>(new Set());
+  const list = (): CoverCandidate[] =>
+    candidates.state === "ready" ? candidates().filter((c) => !broken().has(c.url)) : [];
 
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
@@ -93,7 +96,13 @@ export function CoverPicker(props: { gameId: number; title: string; onClose: () 
                 title={c.label}
               >
                 <Show when={c.preview} fallback={<div class="cover-option-icon">🎮</div>}>
-                  <img src={c.preview!} alt="" loading="lazy" decoding="async" />
+                  <img
+                    src={c.preview!}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => c.source === "gametdb" && setBroken((s) => new Set(s).add(c.url))}
+                  />
                 </Show>
                 <span class="cover-option-label">{busy() === c.name ? "Applying…" : c.label}</span>
               </button>

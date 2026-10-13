@@ -129,12 +129,18 @@ Everything works without accounts or API keys:
   uses), matched by game name: exact No-Intro/Redump file name first, then the cleaned title
   with your region preferred, then a strict word-overlap match for loose names. Sequel numbers
   must agree, so a wrong game is never picked just because the titles look alike.
-- **PS3** games use the icon from their own files (`ICON0.PNG`, as shown by RPCS3) when
-  libretro has no cover, which is most of the time.
+- **[GameTDB](https://www.gametdb.com)** covers (the source Dolphin and the Wii USB loaders use)
+  are looked up by the game's own ID read during the scan: PS3 title ID, GameCube/Wii disc ID,
+  DS/3DS game code. It comes first for PS3, where libretro has few covers, and fills gaps
+  elsewhere. A PS3 game's own icon (`ICON0.PNG`) is never picked automatically; it's offered
+  in the cover picker.
 - Covers are fetched in the background after each scan (toggle in Settings → Library), cached
   as small WebP thumbnails for the grid plus a larger image for details, and served from disk,
-  so they work offline. Games without a match are retried weekly; "Refresh cover" in a game's
-  details fetches again.
+  so they work offline. Games without a match are retried weekly; "Refresh" in a game's
+  details fetches again, and "Change cover…" lets you pick another one (other regions, a
+  search of the whole cover set, or an image file). Your choice is never overwritten.
+- Each card takes its cover's shape (a SNES box is a wide card, a GBA box a square one), and a
+  platform tab sizes its grid for that platform's usual cover shape.
 - Optional upgrades with your own free keys (milestone d2/d3): IGDB for descriptions, genres and
   release info; SteamGridDB for alternative covers, backgrounds and logos. MobyGames isn't used:
   its API now requires a paid subscription.
@@ -154,6 +160,8 @@ Everything works without accounts or API keys:
   PS3 game folders and an RPCS3 `dev_hdd0` are recognized inside Auto folders.
 - Entries whose files disappear are deleted unless they have play time or are a favorite. Those
   are kept hidden, so they come back intact if the files return.
+- After each scan (and when a folder is removed) a notice says what changed, and Settings →
+  Library lists every game added, removed, hidden or moved to another platform, by platform.
 - Titles are cleaned for display (`Legend of Zelda, The - The Wind Waker (USA)` → "The Legend
   of Zelda: The Wind Waker"), with hack/translation tags kept as a subtitle.
 

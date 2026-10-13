@@ -40,6 +40,7 @@ pub fn run() {
             input.set_combo(db::queries::get_setting(&conn, "exitCombo")?.unwrap_or_default());
             input.app_focused.store(true, Ordering::Release);
             app.manage(commands::AppState::new(conn, db_path, input.clone()));
+            commands::resume_art_on_startup(app.handle().clone());
 
             let handle = app.handle().clone();
             input::gamepad::spawn(

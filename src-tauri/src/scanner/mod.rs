@@ -131,6 +131,8 @@ pub struct Summary {
     pub games_total: usize,
     pub duration_ms: u128,
     pub warnings: Vec<String>,
+    /// Games added, removed or moved between platforms, for the scan report.
+    pub changes: Vec<queries::GameChange>,
 }
 
 /// Case-insensitive identity for paths on Windows.
@@ -550,6 +552,7 @@ pub fn run(conn: &mut Connection, progress: &dyn Fn(Progress), cancel: &AtomicBo
         summary.updated += r.updated;
         summary.missing += r.missing;
         summary.removed += r.removed;
+        summary.changes.extend(r.changes);
     }
 
     if redetect && !summary.cancelled {

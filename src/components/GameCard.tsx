@@ -14,12 +14,17 @@ export function GameCard(props: { game: () => GameRow; focused: () => boolean; p
   const [failed, setFailed] = createSignal<string | null>(null);
   const artKey = () => `${props.game().id}:${props.game().art}`;
   const showArt = () => props.game().art > 0 && failed() !== artKey();
+  // Known cover shape: the card takes it (see .card.fit).
+  const aspect = () => {
+    const a = props.game().artAspect;
+    return showArt() && a ? Math.min(3, Math.max(0.3, a)) : null;
+  };
 
   return (
     <div
       class="card"
-      classList={{ focused: props.focused(), "has-art": showArt() }}
-      style={{ "--card-hue": hue(props.game().title) }}
+      classList={{ focused: props.focused(), "has-art": showArt(), fit: aspect() !== null }}
+      style={{ "--card-hue": hue(props.game().title), "--art-aspect": aspect() ?? undefined }}
     >
       <Show when={showArt()}>
         {/* Only the small WebP thumbnail is ever decoded in the grid. */}

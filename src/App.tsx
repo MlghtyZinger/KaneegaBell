@@ -8,6 +8,7 @@ import { LibraryView } from "./views/Library";
 import { SettingsView } from "./views/Settings";
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
+import { ScanToast } from "./components/ScanToast";
 import "./styles/app.css";
 
 type View = "library" | "settings";
@@ -54,6 +55,8 @@ export default function App() {
         </Match>
       </Switch>
       <OskHost />
+      {/* Settings shows the full report itself. */}
+      <ScanToast hidden={view() === "settings"} />
     </main>
   );
 }

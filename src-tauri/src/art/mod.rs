@@ -1,11 +1,14 @@
-//! Artwork: keyless box art from libretro-thumbnails, cached locally as WebP.
+//! Artwork: keyless box art from libretro-thumbnails and GameTDB, cached
+//! locally as WebP.
 //!
 //! The job runs in the background (after scans, or on demand): for each game
-//! without art it matches the game against its platform's cached thumbnail
-//! index, downloads the cover, and stores a grid thumbnail plus a larger image
-//! for the details view. Everything is cached (index listings in `api_cache`,
-//! images on disk), so the library works fully offline afterwards.
+//! without art it matches the game against its platform's cached libretro
+//! thumbnail index and/or looks it up on GameTDB by its ID, downloads the
+//! cover, and stores a grid thumbnail plus a larger image for the details
+//! view. Everything is cached (index listings in `api_cache`, images on disk),
+//! so the library works fully offline afterwards.
 
+pub mod gametdb;
 pub mod http;
 pub mod images;
 pub mod libretro;
@@ -36,11 +39,13 @@ const WORKERS: usize = 4;
 #[derive(Debug, Clone)]
 pub struct Target {
     pub id: i64,
+    pub platform_id: String,
     pub libretro_system: String,
     pub launch_path: String,
     pub title: String,
     pub search_key: String,
     pub region: Option<String>,
+    pub serial: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,9 +114,9 @@ fn load_index(conn: &Connection, fetch: &dyn Fetch, system: &str) -> Result<Opti
     Ok(Some(matcher::Index::new(names)))
 }
 
-/// A game's own artwork shipped with the dump. PS3 games carry `ICON0.PNG`
-/// next to `USRDIR` (disc folders and dev_hdd0 installs alike), which is what
-/// RPCS3 shows; libretro has very few PS3 covers, so this is the keyless fallback.
+/// A PS3 game's `ICON0.PNG` (next to `USRDIR`, in disc folders and dev_hdd0
+/// installs alike): the wide icon RPCS3 shows. Not a cover, so it's only
+/// offered in the picker, never chosen automatically.
 fn local_icon(launch_path: &str) -> Option<std::path::PathBuf> {
     let p = Path::new(launch_path);
     if !p.file_name()?.eq_ignore_ascii_case("EBOOT.BIN") {
@@ -121,17 +126,42 @@ fn local_icon(launch_path: &str) -> Option<std::path::PathBuf> {
     icon.is_file().then_some(icon)
 }
 
+/// One place a cover might be; a job tries them in order until one exists.
 #[derive(Clone)]
-enum Src {
-    Remote(String),
-    Local(std::path::PathBuf),
+struct Try {
+    source: &'static str,
+    name: String,
+    url: String,
 }
 
 #[derive(Clone)]
 struct Job {
     id: i64,
-    name: String,
-    src: Src,
+    tries: Vec<Try>,
+    /// The libretro index couldn't be loaded: if nothing else turns up, retry later.
+    index_failed: bool,
+}
+
+fn gametdb_tries(platform: &str, serial: Option<&str>) -> Vec<Try> {
+    gametdb::cover_urls(platform, serial)
+        .into_iter()
+        .map(|u| Try {
+            source: "gametdb",
+            name: format!("{} ({})", serial.unwrap_or_default().trim(), u.region),
+            url: u.url,
+        })
+        .collect()
+}
+
+/// Where to look first: an exact ID lookup beats a name match for PS3
+/// (libretro has few PS3 covers); elsewhere libretro's sets are the most
+/// complete and GameTDB fills gaps.
+fn order_tries(platform: &str, libretro: Option<Try>, gametdb: Vec<Try>) -> Vec<Try> {
+    if platform == "ps3" {
+        gametdb.into_iter().chain(libretro).collect()
+    } else {
+        libretro.into_iter().chain(gametdb).collect()
+    }
 }
 
 enum Outcome {
@@ -167,7 +197,7 @@ pub fn run(
     for (system, games) in &by_system {
         let index = load_index(conn, fetch, system);
         for g in games {
-            let remote = match &index {
+            let libretro = match &index {
                 Ok(Some(index)) => {
                     let q = matcher::Query {
                         names: candidate_names(&g.launch_path),
@@ -178,22 +208,16 @@ pub fn run(
                         if m.score < 1.0 {
                             log::info!("art: fuzzy match {:.2} '{}' -> '{}'", m.score, g.title, m.name);
                         }
-                        Job { id: g.id, name: m.name.to_string(), src: Src::Remote(libretro::boxart_url(system, m.name)) }
+                        Try { source: "libretro", name: m.name.to_string(), url: libretro::boxart_url(system, m.name) }
                     })
                 }
                 _ => None,
             };
-            let local = || {
-                local_icon(&g.launch_path).map(|p| Job {
-                    id: g.id,
-                    name: p.to_string_lossy().into_owned(),
-                    src: Src::Local(p),
-                })
-            };
-            match (remote.or_else(local), &index) {
-                (Some(job), _) => jobs.push(job),
-                (None, Err(e)) => outcomes.push(Outcome::Failed { id: g.id, error: e.to_string() }),
-                (None, _) => outcomes.push(Outcome::NotFound { id: g.id }),
+            let tries = order_tries(&g.platform_id, libretro, gametdb_tries(&g.platform_id, g.serial.as_deref()));
+            match (tries.is_empty(), &index) {
+                (false, _) => jobs.push(Job { id: g.id, tries, index_failed: index.is_err() }),
+                (true, Err(e)) => outcomes.push(Outcome::Failed { id: g.id, error: e.to_string() }),
+                (true, _) => outcomes.push(Outcome::NotFound { id: g.id }),
             }
         }
     }
@@ -218,22 +242,8 @@ pub fn run(
                     break;
                 }
                 let i = next.fetch_add(1, Ordering::Relaxed);
-                let Some(Job { id, name, src }) = jobs.get(i).cloned() else { break };
-                let (source, url, bytes) = match &src {
-                    Src::Remote(url) => ("libretro", url.clone(), fetch.get(url)),
-                    Src::Local(p) => ("local", p.to_string_lossy().into_owned(), std::fs::read(p).map(Some).map_err(Into::into)),
-                };
-                let outcome = match bytes {
-                    Ok(Some(bytes)) => match images::process(&bytes).and_then(|p| {
-                        images::store(data_dir, id, &p)?;
-                        Ok(p)
-                    }) {
-                        Ok(p) => Outcome::Found { id, source, name, url, width: p.width, height: p.height },
-                        Err(e) => Outcome::Failed { id, error: e.to_string() },
-                    },
-                    Ok(None) => Outcome::NotFound { id },
-                    Err(e) => Outcome::Failed { id, error: e.to_string() },
-                };
+                let Some(job) = jobs.get(i) else { break };
+                let outcome = fetch_first(fetch, data_dir, job);
                 if tx.send(outcome).is_err() {
                     break;
                 }
@@ -252,6 +262,39 @@ pub fn run(
     summary.duration_ms = started.elapsed().as_millis();
     log::info!("box art: {summary:?}");
     Ok(summary)
+}
+
+/// Downloads the first cover that exists among a job's tries.
+fn fetch_first(fetch: &dyn Fetch, data_dir: &Path, job: &Job) -> Outcome {
+    let id = job.id;
+    let mut error = None;
+    for t in &job.tries {
+        match fetch.get(&t.url) {
+            Ok(Some(bytes)) => {
+                return match images::process(&bytes).and_then(|p| {
+                    images::store(data_dir, id, &p)?;
+                    Ok(p)
+                }) {
+                    Ok(p) => Outcome::Found {
+                        id,
+                        source: t.source,
+                        name: t.name.clone(),
+                        url: t.url.clone(),
+                        width: p.width,
+                        height: p.height,
+                    },
+                    Err(e) => Outcome::Failed { id, error: e.to_string() },
+                }
+            }
+            Ok(None) => {}
+            Err(e) => error = Some(e.to_string()),
+        }
+    }
+    match error {
+        Some(error) => Outcome::Failed { id, error },
+        None if job.index_failed => Outcome::Failed { id, error: "cover index unavailable".into() },
+        None => Outcome::NotFound { id },
+    }
 }
 
 fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
@@ -278,6 +321,8 @@ fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
 
 /// What the picker needs to know about a game.
 pub struct ArtInfo {
+    pub platform_id: String,
+    pub serial: Option<String>,
     pub launch_path: String,
     pub search_key: String,
     pub region: Option<String>,
@@ -288,7 +333,7 @@ pub struct ArtInfo {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Candidate {
-    /// "libretro" | "local"
+    /// "libretro" | "gametdb" | "local"
     pub source: String,
     /// libretro name, or a file path for local images.
     pub name: String,
@@ -299,19 +344,30 @@ pub struct Candidate {
     pub label: String,
 }
 
-/// Cover options for a game: libretro matches for its title (or for `query`,
-/// when the user searches), plus the game's own icon if it has one.
+/// Cover options for a game: GameTDB covers for its ID (one per region; the
+/// picker hides regions that don't exist), libretro matches for its title (or
+/// for `query`, when the user searches), and a PS3 game's own icon.
 pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Option<&str>) -> Result<Vec<Candidate>> {
     let t = queries::art_target(conn, game_id)?;
     let mut out = Vec::new();
-    if let Some(icon) = local_icon(&t.launch_path) {
-        out.push(Candidate {
-            source: "local".into(),
-            name: icon.to_string_lossy().into_owned(),
-            url: icon.to_string_lossy().into_owned(),
-            preview: None,
-            label: "The game's own icon".into(),
-        });
+    let searching = query.is_some_and(|q| !q.trim().is_empty());
+    if !searching {
+        let mut seen = Vec::new();
+        for u in gametdb::cover_urls(&t.platform_id, t.serial.as_deref()) {
+            if seen.contains(&u.region) {
+                continue;
+            }
+            seen.push(u.region);
+            // Preview the medium size; `apply_choice` upgrades to the largest one.
+            let preview = gametdb::preview_url(&u.url);
+            out.push(Candidate {
+                source: "gametdb".into(),
+                name: format!("{} ({})", t.serial.as_deref().unwrap_or_default(), u.region),
+                url: preview.clone(),
+                preview: Some(preview),
+                label: format!("GameTDB · {}", u.region),
+            });
+        }
     }
     if let Some(system) = t.libretro_system.as_deref() {
         if let Some(index) = load_index(conn, fetch, system)? {
@@ -331,14 +387,30 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
             }
         }
     }
+    if !searching {
+        if let Some(icon) = local_icon(&t.launch_path) {
+            out.push(Candidate {
+                source: "local".into(),
+                name: icon.to_string_lossy().into_owned(),
+                url: icon.to_string_lossy().into_owned(),
+                preview: None,
+                label: "The game's own icon".into(),
+            });
+        }
+    }
     Ok(out)
 }
 
 /// Sets a game's cover from a picker choice or a user image file. Manual
 /// choices are kept: automatic fetching only touches games without art.
 pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, source: &str, name: &str, url: &str) -> Result<()> {
+    let gone = || crate::error::Error::msg("that cover is no longer available");
     let bytes = match source {
-        "libretro" => fetch.get(url)?.ok_or_else(|| crate::error::Error::msg("that cover is no longer available"))?,
+        "libretro" => fetch.get(url)?.ok_or_else(gone)?,
+        "gametdb" => match fetch.get(&gametdb::best_url(url))? {
+            Some(b) => b,
+            None => fetch.get(url)?.ok_or_else(gone)?,
+        },
         "local" | "file" => std::fs::read(url)?,
         other => return Err(crate::error::Error::msg(format!("unknown cover source {other}"))),
     };
@@ -487,28 +559,59 @@ mod tests {
         }
     }
 
-    #[test]
-    fn ps3_games_fall_back_to_their_own_icon_even_offline() {
-        let dir = tempfile::tempdir().unwrap();
-        let game = dir.path().join("NPUA80480");
+    /// A PS3 game in a folder with its ICON0.PNG; returns the EBOOT path.
+    fn ps3_game(dir: &Path, folder: &str) -> String {
+        let game = dir.join(folder).join("PS3_GAME");
         std::fs::create_dir_all(game.join("USRDIR")).unwrap();
         std::fs::write(game.join("USRDIR").join("EBOOT.BIN"), b"SCE").unwrap();
         std::fs::write(game.join("ICON0.PNG"), images::test_png(320, 176)).unwrap();
-        let eboot = game.join("USRDIR").join("EBOOT.BIN").to_string_lossy().into_owned();
+        game.join("USRDIR").join("EBOOT.BIN").to_string_lossy().into_owned()
+    }
 
-        let mut conn = crate::db::test_db();
+    fn insert_ps3(conn: &Connection, title: &str, serial: &str, eboot: &str) {
         conn.execute(
-            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at)
-             VALUES ('ps3', 'inFamous', 'infamous', 'infamous', ?1, 0)",
-            [&eboot],
+            "INSERT INTO games (platform_id, title, sort_title, search_key, serial, launch_path, added_at)
+             VALUES ('ps3', ?1, ?1, ?2, ?3, ?4, 0)",
+            rusqlite::params![title, key_for(title), serial, eboot],
         )
         .unwrap();
+    }
+
+    #[test]
+    fn ps3_covers_come_from_gametdb_by_title_id_never_the_icon() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut conn = crate::db::test_db();
+        insert_ps3(&conn, "Armored Core V", "BLUS30516", &ps3_game(dir.path(), "Armored Core V (USA)"));
+        insert_ps3(&conn, "Bleach: Soul Resurreccion", "BLES01315", &ps3_game(dir.path(), "Bleach (Europe)"));
+        insert_ps3(&conn, "Kane & Lynch 2", "BLUS30383", &ps3_game(dir.path(), "Kane & Lynch 2 (USA)"));
         let data = tempfile::tempdir().unwrap();
-        let http = FakeHttp { offline: true, ..Default::default() };
+        let mut http = FakeHttp::default();
+        http.pages.insert(libretro::index_url("Sony - PlayStation 3"), listing(&[]));
+        // Only the medium US size exists for one, the big EN one for the other.
+        http.pages.insert("https://art.gametdb.com/ps3/coverM/US/BLUS30516.jpg".into(), images::test_png(350, 408));
+        http.pages.insert("https://art.gametdb.com/ps3/coverHQ/EN/BLES01315.jpg".into(), images::test_png(928, 1080));
+
         let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
-        assert_eq!((s.found, s.failed), (1, 0));
-        let src: String = conn.query_row("SELECT source FROM artwork", [], |r| r.get(0)).unwrap();
-        assert_eq!(src, "local");
+        assert_eq!((s.found, s.not_found, s.failed), (2, 1, 0));
+        let rows: Vec<(String, String)> = conn
+            .prepare("SELECT source, remote_id FROM artwork ORDER BY remote_id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            rows,
+            [("gametdb".to_string(), "BLES01315 (EN)".to_string()), ("gametdb".to_string(), "BLUS30516 (US)".to_string())]
+        );
+        // No cover anywhere: a title card, not the icon.
+        assert_eq!(status(&conn, "Kane & Lynch 2").0, "notfound");
+
+        // The picker still offers the icon, plus GameTDB regions.
+        let id: i64 = conn.query_row("SELECT id FROM games WHERE title = 'Kane & Lynch 2'", [], |r| r.get(0)).unwrap();
+        let c = candidates(&conn, &http, id, None).unwrap();
+        assert_eq!(c[0].url, "https://art.gametdb.com/ps3/coverM/US/BLUS30383.jpg");
+        assert_eq!(c.last().unwrap().source, "local");
     }
 
     #[test]

@@ -31,6 +31,9 @@ pub struct GameRow {
     pub is_multidisc: bool,
     /// Art version when the game has art (thumbnail URL cache-buster), else 0.
     pub art: i64,
+    /// The cover's height / width, so its card can take the cover's shape
+    /// before the image loads.
+    pub art_aspect: Option<f64>,
 }
 
 /// Every present game, ordered by platform display order then title. This is
@@ -38,8 +41,11 @@ pub struct GameRow {
 pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
     let mut stmt = conn.prepare_cached(
         "SELECT g.id, g.platform_id, g.title, g.variant, g.region, g.favorite, g.play_seconds,
-                g.last_played, g.is_multidisc, CASE WHEN g.art_status = 'ok' THEN g.art_version ELSE 0 END
+                g.last_played, g.is_multidisc, CASE WHEN g.art_status = 'ok' THEN g.art_version ELSE 0 END,
+                CASE WHEN g.art_status = 'ok' AND a.width > 0 AND a.height > 0
+                     THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END
          FROM games g JOIN platforms p ON p.id = g.platform_id
+         LEFT JOIN artwork a ON a.game_id = g.id AND a.kind = 'boxart' AND a.selected = 1
          WHERE g.missing = 0 AND p.enabled = 1
          ORDER BY p.sort_order, g.sort_title, g.id",
     )?;
@@ -55,6 +61,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             last_played: r.get(7)?,
             is_multidisc: r.get(8)?,
             art: r.get(9)?,
+            art_aspect: r.get(10)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -151,7 +158,7 @@ pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
 /// never tried, failed last time, or not found more than a week ago.
 pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::Target>> {
     let mut stmt = conn.prepare(
-        "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region
+        "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region, g.platform_id, g.serial
          FROM games g JOIN platforms p ON p.id = g.platform_id
          WHERE g.missing = 0 AND p.enabled = 1 AND p.libretro_system IS NOT NULL
            AND (g.art_status IN ('none', 'error')
@@ -166,6 +173,8 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
             title: r.get(3)?,
             search_key: r.get(4)?,
             region: r.get(5)?,
+            platform_id: r.get(6)?,
+            serial: r.get(7)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -173,11 +182,13 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
 
 pub fn art_target(conn: &Connection, game_id: i64) -> Result<crate::art::ArtInfo> {
     Ok(conn.query_row(
-        "SELECT g.launch_path, g.search_key, g.region, p.libretro_system
+        "SELECT g.launch_path, g.search_key, g.region, p.libretro_system, g.platform_id, g.serial
          FROM games g JOIN platforms p ON p.id = g.platform_id WHERE g.id = ?1",
         [game_id],
         |r| {
             Ok(crate::art::ArtInfo {
+                platform_id: r.get(4)?,
+                serial: r.get(5)?,
                 launch_path: r.get(0)?,
                 search_key: r.get(1)?,
                 region: r.get(2)?,
@@ -189,8 +200,8 @@ pub fn art_target(conn: &Connection, game_id: i64) -> Result<crate::art::ArtInfo
 
 /// Typical cover shape (height / width) per platform: the median of the
 /// covers the library actually has, so GBA boxes come out square, SNES/N64
-/// landscape and PSP tall, and PS3 (mostly wide game icons) wide, with no
-/// hard-coded table. Platforms without covers are absent.
+/// landscape and PSP tall, with no hard-coded table. Platforms without covers
+/// are absent.
 pub fn platform_art_aspects(conn: &Connection) -> Result<HashMap<String, f64>> {
     let mut stmt = conn.prepare(
         "SELECT g.platform_id, CAST(a.height AS REAL) / a.width
@@ -324,6 +335,22 @@ pub struct ApplyResult {
     pub missing: usize,
     /// No longer on disk and nothing worth keeping: deleted.
     pub removed: usize,
+    /// Which games were added, removed or moved, for the scan report.
+    pub changes: Vec<GameChange>,
+}
+
+/// One line of the scan report.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameChange {
+    /// "added" | "removed" (deleted) | "hidden" (gone, kept for its play time
+    /// or favorite) | "moved" (now detected as another platform)
+    pub kind: &'static str,
+    pub platform_id: String,
+    /// For "moved": the platform it was listed under before.
+    pub from_platform: Option<String>,
+    pub title: String,
+    pub variant: Option<String>,
 }
 
 /// Writes one source's scan results.
@@ -354,10 +381,25 @@ pub fn apply_scan(
 
     let now = now();
     let (mut added, mut updated) = (0, 0);
+    let mut changes = Vec::new();
+    let change = |kind, c: &Candidate, from_platform| GameChange {
+        kind,
+        platform_id: c.platform.clone(),
+        from_platform,
+        title: c.name.title.clone(),
+        variant: c.name.variant.clone(),
+    };
     for c in candidates {
         match known.get(&path_key(&c.launch_path)) {
-            None => added += 1,
-            Some(k) if k.size != c.total_size || k.mtime != c.mtime || k.platform != c.platform => updated += 1,
+            None => {
+                added += 1;
+                changes.push(change("added", c, None));
+            }
+            Some(k) if k.platform != c.platform => {
+                updated += 1;
+                changes.push(change("moved", c, Some(k.platform.clone())));
+            }
+            Some(k) if k.size != c.total_size || k.mtime != c.mtime => updated += 1,
             Some(_) => {}
         }
         let id: i64 = upsert.query_row(
@@ -387,6 +429,25 @@ pub fn apply_scan(
     // Gone from disk: delete rows with nothing worth keeping (junk that a
     // looser scan picked up, files the user deleted); keep the rest hidden,
     // so play time and favorites survive a file being moved back.
+    {
+        let mut gone = tx.prepare_cached(&format!(
+            "SELECT platform_id, title, variant, {HAS_USER_DATA} FROM games
+             WHERE source_id = ?1 AND missing = 0 AND id NOT IN (SELECT id FROM scan_seen)
+             ORDER BY sort_title"
+        ))?;
+        let rows = gone.query_map([source_id], |r| {
+            Ok(GameChange {
+                kind: if r.get::<_, bool>(3)? { "hidden" } else { "removed" },
+                platform_id: r.get(0)?,
+                from_platform: None,
+                title: r.get(1)?,
+                variant: r.get(2)?,
+            })
+        })?;
+        for row in rows {
+            changes.push(row?);
+        }
+    }
     let removed = tx.execute(
         &format!(
             "DELETE FROM games WHERE source_id = ?1 AND id NOT IN (SELECT id FROM scan_seen) AND NOT {HAS_USER_DATA}"
@@ -398,7 +459,7 @@ pub fn apply_scan(
          WHERE source_id = ?1 AND missing = 0 AND id NOT IN (SELECT id FROM scan_seen)",
         [source_id],
     )?;
-    Ok(ApplyResult { added, updated, missing, removed })
+    Ok(ApplyResult { added, updated, missing, removed, changes })
 }
 
 // ---------------------------------------------------------------- settings
@@ -624,12 +685,28 @@ const HAS_USER_DATA: &str =
     "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL)";
 
 /// Removing a source deletes its games, except ones with play time or a
-/// favorite, which stay hidden in case the folder is added back.
-pub fn remove_source(conn: &Connection, id: i64) -> Result<()> {
+/// favorite, which stay hidden in case the folder is added back. Returns the
+/// games that left the library.
+pub fn remove_source(conn: &Connection, id: i64) -> Result<Vec<GameChange>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT platform_id, title, variant, {HAS_USER_DATA} FROM games
+         WHERE source_id = ?1 AND missing = 0 ORDER BY platform_id, sort_title"
+    ))?;
+    let gone = stmt
+        .query_map([id], |r| {
+            Ok(GameChange {
+                kind: if r.get::<_, bool>(3)? { "hidden" } else { "removed" },
+                platform_id: r.get(0)?,
+                from_platform: None,
+                title: r.get(1)?,
+                variant: r.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
     conn.execute(&format!("DELETE FROM games WHERE source_id = ?1 AND NOT {HAS_USER_DATA}"), [id])?;
     conn.execute("UPDATE games SET missing = 1 WHERE source_id = ?1", [id])?;
     conn.execute("DELETE FROM rom_sources WHERE id = ?1", [id])?;
-    Ok(())
+    Ok(gone)
 }
 
 /// Startup housekeeping: hidden rows whose source is gone and that carry no

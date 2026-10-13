@@ -495,6 +495,36 @@ fn vanished_games_without_user_data_are_deleted_not_kept() {
     assert_eq!((s.missing, s.removed, s.games_total), (1, 1, 2));
     let rows: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0)).unwrap();
     assert_eq!(rows, 3, "played game kept as missing; untouched one deleted");
+    // The report names them.
+    let mut report: Vec<_> = s.changes.iter().map(|c| (c.kind, c.title.as_str())).collect();
+    report.sort();
+    assert_eq!(report, [("hidden", "Super Mario Galaxy"), ("removed", "The Legend of Zelda: The Wind Waker")]);
+}
+
+#[test]
+fn scan_report_lists_added_and_moved_games_by_platform() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    let s1 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let mut added: Vec<_> = s1.changes.iter().map(|c| (c.kind, c.platform_id.as_str(), c.title.as_str())).collect();
+    added.sort();
+    assert_eq!(
+        added,
+        [
+            ("added", "gc", "Luigi's Mansion"),
+            ("added", "gc", "Metal Gear Solid: The Twin Snakes"),
+            ("added", "gc", "The Legend of Zelda: The Wind Waker"),
+            ("added", "wii", "Super Mario Galaxy"),
+        ]
+    );
+    // Nothing changed: an empty report.
+    assert!(run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap().changes.is_empty());
+    // A game an older detector filed under the wrong platform: reported as moved.
+    conn.execute("UPDATE games SET platform_id = 'gc' WHERE title = 'Super Mario Galaxy'", []).unwrap();
+    queries::set_setting(&conn, "detectVersion", &0.into()).unwrap();
+    let s3 = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let moved: Vec<_> = s3.changes.iter().map(|c| (c.kind, c.from_platform.as_deref(), c.platform_id.as_str(), c.title.as_str())).collect();
+    assert_eq!(moved, [("moved", Some("gc"), "wii", "Super Mario Galaxy")]);
 }
 
 #[test]
@@ -524,7 +554,9 @@ fn removing_a_source_keeps_only_games_with_user_data() {
     run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     conn.execute("UPDATE games SET favorite = 1 WHERE title = 'Luigi''s Mansion'", []).unwrap();
     let id: i64 = conn.query_row("SELECT id FROM rom_sources", [], |r| r.get(0)).unwrap();
-    queries::remove_source(&conn, id).unwrap();
+    let gone = queries::remove_source(&conn, id).unwrap();
+    assert_eq!(gone.len(), 4);
+    assert_eq!(gone.iter().filter(|c| c.kind == "hidden").map(|c| c.title.as_str()).collect::<Vec<_>>(), ["Luigi's Mansion"]);
     assert!(queries::library(&conn).unwrap().is_empty());
     let rows: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get(0)).unwrap();
     assert_eq!(rows, 1, "only the favorite is kept (hidden)");

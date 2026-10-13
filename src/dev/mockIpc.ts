@@ -54,6 +54,7 @@ function makeLibrary(n: number): Library {
       lastPlayed: null,
       isMultidisc: r() < 0.03,
       art: 0,
+      artAspect: null,
     });
   }
   const order = new Map(PLATFORMS.map(([id], i) => [id as string, i]));
