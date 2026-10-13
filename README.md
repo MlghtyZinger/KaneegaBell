@@ -248,6 +248,39 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
 mock data (`src/dev/mockIpc.ts`, 5,000 fake games; `?games=N` to change). The mock is a
 dev-only dynamic import and is not part of release builds.
 
+## Performance
+
+Measured on a generated 5,000-game library (every game with a cover), release build,
+Ryzen 7 7700X / RTX 4070 Ti / 32 GB, 1600×900 window at 150% scaling, 240 Hz display
+(October 2026):
+
+| Target (CLAUDE.md) | Result |
+|---|---|
+| Cold start to interactive < 1.5 s | **~530 ms** median of 5 starts (512–667 ms), process start → grid painted |
+| Smooth 60 fps grid scrolling | **240 fps** (every frame ~4.2 ms, worst 10 ms, none over 20 ms) scrolling at 2,500 and 6,000 px/s, first pass included (thumbnails decoded on the fly) |
+| Idle CPU near 0% | **0.3–0.9% of one core** (≈0.05% of the CPU), app + WebView2, library on screen |
+| Modest RAM | 278 MB private / 410 MB working set after start (the app itself: 13 MB); after scrolling all the way through, WebView2's GPU process holds ~1 GB of cover cache (≈680 MB actually in RAM) |
+| Minimal resources while a game runs | 362 MB private / 385 MB working set, 0.9% of one core: the grid is unmounted, the window minimized, and WebView2 told to drop its caches |
+| Background scans | 5,000 games scanned in ~0.3 s (rescan with no changes ~0.15 s), off the UI thread |
+
+Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
+WebP thumbnails. Reproduce:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml --release --lib generate_perf_library -- --ignored --nocapture
+```
+
+with `PERF_ROOT` set to an empty folder (it generates tiny fake game files, scans them into
+`PERF_ROOT\data`, and gives every game a cover). Then, with the app closed:
+
+```bash
+powershell -File tools/perf/perf.ps1 -Data <PERF_ROOT>/data
+```
+
+It starts the release app on that folder (`EMU_FRONTEND_DATA_DIR`, which also keeps it away
+from your saved API keys) several times and reports start times, idle CPU, memory, frame times
+(over the DevTools protocol) and the game-running state (a stand-in "emulator" that waits 25 s).
+
 ## Status
 
 Built in milestones. See `CLAUDE.md` for the full spec.
@@ -259,7 +292,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [ ] d. Metadata (IGDB) and covers (libretro-thumbnails, GameTDB, IGDB) done; SteamGridDB to do
       (MobyGames dropped: paid API)
 - [x] e. RetroAchievements
-- [ ] f. Performance pass
+- [x] f. Performance pass (see Performance)
 - [ ] g. TV Mode: a switchable Big-Picture-style view with animations (desktop mode stays the
       main, lean UI)
 - [ ] h. Backloggd: Backloggd has no public API (checked Oct 2026), and scraping the site is out.

@@ -19,6 +19,32 @@ fn key(flags: KEYBD_EVENT_FLAGS) -> INPUT {
     }
 }
 
+/// While a game runs, asks WebView2 to keep its memory low: it frees caches
+/// (decoded covers, GPU tiles) it would otherwise hold while minimized.
+/// Back to normal when the game exits. Older WebView2 runtimes without the
+/// setting are left alone.
+pub fn set_webview_low_memory(window: &tauri::WebviewWindow, low: bool) {
+    let _ = window.with_webview(move |wv| {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2_19, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW, COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL,
+        };
+        use windows::core::Interface;
+        let level = if low { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW } else { COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL };
+        // SAFETY: COM calls on the webview's own (main) thread, where with_webview runs this.
+        unsafe {
+            let Ok(core) = wv.controller().CoreWebView2() else { return };
+            match core.cast::<ICoreWebView2_19>() {
+                Ok(c) => {
+                    if let Err(e) = c.SetMemoryUsageTargetLevel(level) {
+                        log::warn!("WebView2 memory target: {e}");
+                    }
+                }
+                Err(_) => log::info!("WebView2 runtime too old for a memory target"),
+            }
+        }
+    });
+}
+
 pub fn bring_to_front(hwnd: HWND) {
     unsafe {
         let _ = ShowWindow(hwnd, SW_RESTORE);

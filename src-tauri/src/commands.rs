@@ -715,6 +715,48 @@ pub async fn set_igdb_match(app: AppHandle, id: i64, igdb_id: i64) -> Result<()>
     Ok(())
 }
 
+// ---------------------------------------------------------------- performance harness
+
+/// Milliseconds since this process was created (by the OS clock, so it
+/// includes loading the exe and WebView2 startup).
+fn ms_since_process_start() -> Option<u128> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Foundation::FILETIME;
+        use windows::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes};
+        let (mut created, mut a, mut b, mut c) =
+            (FILETIME::default(), FILETIME::default(), FILETIME::default(), FILETIME::default());
+        // SAFETY: plain out-parameters for the current process's pseudo-handle.
+        unsafe { GetProcessTimes(GetCurrentProcess(), &mut created, &mut a, &mut b, &mut c) }.ok()?;
+        let created_100ns = (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime);
+        // FILETIME counts 100 ns ticks since 1601-01-01.
+        const UNIX_EPOCH_100NS: u64 = 116_444_736_000_000_000;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?;
+        let now_100ns = now.as_nanos() / 100 + u128::from(UNIX_EPOCH_100NS);
+        Some(now_100ns.saturating_sub(u128::from(created_100ns)) / 10_000)
+    }
+    #[cfg(not(windows))]
+    None
+}
+
+/// The UI reports startup milestones ("interactive" = library grid painted).
+/// Only recorded when `EMU_PERF` is set (the performance harness): appended
+/// to `perf.log` in the data folder as `name ms-since-process-start`.
+#[tauri::command]
+pub fn perf_mark(state: State<'_, AppState>, name: String) {
+    if std::env::var_os("EMU_PERF").is_none() {
+        return;
+    }
+    let Some(ms) = ms_since_process_start() else { return };
+    use std::io::Write;
+    let line = format!("{} {ms}\n", name.replace(char::is_whitespace, "_"));
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(state.data_dir().join("perf.log"))
+        .and_then(|mut f| f.write_all(line.as_bytes()));
+}
+
 // ---------------------------------------------------------------- RetroAchievements
 
 const RA_USER: &str = "ra-user";

@@ -167,6 +167,8 @@ impl Launcher {
             // emulator's way. (Hiding the window instead risks WebView2 not
             // repainting when it's shown again.)
             let _ = w.minimize();
+            #[cfg(windows)]
+            window::set_webview_low_memory(&w, true);
         }
 
         let me = self.clone();
@@ -192,6 +194,8 @@ impl Launcher {
         }
         log::info!("{} exited after {secs} s", session.title);
         if let Some(w) = app.get_webview_window("main") {
+            #[cfg(windows)]
+            window::set_webview_low_memory(&w, false);
             let _ = w.unminimize();
             let _ = w.show();
             if session.was_fullscreen {

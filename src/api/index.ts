@@ -370,6 +370,8 @@ export const api = {
   setRaKeys: (user: string, key: string) => invoke<string>("set_ra_keys", { user, key }),
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
+  /** Startup timing for the performance harness (a no-op unless EMU_PERF is set). */
+  perfMark: (name: string) => invoke<void>("perf_mark", { name }),
 };
 
 export const events = {

@@ -1,6 +1,6 @@
 import { createSignal, Match, onCleanup, onMount, Switch } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { events } from "./api";
+import { api, events } from "./api";
 import { library } from "./state/library";
 import { session } from "./state/session";
 import { dispatchFromGamepad, installKeyboard, type Action } from "./input/actions";
@@ -37,7 +37,11 @@ export default function App() {
     // Controller actions from the Rust gamepad thread go through the same
     // dispatcher as the keyboard.
     void events.onNav((a) => dispatchFromGamepad(a as Action));
-    library.reload().catch((e) => console.error("library load failed", e));
+    library
+      .reload()
+      // Two frames later the grid has been laid out and painted: the app is interactive.
+      .then(() => requestAnimationFrame(() => requestAnimationFrame(() => void api.perfMark("interactive").catch(() => {}))))
+      .catch((e) => console.error("library load failed", e));
   });
 
   return (

@@ -2,6 +2,7 @@
 node_modules/
 dist/
 src-tauri/target/
+src-tauri/target-*/
 src-tauri/gen/schemas/
 
 # Machine-local cargo config (e.g. CMAKE path for the SDL3 source build)
@@ -16,6 +17,7 @@ secrets.*
 
 # Generated test libraries (milestone f)
 tools/gen-library/out/
+perf-lib/
 
 # Editor / OS
 .vscode/*

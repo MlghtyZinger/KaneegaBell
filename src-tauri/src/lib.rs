@@ -7,6 +7,8 @@ mod fsbrowse;
 mod input;
 mod launcher;
 mod metadata;
+#[cfg(test)]
+mod perf;
 mod platforms;
 mod scanner;
 mod secrets;
@@ -16,6 +18,16 @@ use std::sync::Arc;
 
 use tauri::{Manager, WindowEvent};
 
+/// The app's data folder (library.db, art cache). `EMU_FRONTEND_DATA_DIR`
+/// points it elsewhere, e.g. at a generated test library for the
+/// performance harness, leaving the real library untouched.
+fn data_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::path::PathBuf {
+    match std::env::var_os("EMU_FRONTEND_DATA_DIR") {
+        Some(dir) if !dir.is_empty() => dir.into(),
+        _ => app.path().app_data_dir().unwrap_or_default(),
+    }
+}
+
 pub fn run() {
     // Logs to stderr (visible when run from a terminal). RUST_LOG overrides.
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("emu_frontend_lib=info")).init();
@@ -23,12 +35,12 @@ pub fn run() {
     tauri::Builder::default()
         // Cached artwork, read from disk off the UI thread.
         .register_asynchronous_uri_scheme_protocol("thumb", |ctx, request, responder| {
-            let dir = ctx.app_handle().path().app_data_dir().unwrap_or_default();
+            let dir = data_dir(ctx.app_handle());
             let path = request.uri().path().to_string();
             tauri::async_runtime::spawn_blocking(move || responder.respond(art::protocol::respond(&dir, &path)));
         })
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            let dir = data_dir(app.handle());
             std::fs::create_dir_all(&dir)?;
             secrets::init(&dir);
             let db_path = dir.join("library.db");
@@ -98,6 +110,7 @@ pub fn run() {
             commands::set_ra_keys,
             commands::remove_ra_keys,
             commands::get_achievements,
+            commands::perf_mark,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
