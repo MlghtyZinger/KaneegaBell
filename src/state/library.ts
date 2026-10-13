@@ -70,15 +70,15 @@ function createLibraryStore() {
     .then((v) => typeof v === "number" && setCardSizeRaw(Math.min(CARD_MAX, Math.max(CARD_MIN, v))))
     .catch(() => {});
 
-  /** Grid layout: rows (LaunchBox-style) or stacked columns with no gaps. */
-  const [stacked, setStackedRaw] = createSignal(false);
-  function setStacked(on: boolean) {
-    setStackedRaw(on);
-    void api.setSetting("gridLayout", on ? "stacked" : "rows").catch(() => {});
+  /** Mixed views (All, Favorites, search) in per-platform sections, so each row holds one cover shape. */
+  const [grouped, setGroupedRaw] = createSignal(true);
+  function setGrouped(on: boolean) {
+    setGroupedRaw(on);
+    void api.setSetting("groupByPlatform", on).catch(() => {});
   }
   void api
-    .getSetting<string>("gridLayout")
-    .then((v) => setStackedRaw(v === "stacked"))
+    .getSetting<boolean>("groupByPlatform")
+    .then((v) => setGroupedRaw(v !== false))
     .catch(() => {});
   const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
@@ -232,8 +232,8 @@ function createLibraryStore() {
     zoom,
     CARD_MIN,
     CARD_MAX,
-    stacked,
-    setStacked,
+    grouped,
+    setGrouped,
     genres,
     genre,
     setGenre,

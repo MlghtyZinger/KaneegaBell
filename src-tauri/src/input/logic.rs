@@ -26,8 +26,8 @@ pub enum Action {
     /// Right stick up / down: bigger / smaller cards.
     ZoomIn,
     ZoomOut,
-    /// Right stick click: rows / stacked grid.
-    ToggleLayout,
+    /// Right stick click: platform sections on / off in mixed views.
+    ToggleGroups,
     /// Select / Share / View: the genre filter.
     Filter,
 }
@@ -50,7 +50,7 @@ impl Action {
             Action::Menu => "menu",
             Action::ZoomIn => "zoomIn",
             Action::ZoomOut => "zoomOut",
-            Action::ToggleLayout => "toggleLayout",
+            Action::ToggleGroups => "toggleGroups",
             Action::Filter => "filter",
         }
     }

@@ -57,11 +57,24 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
       .map((g) => ({ value: String(g.id), label: `${g.name} (${library.genreCounts().get(g.id) ?? 0})` })),
   ]);
   const genreName = () => library.genres().find((g) => g.id === library.genre())?.name;
-  // The grid knows where cards are (rows or stacked columns): D-pad moves ask it.
+  // The grid knows where cards are (rows, sections): D-pad moves ask it.
   let navigate: Navigator | undefined;
 
   const games = library.visibleGames;
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
+
+  // Views mixing platforms (All, Favorites, search) show one section per
+  // platform, so each row holds covers of one shape. Recent stays a single
+  // list in play order.
+  const mixed = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
+  const sectioned = () => library.grouped() && mixed() && library.platform() !== "recent";
+  const sectionCounts = createMemo(() => {
+    const counts = new Map<string, number>();
+    for (const g of games()) counts.set(g.platformId, (counts.get(g.platformId) ?? 0) + 1);
+    return counts;
+  });
+  const platformNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.name])));
+  const sectionLabel = (id: string) => `${platformNames().get(id) ?? id.toUpperCase()} · ${sectionCounts().get(id) ?? 0}`;
 
   // Card shapes: each card follows its own cover (GBA square, SNES landscape,
   // PSP tall...). Cards without a cover take their platform's usual shape.
@@ -85,7 +98,8 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
     e.preventDefault();
     library.zoom(e.deltaY < 0 ? 1 : -1);
   };
-  const showPlatformBadge = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
+  // In sections the header names the platform; elsewhere mixed views badge each card.
+  const showPlatformBadge = () => mixed() && !sectioned();
 
   // New tab, search or genre -> start at the top.
   createEffect(on([library.platform, library.query, library.genre], () => setFocused(0), { defer: true }));
@@ -150,7 +164,7 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
       case "down":
         move(a);
         return true;
-      case "toggleLayout": library.setStacked(!library.stacked()); return true;
+      case "toggleGroups": library.setGrouped(!library.grouped()); return true;
       case "filter":
         if (library.genres().length > 0) setGenreOpen(true);
         return true;
@@ -316,7 +330,8 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
             onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
             itemAspect={itemAspect}
-            stacked={library.stacked()}
+            groupOf={sectioned() ? (g) => g.platformId : undefined}
+            groupLabel={sectionLabel}
             gap={18}
             renderItem={(g, isFocused) => (
               <GameCard
@@ -338,7 +353,9 @@ export function LibraryView(props: { onOpenSettings: () => void }) {
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
           <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
-          <Hint action="toggleLayout" label={library.stacked() ? "Rows" : "Stacked"} />
+          <Show when={mixed() && library.platform() !== "recent"}>
+            <Hint action="toggleGroups" label={library.grouped() ? "One list" : "Sections"} />
+          </Show>
           <span class="footer-jobs">
             <JobPill />
           </span>

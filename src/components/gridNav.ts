@@ -1,39 +1,55 @@
-// Card placement for the stacked grid. Pure, unit-tested in tests/gridNav.test.ts.
+// Row layout and D-pad movement for the game grid. Pure, unit-tested in
+// tests/gridNav.test.ts.
 
 export type NavDir = "up" | "down" | "left" | "right";
 
-export interface Placement {
-  /** Column of each item. */
-  col: number[];
-  /** Top of each item. */
-  y: number[];
-  /** Total height (without the trailing gap). */
-  total: number;
+export interface Rows {
+  /** First item of each row, and how many items it holds. */
+  start: number[];
+  len: number[];
+  /** Row of each item. */
+  row: number[];
+  /** Group key for rows that begin a group (they get a header), else null. */
+  header: (string | null)[];
 }
 
 /**
- * Stacked layout that reads like text: game i goes in column i % cols (so
- * A–Z runs left to right, row after row, exactly like the Rows layout, and the
- * D-pad works the same way), and each card sits right under the one above it
- * in its column, so different cover shapes don't leave gaps. Columns drift
- * apart as shapes vary; once they're more than `resync` apart at the start of
- * a row, they're lined up again (a small gap under the short columns), so a
- * card's neighbours stay beside it rather than far above or below.
+ * Splits `n` items into rows of up to `cols`. With `groupOf`, a new row (with
+ * a header) starts whenever the group changes, so a row only ever holds one
+ * platform's games and their covers share a shape.
  */
-export function stackLayout(heights: ArrayLike<number>, cols: number, gap: number, resync: number): Placement {
-  const bottom = new Array<number>(cols).fill(0);
-  const col: number[] = [];
-  const y: number[] = [];
-  for (let i = 0; i < heights.length; i++) {
-    const k = i % cols;
-    if (k === 0 && i > 0) {
-      const max = Math.max(...bottom);
-      if (max - Math.min(...bottom) > resync) bottom.fill(max);
+export function buildRows(n: number, cols: number, groupOf?: (i: number) => string | null): Rows {
+  const rows: Rows = { start: [], len: [], row: new Array(n), header: [] };
+  let prev: string | null | undefined = undefined;
+  for (let i = 0; i < n; i++) {
+    const key = groupOf ? groupOf(i) : null;
+    const last = rows.len.length - 1;
+    const newGroup = groupOf !== undefined && key !== prev;
+    if (last < 0 || rows.len[last] >= cols || newGroup) {
+      rows.start.push(i);
+      rows.len.push(0);
+      rows.header.push(newGroup ? key : null);
     }
-    col.push(k);
-    y.push(bottom[k]);
-    bottom[k] += heights[i] + gap;
+    rows.len[rows.len.length - 1]++;
+    rows.row[i] = rows.len.length - 1;
+    prev = key;
   }
-  const used = Math.min(cols, heights.length);
-  return { col, y, total: used ? Math.max(0, Math.max(...bottom.slice(0, used)) - gap) : 0 };
+  return rows;
+}
+
+/**
+ * Left/right walk the list (previous/next game, across rows and groups);
+ * up/down move to the same position in the row above/below, or that row's
+ * last game when it's shorter.
+ */
+export function gridMove(rows: Rows, i: number, dir: NavDir): number {
+  const n = rows.row.length;
+  if (n === 0 || i < 0 || i >= n) return i;
+  if (dir === "left") return Math.max(0, i - 1);
+  if (dir === "right") return Math.min(n - 1, i + 1);
+  const r = rows.row[i];
+  const target = r + (dir === "up" ? -1 : 1);
+  if (target < 0 || target >= rows.start.length) return i;
+  const pos = i - rows.start[r];
+  return rows.start[target] + Math.min(pos, rows.len[target] - 1);
 }

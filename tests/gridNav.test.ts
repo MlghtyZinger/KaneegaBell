@@ -1,38 +1,44 @@
 // Run with: npm test (Node's built-in runner; Node strips the TypeScript types).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { stackLayout } from "../src/components/gridNav.ts";
+import { buildRows, gridMove } from "../src/components/gridNav.ts";
 
-const GAP = 10;
+// 3 SNES, 5 GBA, 1 GC games, 4 columns.
+const platforms = ["snes", "snes", "snes", "gba", "gba", "gba", "gba", "gba", "gc"];
+const grouped = buildRows(platforms.length, 4, (i) => platforms[i]);
 
-test("games read left to right, row after row", () => {
-  const p = stackLayout([100, 60, 140, 60, 100, 60, 40], 3, GAP, 1000);
-  assert.deepEqual(p.col, [0, 1, 2, 0, 1, 2, 0]);
+test("plain rows fill up to the column count", () => {
+  const r = buildRows(9, 4);
+  assert.deepEqual(r.start, [0, 4, 8]);
+  assert.deepEqual(r.len, [4, 4, 1]);
+  assert.deepEqual(r.header, [null, null, null]);
 });
 
-test("each card sits right under the one above it in its column (no gaps)", () => {
-  const p = stackLayout([100, 60, 140, 60, 100, 60], 3, GAP, 1000);
-  assert.deepEqual(p.y, [0, 0, 0, 110, 70, 150]);
-  assert.equal(p.total, 210); // column 2: 140 + 10 + 60
+test("grouped rows break at every platform change, with a header", () => {
+  assert.deepEqual(grouped.start, [0, 3, 7, 8]);
+  assert.deepEqual(grouped.len, [3, 4, 1, 1]);
+  assert.deepEqual(grouped.header, ["snes", "gba", null, "gc"]);
+  assert.deepEqual(grouped.row, [0, 0, 0, 1, 1, 1, 1, 2, 3]);
 });
 
-test("columns that drift too far apart are lined up again at the next row", () => {
-  // Column 0 gets tall covers, the others short ones: after row 2 the spread
-  // (300 vs 100) passes the 150 limit, so row 3 starts level.
-  const h = [200, 50, 50, 200, 50, 50, 80, 80, 80];
-  const p = stackLayout(h, 3, 0, 150);
-  assert.deepEqual(p.y.slice(6), [400, 400, 400]);
-  // Below the limit nothing moves.
-  const loose = stackLayout(h, 3, 0, 1000);
-  assert.deepEqual(loose.y.slice(6), [400, 100, 100]);
+test("left/right walk the list across groups", () => {
+  assert.equal(gridMove(grouped, 2, "right"), 3); // last SNES -> first GBA
+  assert.equal(gridMove(grouped, 3, "left"), 2);
+  assert.equal(gridMove(grouped, 0, "left"), 0);
+  assert.equal(gridMove(grouped, 8, "right"), 8);
 });
 
-test("same-shape covers make a plain grid", () => {
-  const p = stackLayout(Array(7).fill(100), 3, GAP, 50);
-  assert.deepEqual(p.y, [0, 0, 0, 110, 110, 110, 220]);
+test("up/down keep the column, clamped to shorter rows", () => {
+  assert.equal(gridMove(grouped, 1, "down"), 4); // SNES #2 -> GBA #2
+  assert.equal(gridMove(grouped, 6, "up"), 2); // GBA #4 -> last SNES (row of 3)
+  assert.equal(gridMove(grouped, 6, "down"), 7); // -> the lone GBA in row 3
+  assert.equal(gridMove(grouped, 7, "down"), 8); // -> GC
+  assert.equal(gridMove(grouped, 8, "down"), 8);
+  assert.equal(gridMove(grouped, 0, "up"), 0);
 });
 
-test("empty and single-column lists", () => {
-  assert.equal(stackLayout([], 4, GAP, 50).total, 0);
-  assert.deepEqual(stackLayout([10, 20], 1, GAP, 50).y, [0, 20]);
+test("empty list", () => {
+  const r = buildRows(0, 4, () => "x");
+  assert.deepEqual(r.start, []);
+  assert.equal(gridMove(r, 0, "down"), 0);
 });

@@ -18,7 +18,7 @@ export type Action =
   | "menu"
   | "zoomIn"
   | "zoomOut"
-  | "toggleLayout"
+  | "toggleGroups"
   | "filter";
 
 const KEYMAP: Record<string, Action> = {
@@ -41,7 +41,7 @@ const KEYMAP: Record<string, Action> = {
   "+": "zoomIn",
   "=": "zoomIn",
   "-": "zoomOut",
-  v: "toggleLayout",
+  v: "toggleGroups",
   g: "filter",
 };
 

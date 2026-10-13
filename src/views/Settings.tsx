@@ -789,21 +789,17 @@ function GeneralSection(props: { s: Settings; run: Run }) {
       </div>
 
       <h2>Display</h2>
-      <div class="row">
-        <span>Game grid</span>
-        <Picker
-          title="Game grid layout"
-          value={library.stacked() ? "stacked" : "rows"}
-          options={[
-            { value: "rows", label: "Rows (like LaunchBox)" },
-            { value: "stacked", label: "Stacked (no gaps)" },
-          ]}
-          onChange={(v) => library.setStacked(v === "stacked")}
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={library.grouped()}
+          onChange={(e) => library.setGrouped(e.currentTarget.checked)}
         />
-      </div>
+        Show All, Favorites and search results in sections per platform
+      </label>
       <p class="dim small">
-        Rows keep A–Z order reading across; Stacked packs covers into columns with no gaps. Switch any time from the
-        library with the right stick button (R3) or V. Zoom with the right stick, + / −, or Ctrl + mouse wheel.
+        Each platform starts its own rows, so covers in a row share a shape. Switch from the library with the right
+        stick button (R3) or V. Zoom with the right stick, + / −, or Ctrl + mouse wheel.
       </p>
       <label class="check">
         <input

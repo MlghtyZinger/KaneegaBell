@@ -84,7 +84,7 @@ fullscreen.
 | Previous / next letter | L2 / R2 | LT / RT | Home / End |
 | Settings | Options | Menu | F1 |
 | Bigger / smaller cards | right stick up / down | right stick up / down | `+` / `-`, Ctrl + wheel |
-| Rows / stacked grid | R3 | RS (click) | V |
+| Platform sections on / off (All, Favorites, search) | R3 | RS (click) | V |
 | Genre filter (with IGDB) | Share | View | G |
 | **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
@@ -143,7 +143,9 @@ Everything works without accounts or API keys:
   details fetches again, and "Change cover…" lets you pick another one (other regions, a
   search of the whole cover set, or an image file). Your choice is never overwritten.
 - Each card takes its cover's shape (a SNES box is a wide card, a GBA box a square one), and a
-  platform tab sizes its grid for that platform's usual cover shape.
+  platform tab sizes its grid for that platform's usual cover shape. All, Favorites and search
+  results are shown in one section per platform, so each row holds covers of one shape (no gaps
+  inside rows); R3 / V switches to a single list.
 - **Game info from IGDB (optional, free key):** descriptions, release dates, developer,
   publisher and genres, plus a genre filter in the library (Share / View / `G`). Set it up in
   Settings → Game info:
