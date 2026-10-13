@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, type JSX } from "solid-js";
+import { stackedMove, type NavDir } from "./gridNav";
 
-export type NavDir = "up" | "down" | "left" | "right";
+export type { NavDir };
 /** The item to focus when moving from `index` in `dir` (may be `index` itself). */
 export type Navigator = (index: number, dir: NavDir) => number;
 
@@ -149,22 +150,14 @@ export function VirtualGrid<T>(props: Props<T>) {
       if (dir === "up") return i - c >= 0 ? i - c : i;
       return i + c < n ? i + c : L.row[i] < L.row[n - 1] ? n - 1 : i;
     }
-    // Stacked: up/down within the column, left/right to the card beside
-    // this one in the next column (closest vertical center).
-    const k = L.col[i];
-    const column = L.columns[k];
-    const p = column.indexOf(i);
-    if (dir === "up") return p > 0 ? column[p - 1] : i;
-    if (dir === "down") return p < column.length - 1 ? column[p + 1] : i;
-    const target = L.columns[k + (dir === "left" ? -1 : 1)];
-    if (!target || target.length === 0) return i;
-    const center = L.y[i] + L.h[i] / 2;
-    let best = target[0];
-    for (const j of target) {
-      if (Math.abs(L.y[j] + L.h[j] / 2 - center) < Math.abs(L.y[best] + L.h[best] / 2 - center)) best = j;
-    }
-    return best;
+    // Stacked: see gridNav. The line carries over between consecutive
+    // sideways moves from the card we moved to (and resets on zoom/relayout).
+    const carried = sideLine && sideLine.layout === L && sideLine.index === i ? sideLine.line : null;
+    const m = stackedMove({ ...L, gap: props.gap }, i, dir, carried);
+    sideLine = m.line === null ? null : { layout: L, index: m.index, line: m.line };
+    return m.index;
   };
+  let sideLine: { layout: Layout; index: number; line: number } | null = null;
   onMount(() => props.onNavigator?.(navigate));
 
   onMount(() => {
