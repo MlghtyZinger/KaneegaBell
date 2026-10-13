@@ -365,6 +365,21 @@ mod tests {
         assert_eq!((p.total, p.earned), (0, 0));
     }
 
+    /// Which dumps RA accepts for a game (names/labels of its hashes), using
+    /// the saved login: `RA_GAME_ID=2774 cargo test real_game_hashes -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn real_game_hashes() {
+        let id = std::env::var("RA_GAME_ID").unwrap();
+        let creds = Credentials {
+            user: crate::secrets::get("ra-user").unwrap().unwrap(),
+            key: crate::secrets::get("ra-web-api-key").unwrap().unwrap(),
+        };
+        let http = crate::art::http::Http::new();
+        let body = Ra::new(&http, creds).call_required("API_GetGameHashes.php", &[("i", &id)]).unwrap();
+        println!("{}", String::from_utf8_lossy(&body));
+    }
+
     #[test]
     fn media_names_are_plain() {
         assert!(is_media_name("123456"));
