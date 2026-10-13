@@ -852,6 +852,15 @@ pub fn fetch_extras(app: AppHandle, state: State<'_, AppState>) -> bool {
     kick_worker(app, &state)
 }
 
+// ---------------------------------------------------------------- startup
+
+/// A one-time message for the user from startup (e.g. the library was moved
+/// to KaneegaBell's folder), shown once the window is up.
+#[tauri::command]
+pub fn get_startup_notice() -> Option<String> {
+    crate::startup_notice()
+}
+
 // ---------------------------------------------------------------- web links
 
 /// Sites the UI may open in the browser (game pages on Backloggd and
@@ -911,11 +920,11 @@ fn ms_since_process_start() -> Option<u128> {
 }
 
 /// The UI reports startup milestones ("interactive" = library grid painted).
-/// Only recorded when `EMU_PERF` is set (the performance harness): appended
+/// Only recorded when `KB_PERF` (or `EMU_PERF`) is set (the performance harness): appended
 /// to `perf.log` in the data folder as `name ms-since-process-start`.
 #[tauri::command]
 pub fn perf_mark(state: State<'_, AppState>, name: String) {
-    if std::env::var_os("EMU_PERF").is_none() {
+    if std::env::var_os("KB_PERF").is_none() && std::env::var_os("EMU_PERF").is_none() {
         return;
     }
     let Some(ms) = ms_since_process_start() else { return };

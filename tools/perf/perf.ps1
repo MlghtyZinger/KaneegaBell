@@ -5,14 +5,14 @@
 #   powershell -File tools\perf\perf.ps1 -Data <PERF_ROOT>\data [-Exe <path>] [-Runs 5]
 param(
     [Parameter(Mandatory = $true)][string]$Data,
-    [string]$Exe = "src-tauri\target\release\emu-frontend.exe",
+    [string]$Exe = "src-tauri\target\release\KaneegaBell.exe",
     [int]$Runs = 5,
     [int]$IdleSeconds = 30
 )
 $ErrorActionPreference = "Stop"
 $Exe = (Resolve-Path $Exe).Path
 $Data = (Resolve-Path $Data).Path
-if (Get-Process emu-frontend -ErrorAction SilentlyContinue) { throw "Close the app first (emu-frontend is running)." }
+if (Get-Process KaneegaBell, emu-frontend -ErrorAction SilentlyContinue) { throw "Close the app first (KaneegaBell is running)." }
 $log = Join-Path $Data "perf.log"
 
 # The app plus every process it started (WebView2's browser, renderer, GPU...).
@@ -28,7 +28,7 @@ function Get-Tree([int]$RootId) {
 
 function Start-App([hashtable]$Env) {
     Remove-Item $log -ErrorAction SilentlyContinue
-    $env:EMU_PERF = "1"; $env:EMU_FRONTEND_DATA_DIR = $Data
+    $env:KB_PERF = "1"; $env:KB_DATA_DIR = $Data
     foreach ($k in $Env.Keys) { Set-Item "env:$k" $Env[$k] }
     $p = Start-Process -FilePath $Exe -PassThru
     foreach ($k in $Env.Keys) { Remove-Item "env:$k" }
@@ -86,12 +86,12 @@ Start-Sleep -Seconds 2
 
 # Memory and CPU of the app + WebView2 only (not a running emulator).
 function Measure-App($p, [string]$Label, [int]$Seconds = 0) {
-    $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(emu-frontend|msedgewebview2)$' })
+    $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
     $cpu0 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
     $t0 = Get-Date
     if ($Seconds) {
         Start-Sleep -Seconds $Seconds
-        $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(emu-frontend|msedgewebview2)$' })
+        $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
     }
     $cpu = if ($Seconds) {
         $cpu1 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum

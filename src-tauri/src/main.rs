@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    emu_frontend_lib::run()
+    kaneegabell_lib::run()
 }

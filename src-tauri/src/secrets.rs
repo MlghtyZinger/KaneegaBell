@@ -1,16 +1,20 @@
-//! API credentials (IGDB client secret, tokens) kept out of the database and
-//! out of the repo: in Windows Credential Manager on Windows (encrypted for
-//! the user account; visible under Control Panel → Credential Manager →
-//! Windows Credentials as "EmuFrontend:..."), elsewhere in a file in the
-//! app's data dir.
+//! API credentials (IGDB client secret, tokens, other services' keys) kept
+//! out of the database and out of the repo: in Windows Credential Manager on
+//! Windows (encrypted for the user account; visible under Control Panel →
+//! Credential Manager → Windows Credentials as "KaneegaBell:..."), elsewhere
+//! in a file in the app's data dir.
+//!
+//! Keys saved before the KaneegaBell rename live under "EmuFrontend:...":
+//! they're read as a fallback, copied to the new name on first use, and left
+//! in place (removing a key removes both names).
 
 use crate::error::Result;
 
-const PREFIX: &str = "EmuFrontend:";
+const PREFIX: &str = "KaneegaBell:";
+const LEGACY_PREFIX: &str = "EmuFrontend:";
 
 #[cfg(windows)]
 mod imp {
-    use super::PREFIX;
     use crate::error::{Error, Result};
     use windows::core::{HSTRING, PWSTR};
     use windows::Win32::Foundation::ERROR_NOT_FOUND;
@@ -22,8 +26,8 @@ mod imp {
         e.code() == ERROR_NOT_FOUND.to_hresult()
     }
 
-    pub fn get(name: &str) -> Result<Option<String>> {
-        let target = HSTRING::from(format!("{PREFIX}{name}"));
+    pub fn get(target: &str) -> Result<Option<String>> {
+        let target = HSTRING::from(target);
         let mut cred: *mut CREDENTIALW = std::ptr::null_mut();
         // SAFETY: CredReadW fills `cred` with a buffer we free with CredFree.
         match unsafe { CredReadW(&target, CRED_TYPE_GENERIC, None, &mut cred) } {
@@ -42,9 +46,9 @@ mod imp {
         }
     }
 
-    pub fn set(name: &str, value: &str) -> Result<()> {
-        let mut target: Vec<u16> = format!("{PREFIX}{name}").encode_utf16().chain([0]).collect();
-        let mut user: Vec<u16> = "EmuFrontend".encode_utf16().chain([0]).collect();
+    pub fn set(target: &str, value: &str) -> Result<()> {
+        let mut target: Vec<u16> = target.encode_utf16().chain([0]).collect();
+        let mut user: Vec<u16> = "KaneegaBell".encode_utf16().chain([0]).collect();
         let mut blob = value.as_bytes().to_vec();
         let cred = CREDENTIALW {
             Type: CRED_TYPE_GENERIC,
@@ -59,8 +63,8 @@ mod imp {
         unsafe { CredWriteW(&cred, 0) }.map_err(|e| Error::msg(format!("Credential Manager: {e}")))
     }
 
-    pub fn delete(name: &str) -> Result<()> {
-        let target = HSTRING::from(format!("{PREFIX}{name}"));
+    pub fn delete(target: &str) -> Result<()> {
+        let target = HSTRING::from(target);
         match unsafe { CredDeleteW(&target, CRED_TYPE_GENERIC, None) } {
             Ok(()) => Ok(()),
             Err(e) if not_found(&e) => Ok(()),
@@ -73,7 +77,6 @@ mod imp {
 mod imp {
     //! Fallback: a JSON file next to the database (`secrets.local.json`,
     //! matched by .gitignore), readable only by the user.
-    use super::PREFIX;
     use crate::error::Result;
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -99,19 +102,19 @@ mod imp {
         Ok(())
     }
 
-    pub fn get(name: &str) -> Result<Option<String>> {
-        Ok(load().get(&format!("{PREFIX}{name}")).cloned())
+    pub fn get(target: &str) -> Result<Option<String>> {
+        Ok(load().get(target).cloned())
     }
 
-    pub fn set(name: &str, value: &str) -> Result<()> {
+    pub fn set(target: &str, value: &str) -> Result<()> {
         let mut m = load();
-        m.insert(format!("{PREFIX}{name}"), value.to_string());
+        m.insert(target.to_string(), value.to_string());
         save(&m)
     }
 
-    pub fn delete(name: &str) -> Result<()> {
+    pub fn delete(target: &str) -> Result<()> {
         let mut m = load();
-        m.remove(&format!("{PREFIX}{name}"));
+        m.remove(target);
         save(&m)
     }
 }
@@ -123,46 +126,66 @@ pub fn init(data_dir: &std::path::Path) {
     let _ = imp::FILE.set(data_dir.join("secrets.local.json"));
 }
 
-/// A separate data folder (`EMU_FRONTEND_DATA_DIR`, e.g. the performance
-/// harness's generated library) is a separate profile: it never sees or
-/// changes the keys saved for the real library.
+/// A separate data folder (`KB_DATA_DIR`, e.g. the performance harness's
+/// generated library) is a separate profile: it never sees or changes the
+/// keys saved for the real library.
 fn separate_profile() -> bool {
-    std::env::var_os("EMU_FRONTEND_DATA_DIR").is_some_and(|d| !d.is_empty())
+    crate::data_dir_override().is_some()
 }
 
 pub fn get(name: &str) -> Result<Option<String>> {
     if separate_profile() {
         return Ok(None);
     }
-    imp::get(name)
+    if let Some(v) = imp::get(&format!("{PREFIX}{name}"))? {
+        return Ok(Some(v));
+    }
+    // Saved before the rename: copy it to the new name (best effort).
+    let legacy = imp::get(&format!("{LEGACY_PREFIX}{name}"))?;
+    if let Some(v) = &legacy {
+        if let Err(e) = imp::set(&format!("{PREFIX}{name}"), v) {
+            log::warn!("couldn't copy the saved {name} to its new name: {e}");
+        }
+    }
+    Ok(legacy)
 }
 
 pub fn set(name: &str, value: &str) -> Result<()> {
     if separate_profile() {
         return Err(crate::error::Error::msg("API keys can't be saved while using a separate data folder"));
     }
-    imp::set(name, value)
+    imp::set(&format!("{PREFIX}{name}"), value)
 }
 
+/// Removes a key under both its current and pre-rename names (otherwise the
+/// fallback would bring it back).
 pub fn delete(name: &str) -> Result<()> {
     if separate_profile() {
         return Ok(());
     }
-    imp::delete(name)
+    imp::delete(&format!("{PREFIX}{name}"))?;
+    imp::delete(&format!("{LEGACY_PREFIX}{name}"))
 }
 
 #[cfg(test)]
 mod tests {
-    /// Round trip through the real store (writes and removes a test entry):
+    /// Round trip through the real store (writes and removes test entries):
     /// `cargo test secrets -- --ignored`
     #[test]
     #[ignore]
-    fn round_trip() {
+    fn round_trip_and_legacy_fallback() {
         let name = "test-entry-please-ignore";
         super::set(name, "s3cret ✓").unwrap();
         assert_eq!(super::get(name).unwrap().as_deref(), Some("s3cret ✓"));
         super::delete(name).unwrap();
         assert_eq!(super::get(name).unwrap(), None);
         super::delete(name).unwrap(); // deleting twice is fine
+
+        // A key saved under the old name is found, copied, and removed with it.
+        super::imp::set(&format!("{}{name}", super::LEGACY_PREFIX), "old").unwrap();
+        assert_eq!(super::get(name).unwrap().as_deref(), Some("old"));
+        assert_eq!(super::imp::get(&format!("{}{name}", super::PREFIX)).unwrap().as_deref(), Some("old"));
+        super::delete(name).unwrap();
+        assert_eq!(super::get(name).unwrap(), None);
     }
 }

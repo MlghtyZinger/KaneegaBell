@@ -1,4 +1,4 @@
-import { createSignal, Match, onCleanup, onMount, Switch } from "solid-js";
+import { createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, events } from "./api";
 import { library } from "./state/library";
@@ -40,9 +40,24 @@ export default function App() {
     .getSetting<boolean>("startInTv")
     .then((v) => v === true && setTv(true))
     .catch(() => {});
-  // L3 / F10 anywhere (views handle it first when they want to).
+  // A one-time message from startup (the library moving to KaneegaBell's folder).
+  const [notice, setNotice] = createSignal<string | null>(null);
+  void api
+    .getStartupNotice()
+    .then((n) => {
+      if (!n) return;
+      setNotice(n);
+      setTimeout(() => setNotice(null), 30_000);
+    })
+    .catch(() => {});
+
+  // L3 / F10 anywhere (views handle it first when they want to); B dismisses the notice.
   onCleanup(
     pushHandler((a) => {
+      if (a === "back" && notice()) {
+        setNotice(null);
+        return true;
+      }
       if (a !== "toggleTv") return false;
       if (view() === "settings") setView("library");
       void setTvMode(!tv());
@@ -94,6 +109,14 @@ export default function App() {
           <SettingsView onClose={() => setView("library")} />
         </Match>
       </Switch>
+      <Show when={notice()}>
+        <div class="app-notice" role="status">
+          <span>{notice()}</span>
+          <button class="btn small" onClick={() => setNotice(null)}>
+            OK
+          </button>
+        </div>
+      </Show>
       <OskHost />
       {/* Settings shows the full report itself. */}
       <ScanToast hidden={view() === "settings"} />

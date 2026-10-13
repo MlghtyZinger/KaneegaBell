@@ -404,9 +404,11 @@ export const api = {
   setRaKeys: (user: string, key: string) => invoke<string>("set_ra_keys", { user, key }),
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
+  /** A one-time message from startup (e.g. the library was moved), or null. */
+  getStartupNotice: () => invoke<string | null>("get_startup_notice"),
   /** Opens a page on a known site (Backloggd, RetroAchievements...) in the default browser. */
   openUrl: (url: string) => invoke<void>("open_url", { url }),
-  /** Startup timing for the performance harness (a no-op unless EMU_PERF is set). */
+  /** Startup timing for the performance harness (a no-op unless KB_PERF is set). */
   perfMark: (name: string) => invoke<void>("perf_mark", { name }),
 };
 

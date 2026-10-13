@@ -1,7 +1,7 @@
 //! Performance harness: generates a synthetic 5,000-game library (tiny fake
 //! files in real folder layouts, each game with a cover in the art cache)
 //! in a folder of its own, for measuring the app against CLAUDE.md's targets.
-//! Run the app on it with `EMU_FRONTEND_DATA_DIR=<root>\data`; the real
+//! Run the app on it with `KB_DATA_DIR=<root>\data`; the real
 //! library is never touched. See README → Performance.
 //!
 //! `PERF_ROOT=C:\perf-lib cargo test --release --lib generate_perf_library -- --ignored --nocapture`
@@ -220,5 +220,5 @@ fn generate_perf_library() {
     )
     .unwrap();
     println!("covers for {} games in {:.1}s", games.len(), t.elapsed().as_secs_f64());
-    println!("library ready: set EMU_FRONTEND_DATA_DIR={}", data.display());
+    println!("library ready: set KB_DATA_DIR={}", data.display());
 }

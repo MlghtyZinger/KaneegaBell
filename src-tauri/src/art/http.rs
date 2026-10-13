@@ -43,7 +43,7 @@ impl Http {
     pub fn new() -> Self {
         let agent = ureq::Agent::config_builder()
             .timeout_global(Some(Duration::from_secs(60)))
-            .user_agent(concat!("EmuFrontend/", env!("CARGO_PKG_VERSION"), " (personal game library)"))
+            .user_agent(concat!("KaneegaBell/", env!("CARGO_PKG_VERSION"), " (personal game library)"))
             .build()
             .into();
         Self { agent }

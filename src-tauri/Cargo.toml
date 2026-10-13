@@ -1,11 +1,11 @@
 [package]
-name = "emu-frontend"
-version = "0.1.0"
+name = "kaneegabell"
+version = "0.2.0"
 edition = "2021"
 publish = false
 
 [lib]
-name = "emu_frontend_lib"
+name = "kaneegabell_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]

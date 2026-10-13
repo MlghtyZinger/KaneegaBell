@@ -1682,3 +1682,21 @@ html.nav-mode .tv-menu-item:focus {
     transition: none;
   }
 }
+/* One-time startup message (e.g. the library moved to KaneegaBell's folder). */
+.app-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: min(900px, 92vw);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+  font-size: var(--fs-sm);
+}

@@ -125,7 +125,7 @@ impl Launcher {
             let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
             (game, cfg, cores.map(PathBuf::from))
         };
-        let playlist_dir = app.path().app_data_dir().map_err(|e| Error::msg(e.to_string()))?.join("playlists");
+        let playlist_dir = state.data_dir().join("playlists");
         let prepared = prepare(&game, &cfg, cores_dir.as_deref(), &playlist_dir)?;
         let core_path = match (&cfg.core, cfg.emulator_id.as_str()) {
             (Some(c), "retroarch") => Some(template::resolve_core(cores_dir.as_deref(), c)?),
