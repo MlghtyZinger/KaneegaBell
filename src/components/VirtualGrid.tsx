@@ -87,10 +87,17 @@ export function VirtualGrid<T>(props: Props<T>) {
     }
     let total = 0;
     if (props.stacked) {
+      // Columns within this much of the shortest count as level, and the
+      // leftmost of them gets the next card: covers of (nearly) one shape fill
+      // left to right like rows instead of scattering over whichever column
+      // happens to be a few pixels shorter.
+      const level = w * 0.15;
       const bottom = new Float64Array(c);
       for (let i = 0; i < n; i++) {
+        let min = bottom[0];
+        for (let j = 1; j < c; j++) min = Math.min(min, bottom[j]);
         let k = 0;
-        for (let j = 1; j < c; j++) if (bottom[j] < bottom[k] - 0.5) k = j;
+        while (bottom[k] > min + level) k++;
         x[i] = k * (w + gap);
         y[i] = bottom[k];
         bottom[k] += h[i] + gap;

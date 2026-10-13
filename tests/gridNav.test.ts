@@ -5,7 +5,7 @@ import { stackedMove, type NavDir, type StackedLayout } from "../src/components/
 
 const GAP = 10;
 
-/** Places cards like the grid does: each under the shortest column. */
+/** Places cards under the shortest column (the grid's rule with no levelling margin). */
 function stack(heights: number[], cols: number): StackedLayout {
   const y: number[] = [];
   const col: number[] = [];
