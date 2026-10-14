@@ -393,6 +393,11 @@ Ryzen 7 7700X / RTX 4070 Ti / 32 GB, 1600×900 window at 150% scaling, 240 Hz di
 Re-checked after milestone i (KaneegaBell 0.2.0): cold start 513 ms median, 240 fps, idle 0.31% of one
 core, 284 MB private after start, 0.5-0.9% of one core while a game runs; all within 10%.
 
+Milestone k (perf gate against the published 0.2.1, same PC and library): cold start 511 ms median (was 507),
+idle 0.57% of one core (0.52), 287 MB private after start (289), every scroll frame 4.3 ms at 240 fps (worst
+frame 4.3 ms, was 9.7), while a game runs 0.31% of one core (0.77; the page is now also suspended) and 355 MB
+private (355). Passed.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -435,4 +440,6 @@ Built in milestones. See `CLAUDE.md` for the full spec.
       it opens a Backloggd search for the title). Backloggd has no public API (checked Oct 2026)
       and scraping is out, so syncing your backlog/played status waits for an official API.
 - [x] i. Renamed to KaneegaBell (data and saved keys migrated automatically)
+- [x] k. Screens, scaling and monitors (fit-the-screen zoom, window memory, TV Mode display,
+      text size and overscan), perf regression gate, everything in KB's own folder
 - [x] j. Installer (per-user NSIS) and signed auto-updates from GitHub Releases

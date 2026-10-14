@@ -15,10 +15,12 @@ param(
     [string]$Exe = "src-tauri\target\release\KaneegaBell.exe",
     [int]$Runs = 5,
     [int]$IdleSeconds = 30,
-    [string]$Baseline = (Join-Path $PSScriptRoot "baseline.json"),
+    [string]$Baseline = "",
     [switch]$SaveBaseline
 )
 $ErrorActionPreference = "Stop"
+# ($PSScriptRoot is empty in parameter defaults on Windows PowerShell 5.1.)
+if (-not $Baseline) { $Baseline = Join-Path $PSScriptRoot "baseline.json" }
 # A PATH entry with a stray quote breaks node lookups; drop such entries and
 # make sure Node is reachable (this process only).
 $env:Path = (($env:Path -split ';') | Where-Object { $_ -and $_ -notmatch '"' }) -join ';'

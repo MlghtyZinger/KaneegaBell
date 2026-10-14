@@ -325,7 +325,8 @@ Each milestone is runnable and tested, and passes the perf gate.
 - [x] 0.2.1: Settings → General → "Storage and reset": Clear downloaded data (keeps the library and
       the user's own picks, then refetches) and Reset KaneegaBell (back to first start, keeps
       `library.before-reset.db`, optionally removes saved keys)
-- [ ] k. Resolution/DPI/multi-monitor pass + perf regression gate + WebView2 suspend test
+- [x] k. Resolution/DPI/multi-monitor pass + perf regression gate + WebView2 suspend test (kept:
+      game-running CPU 0.77 -> 0.31% of a core); plus everything moved into KB's own folder
 - [ ] s. Keyless game info and better covers (section 13): LaunchBox Games Database → Wikidata
       series → Hasheous hash identification. **Do this right after k**: the sidebar (l),
       icons (m) and collections (n) all get better with its data. (Lettered s because it was added
