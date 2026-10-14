@@ -201,14 +201,16 @@ fn generate_perf_library() {
             }
         }
         first[k].get_or_insert(*id);
-        queries::set_extra(&tx, *id, "hero", &format!("perf-h{k}"), "perf://hero", 1920, 620, queries::now()).unwrap();
-        queries::set_extra(&tx, *id, "logo", &format!("perf-l{k}"), "perf://logo", 800, 300, queries::now()).unwrap();
+        queries::set_extra(&tx, *id, "hero", "sgdb", &format!("perf-h{k}"), "perf://hero", 1920, 620, queries::now()).unwrap();
+        queries::set_extra(&tx, *id, "logo", "sgdb", &format!("perf-l{k}"), "perf://logo", 800, 300, queries::now()).unwrap();
     }
     tx.commit().unwrap();
     // Nothing for the background jobs to do on startup.
     conn.execute("UPDATE games SET art_status = 'ok', match_status = 'notfound', meta_checked_at = ?1", [queries::now()])
         .unwrap();
     queries::set_setting(&conn, "autoArt", &serde_json::json!(false)).unwrap();
+    // The generated titles aren't real games: no LaunchBox download mid-measurement.
+    queries::set_setting(&conn, "lbEnabled", &serde_json::json!(false)).unwrap();
     // A stand-in "emulator" for PS2 games: PowerShell waiting 25 s, so the
     // harness can measure the app while a game runs.
     #[cfg(windows)]

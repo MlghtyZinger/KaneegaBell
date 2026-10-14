@@ -148,9 +148,12 @@ export function installMockIpc() {
                 genres: [genre.name],
                 igdbId: 1000 + g.id,
                 matchStatus: "ok",
+                lbId: 5000 + g.id,
+                lbStatus: "ok",
+                players: 2,
                 slug: g.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
               }
-            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null },
+            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null, lbId: null, lbStatus: "notfound", players: null },
         };
       }
       case "get_services": {
@@ -226,6 +229,13 @@ export function installMockIpc() {
         ];
       case "tv_enter":
         return { displayMissing: false };
+      case "lb_status":
+        return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17 };
+      case "lb_search":
+        return [
+          { dbId: 1, name: "Okami", alsoKnownAs: "Ookami", score: 1 },
+          { dbId: 2, name: "Okami HD", alsoKnownAs: null, score: 0.9 },
+        ];
       case "has_update_code":
         return false;
       case "preview_launch":

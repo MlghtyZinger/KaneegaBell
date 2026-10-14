@@ -13,6 +13,8 @@ import {
   type RaJobProgress,
   type RaSummary,
   type SgdbProgress,
+  type LbProgress,
+  type LbSummary,
   type SgdbSummary,
   type ScanProgress,
   type ScanSummary,
@@ -54,6 +56,9 @@ function createLibraryStore() {
   const [raProgress, setRaProgress] = createSignal<RaJobProgress | null>(null);
   const [lastRa, setLastRa] = createSignal<RaSummary | null>(null);
   const [raError, setRaError] = createSignal<string | null>(null);
+  const [lbProgress, setLbProgress] = createSignal<LbProgress | null>(null);
+  const [lastLb, setLastLb] = createSignal<LbSummary | null>(null);
+  const [lbError, setLbError] = createSignal<string | null>(null);
   const [sgdbProgress, setSgdbProgress] = createSignal<SgdbProgress | null>(null);
   const [lastSgdb, setLastSgdb] = createSignal<SgdbSummary | null>(null);
   const [sgdbError, setSgdbError] = createSignal<string | null>(null);
@@ -207,6 +212,16 @@ function createLibraryStore() {
       setRaProgress(null);
       setRaError(msg);
     });
+    void events.onLbProgress((p) => setLbProgress(p.phase === "images" && p.done >= p.total ? null : p));
+    void events.onLbFinished((s) => {
+      setLbProgress(null);
+      setLbError(null);
+      setLastLb(s);
+    });
+    void events.onLbFailed((msg) => {
+      setLbProgress(null);
+      setLbError(msg);
+    });
     void events.onSgdbProgress((p) => setSgdbProgress(p.done >= p.total ? null : p));
     void events.onSgdbFinished((s) => {
       setSgdbProgress(null);
@@ -274,6 +289,9 @@ function createLibraryStore() {
     raProgress,
     lastRa,
     raError,
+    lbProgress,
+    lastLb,
+    lbError,
     sgdbProgress,
     lastSgdb,
     sgdbError,

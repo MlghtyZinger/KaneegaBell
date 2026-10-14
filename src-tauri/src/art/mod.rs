@@ -1,4 +1,5 @@
-//! Artwork: keyless box art from libretro-thumbnails and GameTDB, cached
+//! Artwork: keyless box art from the LaunchBox Games Database (first, for
+//! matched games; see `launchbox`), libretro-thumbnails and GameTDB, cached
 //! locally as WebP.
 //!
 //! The job runs in the background (after scans, or on demand): for each game
@@ -50,6 +51,8 @@ pub struct Target {
     pub serial: Option<String>,
     /// Cover of the game's IGDB match, when it has one.
     pub igdb_cover: Option<String>,
+    /// The game's LaunchBox match (its covers come first).
+    pub lb_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -224,13 +227,22 @@ pub fn run(
                 }
                 _ => None,
             };
-            let tries = order_tries(
-                &g.platform_id,
-                g.serial.as_deref(),
-                libretro,
-                gametdb_tries(&g.platform_id, g.serial.as_deref()),
-                igdb_try(g.igdb_cover.as_deref()),
-            );
+            // LaunchBox first (the owner's choice), then the other sources.
+            let launchbox = match g.lb_id {
+                Some(db_id) => crate::launchbox::cover_urls(conn, db_id, g.region.as_deref())?,
+                None => Vec::new(),
+            };
+            let tries: Vec<Try> = launchbox
+                .into_iter()
+                .map(|(name, url)| Try { source: "launchbox", name, url })
+                .chain(order_tries(
+                    &g.platform_id,
+                    g.serial.as_deref(),
+                    libretro,
+                    gametdb_tries(&g.platform_id, g.serial.as_deref()),
+                    igdb_try(g.igdb_cover.as_deref()),
+                ))
+                .collect();
             match (tries.is_empty(), &index) {
                 (false, _) => jobs.push(Job { id: g.id, tries, index_failed: index.is_err() }),
                 (true, Err(e)) => outcomes.push(Outcome::Failed { id: g.id, error: e.to_string() }),
@@ -377,6 +389,8 @@ pub fn candidates(
     let mut out = Vec::new();
     let searching = query.is_some_and(|q| !q.trim().is_empty());
     if !searching {
+        // The LaunchBox match's covers first (one per region).
+        out.extend(crate::launchbox::picker(conn, game_id, None)?);
         if let Some(url) = &t.igdb_cover {
             out.push(Candidate {
                 source: "igdb".into(),
@@ -447,7 +461,7 @@ pub fn candidates(
 pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, source: &str, name: &str, url: &str) -> Result<()> {
     let gone = || crate::error::Error::msg("that cover is no longer available");
     let bytes = match source {
-        "libretro" | "igdb" | "sgdb" => fetch.get(url)?.ok_or_else(gone)?,
+        "libretro" | "igdb" | "sgdb" | "launchbox" => fetch.get(url)?.ok_or_else(gone)?,
         "gametdb" => match fetch.get(&gametdb::best_url(url))? {
             Some(b) => b,
             None => fetch.get(url)?.ok_or_else(gone)?,

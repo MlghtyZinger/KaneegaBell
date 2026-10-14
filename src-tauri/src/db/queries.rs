@@ -176,7 +176,8 @@ pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
 pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::Target>> {
     let mut stmt = conn.prepare(
         "SELECT g.id, p.libretro_system, g.launch_path, g.title, g.search_key, g.region, g.platform_id, g.serial,
-                (SELECT a.url FROM artwork a WHERE a.game_id = g.id AND a.kind = 'boxart' AND a.source = 'igdb' LIMIT 1)
+                (SELECT a.url FROM artwork a WHERE a.game_id = g.id AND a.kind = 'boxart' AND a.source = 'igdb' LIMIT 1),
+                CASE WHEN g.lb_status IN ('ok', 'manual') THEN g.lb_id END
          FROM games g JOIN platforms p ON p.id = g.platform_id
          WHERE g.missing = 0 AND p.enabled = 1 AND p.libretro_system IS NOT NULL
            AND (g.art_status IN ('none', 'error')
@@ -194,6 +195,7 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
             platform_id: r.get(6)?,
             serial: r.get(7)?,
             igdb_cover: r.get(8)?,
+            lb_id: r.get(9)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -347,13 +349,25 @@ pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::
              source = excluded.source, fetched_at = excluded.fetched_at, slug = excluded.slug",
         params![game_id, g.name, g.summary, g.first_release_date, g.developer(), g.publisher(), now, g.slug.clone().unwrap_or_default()],
     )?;
-    conn.execute("DELETE FROM game_genres WHERE game_id = ?1", [game_id])?;
-    for genre in &g.genres {
-        conn.execute("INSERT OR IGNORE INTO genres (name) VALUES (?1)", [&genre.name])?;
-        conn.execute(
-            "INSERT OR IGNORE INTO game_genres (game_id, genre_id) SELECT ?1, id FROM genres WHERE name = ?2",
-            params![game_id, genre.name],
-        )?;
+    // A LaunchBox match's genres come first; IGDB's are used otherwise.
+    let lb_genres: bool = conn
+        .query_row(
+            "SELECT 1 FROM games g JOIN lb_games l ON l.db_id = g.lb_id
+             WHERE g.id = ?1 AND g.lb_status IN ('ok', 'manual') AND l.genres IS NOT NULL",
+            [game_id],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some();
+    if !lb_genres {
+        conn.execute("DELETE FROM game_genres WHERE game_id = ?1", [game_id])?;
+        for genre in &g.genres {
+            conn.execute("INSERT OR IGNORE INTO genres (name) VALUES (?1)", [&genre.name])?;
+            conn.execute(
+                "INSERT OR IGNORE INTO game_genres (game_id, genre_id) SELECT ?1, id FROM genres WHERE name = ?2",
+                params![game_id, genre.name],
+            )?;
+        }
     }
     conn.execute(
         "UPDATE games SET igdb_id = ?2, match_status = ?3, meta_checked_at = ?4 WHERE id = ?1",
@@ -404,24 +418,58 @@ pub struct GameMetadata {
     pub match_status: String,
     /// IGDB's URL name for the game ("" when it has none).
     pub slug: Option<String>,
+    /// The LaunchBox match (its details come first; IGDB fills gaps).
+    pub lb_id: Option<i64>,
+    /// 'none' | 'ok' | 'manual' | 'notfound' | 'ambiguous'
+    pub lb_status: String,
+    pub players: Option<i64>,
 }
 
+type InfoRow = (Option<String>, Option<String>, Option<i64>, Option<String>, Option<String>);
+
 pub fn game_metadata(conn: &Connection, game_id: i64) -> Result<GameMetadata> {
-    let (igdb_id, match_status): (Option<i64>, String) =
-        conn.query_row("SELECT igdb_id, match_status FROM games WHERE id = ?1", [game_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    let row = conn
+    let (igdb_id, match_status, lb_id, lb_status): (Option<i64>, String, Option<i64>, String) = conn.query_row(
+        "SELECT igdb_id, match_status, lb_id, lb_status FROM games WHERE id = ?1",
+        [game_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?;
+    let igdb: Option<(InfoRow, Option<String>)> = conn
         .query_row(
             "SELECT title, description, release_date, developer, publisher, slug FROM metadata WHERE game_id = ?1",
             [game_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            |r| Ok(((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?), r.get(5)?)),
         )
         .optional()?;
+    let lb: Option<(InfoRow, Option<i64>)> = match lb_id.filter(|_| lb_status == "ok" || lb_status == "manual") {
+        Some(db_id) => conn
+            .query_row(
+                "SELECT name, overview, release_date, developer, publisher, max_players FROM lb_games WHERE db_id = ?1",
+                [db_id],
+                |r| Ok(((Some(r.get(0)?), r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?), r.get(5)?)),
+            )
+            .optional()?,
+        None => None,
+    };
     let mut stmt = conn.prepare_cached(
         "SELECT g.name FROM game_genres gg JOIN genres g ON g.id = gg.genre_id WHERE gg.game_id = ?1 ORDER BY g.name",
     )?;
     let genres = stmt.query_map([game_id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-    let (title, description, release_date, developer, publisher, slug) = row.unwrap_or_default();
-    Ok(GameMetadata { title, description, release_date, developer, publisher, genres, igdb_id, match_status, slug })
+    let (i, slug) = igdb.unwrap_or_default();
+    let (l, players) = lb.unwrap_or_default();
+    Ok(GameMetadata {
+        title: l.0.or(i.0),
+        description: l.1.or(i.1),
+        release_date: l.2.or(i.2),
+        developer: l.3.or(i.3),
+        publisher: l.4.or(i.4),
+        genres,
+        igdb_id,
+        match_status,
+        slug,
+        lb_id,
+        lb_status,
+        players,
+    })
 }
 
 /// Genre names by id, and each present game's genre ids, for the genre filter.
@@ -493,14 +541,15 @@ pub fn sgdb_state(conn: &Connection, game_id: i64) -> Result<(String, Option<Str
     )?)
 }
 
-/// Records a game's hero or logo (`kind`) as the selected one.
+/// Records a game's hero or logo (`kind`) as the selected one; `source` is
+/// "sgdb" or "launchbox".
 #[allow(clippy::too_many_arguments)]
-pub fn set_extra(conn: &Connection, game_id: i64, kind: &str, remote_id: &str, url: &str, width: u32, height: u32, now: i64) -> Result<()> {
+pub fn set_extra(conn: &Connection, game_id: i64, kind: &str, source: &str, remote_id: &str, url: &str, width: u32, height: u32, now: i64) -> Result<()> {
     conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind = ?2", params![game_id, kind])?;
     conn.execute(
         "INSERT INTO artwork (game_id, kind, source, remote_id, url, width, height, selected, fetched_at)
-         VALUES (?1, ?2, 'sgdb', ?3, ?4, ?5, ?6, 1, ?7)",
-        params![game_id, kind, remote_id, url, width, height, now],
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8)",
+        params![game_id, kind, source, remote_id, url, width, height, now],
     )?;
     Ok(())
 }

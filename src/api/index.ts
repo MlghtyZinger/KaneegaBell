@@ -34,7 +34,7 @@ export interface PlatformSummary {
 }
 
 export interface CoverCandidate {
-  source: "libretro" | "gametdb" | "igdb" | "sgdb" | "local";
+  source: "launchbox" | "libretro" | "gametdb" | "igdb" | "sgdb" | "local";
   name: string;
   url: string;
   preview: string | null;
@@ -53,7 +53,7 @@ export interface Library {
   genres: Genre[];
 }
 
-/** Details from IGDB (all null until matched). */
+/** Game info: LaunchBox's first, IGDB's filling gaps (all null until matched). */
 export interface GameMetadata {
   title: string | null;
   description: string | null;
@@ -66,6 +66,46 @@ export interface GameMetadata {
   matchStatus: "none" | "ok" | "manual" | "notfound" | "error";
   /** IGDB's URL name (Backloggd uses the same); "" when IGDB has none. */
   slug: string | null;
+  /** The LaunchBox match. */
+  lbId: number | null;
+  lbStatus: "none" | "ok" | "manual" | "notfound" | "ambiguous";
+  players: number | null;
+}
+
+/** One result in the LaunchBox "Fix match" search. */
+export interface LbHit {
+  dbId: number;
+  name: string;
+  /** The alternate title that matched (another region's name). */
+  alsoKnownAs: string | null;
+  score: number;
+}
+
+export interface LbStatus {
+  enabled: boolean;
+  /** When LaunchBox's data was last downloaded (unix seconds). */
+  importedAt: number | null;
+  matched: number;
+  total: number;
+  notFound: number;
+  ambiguous: number;
+}
+
+export interface LbProgress {
+  phase: "checking" | "downloading" | "matching" | "images";
+  done: number;
+  total: number;
+}
+
+export interface LbSummary {
+  downloaded: boolean;
+  matched: number;
+  notFound: number;
+  ambiguous: number;
+  coversQueued: number;
+  heroes: number;
+  logos: number;
+  cancelled: boolean;
 }
 
 /** One result in the "Fix match" search. */
@@ -233,7 +273,7 @@ export interface GameDetail {
   playSeconds: number;
   lastPlayed: number | null;
   art: number;
-  artSource: "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "file" | null;
+  artSource: "launchbox" | "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "file" | null;
   files: [string, number | null][];
   meta: GameMetadata;
 }
@@ -428,6 +468,12 @@ export const api = {
     invoke<void>("set_cover", { id, source, name, url, kind }),
   removeCover: (id: number) => invoke<void>("remove_cover", { id }),
   removeExtra: (id: number, kind: "hero" | "logo") => invoke<void>("remove_extra", { id, kind }),
+  lbStatus: () => invoke<LbStatus>("lb_status"),
+  /** A LaunchBox pass; `force` downloads its data again ("Update now"). */
+  fetchLaunchbox: (force: boolean) => invoke<boolean>("fetch_launchbox", { force }),
+  setLbEnabled: (enabled: boolean) => invoke<void>("set_lb_enabled", { enabled }),
+  lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
+  setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
   setSgdbKey: (key: string) => invoke<void>("set_sgdb_key", { key }),
   removeSgdbKey: () => invoke<void>("remove_sgdb_key"),
   fetchExtras: () => invoke<boolean>("fetch_extras"),
@@ -497,6 +543,9 @@ export const events = {
     listen<string>("update-access", (e) => cb(e.payload)),
   onUpdateProgress: (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
     listen<UpdateProgress>("update-progress", (e) => cb(e.payload)),
+  onLbProgress: (cb: (p: LbProgress) => void): Promise<UnlistenFn> => listen<LbProgress>("lb-progress", (e) => cb(e.payload)),
+  onLbFinished: (cb: (s: LbSummary) => void): Promise<UnlistenFn> => listen<LbSummary>("lb-finished", (e) => cb(e.payload)),
+  onLbFailed: (cb: (msg: string) => void): Promise<UnlistenFn> => listen<string>("lb-failed", (e) => cb(e.payload)),
   onSgdbProgress: (cb: (p: SgdbProgress) => void): Promise<UnlistenFn> =>
     listen<SgdbProgress>("sgdb-progress", (e) => cb(e.payload)),
   onSgdbFinished: (cb: (s: SgdbSummary) => void): Promise<UnlistenFn> =>

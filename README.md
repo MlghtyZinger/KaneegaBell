@@ -220,7 +220,23 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 
 Everything works without accounts or API keys:
 
-- **Box art** comes from [libretro-thumbnails](https://thumbnails.libretro.com) (the set RetroArch
+- **[LaunchBox Games Database](https://gamesdb.launchbox-app.com)** (keyless, used first): box
+  art for your copy's region, clear logos and backgrounds (TV Mode), descriptions, release
+  dates, developers, publishers, genres and player counts, for 12 platforms (~30,000 games).
+  - LaunchBox publishes everything as one daily `Metadata.zip` (~100 MB, no per-game access).
+    KB downloads it only when there's something to gain (no data yet, games whose details aren't
+    stored, or LaunchBox changed while some games still have no match, checked at most weekly
+    with a tiny request; or "Update now"), reads it as it streams in (about 2 seconds of CPU) and
+    keeps only a name list for your enabled platforms plus your games' details (a few MB in
+    `data\`). Pictures are fetched just for your games.
+  - Matching: same platform, same cleaned-up title (main name or another region's title, e.g.
+    "Slap Stick (Japan)" → Robotrek), then a close title with matching sequel numbers. Tested on
+    1,776 real No-Intro/Redump names: 91% matched (93–99% on most platforms), correct in spot
+    checks; when two entries fit equally, nothing is guessed: **Fix match** lists LaunchBox's
+    entries (searched offline) and your pick is kept for good.
+  - Settings → Game info can turn it off. Credit: game info and pictures from the LaunchBox
+    Games Database, made by its community. LaunchBox staff have said other apps use the file.
+- **Box art** also comes from [libretro-thumbnails](https://thumbnails.libretro.com) (the set RetroArch
   uses), matched by game name: exact No-Intro/Redump file name first, then the cleaned title
   with your region preferred, then a strict word-overlap match for loose names. Sequel numbers
   must agree, so a wrong game is never picked just because the titles look alike.

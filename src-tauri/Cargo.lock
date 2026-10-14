@@ -1909,10 +1909,12 @@ name = "kaneegabell"
 version = "0.2.3"
 dependencies = [
  "env_logger",
+ "flate2",
  "image",
  "log",
  "md5",
  "percent-encoding",
+ "quick-xml",
  "regex",
  "rusqlite",
  "sdl3",

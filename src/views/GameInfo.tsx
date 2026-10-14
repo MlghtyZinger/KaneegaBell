@@ -19,7 +19,21 @@ function metaLine(g: GameDetail): string {
   const m = g.meta;
   const year = m.releaseDate ? new Date(m.releaseDate * 1000).getUTCFullYear() : null;
   const pub = m.publisher && m.publisher !== m.developer ? m.publisher : null;
-  return [year, m.developer, pub].filter(Boolean).join(" · ");
+  const players = m.players && m.players > 1 ? `1–${m.players} players` : null;
+  return [year, m.developer, pub, players].filter(Boolean).join(" · ");
+}
+
+/** Where the game's info comes from, next to Fix match. */
+function matchLine(m: GameDetail["meta"], igdb: boolean): string {
+  const lb = {
+    ok: `LaunchBox: ${m.title ?? "matched"}`,
+    manual: `LaunchBox: ${m.title ?? "matched"} (your pick)`,
+    ambiguous: "LaunchBox has several possible matches: pick one",
+    notfound: "Not found in LaunchBox",
+    none: "Not looked up in LaunchBox yet",
+  }[m.lbStatus];
+  if (!igdb || m.lbStatus === "ok" || m.lbStatus === "manual") return lb;
+  return `${lb} · ${m.igdbId ? `IGDB: matched${m.matchStatus === "manual" ? " (your pick)" : ""}` : "not on IGDB"}`;
 }
 
 /** Quote an argv element the way a Windows command line would show it. */
@@ -106,7 +120,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     {refreshing() ? "Looking…" : "Refresh"}
                   </button>
                 </div>
-                <Show when={services()?.sgdb}>
+                <Show when={services()?.sgdb || g().meta.lbId}>
                   <div class="row tight">
                     <button class="btn small" onClick={() => setPicking("hero")}>
                       Background…
@@ -119,7 +133,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 <Show when={g().artSource}>
                   <span class="dim small">
                     Cover:{" "}
-                    {({ libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
+                    {({ launchbox: "LaunchBox", libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
                       g().artSource!
                     ] ?? g().artSource}
                   </span>
@@ -182,20 +196,12 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={g().meta.description}>
                 <p class="description">{g().meta.description}</p>
               </Show>
-              <Show when={services()?.igdb}>
-                <div class="row tight">
-                  <button class="btn small" onClick={() => setMatching(true)}>
-                    Fix match…
-                  </button>
-                  <span class="dim small">
-                    {g().meta.igdbId
-                      ? `IGDB: ${g().meta.title ?? "matched"}${g().meta.matchStatus === "manual" ? " (your pick)" : ""}`
-                      : g().meta.matchStatus === "notfound"
-                        ? "Not found on IGDB"
-                        : "Not looked up on IGDB yet"}
-                  </span>
-                </div>
-              </Show>
+              <div class="row tight">
+                <button class="btn small" onClick={() => setMatching(true)}>
+                  Fix match…
+                </button>
+                <span class="dim small">{matchLine(g().meta, !!services()?.igdb)}</span>
+              </div>
               <Achievements gameId={g().id} onRaGame={setRaGameId} />
               <dl class="facts">
                 <dt>Platform</dt>
@@ -253,6 +259,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           <MatchPicker
             gameId={g().id}
             title={g().title}
+            igdb={!!services()?.igdb}
             onClose={() => setMatching(false)}
             onChanged={() => {
               void refetch();

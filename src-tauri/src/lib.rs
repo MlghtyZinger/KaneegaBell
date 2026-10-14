@@ -6,6 +6,7 @@ mod display;
 mod error;
 mod fsbrowse;
 mod input;
+mod launchbox;
 mod launcher;
 mod maintenance;
 mod metadata;
@@ -249,6 +250,11 @@ pub fn run() {
             commands::tv_enter,
             commands::tv_leave,
             commands::refresh_zoom,
+            commands::lb_status,
+            commands::fetch_launchbox,
+            commands::set_lb_enabled,
+            commands::lb_search,
+            commands::set_lb_match,
             updates::check_for_update,
             updates::install_update,
             updates::set_update_code,

@@ -54,7 +54,7 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
 
 /// Everything downloaded is forgotten and looked up again, except what the
 /// user chose themselves: covers, backgrounds and logos they picked, and
-/// IGDB matches they fixed (their details are fetched again by IGDB id).
+/// IGDB and LaunchBox matches they fixed (their details are fetched again).
 /// Achievement fingerprints are KB's own work on the game files, so they
 /// stay; which RetroAchievements game each one is gets looked up again.
 const CLEAR_SQL: &str = "
@@ -70,6 +70,11 @@ const CLEAR_SQL: &str = "
     UPDATE games SET igdb_id = NULL, match_status = 'none', meta_checked_at = NULL WHERE match_status != 'manual';
     UPDATE games SET meta_checked_at = NULL WHERE match_status = 'manual';
     UPDATE games SET ra_game_id = NULL;
+    DELETE FROM lb_names;
+    DELETE FROM lb_games;
+    DELETE FROM lb_images;
+    UPDATE games SET lb_status = 'none', lb_id = NULL WHERE lb_status != 'manual';
+    DELETE FROM settings WHERE key = 'launchbox';
 ";
 
 /// Deletes `<id>.webp` files in `dir` except those of the `keep` games.
@@ -136,6 +141,9 @@ pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
          DELETE FROM rom_sources;
          DELETE FROM genres;
          DELETE FROM api_cache;
+         DELETE FROM lb_names;
+         DELETE FROM lb_games;
+         DELETE FROM lb_images;
          DELETE FROM settings;
          DELETE FROM platforms;
          DELETE FROM emulators;",

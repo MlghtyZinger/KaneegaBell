@@ -27,6 +27,9 @@ pub struct AppState {
     meta_pending: Arc<AtomicBool>,
     ra_pending: Arc<AtomicBool>,
     sgdb_pending: Arc<AtomicBool>,
+    lb_pending: Arc<AtomicBool>,
+    /// The queued LaunchBox pass downloads even if nothing seems to need it.
+    lb_force: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -43,6 +46,8 @@ impl AppState {
             meta_pending: Arc::default(),
             ra_pending: Arc::default(),
             sgdb_pending: Arc::default(),
+            lb_pending: Arc::default(),
+            lb_force: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
@@ -341,6 +346,7 @@ pub fn cancel_scan(state: State<'_, AppState>) {
     state.meta_pending.store(false, Ordering::Release);
     state.ra_pending.store(false, Ordering::Release);
     state.sgdb_pending.store(false, Ordering::Release);
+    state.lb_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -385,12 +391,25 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
         match extra_kind(kind.as_deref())? {
             None => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
             Some(extra) => {
-                let sgdb = sgdb.ok_or_else(|| Error::msg("Add a SteamGridDB key in Settings → Game info first"))?;
-                let kind = match extra {
-                    art::images::Extra::Hero => art::sgdb::Kind::Hero,
-                    art::images::Extra::Logo => art::sgdb::Kind::Logo,
-                };
-                art::extras::candidates(&conn, &sgdb, id, kind, query.as_deref())
+                // LaunchBox's pictures for the matched game, then SteamGridDB's.
+                let searching = query.as_deref().is_some_and(|q| !q.trim().is_empty());
+                let mut out = if searching { Vec::new() } else { crate::launchbox::picker(&conn, id, Some(extra))? };
+                if let Some(sgdb) = sgdb {
+                    let kind = match extra {
+                        art::images::Extra::Hero => art::sgdb::Kind::Hero,
+                        art::images::Extra::Logo => art::sgdb::Kind::Logo,
+                    };
+                    match art::extras::candidates(&conn, &sgdb, id, kind, query.as_deref()) {
+                        Ok(c) => out.extend(c),
+                        Err(e) if out.is_empty() => return Err(e),
+                        Err(e) => log::warn!("SteamGridDB pictures: {e}"),
+                    }
+                } else if out.is_empty() {
+                    return Err(Error::msg(
+                        "LaunchBox has no pictures of this kind for this game. Add a SteamGridDB key in Settings → Game info for more.",
+                    ));
+                }
+                Ok(out)
             }
         }
     })
@@ -409,7 +428,7 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
         let http = art::http::Http::new();
         match extra_kind(kind.as_deref())? {
             None => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
-            Some(extra) => art::extras::apply(&conn, state.data_dir(), &http, id, extra, &name, &url),
+            Some(extra) => art::extras::apply(&conn, state.data_dir(), &http, id, extra, &source, &name, &url),
         }
     })
     .await
@@ -449,14 +468,16 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<(bool, bool, bool, bool)> {
+        let pending = (|| -> Result<(bool, bool, bool, bool, bool)> {
             let conn = state.db();
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
-            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?))
+            let lb = crate::launchbox::wanted(&conn)? || crate::launchbox::check_due(&conn)?;
+            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb))
         })();
-        let (art, meta, ra, sgdb) = pending.unwrap_or_default();
-        if art || meta || ra || sgdb {
+        let (art, meta, ra, sgdb, lb) = pending.unwrap_or_default();
+        if art || meta || ra || sgdb || lb {
+            state.lb_pending.fetch_or(lb, Ordering::AcqRel);
             state.art_pending.fetch_or(art, Ordering::AcqRel);
             state.meta_pending.fetch_or(meta, Ordering::AcqRel);
             state.ra_pending.fetch_or(ra, Ordering::AcqRel);
@@ -485,6 +506,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let meta_pending = state.meta_pending.clone();
     let ra_pending = state.ra_pending.clone();
     let sgdb_pending = state.sgdb_pending.clone();
+    let lb_pending = state.lb_pending.clone();
+    let lb_force = state.lb_force.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
@@ -492,14 +515,19 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .name("library-jobs".into())
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
-            // Order: scan, covers, details, SteamGridDB extras (after covers,
-            // so it knows which games still lack one), achievements.
+            // Order: scan, LaunchBox (it decides covers, so before them),
+            // covers, details, SteamGridDB extras (after covers, so it knows
+            // which games still lack one), achievements.
             if scan_pending.swap(false, Ordering::AcqRel) {
                 let next = run_scan(&app, &db_path, &cancel);
+                lb_pending.fetch_or(next.lb, Ordering::AcqRel);
                 art_pending.fetch_or(next.art, Ordering::AcqRel);
                 meta_pending.fetch_or(next.meta, Ordering::AcqRel);
                 ra_pending.fetch_or(next.ra, Ordering::AcqRel);
                 sgdb_pending.fetch_or(next.sgdb, Ordering::AcqRel);
+            } else if lb_pending.swap(false, Ordering::AcqRel) {
+                let force = lb_force.swap(false, Ordering::AcqRel);
+                art_pending.fetch_or(run_lb(&app, &db_path, &data_dir, force, &cancel), Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
@@ -516,7 +544,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                     || art_pending.load(Ordering::Acquire)
                     || meta_pending.load(Ordering::Acquire)
                     || ra_pending.load(Ordering::Acquire)
-                    || sgdb_pending.load(Ordering::Acquire);
+                    || sgdb_pending.load(Ordering::Acquire)
+                    || lb_pending.load(Ordering::Acquire);
                 if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
@@ -545,6 +574,7 @@ fn throttled(min_ms: u128) -> impl Fn(bool) -> bool {
 /// What should run after a scan.
 #[derive(Default)]
 struct FollowUp {
+    lb: bool,
     art: bool,
     meta: bool,
     ra: bool,
@@ -567,6 +597,7 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
         let auto_art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
         let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
         let next = FollowUp {
+            lb: crate::launchbox::wanted(&conn).unwrap_or(false),
             art: auto_art && needs_art,
             meta: meta_wanted(&conn).unwrap_or(false),
             ra: ra_wanted(&conn).unwrap_or(false),
@@ -852,6 +883,93 @@ pub fn fetch_extras(app: AppHandle, state: State<'_, AppState>) -> bool {
     kick_worker(app, &state)
 }
 
+// ---------------------------------------------------------------- LaunchBox
+
+/// One LaunchBox pass. Emits `lb-progress`, then `lb-finished` / `lb-failed`.
+/// Returns true when covers were queued for the art pass.
+fn run_lb(app: &AppHandle, db_path: &Path, data_dir: &Path, force: bool, cancel: &AtomicBool) -> bool {
+    let due = throttled(250);
+    let result = (|| {
+        let mut conn = db::open(db_path)?;
+        if !crate::launchbox::enabled(&conn)? {
+            return Ok(None);
+        }
+        let http = art::http::Http::new();
+        let web = crate::launchbox::Web::new();
+        crate::launchbox::run(
+            &mut conn,
+            data_dir,
+            &web,
+            &http,
+            force,
+            &|p| {
+                if due(p.done == p.total) {
+                    let _ = app.emit("lb-progress", &p);
+                }
+            },
+            cancel,
+        )
+        .map(Some)
+    })();
+    match result {
+        Ok(None) => false,
+        Ok(Some(summary)) => {
+            let _ = app.emit("lb-finished", &summary);
+            let _ = app.emit("library-changed", ());
+            summary.covers_queued > 0
+        }
+        Err(e) => {
+            log::error!("LaunchBox pass failed: {e}");
+            let _ = app.emit("lb-failed", e.to_string());
+            false
+        }
+    }
+}
+
+/// Settings → Game info: LaunchBox's status.
+#[tauri::command]
+pub fn lb_status(state: State<'_, AppState>) -> Result<crate::launchbox::Status> {
+    crate::launchbox::status(&state.db())
+}
+
+/// "Update now" (`force`), or a pass for games not looked up yet.
+#[tauri::command]
+pub fn fetch_launchbox(app: AppHandle, state: State<'_, AppState>, force: bool) -> bool {
+    state.lb_force.fetch_or(force, Ordering::AcqRel);
+    state.lb_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
+}
+
+/// Turns LaunchBox on or off (on: a pass starts).
+#[tauri::command]
+pub fn set_lb_enabled(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<()> {
+    queries::set_setting(&state.db(), "lbEnabled", &serde_json::json!(enabled))?;
+    if enabled {
+        state.lb_pending.store(true, Ordering::Release);
+        kick_worker(app, &state);
+    }
+    Ok(())
+}
+
+/// Fix match: LaunchBox entries for the game's platform.
+#[tauri::command]
+pub fn lb_search(state: State<'_, AppState>, id: i64, query: Option<String>) -> Result<Vec<crate::launchbox::matching::Hit>> {
+    crate::launchbox::search(&state.db(), id, query.as_deref())
+}
+
+/// Fix match: the user's pick. Its details, cover, logo and background
+/// follow (downloading LaunchBox's file if they aren't stored yet).
+#[tauri::command]
+pub fn set_lb_match(app: AppHandle, state: State<'_, AppState>, id: i64, db_id: i64) -> Result<()> {
+    let needs_download = crate::launchbox::set_manual(&state.db(), id, db_id)?;
+    state.lb_pending.store(true, Ordering::Release);
+    state.lb_force.fetch_or(needs_download, Ordering::AcqRel);
+    state.art_pending.store(true, Ordering::Release);
+    kick_worker(app.clone(), &state);
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
 // ---------------------------------------------------------------- startup
 
 /// A one-time message for the user from startup (e.g. the library was moved
@@ -935,7 +1053,7 @@ pub async fn reset_app(app: AppHandle, forget_keys: bool) -> Result<()> {
     let state = app.state::<AppState>();
     {
         let _slot = state.exclusive()?;
-        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending] {
+        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending, &state.lb_pending] {
             flag.store(false, Ordering::Release);
         }
         let backup = crate::maintenance::reset(&mut state.db(), state.data_dir())?;

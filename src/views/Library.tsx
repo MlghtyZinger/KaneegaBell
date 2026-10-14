@@ -14,6 +14,16 @@ function JobPill() {
   const text = () => {
     const scan = library.scanProgress();
     if (scan) return `Scanning ${scan.total > 0 ? `${scan.done + 1}/${scan.total}` : "…"}`;
+    const lb = library.lbProgress();
+    if (lb) {
+      const mb = (n: number) => Math.round(n / 1_000_000);
+      return {
+        checking: "LaunchBox: checking for updates",
+        downloading: lb.total > 0 ? `LaunchBox data ${mb(lb.done)}/${mb(lb.total)} MB` : "LaunchBox data…",
+        matching: "LaunchBox: matching games",
+        images: `LaunchBox ${lb.done}/${lb.total}`,
+      }[lb.phase];
+    }
     const jobs: [string, { done: number; total: number } | null][] = [
       ["Covers", library.artProgress()],
       ["Game info", library.metaProgress()],

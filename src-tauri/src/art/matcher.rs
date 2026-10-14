@@ -17,20 +17,20 @@ use super::libretro::sanitize;
 const STOPWORDS: &[&str] = &["the", "a", "an", "of", "and"];
 pub const FUZZY_MIN: f32 = 0.8;
 
-fn words(key: &str) -> HashSet<String> {
+pub(crate) fn words(key: &str) -> HashSet<String> {
     key.split(' ').filter(|w| !w.is_empty() && !STOPWORDS.contains(w)).map(str::to_string).collect()
 }
 
 /// Title key ignoring little words, so "Castlevania - The Dracula X
 /// Chronicles (USA)" and "Castlevania - Dracula X Chronicles (Japan)" count as
 /// the same title and region preference decides between them.
-fn title_key(search_key: &str) -> String {
+pub(crate) fn title_key(search_key: &str) -> String {
     search_key.split(' ').filter(|w| !w.is_empty() && !STOPWORDS.contains(w)).collect::<Vec<_>>().join(" ")
 }
 
 /// Sequel markers: digits and roman numerals. Fuzzy matches must agree on
 /// these, so "Final Fantasy X 3" never matches "Final Fantasy X".
-fn numbers(w: &HashSet<String>) -> HashSet<&str> {
+pub(crate) fn numbers(w: &HashSet<String>) -> HashSet<&str> {
     const ROMAN: &[&str] = &["ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii", "xiii"];
     w.iter()
         .map(String::as_str)
@@ -66,7 +66,7 @@ fn edit_distance_le1(a: &str, b: &str) -> bool {
 }
 
 /// Dice coefficient over word sets, with typo-tolerant word equality.
-fn dice(a: &HashSet<String>, b: &HashSet<String>) -> f32 {
+pub(crate) fn dice(a: &HashSet<String>, b: &HashSet<String>) -> f32 {
     if a.is_empty() || b.is_empty() {
         return 0.0;
     }
@@ -75,7 +75,7 @@ fn dice(a: &HashSet<String>, b: &HashSet<String>) -> f32 {
 }
 
 /// Title with all spaces removed: "dragonball z budokai" == "dragon ball z budokai".
-fn compact_key(search_key: &str) -> String {
+pub(crate) fn compact_key(search_key: &str) -> String {
     title_key(search_key).replace(' ', "")
 }
 

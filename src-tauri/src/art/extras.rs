@@ -73,7 +73,7 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, sgdb: &Sgdb, fetch: &dyn Fetc
     for img in sgdb.images(kind, sgdb_id)?.iter().take(3) {
         let Some(bytes) = fetch.get(&img.url)? else { continue };
         let (w, h) = images::store_extra(data_dir, extra, game_id, &bytes)?;
-        queries::set_extra(conn, game_id, extra.kind(), &img.id.to_string(), &img.url, w, h, queries::now())?;
+        queries::set_extra(conn, game_id, extra.kind(), "sgdb", &img.id.to_string(), &img.url, w, h, queries::now())?;
         return Ok(true);
     }
     Ok(false)
@@ -205,10 +205,10 @@ pub fn candidates(conn: &Connection, sgdb: &Sgdb, game_id: i64, kind: Kind, quer
 }
 
 /// Sets a hero or logo the user picked (kept: never replaced automatically).
-pub fn apply(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, extra: Extra, name: &str, url: &str) -> Result<()> {
+pub fn apply(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, extra: Extra, source: &str, name: &str, url: &str) -> Result<()> {
     let bytes = fetch.get(url)?.ok_or_else(|| Error::msg("that image is no longer available"))?;
     let (w, h) = images::store_extra(data_dir, extra, game_id, &bytes)?;
-    queries::set_extra(conn, game_id, extra.kind(), name, url, w, h, queries::now())?;
+    queries::set_extra(conn, game_id, extra.kind(), source, name, url, w, h, queries::now())?;
     queries::set_extras_manual(conn, game_id)
 }
 
@@ -298,7 +298,7 @@ mod tests {
         let data = tempfile::tempdir().unwrap();
         let mut cdn = FakeHttp::default();
         cdn.pages.insert("https://cdn/hero.png".into(), images::test_png(1920, 620));
-        apply(&conn, data.path(), &cdn, id, Extra::Hero, &c[0].name, &c[0].url).unwrap();
+        apply(&conn, data.path(), &cdn, id, Extra::Hero, "sgdb", &c[0].name, &c[0].url).unwrap();
         let manual: bool = conn.query_row("SELECT extras_manual FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap();
         assert!(manual);
         remove(&conn, data.path(), id, Extra::Hero).unwrap();

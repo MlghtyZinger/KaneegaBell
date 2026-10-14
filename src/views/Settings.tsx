@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, onMount, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, on, onMount, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
@@ -94,6 +94,7 @@ export function SettingsView(props: { onClose: () => void }) {
                 <PlatformsSection s={s()} run={run} />
               </Show>
               <Show when={section() === "services"}>
+                <LaunchBoxSection run={run} />
                 <ServicesSection s={s()} run={run} />
                 <SteamGridDbSection run={run} />
                 <RetroAchievementsSection run={run} />
@@ -217,9 +218,9 @@ function LibrarySection(props: { s: Settings; run: Run }) {
 
       <h2>Covers</h2>
       <p class="dim">
-        Box art comes from libretro-thumbnails (matched by game name) and GameTDB (looked up by the game's ID, which
-        covers PS3 and fills gaps for GameCube, Wii, DS and 3DS). No account needed. Everything is cached, so covers
-        stay available offline. Change any cover from the game's details.
+        Box art comes first from the LaunchBox Games Database (see Game info), then libretro-thumbnails and GameTDB.
+        No account needed. Everything is cached, so covers stay available offline. Change any cover from the game's
+        details.
       </p>
       <div class="row">
         <Show
@@ -612,6 +613,86 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
 // ------------------------------------------------------------------ general
 
 // ------------------------------------------------------------------ services
+
+function LaunchBoxSection(props: { run: Run }) {
+  const [status, { refetch }] = createResource(() => api.lbStatus().catch(() => null));
+  // Refresh the counts when a pass finishes.
+  createEffect(on(library.lastLb, () => void refetch(), { defer: true }));
+  const when = (secs: number) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+  return (
+    <section class="card-section">
+      <h2>LaunchBox Games Database (no account needed)</h2>
+      <p class="dim">
+        Box art, logos, backgrounds (for TV Mode), descriptions, release dates, developers, publishers and genres, for
+        everyone, without a key. It comes first; IGDB and SteamGridDB below fill what it doesn't have, and anything you
+        pick yourself always stays.
+      </p>
+      <Show when={status()}>
+        {(st) => (
+          <>
+            <label class="check">
+              <input
+                type="checkbox"
+                checked={st().enabled}
+                onChange={(e) => {
+                  const on = e.currentTarget.checked;
+                  return props.run(async () => {
+                    await api.setLbEnabled(on);
+                    await refetch();
+                  });
+                }}
+              />
+              Use the LaunchBox Games Database
+            </label>
+            <Show when={st().enabled}>
+              <p>
+                {st().total > 0 ? (
+                  <>
+                    {st().matched} of {st().total} games found
+                    {st().ambiguous > 0 ? ` · ${st().ambiguous} with several possible matches (use Fix match)` : ""}
+                    {st().notFound > 0 ? ` · ${st().notFound} not found` : ""}
+                  </>
+                ) : (
+                  "No games on the platforms it covers yet."
+                )}
+              </p>
+              <div class="row">
+                <Show
+                  when={library.lbProgress()}
+                  fallback={
+                    <button
+                      class="btn"
+                      disabled={!!library.scanProgress()}
+                      onClick={() => void props.run(() => api.fetchLaunchbox(true), { notice: "Updating from LaunchBox…" })}
+                    >
+                      Update now
+                    </button>
+                  }
+                >
+                  <button class="btn" onClick={() => void api.cancelScan()}>
+                    Stop
+                  </button>
+                </Show>
+                <span class="dim small">{st().importedAt ? `Last updated ${when(st().importedAt!)}` : "Not downloaded yet"}</span>
+              </div>
+              <Show when={library.lbError()}>
+                <p class="warn">{library.lbError()}</p>
+              </Show>
+              <p class="dim small">
+                LaunchBox publishes its database as one file (about 100 MB). KB downloads it only when there's something
+                to gain (new games, or LaunchBox changed while some games still have no match; checked at most weekly),
+                keeps only your games' details and a list of names for your platforms (a few MB, in KB's folder), and
+                fetches pictures just for your games. Game info and pictures from the LaunchBox Games Database
+                (gamesdb.launchbox-app.com), made by its community.
+              </p>
+            </Show>
+          </>
+        )}
+      </Show>
+    </section>
+  );
+}
 
 function ServicesSection(props: { s: Settings; run: Run }) {
   const [services, { refetch }] = createResource(() => api.getServices());

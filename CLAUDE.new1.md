@@ -327,8 +327,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       `library.before-reset.db`, optionally removes saved keys)
 - [x] k. Resolution/DPI/multi-monitor pass + perf regression gate + WebView2 suspend test (kept:
       game-running CPU 0.77 -> 0.31% of a core); plus everything moved into KB's own folder
-- [ ] s. Keyless game info and better covers (section 13): LaunchBox Games Database → Wikidata
-      series → Hasheous hash identification. **Do this right after k**: the sidebar (l),
+- [x] s (part 1). LaunchBox Games Database: keyless covers, logos, backgrounds and info, LaunchBox
+      first (owner's choice), storage 1b (name list for enabled platforms + owned games' details),
+      filter-while-streaming; 91% of 1,776 real dump names matched.
+- [ ] s (later parts). Wikidata series (feeds collections, n) → Hasheous hash identification. **Do this right after k**: the sidebar (l),
       icons (m) and collections (n) all get better with its data. (Lettered s because it was added
       later, not because it comes last.)
 - [ ] l. Game details sidebar + customization options
