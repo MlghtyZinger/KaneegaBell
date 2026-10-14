@@ -55,12 +55,20 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') { Fail "version must look like 1.2.3" 
 if (-not (Test-Path $KeyPath)) { Fail "updater signing key not found at $KeyPath" }
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()
 if ($branch -ne "main") { Fail "releases are made from main (you're on $branch)" }
-if (git status --porcelain) { Fail "commit or stash your changes first (the release commit should hold only the version bump)" }
-if (git tag --list "v$Version") { Fail "tag v$Version already exists" }
+if (-not (git tag --list "v$Version") -and (git status --porcelain)) { Fail "commit or stash your changes first (the release commit should hold only the version bump)" }
+# Already built and tagged (e.g. publishing was declined last time): with
+# -Publish, publish those files without building again.
+$publishOnly = $false
+if (git tag --list "v$Version") {
+    $built = Join-Path $root "release\v$Version\KaneegaBell_${Version}_x64-setup.exe"
+    if (-not ($Publish -and (Test-Path $built) -and (Test-Path "$built.sig"))) { Fail "tag v$Version already exists" }
+    $publishOnly = $true
+    Write-Host "v$Version is already built and tagged: publishing those files."
+}
 $current = (& node -e "console.log(require('./src-tauri/tauri.conf.json').version)").Trim()
 $newer = (& node --input-type=module -e "import { compareVersions } from './tools/release/set-version.mjs'; console.log(compareVersions('$Version', '$current') > 0)").Trim()
 # The current version may be released once (its first release), else it must be newer.
-if ($newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer than the current $current" }
+if (-not $publishOnly -and $newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer than the current $current" }
 if ($Publish) {
     # Before the password and the build, not after.
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Fail "publishing needs GitHub's gh tool (winget install GitHub.cli), then 'gh auth login' once" }
@@ -73,7 +81,12 @@ New-Item -ItemType Directory -Force $out | Out-Null
 $notesPath = Join-Path $root "release\v$Version-notes.md"
 if ($NotesFile) { Copy-Item $NotesFile $notesPath -Force }
 elseif ($Notes) { [IO.File]::WriteAllText($notesPath, $Notes + "`n", (New-Object Text.UTF8Encoding($false))) }
+elseif ($publishOnly -and (Test-Path $notesPath)) { }
 else { Fail "give the changelog with -Notes `"...`" or -NotesFile file.md" }
+$installerName = "KaneegaBell_${Version}_x64-setup.exe"
+$installerOut = Join-Path $out $installerName
+
+if (-not $publishOnly) {
 Write-Host "Releasing $current -> $Version"
 
 Step "Version"
@@ -100,11 +113,9 @@ finally {
 }
 if ($buildExit -ne 0) { git checkout -- .; Fail "build failed (version bump undone)" }
 
-$installerName = "KaneegaBell_${Version}_x64-setup.exe"
 $installer = Join-Path $root "src-tauri\target\release\bundle\nsis\$installerName"
 if (-not (Test-Path $installer) -or -not (Test-Path "$installer.sig")) { Fail "installer or signature missing: $installer(.sig)" }
 Copy-Item $installer, "$installer.sig" $out -Force
-$installerOut = Join-Path $out $installerName
 # The public-link manifest, attached to the release: what KB 0.2.2 and older
 # read (only reachable while the repo is public).
 Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, (Join-Path $out "latest.json"))
@@ -116,15 +127,16 @@ git diff --cached --quiet
 if ($LASTEXITCODE -ne 0) { Run git @("commit", "-q", "-m", "Release v$Version") }
 Run git @("tag", "-a", "v$Version", "-m", "KaneegaBell $Version")
 Write-Host "`nRelease files in $out" -ForegroundColor Green
+}
 
 if (-not $Publish) {
-    Write-Host "`nNot published. To publish, delete the tag (git tag -d v$Version) and run again with -Publish."
+    Write-Host "`nNot published. To publish these files later, run the same command with -Publish (it won't build again)."
     exit 0
 }
 
 Step "Publish"
-$answer = Read-Host "Publish KaneegaBell $Version on github.com/$repo? Everyone with KB will be offered it. (yes/no)"
-if ($answer -ne "yes") { Write-Host "Not published. The commit and tag stay local."; exit 0 }
+$answer = Read-Host "Publish KaneegaBell $Version on github.com/${repo}? Everyone with KB will be offered it. (yes/no)"
+if ($answer.Trim() -notmatch '^(y|yes)$') { Write-Host "Not published. The commit and tag stay local; run the same command again to publish (it won't build again)."; exit 0 }
 Run git @("push", "origin", "main", "v$Version")
 Run gh @("release", "create", "v$Version", "--repo", $repo, "--title", "KaneegaBell $Version", "--notes-file", $notesPath, "--latest",
     $installerOut, "$installerOut.sig", (Join-Path $out "latest.json"))
