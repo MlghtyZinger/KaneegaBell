@@ -95,6 +95,7 @@ export function SettingsView(props: { onClose: () => void }) {
               </Show>
               <Show when={section() === "services"}>
                 <LaunchBoxSection run={run} />
+                <WikidataSection run={run} />
                 <ServicesSection s={s()} run={run} />
                 <SteamGridDbSection run={run} />
                 <RetroAchievementsSection run={run} />
@@ -685,6 +686,79 @@ function LaunchBoxSection(props: { run: Run }) {
                 keeps only your games' details and a list of names for your platforms (a few MB, in KB's folder), and
                 fetches pictures just for your games. Game info and pictures from the LaunchBox Games Database
                 (gamesdb.launchbox-app.com), made by its community.
+              </p>
+            </Show>
+          </>
+        )}
+      </Show>
+    </section>
+  );
+}
+
+function WikidataSection(props: { run: Run }) {
+  const [status, { refetch }] = createResource(() => api.wdStatus().catch(() => null));
+  createEffect(on(library.lastWd, () => void refetch(), { defer: true }));
+  const when = (secs: number) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+  return (
+    <section class="card-section">
+      <h2>Wikidata (no account needed)</h2>
+      <p class="dim">Which series and franchise each game belongs to (e.g. "Jak and Daxter", "Final Fantasy"), shown in the game details.</p>
+      <Show when={status()}>
+        {(st) => (
+          <>
+            <label class="check">
+              <input
+                type="checkbox"
+                checked={st().enabled}
+                onChange={(e) => {
+                  const on = e.currentTarget.checked;
+                  return props.run(async () => {
+                    await api.setWdEnabled(on);
+                    await refetch();
+                  });
+                }}
+              />
+              Use Wikidata
+            </label>
+            <Show when={st().enabled}>
+              <p>
+                {st().total > 0 ? (
+                  <>
+                    {st().matched} of {st().total} games found · {st().withSeries} in a series
+                    {st().ambiguous > 0 ? ` · ${st().ambiguous} with several possible matches` : ""}
+                    {st().notFound > 0 ? ` · ${st().notFound} not found` : ""}
+                  </>
+                ) : (
+                  "No games yet."
+                )}
+              </p>
+              <div class="row">
+                <Show
+                  when={library.wdProgress()}
+                  fallback={
+                    <button
+                      class="btn"
+                      disabled={!!library.scanProgress()}
+                      onClick={() => void props.run(() => api.fetchWikidata(true), { notice: "Asking Wikidata…" })}
+                    >
+                      Update now
+                    </button>
+                  }
+                >
+                  <button class="btn" onClick={() => void api.cancelScan()}>
+                    Stop
+                  </button>
+                </Show>
+                <span class="dim small">{st().checkedAt ? `Last asked ${when(st().checkedAt!)}` : "Not asked yet"}</span>
+              </div>
+              <Show when={library.wdError()}>
+                <p class="warn">{library.wdError()}</p>
+              </Show>
+              <p class="dim small">
+                KB asks Wikidata once per platform you have games on (a few seconds each, in the background), keeps only
+                your games' entries and series (a few KB, in KB's folder), and asks again only for new games or, once a
+                month, for games it couldn't find. Series data from Wikidata (wikidata.org), free to use (CC0).
               </p>
             </Show>
           </>

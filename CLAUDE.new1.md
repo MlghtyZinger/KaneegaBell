@@ -330,9 +330,12 @@ Each milestone is runnable and tested, and passes the perf gate.
 - [x] s (part 1). LaunchBox Games Database: keyless covers, logos, backgrounds and info, LaunchBox
       first (owner's choice), storage 1b (name list for enabled platforms + owned games' details),
       filter-while-streaming; 91% of 1,776 real dump names matched.
-- [ ] s (later parts). Wikidata series (feeds collections, n) → Hasheous hash identification. **Do this right after k**: the sidebar (l),
-      icons (m) and collections (n) all get better with its data. (Lettered s because it was added
-      later, not because it comes last.)
+- [x] s (part 2). Wikidata series/franchises (P179/P8345): per-platform queries, only matched entries
+      kept, monthly recheck for unmatched; User-Agent contact = the owner's GitHub profile (their choice).
+- [ ] s (part 3). Hasheous hash identification (owner's choice: unmatched cartridge games
+      automatically, disc images only on a button; only checksums are sent). Before l: the
+      sidebar (l), icons (m) and collections (n) all get better with its data. (Lettered s because
+      it was added later, not because it comes last.)
 - [ ] l. Game details sidebar + customization options
 - [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon
 - [ ] n. Collections (manual, smart, automatic)

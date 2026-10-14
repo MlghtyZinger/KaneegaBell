@@ -423,6 +423,8 @@ pub struct GameMetadata {
     /// 'none' | 'ok' | 'manual' | 'notfound' | 'ambiguous'
     pub lb_status: String,
     pub players: Option<i64>,
+    /// Series, then franchises, from Wikidata.
+    pub series: Vec<String>,
 }
 
 type InfoRow = (Option<String>, Option<String>, Option<i64>, Option<String>, Option<String>);
@@ -469,6 +471,7 @@ pub fn game_metadata(conn: &Connection, game_id: i64) -> Result<GameMetadata> {
         lb_id,
         lb_status,
         players,
+        series: crate::wikidata::series_for(conn, game_id)?,
     })
 }
 

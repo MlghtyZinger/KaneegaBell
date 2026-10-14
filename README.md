@@ -239,6 +239,19 @@ Everything works without accounts or API keys:
     entries (searched offline) and your pick is kept for good.
   - Settings → Game info can turn it off. Credit: game info and pictures from the LaunchBox
     Games Database, made by its community. LaunchBox staff have said other apps use the file.
+- **[Wikidata](https://www.wikidata.org)** (keyless, CC0): each game's **series** and
+  **franchise** (e.g. "Jak and Daxter", "Final Fantasy"), shown in the game details.
+  - KB asks Wikidata's query service once per platform with games (its games' English titles,
+    alternate titles, first release year and IGDB ID; a few seconds each, one at a time), matches
+    your games in memory, then asks for the series of the matched games only. Only those entries
+    are kept (a few KB in `data\`). A platform is asked again only for new games, once a month
+    while some games have no match, or on "Update now".
+  - Matching: the IGDB match when Wikidata lists it (exact), else the LaunchBox match's title
+    (better than file names) or the game's own, by the LaunchBox rules; when two entries share a
+    title, the release year decides, else nothing is guessed.
+  - The service asks apps to identify themselves: KB sends `KaneegaBell/<version>
+    (https://github.com/MlghtyZinger; personal game library)` and stays well inside its limit
+    (60 s of query time per minute). Settings → Game info can turn it off.
 - **Box art** also comes from [libretro-thumbnails](https://thumbnails.libretro.com) (the set RetroArch
   uses), matched by game name: exact No-Intro/Redump file name first, then the cleaned title
   with your region preferred, then a strict word-overlap match for loose names. Sequel numbers
@@ -437,6 +450,12 @@ Milestone s (LaunchBox) against 0.2.1, gate measuring CPU as the middle of sever
 (was 499), 282 MB after start (283), scrolling 240 fps with p99 4.3 ms, game running 352 MB (350). CPU readings
 stay within Windows' counter resolution (a few 15.6 ms ticks). Passed.
 
+Milestone s part 2 (Wikidata), 3 runs: cold start 577 / 503 / 502 ms, 256–342 MB after start, scrolling 240 fps
+with p99 4.3 ms, game running 309–362 MB. Each run tripped the gate on a different single number (one start, one
+memory reading at another display scale, single-frame spikes of 10–21 ms, 1.5% CPU in one game window); the 0.2.1
+baseline exe measured right after tripped it too (a 16.6 ms frame, a 46 ms spike in the fast flick, start 506 ms,
+282 MB), so these were the PC's noise at the time, not the change. Nothing new runs at startup or while scrolling.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -484,11 +503,16 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] k. Screens, scaling and monitors (fit-the-screen zoom, window memory, TV Mode display,
       text size and overscan), perf regression gate, everything in KB's own folder
 - [x] s (part 1). LaunchBox Games Database: covers, logos, backgrounds and game info without a key
+- [x] s (part 2). Wikidata: series and franchises without a key
 
 ## Patch notes
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.2.5 (not released yet)
+- New: game details show the game's series and franchise (e.g. "Jak and Daxter", "Final Fantasy"), from Wikidata, no account needed.
+- New: Settings → Game info has a Wikidata section with Update now and an off switch.
 
 ### 0.2.4 (2026-10-14)
 - New: covers, logos and backgrounds from the LaunchBox Games Database, no account or key needed.

@@ -172,6 +172,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={metaLine(g())}>
                 <p class="meta-line">{metaLine(g())}</p>
               </Show>
+              <Show when={g().meta.series.length > 0}>
+                <p class="meta-line">Series: {g().meta.series.join(" · ")}</p>
+              </Show>
               <Show when={g().meta.genres.length > 0}>
                 <div class="genre-row">
                   <For each={g().meta.genres}>{(name) => <span class="badge">{name}</span>}</For>

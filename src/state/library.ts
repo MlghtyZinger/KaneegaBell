@@ -15,6 +15,8 @@ import {
   type SgdbProgress,
   type LbProgress,
   type LbSummary,
+  type WdProgress,
+  type WdSummary,
   type SgdbSummary,
   type ScanProgress,
   type ScanSummary,
@@ -59,6 +61,9 @@ function createLibraryStore() {
   const [lbProgress, setLbProgress] = createSignal<LbProgress | null>(null);
   const [lastLb, setLastLb] = createSignal<LbSummary | null>(null);
   const [lbError, setLbError] = createSignal<string | null>(null);
+  const [wdProgress, setWdProgress] = createSignal<WdProgress | null>(null);
+  const [lastWd, setLastWd] = createSignal<WdSummary | null>(null);
+  const [wdError, setWdError] = createSignal<string | null>(null);
   const [sgdbProgress, setSgdbProgress] = createSignal<SgdbProgress | null>(null);
   const [lastSgdb, setLastSgdb] = createSignal<SgdbSummary | null>(null);
   const [sgdbError, setSgdbError] = createSignal<string | null>(null);
@@ -222,6 +227,16 @@ function createLibraryStore() {
       setLbProgress(null);
       setLbError(msg);
     });
+    void events.onWdProgress((p) => setWdProgress(p.done >= p.total ? null : p));
+    void events.onWdFinished((s) => {
+      setWdProgress(null);
+      setWdError(null);
+      setLastWd(s);
+    });
+    void events.onWdFailed((msg) => {
+      setWdProgress(null);
+      setWdError(msg);
+    });
     void events.onSgdbProgress((p) => setSgdbProgress(p.done >= p.total ? null : p));
     void events.onSgdbFinished((s) => {
       setSgdbProgress(null);
@@ -292,6 +307,9 @@ function createLibraryStore() {
     lbProgress,
     lastLb,
     lbError,
+    wdProgress,
+    lastWd,
+    wdError,
     sgdbProgress,
     lastSgdb,
     sgdbError,

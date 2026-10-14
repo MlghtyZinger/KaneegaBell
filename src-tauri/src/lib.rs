@@ -17,6 +17,7 @@ mod platforms;
 mod scanner;
 mod secrets;
 mod updates;
+mod wikidata;
 
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -255,6 +256,9 @@ pub fn run() {
             commands::set_lb_enabled,
             commands::lb_search,
             commands::set_lb_match,
+            commands::wd_status,
+            commands::fetch_wikidata,
+            commands::set_wd_enabled,
             updates::check_for_update,
             updates::install_update,
             updates::set_update_code,

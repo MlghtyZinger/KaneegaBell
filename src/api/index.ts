@@ -70,6 +70,34 @@ export interface GameMetadata {
   lbId: number | null;
   lbStatus: "none" | "ok" | "manual" | "notfound" | "ambiguous";
   players: number | null;
+  /** Series, then franchises (Wikidata). */
+  series: string[];
+}
+
+export interface WdStatus {
+  enabled: boolean;
+  /** Last time Wikidata was asked (unix seconds). */
+  checkedAt: number | null;
+  total: number;
+  matched: number;
+  withSeries: number;
+  notFound: number;
+  ambiguous: number;
+}
+
+export interface WdProgress {
+  /** Platforms asked so far, of `total`. */
+  done: number;
+  total: number;
+}
+
+export interface WdSummary {
+  platforms: number;
+  matched: number;
+  notFound: number;
+  ambiguous: number;
+  withSeries: number;
+  cancelled: boolean;
 }
 
 /** One result in the LaunchBox "Fix match" search. */
@@ -474,6 +502,10 @@ export const api = {
   setLbEnabled: (enabled: boolean) => invoke<void>("set_lb_enabled", { enabled }),
   lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
   setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
+  wdStatus: () => invoke<WdStatus>("wd_status"),
+  /** A Wikidata pass; `force` asks about every platform again ("Update now"). */
+  fetchWikidata: (force: boolean) => invoke<boolean>("fetch_wikidata", { force }),
+  setWdEnabled: (enabled: boolean) => invoke<void>("set_wd_enabled", { enabled }),
   setSgdbKey: (key: string) => invoke<void>("set_sgdb_key", { key }),
   removeSgdbKey: () => invoke<void>("remove_sgdb_key"),
   fetchExtras: () => invoke<boolean>("fetch_extras"),
@@ -546,6 +578,9 @@ export const events = {
   onLbProgress: (cb: (p: LbProgress) => void): Promise<UnlistenFn> => listen<LbProgress>("lb-progress", (e) => cb(e.payload)),
   onLbFinished: (cb: (s: LbSummary) => void): Promise<UnlistenFn> => listen<LbSummary>("lb-finished", (e) => cb(e.payload)),
   onLbFailed: (cb: (msg: string) => void): Promise<UnlistenFn> => listen<string>("lb-failed", (e) => cb(e.payload)),
+  onWdProgress: (cb: (p: WdProgress) => void): Promise<UnlistenFn> => listen<WdProgress>("wd-progress", (e) => cb(e.payload)),
+  onWdFinished: (cb: (s: WdSummary) => void): Promise<UnlistenFn> => listen<WdSummary>("wd-finished", (e) => cb(e.payload)),
+  onWdFailed: (cb: (msg: string) => void): Promise<UnlistenFn> => listen<string>("wd-failed", (e) => cb(e.payload)),
   onSgdbProgress: (cb: (p: SgdbProgress) => void): Promise<UnlistenFn> =>
     listen<SgdbProgress>("sgdb-progress", (e) => cb(e.payload)),
   onSgdbFinished: (cb: (s: SgdbSummary) => void): Promise<UnlistenFn> =>

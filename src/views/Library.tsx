@@ -25,6 +25,7 @@ function JobPill() {
       }[lb.phase];
     }
     const jobs: [string, { done: number; total: number } | null][] = [
+      ["Series (Wikidata)", library.wdProgress()],
       ["Covers", library.artProgress()],
       ["Game info", library.metaProgress()],
       ["Artwork", library.sgdbProgress()],

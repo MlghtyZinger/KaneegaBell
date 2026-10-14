@@ -152,8 +152,9 @@ export function installMockIpc() {
                 lbStatus: "ok",
                 players: 2,
                 slug: g.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                series: g.id % 3 === 0 ? ["Mock Saga", "Mock Universe"] : [],
               }
-            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null, lbId: null, lbStatus: "notfound", players: null },
+            : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null, lbId: null, lbStatus: "notfound", players: null, series: [] },
         };
       }
       case "get_services": {
@@ -231,6 +232,8 @@ export function installMockIpc() {
         return { displayMissing: false };
       case "lb_status":
         return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17 };
+      case "wd_status":
+        return { enabled: true, checkedAt: 1_791_964_000, total: 5000, matched: 3890, withSeries: 2410, notFound: 1088, ambiguous: 22 };
       case "lb_search":
         return [
           { dbId: 1, name: "Okami", alsoKnownAs: "Ookami", score: 1 },

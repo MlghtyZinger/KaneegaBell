@@ -100,8 +100,9 @@ impl Candidates {
     }
 
     /// The single best entry among `cands` (best rank per game), or Ambiguous
-    /// when two different games share the best rank.
-    fn decide(&self, cands: impl Iterator<Item = usize>, region: Option<&str>) -> Outcome {
+    /// when two different games share the best rank and `prefer` doesn't pick
+    /// exactly one of them.
+    fn decide(&self, cands: impl Iterator<Item = usize>, region: Option<&str>, prefer: &dyn Fn(i64) -> bool) -> Outcome {
         let mut best_by_game: HashMap<i64, u8> = HashMap::new();
         for i in cands {
             let r = self.rank(i, region);
@@ -109,15 +110,24 @@ impl Candidates {
             *e = (*e).min(r);
         }
         let Some(&top) = best_by_game.values().min() else { return Outcome::NotFound };
-        let mut winners = best_by_game.iter().filter(|(_, r)| **r == top).map(|(id, _)| *id);
-        match (winners.next(), winners.next()) {
-            (Some(id), None) => Outcome::Match(id),
-            (Some(_), Some(_)) => Outcome::Ambiguous,
-            _ => Outcome::NotFound,
+        let winners: Vec<i64> = best_by_game.iter().filter(|(_, r)| **r == top).map(|(id, _)| *id).collect();
+        match winners.as_slice() {
+            [] => Outcome::NotFound,
+            [id] => Outcome::Match(*id),
+            _ => match winners.iter().filter(|id| prefer(**id)).collect::<Vec<_>>().as_slice() {
+                [id] => Outcome::Match(**id),
+                _ => Outcome::Ambiguous,
+            },
         }
     }
 
     pub fn best(&self, search_key: &str, region: Option<&str>) -> Outcome {
+        self.best_with(search_key, region, &|_| false)
+    }
+
+    /// Like `best`, with a tie-breaker: among equally good games, the only one
+    /// `prefer` accepts wins (e.g. the one released in the right year).
+    pub fn best_with(&self, search_key: &str, region: Option<&str>, prefer: &dyn Fn(i64) -> bool) -> Outcome {
         let exact: Vec<usize> = self
             .by_title
             .get(&title_key(search_key))
@@ -127,7 +137,7 @@ impl Candidates {
             .copied()
             .collect();
         if !exact.is_empty() {
-            return self.decide(exact.into_iter(), region);
+            return self.decide(exact.into_iter(), region, prefer);
         }
         let qw = words(search_key);
         if qw.is_empty() {
@@ -149,7 +159,7 @@ impl Candidates {
                 tied.push(i);
             }
         }
-        self.decide(tied.into_iter(), region)
+        self.decide(tied.into_iter(), region, prefer)
     }
 
     /// Fix match: entries for a typed title (or the game's own), best first,
@@ -246,6 +256,9 @@ mod tests {
     #[test]
     fn two_different_games_with_the_same_name_are_left_for_fix_match() {
         assert_eq!(ps2().best(&key("Tetris Worlds"), None), Outcome::Ambiguous);
+        // ...unless a tie-breaker picks exactly one of them.
+        assert_eq!(ps2().best_with(&key("Tetris Worlds"), None, &|id| id == 8), Outcome::Match(8));
+        assert_eq!(ps2().best_with(&key("Tetris Worlds"), None, &|_| true), Outcome::Ambiguous);
     }
 
     #[test]

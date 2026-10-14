@@ -30,6 +30,9 @@ pub struct AppState {
     lb_pending: Arc<AtomicBool>,
     /// The queued LaunchBox pass downloads even if nothing seems to need it.
     lb_force: Arc<AtomicBool>,
+    wd_pending: Arc<AtomicBool>,
+    /// The queued Wikidata pass asks about every platform ("Update now").
+    wd_force: Arc<AtomicBool>,
     scan_cancel: Arc<AtomicBool>,
     pub input: Arc<InputShared>,
     pub launcher: Arc<Launcher>,
@@ -48,6 +51,8 @@ impl AppState {
             sgdb_pending: Arc::default(),
             lb_pending: Arc::default(),
             lb_force: Arc::default(),
+            wd_pending: Arc::default(),
+            wd_force: Arc::default(),
             scan_cancel: Arc::default(),
             input,
             launcher: Arc::default(),
@@ -347,6 +352,7 @@ pub fn cancel_scan(state: State<'_, AppState>) {
     state.ra_pending.store(false, Ordering::Release);
     state.sgdb_pending.store(false, Ordering::Release);
     state.lb_pending.store(false, Ordering::Release);
+    state.wd_pending.store(false, Ordering::Release);
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -468,16 +474,18 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<(bool, bool, bool, bool, bool)> {
+        let pending = (|| -> Result<(bool, bool, bool, bool, bool, bool)> {
             let conn = state.db();
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
             let lb = crate::launchbox::wanted(&conn)? || crate::launchbox::check_due(&conn)?;
-            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb))
+            let wd = crate::wikidata::wanted(&conn)?;
+            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb, wd))
         })();
-        let (art, meta, ra, sgdb, lb) = pending.unwrap_or_default();
-        if art || meta || ra || sgdb || lb {
+        let (art, meta, ra, sgdb, lb, wd) = pending.unwrap_or_default();
+        if art || meta || ra || sgdb || lb || wd {
             state.lb_pending.fetch_or(lb, Ordering::AcqRel);
+            state.wd_pending.fetch_or(wd, Ordering::AcqRel);
             state.art_pending.fetch_or(art, Ordering::AcqRel);
             state.meta_pending.fetch_or(meta, Ordering::AcqRel);
             state.ra_pending.fetch_or(ra, Ordering::AcqRel);
@@ -508,6 +516,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let sgdb_pending = state.sgdb_pending.clone();
     let lb_pending = state.lb_pending.clone();
     let lb_force = state.lb_force.clone();
+    let wd_pending = state.wd_pending.clone();
+    let wd_force = state.wd_force.clone();
     let cancel = state.scan_cancel.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
@@ -516,11 +526,13 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
             // Order: scan, LaunchBox (it decides covers, so before them),
-            // covers, details, SteamGridDB extras (after covers, so it knows
-            // which games still lack one), achievements.
+            // Wikidata (LaunchBox's titles help it match), covers, details,
+            // SteamGridDB extras (after covers, so it knows which games still
+            // lack one), achievements.
             if scan_pending.swap(false, Ordering::AcqRel) {
                 let next = run_scan(&app, &db_path, &cancel);
                 lb_pending.fetch_or(next.lb, Ordering::AcqRel);
+                wd_pending.fetch_or(next.wd, Ordering::AcqRel);
                 art_pending.fetch_or(next.art, Ordering::AcqRel);
                 meta_pending.fetch_or(next.meta, Ordering::AcqRel);
                 ra_pending.fetch_or(next.ra, Ordering::AcqRel);
@@ -528,6 +540,11 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
             } else if lb_pending.swap(false, Ordering::AcqRel) {
                 let force = lb_force.swap(false, Ordering::AcqRel);
                 art_pending.fetch_or(run_lb(&app, &db_path, &data_dir, force, &cancel), Ordering::AcqRel);
+                // New LaunchBox matches give Wikidata better titles.
+                let wd = db::open(&db_path).and_then(|c| crate::wikidata::wanted(&c)).unwrap_or(false);
+                wd_pending.fetch_or(wd, Ordering::AcqRel);
+            } else if wd_pending.swap(false, Ordering::AcqRel) {
+                run_wd(&app, &db_path, wd_force.swap(false, Ordering::AcqRel), &cancel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
@@ -545,7 +562,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                     || meta_pending.load(Ordering::Acquire)
                     || ra_pending.load(Ordering::Acquire)
                     || sgdb_pending.load(Ordering::Acquire)
-                    || lb_pending.load(Ordering::Acquire);
+                    || lb_pending.load(Ordering::Acquire)
+                    || wd_pending.load(Ordering::Acquire);
                 if !more || busy.swap(true, Ordering::AcqRel) {
                     break;
                 }
@@ -575,6 +593,7 @@ fn throttled(min_ms: u128) -> impl Fn(bool) -> bool {
 #[derive(Default)]
 struct FollowUp {
     lb: bool,
+    wd: bool,
     art: bool,
     meta: bool,
     ra: bool,
@@ -598,6 +617,7 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
         let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
         let next = FollowUp {
             lb: crate::launchbox::wanted(&conn).unwrap_or(false),
+            wd: crate::wikidata::wanted(&conn).unwrap_or(false),
             art: auto_art && needs_art,
             meta: meta_wanted(&conn).unwrap_or(false),
             ra: ra_wanted(&conn).unwrap_or(false),
@@ -961,12 +981,79 @@ pub fn lb_search(state: State<'_, AppState>, id: i64, query: Option<String>) -> 
 /// follow (downloading LaunchBox's file if they aren't stored yet).
 #[tauri::command]
 pub fn set_lb_match(app: AppHandle, state: State<'_, AppState>, id: i64, db_id: i64) -> Result<()> {
-    let needs_download = crate::launchbox::set_manual(&state.db(), id, db_id)?;
+    let needs_download = {
+        let conn = state.db();
+        let needs = crate::launchbox::set_manual(&conn, id, db_id)?;
+        // Its series too: looked up again with the new title.
+        crate::wikidata::relook(&conn, id)?;
+        needs
+    };
     state.lb_pending.store(true, Ordering::Release);
     state.lb_force.fetch_or(needs_download, Ordering::AcqRel);
     state.art_pending.store(true, Ordering::Release);
     kick_worker(app.clone(), &state);
     let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+// ---------------------------------------------------------------- Wikidata
+
+/// One Wikidata pass. Emits `wd-progress`, then `wd-finished` / `wd-failed`.
+fn run_wd(app: &AppHandle, db_path: &Path, force: bool, cancel: &AtomicBool) {
+    let due = throttled(250);
+    let result = (|| {
+        let mut conn = db::open(db_path)?;
+        if !crate::wikidata::enabled(&conn)? {
+            return Ok(None);
+        }
+        let web = crate::wikidata::Web::new();
+        crate::wikidata::run(
+            &mut conn,
+            &web,
+            force,
+            &|p| {
+                if due(p.done == p.total) {
+                    let _ = app.emit("wd-progress", &p);
+                }
+            },
+            cancel,
+        )
+        .map(Some)
+    })();
+    match result {
+        Ok(None) => {}
+        Ok(Some(summary)) => {
+            let _ = app.emit("wd-finished", &summary);
+        }
+        Err(e) => {
+            log::error!("Wikidata pass failed: {e}");
+            let _ = app.emit("wd-failed", e.to_string());
+        }
+    }
+}
+
+/// Settings → Game info: Wikidata's status.
+#[tauri::command]
+pub fn wd_status(state: State<'_, AppState>) -> Result<crate::wikidata::Status> {
+    crate::wikidata::status(&state.db())
+}
+
+/// "Update now" (`force`), or a pass for games not looked up yet.
+#[tauri::command]
+pub fn fetch_wikidata(app: AppHandle, state: State<'_, AppState>, force: bool) -> bool {
+    state.wd_force.fetch_or(force, Ordering::AcqRel);
+    state.wd_pending.store(true, Ordering::Release);
+    kick_worker(app, &state)
+}
+
+/// Turns Wikidata on or off (on: a pass starts).
+#[tauri::command]
+pub fn set_wd_enabled(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<()> {
+    queries::set_setting(&state.db(), "wdEnabled", &serde_json::json!(enabled))?;
+    if enabled {
+        state.wd_pending.store(true, Ordering::Release);
+        kick_worker(app, &state);
+    }
     Ok(())
 }
 
@@ -1031,16 +1118,17 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
         crate::maintenance::clear_downloaded(&mut state.db(), state.data_dir())?
     };
     log::info!("cleared downloaded data ({freed} bytes)");
-    let (art, meta, ra, sgdb) = {
+    let (art, meta, ra, sgdb, wd) = {
         let conn = state.db();
         let art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
-        (art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?)
+        (art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, crate::wikidata::wanted(&conn)?)
     };
+    state.wd_pending.fetch_or(wd, Ordering::AcqRel);
     state.art_pending.fetch_or(art, Ordering::AcqRel);
     state.meta_pending.fetch_or(meta, Ordering::AcqRel);
     state.ra_pending.fetch_or(ra, Ordering::AcqRel);
     state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
-    if art || meta || ra || sgdb {
+    if art || meta || ra || sgdb || wd {
         kick_worker(app, &state);
     }
     Ok(freed)
@@ -1053,7 +1141,7 @@ pub async fn reset_app(app: AppHandle, forget_keys: bool) -> Result<()> {
     let state = app.state::<AppState>();
     {
         let _slot = state.exclusive()?;
-        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending, &state.lb_pending] {
+        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending, &state.lb_pending, &state.wd_pending] {
             flag.store(false, Ordering::Release);
         }
         let backup = crate::maintenance::reset(&mut state.db(), state.data_dir())?;

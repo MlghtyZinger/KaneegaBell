@@ -211,6 +211,7 @@ fn generate_perf_library() {
     queries::set_setting(&conn, "autoArt", &serde_json::json!(false)).unwrap();
     // The generated titles aren't real games: no LaunchBox download mid-measurement.
     queries::set_setting(&conn, "lbEnabled", &serde_json::json!(false)).unwrap();
+    queries::set_setting(&conn, "wdEnabled", &serde_json::json!(false)).unwrap();
     // A stand-in "emulator" for PS2 games: PowerShell waiting 25 s, so the
     // harness can measure the app while a game runs.
     #[cfg(windows)]

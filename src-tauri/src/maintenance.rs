@@ -75,6 +75,11 @@ const CLEAR_SQL: &str = "
     DELETE FROM lb_images;
     UPDATE games SET lb_status = 'none', lb_id = NULL WHERE lb_status != 'manual';
     DELETE FROM settings WHERE key = 'launchbox';
+    DELETE FROM wd_games;
+    DELETE FROM wd_series;
+    DELETE FROM wd_game_series;
+    UPDATE games SET wd_status = 'none', wd_id = NULL;
+    DELETE FROM settings WHERE key = 'wikidata';
 ";
 
 /// Deletes `<id>.webp` files in `dir` except those of the `keep` games.
@@ -144,6 +149,9 @@ pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
          DELETE FROM lb_names;
          DELETE FROM lb_games;
          DELETE FROM lb_images;
+         DELETE FROM wd_games;
+         DELETE FROM wd_series;
+         DELETE FROM wd_game_series;
          DELETE FROM settings;
          DELETE FROM platforms;
          DELETE FROM emulators;",
