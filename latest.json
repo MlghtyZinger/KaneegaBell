@@ -1,11 +1,11 @@
 {
   "version": "0.2.4",
   "notes": "Covers, logos, backgrounds and game info from the LaunchBox Games Database, no account needed. Fix match searches LaunchBox. TV Mode: PSP covers show whole.",
-  "pub_date": "2026-10-14T14:32:31Z",
+  "pub_date": "2026-10-14T14:41:11Z",
   "platforms": {
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRTSEpibVF2MUN6bWhYWXdMdUN0Vko5S1BnMENqL1RjTmpaK0wrb243ZW90eVRkeWg1a3VnOFZhZzNVOEd3THpZVU5tekVNU2c3NE5uNVNCcXNxM1FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxOTg4MTM2CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi40ClBHc1lBRVRGd3ZtOW52KzVFdGFBVWY2Z0prUEVibW9wZysvb29nNzBTNzZ0bVRPNU9ieWcrNVZyczFUdDN2eGhubWd6UHZjbHFpK1JKVXJ0N0pOd0NnPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/releases/assets/640643351"
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.4_x64-setup.exe?ref=updates"
     }
   }
 }
