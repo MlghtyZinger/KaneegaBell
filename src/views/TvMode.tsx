@@ -14,6 +14,8 @@ const WINDOW_AFTER = 18;
 /** Wait this long after the last move before swapping the background (holding a direction stays smooth). */
 const SETTLE_MS = 160;
 const DEFAULT_ASPECT = 1.4;
+/** Text size presets (Settings → General → TV Mode). */
+export const TV_TEXT: Record<string, number> = { s: 0.85, m: 1, l: 1.2, xl: 1.4 };
 
 function initial(title: string): string {
   const c = title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase();
@@ -215,8 +217,17 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const clock = setInterval(() => setNow(new Date()), 30_000);
   onCleanup(() => clearInterval(clock));
 
+  // Settings → General → TV Mode: text size and the overscan margin (for TVs
+  // that cut off the picture's edges).
+  const [textSize] = createResource(() => api.getSetting<string>("tvTextSize").catch(() => null));
+  const [overscan] = createResource(() => api.getSetting<number>("tvOverscan").catch(() => null));
+
   return (
-    <div class="tv" onWheel={onWheel}>
+    <div
+      class="tv"
+      style={{ "--tv-text": String(TV_TEXT[textSize() ?? "m"] ?? 1), "--overscan": String(overscan() ?? 0) }}
+      onWheel={onWheel}
+    >
       <div class="tv-bg" aria-hidden="true">
         <For each={layers()}>
           {(l) => (

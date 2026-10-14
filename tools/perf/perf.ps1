@@ -1,19 +1,33 @@
 # Measures the release app against CLAUDE.md's performance targets on a
-# generated library (see README -> Performance). Opens and closes the app
-# several times; run it when the app isn't already open.
+# generated library (see README -> Performance), and gates regressions.
+# Opens and closes the app several times; run it when KB isn't open.
 #
 #   powershell -File tools\perf\perf.ps1 -Data <PERF_ROOT>\data [-Exe <path>] [-Runs 5]
+#       [-SaveBaseline]             save this run as the baseline (tools\perf\baseline.json)
+#       [-Baseline <file>]          compare with another baseline file
+#
+# Every run is compared with the baseline (when there is one): the script
+# fails (exit 1) if any number got more than 10% worse, beyond a small
+# absolute tolerance per metric for measurement noise. Results of the last
+# run are in <Data>\perf-last.json.
 param(
     [Parameter(Mandatory = $true)][string]$Data,
     [string]$Exe = "src-tauri\target\release\KaneegaBell.exe",
     [int]$Runs = 5,
-    [int]$IdleSeconds = 30
+    [int]$IdleSeconds = 30,
+    [string]$Baseline = (Join-Path $PSScriptRoot "baseline.json"),
+    [switch]$SaveBaseline
 )
 $ErrorActionPreference = "Stop"
+# A PATH entry with a stray quote breaks node lookups; drop such entries and
+# make sure Node is reachable (this process only).
+$env:Path = (($env:Path -split ';') | Where-Object { $_ -and $_ -notmatch '"' }) -join ';'
+if (-not (Get-Command node -ErrorAction SilentlyContinue) -and (Test-Path "C:\Program Files\nodejs\node.exe")) { $env:Path += ";C:\Program Files\nodejs" }
 $Exe = (Resolve-Path $Exe).Path
 $Data = (Resolve-Path $Data).Path
 if (Get-Process KaneegaBell, emu-frontend -ErrorAction SilentlyContinue) { throw "Close the app first (KaneegaBell is running)." }
 $log = Join-Path $Data "perf.log"
+$results = [ordered]@{}
 
 # The app plus every process it started (WebView2's browser, renderer, GPU...).
 function Get-Tree([int]$RootId) {
@@ -47,6 +61,25 @@ function Stop-App($p) {
     Start-Sleep -Milliseconds 800 # let WebView2 shut down before the next start
 }
 
+# Memory and CPU of the app + WebView2 only (not a running emulator).
+function Measure-App($p, [string]$Label, [int]$Seconds = 0) {
+    $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
+    $cpu0 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
+    $t0 = Get-Date
+    $cpu = $null
+    if ($Seconds) {
+        Start-Sleep -Seconds $Seconds
+        $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
+        $cpu1 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
+        $cpu = ($cpu1 - $cpu0) / ((Get-Date) - $t0).TotalMilliseconds * 100
+    }
+    $ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
+    $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
+    $cpuText = if ($null -ne $cpu) { ", CPU {0:N2}% of one core" -f $cpu } else { "" }
+    Write-Host ("{0}: {1:N0} MB private, {2:N0} MB working set{3}" -f $Label, $priv, $ws, $cpuText)
+    return @{ PrivateMB = $priv; Cpu = $cpu }
+}
+
 $games = (& node (Join-Path $PSScriptRoot "db.mjs") (Join-Path $Data "library.db") count)
 Write-Host "Library: $games games ($Data)"
 
@@ -59,7 +92,9 @@ for ($i = 1; $i -le $Runs; $i++) {
     if ($i -lt $Runs) { Stop-App $r.Process } else { $last = $r.Process }
 }
 $sorted = $times | Sort-Object
-Write-Host ("Cold start to interactive: median {0} ms, best {1} ms, worst {2} ms (target < 1500 ms)" -f $sorted[[int][math]::Floor($sorted.Count / 2)], $sorted[0], $sorted[-1])
+$median = $sorted[[int][math]::Floor($sorted.Count / 2)]
+Write-Host ("Cold start to interactive: median {0} ms, best {1} ms, worst {2} ms (target < 1500 ms)" -f $median, $sorted[0], $sorted[-1])
+$results.startMedianMs = $median
 
 # 2. Idle CPU and memory, with the library on screen and nothing happening.
 Start-Sleep -Seconds 10
@@ -73,35 +108,25 @@ $wall = ((Get-Date) - $t0).TotalMilliseconds
 $cores = [Environment]::ProcessorCount
 $pct = ($cpuEnd - $cpuStart) / $wall * 100
 Write-Host ("Idle CPU over {0} s: {1:N2}% of one core ({2:N3}% of all {3} cores), {4} processes" -f $IdleSeconds, $pct, ($pct / $cores), $cores, $tree.Count)
-$ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
 $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
+$ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
 $own = Get-Process -Id $last.Id
 Write-Host ("Memory: app process {0:N0} MB private; with WebView2 {1:N0} MB private, {2:N0} MB working set" -f ($own.PrivateMemorySize64 / 1MB), $priv, $ws)
+$results.idleCpuPct = [math]::Round($pct, 2)
+$results.startMemMB = [math]::Round($priv)
 Stop-App $last
 
 # 3. Scrolling smoothness (DevTools protocol enabled for this run only).
 $r = Start-App @{ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9333" }
 Start-Sleep -Seconds 2
-& node (Join-Path $PSScriptRoot "fps.mjs") 9333
-
-# Memory and CPU of the app + WebView2 only (not a running emulator).
-function Measure-App($p, [string]$Label, [int]$Seconds = 0) {
-    $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
-    $cpu0 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
-    $t0 = Get-Date
-    if ($Seconds) {
-        Start-Sleep -Seconds $Seconds
-        $tree = @(Get-Tree $p.Id | Where-Object { $_.ProcessName -match '^(KaneegaBell|msedgewebview2)$' })
-    }
-    $cpu = if ($Seconds) {
-        $cpu1 = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
-        ", CPU {0:N2}% of one core" -f (($cpu1 - $cpu0) / ((Get-Date) - $t0).TotalMilliseconds * 100)
-    } else { "" }
-    $ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
-    $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
-    Write-Host ("{0}: {1:N0} MB private, {2:N0} MB working set{3}" -f $Label, $priv, $ws, $cpu)
+$fps = & node (Join-Path $PSScriptRoot "fps.mjs") 9333
+$fps | Where-Object { $_ -notmatch '^RESULT ' } | ForEach-Object { Write-Host $_ }
+$scroll = ($fps | Where-Object { $_ -match '^RESULT ' } | Select-Object -First 1) -replace '^RESULT ', '' | ConvertFrom-Json
+foreach ($pass in "first", "second") {
+    $results["scroll${pass}P99Ms"] = $scroll.$pass.p99ms
+    $results["scroll${pass}MaxMs"] = $scroll.$pass.maxMs
 }
-Measure-App $r.Process "Memory after scrolling the library (app + WebView2)"
+$results.scrollMemMB = [math]::Round((Measure-App $r.Process "Memory after scrolling the library (app + WebView2)").PrivateMB)
 
 # 4. While a game runs. The generated library's PS2 "emulator" is PowerShell
 # waiting 25 s; launching goes through the real path (minimize, low memory).
@@ -109,10 +134,45 @@ $gameId = (& node (Join-Path $PSScriptRoot "db.mjs") (Join-Path $Data "library.d
 if ($gameId) {
     & node (Join-Path $PSScriptRoot "cdp.mjs") 9333 eval "window.__TAURI_INTERNALS__.invoke('launch_game', {id: $gameId}).then(() => 'launched', (e) => String(e))" | Out-Null
     Start-Sleep -Seconds 5
-    Measure-App $r.Process "While a game runs (10 s)" 10
+    $g = Measure-App $r.Process "While a game runs (10 s)" 10
+    $results.gameCpuPct = [math]::Round($g.Cpu, 2)
+    $results.gameMemMB = [math]::Round($g.PrivateMB)
     Start-Sleep -Seconds 14
-    Measure-App $r.Process "After the game exits"
+    $results.afterGameMemMB = [math]::Round((Measure-App $r.Process "After the game exits").PrivateMB)
 } else {
     Write-Host "(no stand-in emulator in this library: skipped the game-running check)"
 }
 Stop-App $r.Process
+
+# ------------------------------------------------------------------ gate
+$results | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $Data "perf-last.json")
+if ($SaveBaseline) {
+    $results | ConvertTo-Json | Set-Content -Encoding utf8 $Baseline
+    Write-Host "`nSaved as the baseline: $Baseline" -ForegroundColor Green
+    exit 0
+}
+if (-not (Test-Path $Baseline)) {
+    Write-Host "`nNo baseline yet; save one with -SaveBaseline." -ForegroundColor Yellow
+    exit 0
+}
+# Lower is better for every metric. A regression is > 10% worse AND worse
+# by more than the metric's noise floor (CPU readings of a fraction of a
+# percent jump around with timer resolution; frame times with the compositor).
+$floor = @{ startMedianMs = 60; idleCpuPct = 0.5; startMemMB = 20; scrollfirstP99Ms = 2; scrollfirstMaxMs = 8; scrollsecondP99Ms = 2; scrollsecondMaxMs = 8; scrollMemMB = 20; gameCpuPct = 0.5; gameMemMB = 20; afterGameMemMB = 20 }
+$base = Get-Content $Baseline -Raw | ConvertFrom-Json
+$failed = @()
+Write-Host "`nCompared with the baseline ($Baseline):"
+foreach ($k in $results.Keys) {
+    $old = $base.$k
+    if ($null -eq $old) { continue }
+    $new = $results[$k]
+    $worse = $new -gt $old * 1.10 -and ($new - $old) -gt $floor[$k]
+    $change = if ($old -ne 0) { "{0:+0;-0}%" -f (($new - $old) / $old * 100) } else { "" }
+    $line = "  {0,-18} {1,8} -> {2,8} {3}" -f $k, $old, $new, $change
+    if ($worse) { Write-Host "$line  REGRESSION" -ForegroundColor Red; $failed += $k } else { Write-Host $line }
+}
+if ($failed.Count) {
+    Write-Host "`nPerf gate FAILED: $($failed -join ', ') got more than 10% worse." -ForegroundColor Red
+    exit 1
+}
+Write-Host "`nPerf gate passed." -ForegroundColor Green

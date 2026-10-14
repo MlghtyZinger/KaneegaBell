@@ -93,6 +93,19 @@ export interface AppInfo {
   devBuild: boolean;
 }
 
+export interface DisplayRow {
+  /** Stable id (survives reboots and re-plugging). */
+  id: string;
+  /** The monitor's own name, e.g. "LG ULTRAGEAR+" or "SONY TV". */
+  name: string;
+  width: number;
+  height: number;
+  scale: number;
+  primary: boolean;
+  /** KB's window is on it now. */
+  current: boolean;
+}
+
 export interface Storage {
   /** Covers, backgrounds, logos, badges and cached web responses. */
   downloadedBytes: number;
@@ -430,6 +443,13 @@ export const api = {
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
   appInfo: () => invoke<AppInfo>("app_info"),
+  listDisplays: () => invoke<DisplayRow[]>("list_displays"),
+  /** TV Mode's window: fullscreen, on the chosen TV display when it's connected. */
+  tvEnter: () => invoke<{ displayMissing: boolean }>("tv_enter"),
+  /** Back to the window's place from before TV Mode. */
+  tvLeave: () => invoke<void>("tv_leave"),
+  /** Re-fit the page zoom (after the Interface size setting changes). */
+  refreshZoom: () => invoke<void>("refresh_zoom"),
   getStorage: () => invoke<Storage>("get_storage"),
   /** Deletes downloaded art/info/achievement data and fetches it again; returns bytes freed. */
   clearDownloaded: () => invoke<number>("clear_downloaded"),

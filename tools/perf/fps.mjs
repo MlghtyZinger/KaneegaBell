@@ -68,8 +68,10 @@ const info = await evaluate(`({
   gridHeightPx: document.querySelector('.vgrid-sizer')?.offsetHeight,
 })`);
 console.log("grid:", JSON.stringify(info));
-for (const [label, speed] of [["pass 1 (thumbnails decoded for the first time)", 2500], ["pass 2 (same rows again)", 2500], ["fast flick (6000 px/s)", 6000]]) {
-  console.log(`${label}:`, JSON.stringify(await evaluate(scrollPass(speed, 15000))));
+const passes = {};
+for (const [key, label, speed] of [["first", "pass 1 (thumbnails decoded for the first time)", 2500], ["second", "pass 2 (same rows again)", 2500], ["flick", "fast flick (6000 px/s)", 6000]]) {
+  passes[key] = await evaluate(scrollPass(speed, 15000));
+  console.log(`${label}:`, JSON.stringify(passes[key]));
 }
 await send("Performance.enable");
 const m = Object.fromEntries((await send("Performance.getMetrics")).result.metrics.map((x) => [x.name, x.value]));
@@ -81,4 +83,6 @@ console.log(
     cellsInDomAfter: await evaluate("document.querySelectorAll('.vgrid-cell').length"),
   }),
 );
+// One machine-readable line for perf.ps1's regression gate.
+console.log("RESULT " + JSON.stringify(passes));
 ws.close();

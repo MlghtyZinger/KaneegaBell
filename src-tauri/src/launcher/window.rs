@@ -45,6 +45,51 @@ pub fn set_webview_low_memory(window: &tauri::WebviewWindow, low: bool) {
     });
 }
 
+/// While a game runs, the minimized page is hidden from WebView2 and
+/// suspended: its renderer stops running script and timers, and WebView2
+/// trims more memory than the low memory target alone. Resumed and shown
+/// again when the game exits. Best effort: WebView2 declines to suspend in
+/// some cases (for example while audio plays), and any script KB sends the
+/// page (an event) wakes it up early. `KB_NO_SUSPEND=1` turns this off, to
+/// compare with and without it.
+pub fn set_webview_suspended(window: &tauri::WebviewWindow, suspended: bool) {
+    if suspended && std::env::var_os("KB_NO_SUSPEND").is_some_and(|v| v == "1") {
+        return;
+    }
+    let _ = window.with_webview(move |wv| {
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
+        use webview2_com::TrySuspendCompletedHandler;
+        use windows::core::Interface;
+        let controller = wv.controller();
+        // SAFETY: COM calls on the webview's own (main) thread, where with_webview runs this.
+        unsafe {
+            let Ok(core) = controller.CoreWebView2() else { return };
+            let Ok(core) = core.cast::<ICoreWebView2_3>() else {
+                log::info!("WebView2 runtime too old to suspend");
+                return;
+            };
+            if suspended {
+                let _ = controller.SetIsVisible(false);
+                let done = TrySuspendCompletedHandler::create(Box::new(|result, ok| {
+                    match result {
+                        Ok(()) => log::info!("page suspended while the game runs: {ok}"),
+                        Err(e) => log::info!("page not suspended: {e}"),
+                    }
+                    Ok(())
+                }));
+                if let Err(e) = core.TrySuspend(&done) {
+                    log::info!("page not suspended: {e}");
+                }
+            } else {
+                if let Err(e) = core.Resume() {
+                    log::warn!("couldn't resume the page: {e}");
+                }
+                let _ = controller.SetIsVisible(true);
+            }
+        }
+    });
+}
+
 pub fn bring_to_front(hwnd: HWND) {
     unsafe {
         let _ = ShowWindow(hwnd, SW_RESTORE);

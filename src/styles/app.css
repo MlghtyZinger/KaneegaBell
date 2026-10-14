@@ -38,6 +38,9 @@
   flex: 1;
   min-width: 0;
   scroll-behavior: smooth;
+  /* Room inside the scroll box for the focus ring, which it would clip. */
+  padding: 6px;
+  margin: -6px;
 }
 
 /* More tabs past an edge: fade it out so the row clearly continues. */
@@ -285,6 +288,11 @@
 .hints {
   flex: none;
   display: flex;
+  /* Narrow windows: the hints wrap onto a second row instead of pushing
+     the zoom slider and the count off screen. */
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 6px;
   gap: calc(var(--gap) * 2);
   padding: 10px calc(var(--gap) * 2);
   font-size: var(--fs-sm);
@@ -1367,6 +1375,11 @@ kbd.ps-favorite { color: #4fe0c0; }
   display: grid;
   grid-template-rows: auto 1fr auto auto;
   user-select: none;
+  /* Set inline from Settings → General → TV Mode. */
+  --tv-text: 1;
+  --overscan: 0;
+  --tv-pad-x: calc(5vw + var(--overscan) * 1vw);
+  --tv-pad-y: calc(var(--overscan) * 1vh);
 }
 
 .tv-bg,
@@ -1419,7 +1432,7 @@ kbd.ps-favorite { color: #4fe0c0; }
   display: flex;
   align-items: center;
   gap: 2vw;
-  padding: 3vh 5vw 0;
+  padding: calc(3vh + var(--tv-pad-y)) var(--tv-pad-x) 0;
 }
 
 .tv-tabs {
@@ -1435,7 +1448,7 @@ kbd.ps-favorite { color: #4fe0c0; }
   border: none;
   color: rgb(255 255 255 / 0.55);
   font: inherit;
-  font-size: clamp(18px, 2.3vh, 34px);
+  font-size: calc(var(--tv-text) * clamp(18px, 2.3vh, 34px));
   font-weight: 600;
   padding: 0.3em 0;
   white-space: nowrap;
@@ -1466,7 +1479,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 }
 
 .tv-clock {
-  font-size: clamp(18px, 2.3vh, 34px);
+  font-size: calc(var(--tv-text) * clamp(18px, 2.3vh, 34px));
   color: rgb(255 255 255 / 0.8);
   font-variant-numeric: tabular-nums;
 }
@@ -1474,7 +1487,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 .tv-info {
   position: relative;
   align-self: end;
-  padding: 0 5vw 3vh;
+  padding: 0 var(--tv-pad-x) 3vh;
   max-width: min(60vw, 1200px);
 }
 
@@ -1503,7 +1516,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 }
 
 .tv-title {
-  font-size: clamp(36px, 6vh, 96px);
+  font-size: calc(var(--tv-text) * clamp(36px, 6vh, 96px));
   line-height: 1.05;
   margin: 0 0 1.2vh;
   text-shadow: 0 4px 24px rgb(0 0 0 / 0.7);
@@ -1512,13 +1525,13 @@ kbd.ps-favorite { color: #4fe0c0; }
 .tv-variant {
   margin: 0 0 0.6vh;
   color: rgb(255 255 255 / 0.7);
-  font-size: clamp(16px, 2vh, 28px);
+  font-size: calc(var(--tv-text) * clamp(16px, 2vh, 28px));
 }
 
 .tv-meta,
 .tv-play {
   margin: 0.4vh 0;
-  font-size: clamp(16px, 2.1vh, 30px);
+  font-size: calc(var(--tv-text) * clamp(16px, 2.1vh, 30px));
   color: rgb(255 255 255 / 0.85);
   white-space: pre-wrap;
 }
@@ -1534,7 +1547,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 
 .tv-desc {
   margin: 1.4vh 0 0;
-  font-size: clamp(15px, 1.9vh, 26px);
+  font-size: calc(var(--tv-text) * clamp(15px, 1.9vh, 26px));
   line-height: 1.45;
   color: rgb(255 255 255 / 0.75);
   display: -webkit-box;
@@ -1546,13 +1559,13 @@ kbd.ps-favorite { color: #4fe0c0; }
 .tv-empty {
   position: relative;
   align-self: center;
-  padding: 0 5vw;
+  padding: 0 var(--tv-pad-x);
 }
 
 .tv-shelf {
   position: relative;
   height: 36vh;
-  padding: 0 5vw;
+  padding: 0 var(--tv-pad-x);
   display: flex;
   align-items: flex-end;
 }
@@ -1617,7 +1630,7 @@ kbd.ps-favorite { color: #4fe0c0; }
   height: 100%;
   padding: 12px;
   font-weight: 600;
-  font-size: clamp(14px, 1.8vh, 24px);
+  font-size: calc(var(--tv-text) * clamp(14px, 1.8vh, 24px));
 }
 
 .tv-hints {
@@ -1625,8 +1638,8 @@ kbd.ps-favorite { color: #4fe0c0; }
   display: flex;
   align-items: center;
   gap: 2vw;
-  padding: 2.4vh 5vw 3vh;
-  font-size: clamp(14px, 1.8vh, 24px);
+  padding: 2.4vh var(--tv-pad-x) calc(3vh + var(--tv-pad-y));
+  font-size: calc(var(--tv-text) * clamp(14px, 1.8vh, 24px));
   color: rgb(255 255 255 / 0.75);
 }
 
@@ -1658,7 +1671,7 @@ kbd.ps-favorite { color: #4fe0c0; }
   border-radius: 12px;
   color: #fff;
   font: inherit;
-  font-size: clamp(20px, 2.8vh, 38px);
+  font-size: calc(var(--tv-text) * clamp(20px, 2.8vh, 38px));
   text-align: left;
   padding: 1.2vh 1.4vw;
   cursor: pointer;

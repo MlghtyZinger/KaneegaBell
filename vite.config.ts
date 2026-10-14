@@ -8,7 +8,8 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    watch: { ignored: ["**/src-tauri/**"] },
+    // perf-lib: generated libraries and screenshots (tools/perf), not app code.
+    watch: { ignored: ["**/src-tauri/**", "**/perf-lib/**"] },
   },
   build: {
     // WebView2 is Chromium; no legacy transpilation needed.

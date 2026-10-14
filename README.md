@@ -251,6 +251,30 @@ Settings, Desktop mode). It shares the desktop library's tabs, search, filters a
 Measured on the 5,000-game test library: holding right steps through the shelf with every frame
 under 14 ms; idle (background drifting) 0.2% of one core.
 
+Settings → General → TV Mode:
+- **Display**: open TV Mode on a chosen display (listed by the monitor's own name, e.g. "SONY TV").
+  KB moves there and goes fullscreen; leaving TV Mode puts the window back. If that display is
+  off or unplugged, TV Mode opens where KB is and says so.
+- **Text size**: Small / Medium / Large / Extra large.
+- **Overscan margin**: Off / 2.5 / 5 / 7.5%, for TVs that cut off the picture's edges.
+
+## Screens, scaling and monitors
+
+- Works from a 960×540 window up to 4K, ultrawide (21:9) and super-ultrawide (32:9), at Windows
+  scaling from 100% to 300%.
+- **Interface size** (Settings → General → Display): "Fit the screen" (default) zooms the page on
+  screens bigger than 1080p-equivalent, so a 4K TV at 100% scaling looks like 1080p instead of
+  tiny text in a sea of covers. Screens up to 1080p, or with Windows scaling turned up (a 1440p
+  monitor at 150%), are untouched. "Follow Windows scaling only" turns the zoom off.
+- KB remembers its window's position, size and maximized state, per display. If that display
+  is gone next time, Windows' default placement is used instead of opening off screen.
+- Resolution, scaling and display changes while KB runs are picked up without a restart.
+- `tools/perf/screens.mjs` screenshots every main screen at 8 display sizes × 4 scaling levels
+  and checks for sideways scrolling, content past the window edge and cut-off text. Run it
+  against the mock UI in a browser started with `--remote-debugging-port=<port>`, or KB started
+  with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<port>`:
+  `node tools/perf/screens.mjs <port> perf-lib/screens` (writes an `index.html` gallery).
+
 ## RetroAchievements
 
 Optional: each game's details show its achievements, your unlocks (softcore and hardcore),
@@ -367,6 +391,11 @@ powershell -File tools/perf/perf.ps1 -Data <PERF_ROOT>/data
 It starts the release app on that folder (`KB_DATA_DIR`, which also keeps it away
 from your saved API keys) several times and reports start times, idle CPU, memory, frame times
 (over the DevTools protocol) and the game-running state (a stand-in "emulator" that waits 25 s).
+
+**Regression gate:** every run is compared with `tools/perf/baseline.json` and fails (exit 1)
+if a number got more than 10% worse, beyond a small per-metric noise floor (e.g. 0.5% of a core
+for CPU, 2 ms for p99 frame times). Save a new baseline with `-SaveBaseline` after a milestone
+passes. The baseline is from the maintainer's PC (above); on other hardware, save your own first.
 
 ## Status
 

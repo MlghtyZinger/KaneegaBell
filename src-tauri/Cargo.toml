@@ -30,6 +30,7 @@ webp = { version = "0.3.1", default-features = false }
 # The WebView2 interfaces Tauri's own webview uses (same version as wry's).
 webview2-com = "0.39"
 windows = { version = "0.62", features = [
+    "Win32_Devices_Display",
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Credentials",

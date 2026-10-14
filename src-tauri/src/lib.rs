@@ -2,6 +2,7 @@ mod achievements;
 mod art;
 mod commands;
 mod db;
+mod display;
 mod error;
 mod fsbrowse;
 mod input;
@@ -80,6 +81,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updates::Pending::default())
+        .manage(display::TvState::default())
         // Cached artwork, read from disk off the UI thread.
         .register_asynchronous_uri_scheme_protocol("thumb", |_ctx, request, responder| {
             // Set in setup, which runs before the page loads.
@@ -93,20 +95,30 @@ pub fn run() {
             secrets::init(&dir);
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
-            // Fullscreen (or TV Mode) at start: go fullscreen before the page
-            // loads, so there's no resize flash.
-            let fullscreen = db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true)
-                || db::queries::get_setting::<bool>(&conn, "startInTv")? == Some(true);
-            if fullscreen {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.set_fullscreen(true);
-                }
+            let window = app.get_webview_window("main");
+            // Back where the window was last time, before the first paint.
+            if let Some(w) = &window {
+                display::restore(w, &conn);
             }
+            let start_fullscreen = db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true);
+            let start_in_tv = db::queries::get_setting::<bool>(&conn, "startInTv")? == Some(true);
 
             let input = Arc::new(input::InputShared::default());
             input.set_combo(db::queries::get_setting(&conn, "exitCombo")?.unwrap_or_default());
             input.app_focused.store(true, Ordering::Release);
             app.manage(commands::AppState::new(conn, db_path, input.clone()));
+            // Fullscreen (or TV Mode, on its display) before the page loads,
+            // so there's no resize flash.
+            if let Some(w) = &window {
+                if start_in_tv {
+                    if let Err(e) = display::tv_enter(app.handle(), w) {
+                        log::warn!("couldn't open TV Mode's window: {e}");
+                    }
+                } else if start_fullscreen {
+                    let _ = w.set_fullscreen(true);
+                }
+            }
+            display::apply_zoom(app.handle());
             commands::resume_art_on_startup(app.handle().clone());
             updates::check_on_startup(app.handle().clone());
 
@@ -118,12 +130,19 @@ pub fn run() {
             );
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::Focused(focused) = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::Focused(focused) => {
                 if let Some(state) = window.try_state::<commands::AppState>() {
                     state.input.app_focused.store(*focused, Ordering::Release);
                 }
             }
+            WindowEvent::Moved(_) => display::schedule_save(window.app_handle()),
+            WindowEvent::Resized(_) => {
+                display::schedule_save(window.app_handle());
+                display::apply_zoom(window.app_handle());
+            }
+            WindowEvent::ScaleFactorChanged { .. } => display::apply_zoom(window.app_handle()),
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_library,
@@ -173,6 +192,10 @@ pub fn run() {
             commands::get_storage,
             commands::clear_downloaded,
             commands::reset_app,
+            commands::list_displays,
+            commands::tv_enter,
+            commands::tv_leave,
+            commands::refresh_zoom,
             updates::check_for_update,
             updates::install_update,
         ])

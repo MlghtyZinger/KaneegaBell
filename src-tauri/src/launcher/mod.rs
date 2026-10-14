@@ -168,7 +168,18 @@ impl Launcher {
             // repainting when it's shown again.)
             let _ = w.minimize();
             #[cfg(windows)]
-            window::set_webview_low_memory(&w, true);
+            {
+                window::set_webview_low_memory(&w, true);
+                // Once the page has swapped the library for the "now playing"
+                // screen, suspend it (unless the game is already over).
+                let state_flag = app.state::<crate::commands::AppState>().input.clone();
+                let _ = std::thread::Builder::new().name("suspend-page".into()).spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    if state_flag.game_running.load(Ordering::Acquire) {
+                        window::set_webview_suspended(&w, true);
+                    }
+                });
+            }
         }
 
         let me = self.clone();
@@ -195,7 +206,11 @@ impl Launcher {
         log::info!("{} exited after {secs} s", session.title);
         if let Some(w) = app.get_webview_window("main") {
             #[cfg(windows)]
-            window::set_webview_low_memory(&w, false);
+            {
+                // Awake before the page hears that the game exited.
+                window::set_webview_suspended(&w, false);
+                window::set_webview_low_memory(&w, false);
+            }
             let _ = w.unminimize();
             let _ = w.show();
             if session.was_fullscreen {

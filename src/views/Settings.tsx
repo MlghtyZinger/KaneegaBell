@@ -1048,11 +1048,34 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         />
         Start in TV Mode
       </label>
+      <div class="row">
+        <span>Interface size</span>
+        <Picker
+          title="Interface size"
+          value={props.s.values.interfaceSize === "fixed" ? "fixed" : "auto"}
+          options={[
+            { value: "auto", label: "Fit the screen" },
+            { value: "fixed", label: "Follow Windows scaling only" },
+          ]}
+          onChange={(v) =>
+            props.run(async () => {
+              await api.setSetting("interfaceSize", v);
+              await api.refreshZoom();
+            })
+          }
+        />
+      </div>
+      <p class="dim small">
+        "Fit the screen" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of
+        tiny. Screens up to 1080p, or with Windows scaling turned up, look the same either way.
+      </p>
       <p class="dim small">
         <kbd>F11</kbd> toggles fullscreen at any time. TV Mode is the big-screen view: switch with the left stick button
         (L3), <kbd>F10</kbd> or the TV Mode button. It shows each game's background and logo when SteamGridDB is set up
         (above), and a blurred cover otherwise.
       </p>
+
+      <TvModeBlock s={props.s} run={props.run} />
 
       <UpdatesBlock s={props.s} run={props.run} />
       <StorageBlock run={props.run} />
@@ -1173,6 +1196,63 @@ function StorageBlock(props: { run: Run }) {
           </div>
         )}
       </Show>
+    </>
+  );
+}
+
+function TvModeBlock(props: { s: Settings; run: Run }) {
+  // Asked fresh each time Settings opens, so a TV that was just turned on shows up.
+  const [displays] = createResource(() => api.listDisplays().catch(() => []));
+  const chosen = () => (props.s.values.tvDisplay as string | undefined) ?? "";
+  const displayOptions = () => {
+    const list = displays() ?? [];
+    const opts = [{ value: "", label: "The display KB is on" }];
+    for (const d of list) {
+      const notes = [d.primary ? "main" : "", d.current ? "KB is here" : ""].filter(Boolean).join(", ");
+      opts.push({ value: d.id, label: `${d.name} (${d.width}×${d.height}${notes ? `, ${notes}` : ""})` });
+    }
+    // The chosen TV is off or unplugged right now: keep it selectable.
+    if (chosen() && !list.some((d) => d.id === chosen())) opts.push({ value: chosen(), label: "The TV chosen before (not connected now)" });
+    return opts;
+  };
+  const set = (key: string, v: unknown) => props.run(() => api.setSetting(key, v));
+
+  return (
+    <>
+      <h2>TV Mode</h2>
+      <div class="form-grid">
+        <label>Display</label>
+        <Picker title="Open TV Mode on" value={chosen()} options={displayOptions()} onChange={(v) => set("tvDisplay", v || null)} />
+        <label>Text size</label>
+        <Picker
+          title="TV Mode text size"
+          value={(props.s.values.tvTextSize as string | undefined) ?? "m"}
+          options={[
+            { value: "s", label: "Small" },
+            { value: "m", label: "Medium" },
+            { value: "l", label: "Large" },
+            { value: "xl", label: "Extra large" },
+          ]}
+          onChange={(v) => set("tvTextSize", v)}
+        />
+        <label>Overscan margin</label>
+        <Picker
+          title="Overscan margin"
+          value={String((props.s.values.tvOverscan as number | undefined) ?? 0)}
+          options={[
+            { value: "0", label: "Off" },
+            { value: "2.5", label: "2.5%" },
+            { value: "5", label: "5%" },
+            { value: "7.5", label: "7.5%" },
+          ]}
+          onChange={(v) => set("tvOverscan", Number(v))}
+        />
+      </div>
+      <p class="dim small">
+        With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving TV Mode brings the window back. If
+        that display is off or unplugged, TV Mode opens where KB is. Raise the overscan margin if your TV cuts off the
+        edges of the picture (the clock or the hints along the bottom are missing).
+      </p>
     </>
   );
 }

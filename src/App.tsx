@@ -21,36 +21,40 @@ export default function App() {
   // TV Mode replaces the desktop library (Settings opens over either).
   const [tv, setTv] = createSignal(false);
   const win = getCurrentWindow();
-  // TV Mode goes fullscreen; leaving it restores the window it found.
-  let tvMadeFullscreen = false;
+  // A one-time message (the library moving to KaneegaBell's folder, the TV
+  // display not being connected).
+  const [notice, setNotice] = createSignal<string | null>(null);
+  const showNotice = (text: string, ms = 30_000) => {
+    setNotice(text);
+    setTimeout(() => setNotice((n) => (n === text ? null : n)), ms);
+  };
+  // TV Mode goes fullscreen, on the chosen TV display if it's connected;
+  // leaving it puts the window back where it was (both done in Rust).
   async function setTvMode(on: boolean) {
     if (on === tv()) return;
     setTv(on);
+    await syncTvWindow(on);
+  }
+  async function syncTvWindow(on: boolean) {
     try {
-      if (on && !(await win.isFullscreen())) {
-        await win.setFullscreen(true);
-        tvMadeFullscreen = true;
-      } else if (!on && tvMadeFullscreen) {
-        await win.setFullscreen(false);
-        tvMadeFullscreen = false;
-      }
+      if (!on) return await api.tvLeave();
+      const r = await api.tvEnter();
+      if (r.displayMissing) showNotice("The TV Mode display isn't connected or is off, so TV Mode opened here.", 10_000);
     } catch {
       // Window controls unavailable (browser dev mock): the view still switches.
     }
   }
   void api
     .getSetting<boolean>("startInTv")
-    .then((v) => v === true && setTv(true))
+    .then((v) => {
+      if (v !== true) return;
+      setTv(true);
+      void syncTvWindow(true); // already placed at startup; reports a missing display
+    })
     .catch(() => {});
-  // A one-time message from startup (the library moving to KaneegaBell's folder).
-  const [notice, setNotice] = createSignal<string | null>(null);
   void api
     .getStartupNotice()
-    .then((n) => {
-      if (!n) return;
-      setNotice(n);
-      setTimeout(() => setNotice(null), 30_000);
-    })
+    .then((n) => n && showNotice(n))
     .catch(() => {});
 
   // L3 / F10 anywhere (views handle it first when they want to); B dismisses the notice.

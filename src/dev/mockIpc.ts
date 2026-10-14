@@ -219,6 +219,13 @@ export function installMockIpc() {
         return { downloadedBytes: 182_452_224, dataDir: "C:\\Users\\you\\AppData\\Roaming\\com.kaneegabell.kb" };
       case "clear_downloaded":
         return 182_452_224;
+      case "list_displays":
+        return [
+          { id: "\\\\?\\DISPLAY#GSM5C7C", name: "LG ULTRAGEAR+", width: 2560, height: 1440, scale: 1.5, primary: true, current: true },
+          { id: "\\\\?\\DISPLAY#SNYE405", name: "SONY TV", width: 3840, height: 2160, scale: 1, primary: false, current: false },
+        ];
+      case "tv_enter":
+        return { displayMissing: false };
       case "preview_launch":
         return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
       case "list_dir": {

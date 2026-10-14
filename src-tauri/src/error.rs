@@ -8,6 +8,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("window error: {0}")]
+    Window(#[from] tauri::Error),
     #[error("{0}")]
     Template(String),
     #[error("{0}")]

@@ -957,6 +957,36 @@ pub async fn reset_app(app: AppHandle, forget_keys: bool) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- displays
+
+fn main_window(app: &AppHandle) -> Result<tauri::WebviewWindow> {
+    app.get_webview_window("main").ok_or_else(|| Error::msg("the main window is gone"))
+}
+
+/// Connected displays, for the TV Mode display picker.
+#[tauri::command]
+pub fn list_displays(app: AppHandle) -> Result<Vec<crate::display::DisplayRow>> {
+    Ok(crate::display::list(&main_window(&app)?))
+}
+
+/// TV Mode on: fullscreen, on the chosen display when it's connected.
+#[tauri::command]
+pub fn tv_enter(app: AppHandle) -> Result<crate::display::TvEntered> {
+    crate::display::tv_enter(&app, &main_window(&app)?)
+}
+
+/// TV Mode off: the window goes back to where it was.
+#[tauri::command]
+pub fn tv_leave(app: AppHandle) -> Result<()> {
+    crate::display::tv_leave(&app, &main_window(&app)?)
+}
+
+/// After the Interface size setting changes.
+#[tauri::command]
+pub fn refresh_zoom(app: AppHandle) {
+    crate::display::apply_zoom(&app);
+}
+
 // ---------------------------------------------------------------- web links
 
 /// Sites the UI may open in the browser (game pages on Backloggd and
