@@ -10,8 +10,14 @@
 - Performance first. Every number in `CLAUDE.md` must still hold after each milestone
   (cold start < 1.5 s, 60 fps grid, idle CPU near 0, game-running mode minimal).
 - Controller-first. Every new screen and option works with a controller alone.
-- Zero setup. New features work without accounts. Optional keys go in Windows Credential
-  Manager, never in the DB, the repo or a shipped build.
+- Zero setup. New features work without accounts. Optional keys go in the encrypted keys file
+  (`data\keys.bin`, DPAPI), never in the DB, the repo or a shipped build.
+- **(changed 2026-10-14) Everything in KB's folder.** All of KB's files (library, art, keys,
+  WebView2 data, downloaded metadata) live in `data\` next to the exe, never in AppData,
+  Documents or elsewhere (AppData only as a fallback when the folder isn't writable). New features
+  must follow this. Downloads keep only what matches the user's own games.
+- **Privacy:** never open the owner's files or other apps' data outside the project (e.g. a
+  LaunchBox install, the registry) without asking first.
 - Never download ROMs, BIOS, firmware, keys or any game content.
 
 ---
@@ -158,7 +164,7 @@ index.
      can ask Claude in chat for a theme and import the result.
    - Optional in-app generator: the user describes a theme ("deep red, gold accents, stone
      texture") and KB asks the Anthropic API using the user's **own optional API key**, stored
-     in Credential Manager like the others, with setup instructions in-app. The model returns
+     in the encrypted keys file like the others, with setup instructions in-app. The model returns
      tokens only. They're validated like any import and shown as a live preview before saving.
      Summarize current API pricing and terms for the owner before building this.
 
@@ -293,6 +299,12 @@ a grey area), TheGamesDB, RAWG, GiantBomb (all need keys), MobyGames (paid), Gam
 TheCoverProject (no API, scraping not allowed). IGDB, SteamGridDB and RetroAchievements stay as
 optional per-user upgrades.
 
+**Owner's requirement (2026-10-14): only what matches.** LaunchBox offers no partial download (one
+compressed XML) and no per-game API, so KB streams `Metadata.zip` and filters it as it arrives:
+only entries matching the user's games are kept (a few MB at most in `data\`), the rest is never
+stored. Re-download only when LaunchBox's file changed and there are unmatched games, or on
+"Update game info". Images only for the user's games, preferring the box of the dump's region.
+
 **Plan shape:** LaunchBox DB as the new primary keyless source for covers, logos, backgrounds and
 info (libretro/GameTDB stay as fallbacks, IGDB/SGDB picks win when set up), then Wikidata for series,
 then Hasheous hash identification. Settings → Game info shows each source, what it adds and its
@@ -340,7 +352,9 @@ Each milestone is runnable and tested, and passes the perf gate.
 5. Commit at sensible points with clear messages.
 6. How the owner runs the app:
    `C:\Emulator files\src-tauri\target\release\KaneegaBell.exe` (renamed in milestone i; it was
-   `emu-frontend.exe`). After changes, run
+   `emu-frontend.exe`). This development copy has **its own separate library** in
+   `src-tauri\target\release\data` (the owner's choice; `cargo clean` deletes it); the installed copy
+   (`C:\Games\KaneegaBell`) keeps the real library in its `data\` folder. After changes, run
    `npm run tauri build -- --no-bundle` and tell the owner it's ready. Check for a running
    instance first and ask them to close it, because the build can't overwrite a running exe.
    Never drive or launch the app while they're using it.

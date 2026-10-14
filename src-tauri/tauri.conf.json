@@ -14,6 +14,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "KaneegaBell",
         "width": 1600,
         "height": 900,
@@ -38,7 +39,7 @@
     "targets": ["nsis"],
     "windows": {
       "webviewInstallMode": { "type": "embedBootstrapper" },
-      "nsis": { "installMode": "currentUser" }
+      "nsis": { "installMode": "currentUser", "installerHooks": "windows/hooks.nsh" }
     },
     "publisher": "KaneegaBell",
     "copyright": "© 2026 KaneegaBell",

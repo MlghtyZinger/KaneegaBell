@@ -50,11 +50,30 @@ Rust unit tests:
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-Data lives in `%APPDATA%\com.kaneegabell.kb` (library.db, cover cache), API keys in Windows
-Credential Manager (`KaneegaBell:*`). Before the KaneegaBell rename the app was "Emu Frontend"
-with data in `%APPDATA%\com.sultanmatoo.emufrontend`: on first start KaneegaBell copies that
-folder, checks the copy (integrity check, same number of games), switches to it, and leaves the
-old folder untouched; keys saved under `EmuFrontend:*` are picked up and copied the same way.
+### Where KB keeps its files
+Everything stays in **KB's own folder**, in `data\` next to `KaneegaBell.exe` (for example
+`C:\Games\KaneegaBell\data`):
+- `library.db` (games, play time, favorites, settings), `art\` (covers, backgrounds, logos),
+  `ra\` (achievement badges), `playlists\` (generated multi-disc `.m3u` files);
+- `keys.bin`: your API keys, encrypted with your Windows login (DPAPI), so a copy can't be read by
+  another Windows user or on another PC (keys are re-entered there);
+- `webview\`: WebView2's own files (its cache).
+
+Updates replace only the program files; a normal uninstall leaves `data\` in place, and ticking
+"Delete the application data" in the uninstaller removes it. If KB's folder can't be written to
+(for example under Program Files), KB uses `%APPDATA%\com.kaneegabell.kb` instead and says so.
+The only things outside the folder are the Start menu shortcut and uninstall entry (Windows'
+own), and the update installer for the few seconds it runs from Windows' temp folder.
+
+Earlier versions kept the library in `%APPDATA%\com.kaneegabell.kb` (or, before the KaneegaBell
+rename, `%APPDATA%\com.sultanmatoo.emufrontend`) and the keys in Windows Credential Manager. On
+first start the installed app copies the library into `data\`, checks the copy (integrity check,
+same number of games), switches to it and leaves the old folder untouched; the keys move into
+`keys.bin` (read back to check, then removed from Credential Manager).
+
+A **development copy** (run from `src-tauri\target\...`) keeps its own separate library in
+`target\release\data`, starts empty and moves nothing (note: `cargo clean` deletes it).
+`KB_DATA_DIR` points KB at any other folder (the perf harness's test library), with its own keys.
 
 ## Installing (for players) and updates
 
@@ -116,7 +135,7 @@ switch platform, `Home`/`End` jump by letter, `F` favorite, `F1` settings, `Esc`
 fullscreen.
 
 ### Storage and reset (Settings → General)
-Both only delete inside KB's data folder (`%APPDATA%\com.kaneegabell.kb`); game files,
+Both only delete inside KB's data folder (`data\` next to the program); game files,
 emulators and saves are never touched.
 - **Clear downloaded data**: deletes downloaded covers, backgrounds, logos, game info, achievement
   data and cached web responses, then fetches them again in the background. The library, play
@@ -214,7 +233,7 @@ Everything works without accounts or API keys:
   4. Paste both in Settings → Game info and press **Save and connect** (the keys are checked with
      Twitch before they're saved).
 
-  The keys are stored in Windows Credential Manager (`KaneegaBell:*` entries), never in the
+  The keys are stored in `data\keys.bin` (encrypted with your Windows login), never in the
   database or the repo. Lookups run in the background after covers: games are searched by title
   on their platform (one search per request, at most 4 requests/second, IGDB's limit) and matched with
   the same title rules as covers; matched IGDB ids are stored, so later refreshes are direct
@@ -230,7 +249,7 @@ Everything works without accounts or API keys:
   2. Open [steamgriddb.com/profile/preferences](https://www.steamgriddb.com/profile/preferences)
      and generate an API key in its API section.
   3. Paste it in Settings → Game info and press **Save and connect** (checked with one search
-     first, then stored in Windows Credential Manager).
+     first, then stored encrypted in `data\keys.bin`).
 
   The key is sent as a Bearer token; SteamGridDB publishes no rate limit, so requests are
   sequential, 250 ms apart, with a back-off on HTTP 429. Only static images without NSFW, humor
@@ -285,7 +304,7 @@ points and how rare each one is. Set it up in Settings → Game info:
 2. Open [retroachievements.org/settings](https://retroachievements.org/settings) and copy your
    **Web API Key**. It works like a password for your account's data.
 3. Enter your username and the key and press **Save and connect** (they're checked with RA first,
-   then stored in Windows Credential Manager, never in the database or the repo).
+   then stored encrypted in `data\keys.bin`, never in the database or the repo).
 
 How games are recognized: by RetroAchievements' own fingerprint of the game file, the same
 method its emulators use (the rcheevos hashing rules, reimplemented in

@@ -640,7 +640,7 @@ function ServicesSection(props: { s: Settings; run: Run }) {
       <p class="dim">
         Adds descriptions, release dates, developers, publishers and genres (with a genre filter in the library).
         Covers work without it. IGDB is free for personal use, but each person needs their own key from Twitch.
-        Your keys stay on this PC, in Windows Credential Manager.
+        Your keys stay in KB's folder, encrypted with your Windows login.
       </p>
       <Show when={services()}>
         {(sv) => (
@@ -774,8 +774,8 @@ function SteamGridDbSection(props: { run: Run }) {
       <h2>SteamGridDB (optional)</h2>
       <p class="dim">
         Community artwork: a wide background and a logo for each game (shown in TV Mode), more covers to choose from,
-        and covers for games the other sources don't have. Free with an account. Your key stays on this PC, in
-        Windows Credential Manager.
+        and covers for games the other sources don't have. Free with an account. Your key stays in KB's folder,
+        encrypted with your Windows login.
       </p>
       <Show when={services()}>
         {(sv) => (
@@ -888,8 +888,8 @@ function RetroAchievementsSection(props: { run: Run }) {
       <p class="dim">
         Shows each game's achievements and which ones you've unlocked, on its details page. Games are recognized by
         RetroAchievements' own fingerprint of the game file, so it works whatever the files are called. Consoles
-        RetroAchievements doesn't cover (like 3DS) simply show nothing. Your key stays on this PC, in Windows
-        Credential Manager.
+        RetroAchievements doesn't cover (like 3DS) simply show nothing. Your key stays in KB's folder, encrypted
+        with your Windows login.
       </p>
       <Show when={services()}>
         {(sv) => (

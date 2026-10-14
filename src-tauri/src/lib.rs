@@ -42,22 +42,52 @@ pub(crate) fn startup_notice() -> Option<String> {
     STARTUP_NOTICE.get().cloned()
 }
 
-/// Picks the data folder: the override, else the app's own folder, moving
-/// the library over from the folder used before the KaneegaBell rename the
-/// first time (see `migrate`). If that move fails, the old folder stays in use.
+/// `data` next to KB's exe, if KB may write there (a program folder under
+/// Program Files usually isn't writable). Checked with a probe file next to
+/// the exe, so no empty `data` folder is left behind.
+fn kb_folder_data_dir() -> Option<PathBuf> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let probe = exe_dir.join(".kb-write-test");
+    std::fs::write(&probe, b"").ok()?;
+    let _ = std::fs::remove_file(&probe);
+    Some(exe_dir.join("data"))
+}
+
+/// Picks the data folder: the override (a test library), else `data` in
+/// KB's own folder, so everything stays together. The first time, the library
+/// moves there from where earlier versions kept it (AppData, or the folder
+/// from before the KaneegaBell rename): copied, verified, then switched (see
+/// `migrate`); the old folder is left as it was. A development copy (run
+/// from a build folder) keeps its own separate library and moves nothing.
+/// If KB's folder can't be written to, AppData is used instead.
 fn choose_data_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
     if let Some(dir) = data_dir_override() {
         return dir;
     }
-    let dir = app.path().app_data_dir().unwrap_or_default();
-    let Some(old) = dir.parent().map(|p| p.join(migrate::LEGACY_IDENTIFIER)) else { return dir };
+    let appdata = app.path().app_data_dir().unwrap_or_default();
+    let legacy = appdata.parent().map(|p| p.join(migrate::LEGACY_IDENTIFIER));
+    let earlier = [Some(appdata.clone()), legacy].into_iter().flatten().find(|d| d.join("library.db").exists());
+
+    let Some(dir) = kb_folder_data_dir() else {
+        let _ = STARTUP_NOTICE.set(format!(
+            "KaneegaBell can't write to its own folder, so your library is kept in {} instead. \
+             Install KaneegaBell in a folder you own (for example C:\\Games\\KaneegaBell) to keep everything together.",
+            appdata.display()
+        ));
+        return earlier.unwrap_or(appdata);
+    };
+    if updates::is_dev_build() {
+        return dir;
+    }
+    let Some(old) = earlier else { return dir };
     match migrate::migrate(&old, &dir) {
         Ok(migrate::Outcome::NotNeeded) => dir,
         Ok(migrate::Outcome::Migrated { games }) => {
             log::info!("moved the library ({games} games) from {} to {}", old.display(), dir.display());
             let _ = STARTUP_NOTICE.set(format!(
-                "KaneegaBell moved your library ({games} games, play time and favorites) to its own folder. \
+                "KaneegaBell moved your library ({games} games, play time and favorites) into its own folder ({}). \
                  The old folder is still there ({}); you can delete it once everything looks right.",
+                dir.display(),
                 old.display()
             ));
             dir
@@ -65,7 +95,7 @@ fn choose_data_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
         Err(e) => {
             log::error!("couldn't move the library to {}: {e}", dir.display());
             let _ = STARTUP_NOTICE.set(format!(
-                "Couldn't move your library to KaneegaBell's folder ({e}). Your library is safe: KaneegaBell is \
+                "Couldn't move your library into KaneegaBell's folder ({e}). Your library is safe: KaneegaBell is \
                  using the old folder ({}) for now and will try again next start.",
                 old.display()
             ));
@@ -93,9 +123,27 @@ pub fn run() {
             let dir = DATA_DIR.get_or_init(|| choose_data_dir(app.handle())).clone();
             std::fs::create_dir_all(&dir)?;
             secrets::init(&dir);
+            // The installed app's own library: keys saved by earlier versions
+            // move from Windows Credential Manager into the data folder.
+            if data_dir_override().is_none() && !updates::is_dev_build() {
+                match secrets::import_from_credential_manager() {
+                    Ok(0) => {}
+                    Ok(n) => log::info!("moved {n} saved key(s) from Credential Manager into the data folder"),
+                    Err(e) => log::warn!("couldn't move the saved keys: {e}"),
+                }
+            }
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
-            let window = app.get_webview_window("main");
+            // The window is made here (not from the config) so WebView2 keeps
+            // its own files in the data folder too, instead of AppData.
+            let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
+                Some(cfg) => Some(
+                    tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?
+                        .data_directory(dir.join("webview"))
+                        .build()?,
+                ),
+                None => app.get_webview_window("main"),
+            };
             // Back where the window was last time, before the first paint.
             if let Some(w) = &window {
                 display::restore(w, &conn);
