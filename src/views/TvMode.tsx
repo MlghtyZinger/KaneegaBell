@@ -54,7 +54,8 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const platformAspect = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.artAspect ?? DEFAULT_ASPECT])));
   const aspect = (g: GameRow) => {
     const a = (g.art > 0 ? g.artAspect : null) ?? platformAspect().get(g.platformId) ?? DEFAULT_ASPECT;
-    return Math.min(1.6, Math.max(0.6, a));
+    // Up to PSP boxes (~1.72): cropping their top band looks broken.
+    return Math.min(1.8, Math.max(0.6, a));
   };
   const [shelfH, setShelfH] = createSignal(320);
   const offsets = createMemo(() => {

@@ -1461,6 +1461,18 @@ kbd.ps-favorite { color: #4fe0c0; }
   color: #fff;
 }
 
+/* The underline shows the active tab; a focused tab (after a click) just
+   brightens instead of getting the boxy focus ring, which the row clips. */
+.tv-tab:focus,
+html.nav-mode .tv-tab:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.tv-tab:focus-visible {
+  color: #fff;
+}
+
 .tv-tab.active::after {
   content: "";
   position: absolute;
