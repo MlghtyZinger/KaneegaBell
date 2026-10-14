@@ -1443,7 +1443,11 @@ function UpdateCodeField(props: { run: Run; onSaved: () => void }) {
             Remove code
           </button>
         </div>
-        <p class="dim small">If updates stop with an "expired" message, ask for a new code and enter it here.</p>
+        <p class="dim small">
+          If updates stop with an "expired" or "doesn't work" message, ask for a new code and enter it here. (Making
+          codes: a GitHub fine-grained token for only the KaneegaBell repository, with Contents: Read-only; see the
+          README.)
+        </p>
       </Show>
     </>
   );
