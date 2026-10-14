@@ -51,7 +51,8 @@ if ($newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer 
 
 $out = Join-Path $root "release\v$Version"
 New-Item -ItemType Directory -Force $out | Out-Null
-$notesPath = Join-Path $out "notes.md"
+# Kept beside the upload folder, so that folder holds exactly the three files to upload.
+$notesPath = Join-Path $root "release\v$Version-notes.md"
 if ($NotesFile) { Copy-Item $NotesFile $notesPath -Force }
 elseif ($Notes) { [IO.File]::WriteAllText($notesPath, $Notes + "`n", (New-Object Text.UTF8Encoding($false))) }
 else { Fail "give the changelog with -Notes `"...`" or -NotesFile file.md" }
@@ -95,7 +96,7 @@ if ($LASTEXITCODE -ne 0) { Run git @("commit", "-q", "-m", "Release v$Version") 
 Run git @("tag", "-a", "v$Version", "-m", "KaneegaBell $Version")
 
 $files = @((Join-Path $out $installerName), (Join-Path $out "$installerName.sig"), (Join-Path $out "latest.json"))
-Write-Host "`nRelease files in $out" -ForegroundColor Green
+Write-Host "`nUpload exactly these three files (from $out):" -ForegroundColor Green
 $files | ForEach-Object { Write-Host "  $(Split-Path $_ -Leaf)" }
 
 if (-not $Publish) {
@@ -121,4 +122,4 @@ if ($gh) {
 Write-Host "`nPushed. Now create the release by hand:" -ForegroundColor Yellow
 Write-Host "  1. Open https://github.com/$repo/releases/new?tag=v$Version"
 Write-Host "  2. Title: KaneegaBell $Version; paste the notes from $notesPath"
-Write-Host "  3. Attach the three files listed above, keep 'Set as the latest release' ticked, and publish."
+Write-Host "  3. Attach the three files listed above (latest.json is what installed copies look for), keep 'Set as the latest release' ticked, and publish."
