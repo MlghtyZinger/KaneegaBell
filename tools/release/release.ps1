@@ -3,6 +3,7 @@
 #   powershell -ExecutionPolicy Bypass -File tools\release\release.ps1 -Version 0.3.0 -Notes "What changed"
 #   ... -NotesFile notes.md          (changelog from a file instead)
 #   ... -Publish                     (also push and publish the release; asks first)
+#   ... -Repoint                     (only rewrite the updates branch for a published version)
 #
 # Steps: checks the work tree is clean -> sets the version everywhere -> runs
 # the tests -> builds the installer signed with the updater key (asks for its
@@ -18,9 +19,12 @@ param(
     [string]$Notes,
     [string]$NotesFile,
     [string]$KeyPath = "$env:USERPROFILE\.tauri\kaneegabell.key",
-    [switch]$Publish
+    [switch]$Publish,
+    # Only (re)write the updates branch for an already published version.
+    [switch]$Repoint
 )
 $ErrorActionPreference = "Stop"
+if ($Repoint) { $Publish = $true }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $root
 $repo = "MlghtyZinger/KaneegaBell"
@@ -134,33 +138,60 @@ if (-not $Publish) {
     exit 0
 }
 
+# Puts the installer and latest.json on the repo's "updates" branch: what
+# installed copies read. KB sends "Accept: application/vnd.github.raw+json" and
+# its access code for both the manifest and the installer, and GitHub's
+# contents API answers that with the file's raw bytes, public repo or private.
+# (A release asset link doesn't work for that header: it returns the asset's
+# description, which KB's signature check rightly refuses.)
+function Update-UpdatesBranch {
+    Step "Updates branch (what installed copies read)"
+    Run git @("fetch", "-q", "origin", "updates")
+    $wt = Join-Path ([IO.Path]::GetTempPath()) "kb-updates-$Version"
+    Quiet git @("worktree", "remove", "--force", $wt) | Out-Null
+    if (Test-Path -LiteralPath $wt) { Fail "a leftover folder is in the way: $wt" }
+    Run git @("worktree", "add", "-q", "--detach", $wt, "origin/updates")
+    try {
+        # Only the newest installer is kept on the branch.
+        foreach ($old in Get-ChildItem -LiteralPath $wt -Filter "KaneegaBell_*_x64-setup.exe") {
+            Run git @("-C", $wt, "rm", "-q", "--", $old.Name)
+        }
+        Copy-Item -LiteralPath $installerOut -Destination $wt
+        Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, (Join-Path $wt "latest.json"), "--contents")
+        Run git @("-C", $wt, "add", "-A")
+        Run git @("-C", $wt, "commit", "-q", "-m", "KaneegaBell $Version")
+        Run git @("-C", $wt, "push", "-q", "origin", "HEAD:updates")
+    }
+    finally {
+        Quiet git @("worktree", "remove", "--force", $wt) | Out-Null
+    }
+
+    # Download both back exactly the way KB does, and compare.
+    $token = (& gh auth token).Trim()
+    $headers = @{ Authorization = "Bearer $token"; Accept = "application/vnd.github.raw+json"; "User-Agent" = "kb-release-check" }
+    $base = "https://api.github.com/repos/$repo/contents"
+    $ProgressPreference = "SilentlyContinue"
+    $manifest = Invoke-RestMethod -Uri "$base/latest.json?ref=updates" -Headers $headers
+    if ($manifest.version -ne $Version) { Fail "the updates branch shows $($manifest.version), not $Version" }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "kb-check-$installerName"
+    Invoke-WebRequest -Uri $manifest.platforms.'windows-x86_64'.url -Headers $headers -OutFile $tmp -UseBasicParsing
+    $same = (Get-FileHash -LiteralPath $tmp).Hash -eq (Get-FileHash -LiteralPath $installerOut).Hash
+    [IO.File]::Delete($tmp)
+    if (-not $same) { Fail "the installer KB would download doesn't match the release's" }
+    Write-Host "Checked: installed copies download exactly this installer." -ForegroundColor Green
+}
+
+if ($Repoint) {
+    Update-UpdatesBranch
+    exit 0
+}
+
 Step "Publish"
 $answer = Read-Host "Publish KaneegaBell $Version on github.com/${repo}? Everyone with KB will be offered it. (yes/no)"
 if ($answer.Trim() -notmatch '^(y|yes)$') { Write-Host "Not published. The commit and tag stay local; run the same command again to publish (it won't build again)."; exit 0 }
 Run git @("push", "origin", "main", "v$Version")
+# The release page (installer and .sig, for downloading by hand).
 Run gh @("release", "create", "v$Version", "--repo", $repo, "--title", "KaneegaBell $Version", "--notes-file", $notesPath, "--latest",
     $installerOut, "$installerOut.sig", (Join-Path $out "latest.json"))
-
-# The manifest KB 0.2.3+ reads: latest.json on the "updates" branch, with the
-# installer's API link (readable with an access code once the repo is private).
-$release = (& gh api "repos/$repo/releases/tags/v$Version") | ConvertFrom-Json
-$assetId = ($release.assets | Where-Object { $_.name -eq $installerName }).id
-if (-not $assetId) { Fail "the release has no $installerName asset" }
-$apiManifest = Join-Path $out "latest-api.json"
-Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, $apiManifest, "$assetId")
-
-if ((Quiet gh @("api", "repos/$repo/git/ref/heads/updates")) -ne 0) {
-    $mainSha = (git rev-parse HEAD).Trim()
-    Run gh @("api", "-X", "POST", "repos/$repo/git/refs", "-f", "ref=refs/heads/updates", "-f", "sha=$mainSha")
-}
-$existing = $null
-if ((Quiet gh @("api", "repos/$repo/contents/latest.json?ref=updates")) -eq 0) { $existing = ($script:QuietOut | ConvertFrom-Json).sha }
-$content = [Convert]::ToBase64String([IO.File]::ReadAllBytes($apiManifest))
-$put = @("api", "-X", "PUT", "repos/$repo/contents/latest.json", "-f", "message=KaneegaBell $Version", "-f", "branch=updates", "-f", "content=$content")
-if ($existing) { $put += @("-f", "sha=$existing") }
-Run gh ($put + @("--silent"))
-
-# Read it back the way KB does.
-$check = (& gh api -H "Accept: application/vnd.github.raw+json" "repos/$repo/contents/latest.json?ref=updates") | ConvertFrom-Json
-if ($check.version -ne $Version) { Fail "the updates branch doesn't show $Version (got $($check.version))" }
+Update-UpdatesBranch
 Write-Host "`nPublished: https://github.com/$repo/releases/tag/v$Version (installed copies will be offered it)" -ForegroundColor Green

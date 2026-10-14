@@ -39,10 +39,12 @@ test("the manifest points at the release's installer with its signature", () => 
     "https://github.com/MlghtyZinger/KaneegaBell/releases/download/v0.3.0/KaneegaBell_0.3.0_x64-setup.exe",
   );
   assert.equal(assetUrl("1.0.0", "a b.exe").endsWith("a%20b.exe"), true);
-  // With an asset id (private repo, read with an access code): the API link.
-  const api = latestJson({ version: "0.3.0", signature: "s", fileName: "x.exe", assetId: "123456" });
-  assert.equal(api.platforms["windows-x86_64"].url, "https://api.github.com/repos/MlghtyZinger/KaneegaBell/releases/assets/123456");
-  assert.throws(() => latestJson({ version: "1", signature: "s", fileName: "x.exe", assetId: "12; rm" }), /asset id/);
+  // On the updates branch, through the contents API (raw bytes for KB's Accept header).
+  const api = latestJson({ version: "0.3.0", signature: "s", fileName: "KaneegaBell_0.3.0_x64-setup.exe", contents: true });
+  assert.equal(
+    api.platforms["windows-x86_64"].url,
+    "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.0_x64-setup.exe?ref=updates",
+  );
   assert.throws(() => latestJson({ version: "1", signature: " ", fileName: "x.exe" }), /signature/);
   assert.throws(() => latestJson({ version: "1", signature: "s", fileName: "x y.exe" }), /spaces/);
 });

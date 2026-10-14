@@ -74,8 +74,12 @@ pub const NEEDS_CODE: &str = "Updates need an access code: ask the person who ga
 pub const CODE_REJECTED: &str = "The update access code doesn't work anymore (it may have expired): ask the person who gave you KaneegaBell for a new one.";
 
 /// The manifest (`latest.json` on the repo's `updates` branch) and the
-/// installers are read through GitHub's API, with the access code when there
-/// is one, so updates keep working once the repo is private.
+/// installer (stored on the same branch) are read through GitHub's contents
+/// API, with the access code when there is one, so updates work with a private
+/// repo. The plugin sends these headers with both requests, and the contents
+/// API answers `Accept: …raw+json` with the file's raw bytes. Keep it that way:
+/// installed copies depend on it, and a release asset link would return the
+/// asset's description for this header (the signature check refuses that).
 fn updater_with(app: &AppHandle, code: Option<&str>) -> Result<tauri_plugin_updater::Updater> {
     let err = |e: tauri_plugin_updater::Error| Error::msg(format!("updater: {e}"));
     let mut b = app

@@ -113,9 +113,10 @@ powershell -ExecutionPolicy Bypass -File tools/release/release.ps1 -Version 0.3.
 It checks the work tree is clean, sets the version in every file, runs the tests, builds the
 installer signed with the key (asking for the password; nothing is stored), commits "Release
 v0.3.0" and tags it. With `-Publish` it asks for confirmation, pushes, creates the GitHub release
-with the installer and its `.sig`, and writes `latest.json` to the repo's `updates` branch: that's
-what installed copies read, through GitHub's API with their access code (so it works with a
-private repo). Nothing is uploaded by hand. Day-to-day builds (`--no-bundle`) don't need the key.
+with the installer and its `.sig`, and puts the installer and `latest.json` on the repo's `updates`
+branch: that's what installed copies read, through GitHub's contents API with their access code
+(so it works with a private repo), and the script downloads it back the way KB does to check it.
+Nothing is uploaded by hand. `-Repoint -Version X` redoes just that step for a published version. Day-to-day builds (`--no-bundle`) don't need the key.
 
 ### Update access codes (one per person)
 A code is a GitHub fine-grained token that can only *read* this repository:
