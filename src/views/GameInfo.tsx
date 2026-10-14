@@ -7,6 +7,8 @@ import { CoverPicker, type PictureKind } from "../components/CoverPicker";
 import { MatchPicker } from "../components/MatchPicker";
 import { Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
+import { CollectionPicker } from "../components/Collections";
+import { collections } from "../state/collections";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -69,8 +71,15 @@ function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: numb
   const members = () => owned(s());
   // Other series or franchises it belongs to that you also have more of.
   const others = () => props.game.meta.series.filter((x) => x !== s() && owned(x).length >= 2);
-  // The series' emblem: the clear logo of its earliest game that has one.
-  const emblem = () => members().find((m) => (m.logo ?? 0) > 0);
+  // The series' emblem: the logo picked for it (Collections → Edit), else the
+  // clear logo of its earliest game that has one.
+  const emblem = () => {
+    const col = collections.byKey().get(s().key);
+    const chosen = col && collections.chosenPicture(col);
+    if (chosen?.kind === "logo") return chosen.url;
+    const first = members().find((m) => (m.logo ?? 0) > 0);
+    return first ? artUrl(first.id, first.logo!, "l") : null;
+  };
   // Once you've started the series: the earliest game you haven't played yet.
   const nextUp = () => (members().some((m) => m.playSeconds > 0) ? members().find((m) => m.playSeconds === 0)?.id : undefined);
   return (
@@ -81,7 +90,7 @@ function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: numb
           {s().kind === "series" ? "Series" : "Franchise"}
         </div>
         <Show when={emblem()} fallback={<div class="series-name">{s().name}</div>}>
-          {(e) => <img class="series-logo" src={artUrl(e().id, e().logo!, "l")} alt={s().name} title={s().name} decoding="async" />}
+          {(url) => <img class="series-logo" src={url()} alt={s().name} title={s().name} decoding="async" />}
         </Show>
         <Show when={others().length > 0}>
           <div class="series-also">Also part of {others().map((o) => o.name).join(", ")}</div>
@@ -133,6 +142,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [refreshing, setRefreshing] = createSignal(false);
   const [picking, setPicking] = createSignal<PictureKind | null>(null);
   const [matching, setMatching] = createSignal(false);
+  const [collecting, setCollecting] = createSignal(false);
   const [services] = createResource(() => api.getServices().catch(() => null));
   // The game's RetroAchievements id, once the achievements section knows it.
   const [raGameId, setRaGameId] = createSignal<number | null>(null);
@@ -296,6 +306,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 <button class="btn big" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
                   {isFavorite() ? "★ Favorite" : "☆ Favorite"}
                 </button>
+                <button class="btn big" onClick={() => setCollecting(true)}>
+                  Collections…
+                </button>
                 <span class="dim">
                   {g().playSeconds > 0
                     ? `${formatPlayTime(g().playSeconds)} played · Last played ${formatLastPlayed(g().lastPlayed)}`
@@ -372,6 +385,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           </button>
         </div>
       </NavScope>
+      <Show when={collecting() && game()}>
+        {(g) => <CollectionPicker gameId={g().id} title={g().title} onClose={() => setCollecting(false)} />}
+      </Show>
       <Show when={matching() && game()}>
         {(g) => (
           <MatchPicker

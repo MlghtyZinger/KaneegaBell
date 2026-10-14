@@ -22,8 +22,14 @@ import {
   type ScanSummary,
 } from "../api";
 
-/** A library tab: everything, a pseudo-filter, or one platform id. */
-export type PlatformFilter = "all" | "favorites" | "recent" | string;
+/**
+ * A library tab: everything, a pseudo-filter, one platform id, the
+ * Collections overview, or one collection ("col:<key>").
+ */
+export type PlatformFilter = "all" | "favorites" | "recent" | "collections" | string;
+
+/** The collection a "col:<key>" tab shows, or null. */
+export const collectionKeyOf = (p: PlatformFilter): string | null => (p.startsWith("col:") ? p.slice(4) : null);
 
 /** Lowercase ASCII words, like the Rust side's search key. */
 export function searchKey(s: string): string {
@@ -116,6 +122,10 @@ function createLibraryStore() {
   const [genres, setGenres] = createSignal<Genre[]>([]);
   const [genre, setGenre] = createSignal<number | null>(null);
 
+  /** A collection's game ids by key (set by the collections store). */
+  const [collectionGames, setCollectionLookup] = createSignal<(key: string) => number[] | null>(() => null);
+  const byId = createMemo(() => new Map(games().map((g) => [g.id, g])));
+
   // Rows arrive pre-sorted (platform order, then title), so filters keep order.
   const tabOrSearch = createMemo(() => {
     const words = searchKey(query()).split(" ").filter(Boolean);
@@ -129,6 +139,13 @@ function createLibraryStore() {
     if (p === "all") return games();
     if (p === "favorites") return favorites();
     if (p === "recent") return recent();
+    if (p === "collections") return [];
+    const key = collectionKeyOf(p);
+    if (key) {
+      // In the collection's own order.
+      const rows = byId();
+      return (collectionGames()(key) ?? []).map((id) => rows.get(id)).filter((g): g is GameRow => !!g);
+    }
     return games().filter((g) => g.platformId === p);
   });
   const visibleGames = createMemo(() => {
@@ -147,6 +164,7 @@ function createLibraryStore() {
     "all",
     ...(favorites().length ? ["favorites"] : []),
     ...(recent().length ? ["recent"] : []),
+    "collections",
     ...platforms().map((p) => p.id),
   ]);
 
@@ -156,15 +174,19 @@ function createLibraryStore() {
     setGames(lib.games);
     setGenres(lib.genres ?? []);
     if (genre() !== null && !lib.genres?.some((x) => x.id === genre())) setGenre(null);
-    // Keep the current tab if it still exists.
-    if (!platformTabs().includes(platform())) setPlatform("all");
+    // Keep the current tab if it still exists (a collection checks itself).
+    if (!platformTabs().includes(platform()) && !collectionKeyOf(platform())) setPlatform("all");
     setLoaded(true);
   }
 
-  function cyclePlatform(delta: number) {
+  /** TV Mode's tabs: no Collections overview (it has no big-screen version yet). */
+  const tvTabs = createMemo(() => platformTabs().filter((t) => t !== "collections"));
+
+  function cyclePlatform(delta: number, tabs = platformTabs()) {
     setQuery("");
-    const tabs = platformTabs();
-    const i = tabs.indexOf(platform());
+    // Inside a collection, the Collections tab is the current one (TV Mode: from the start).
+    const cur = collectionKeyOf(platform()) ? "collections" : platform();
+    const i = Math.max(tabs.indexOf(cur), tabs.includes(cur) ? 0 : delta > 0 ? -1 : 0);
     setPlatform(tabs[(i + delta + tabs.length) % tabs.length]);
   }
 
@@ -313,6 +335,8 @@ function createLibraryStore() {
     sgdbProgress,
     lastSgdb,
     sgdbError,
+    setCollectionLookup,
+    tvTabs,
   };
 }
 

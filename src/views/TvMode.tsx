@@ -42,6 +42,8 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const [infoId, setInfoId] = createSignal<number | null>(null);
   const [menuOpen, setMenuOpen] = createSignal(false);
   const current = () => games()[focused()] as GameRow | undefined;
+  // The Collections overview has no big-screen version yet: start from All.
+  if (library.platform() === "collections") library.setPlatform("all");
 
   // Clamp when the list shrinks; new tab or search starts at the first game.
   createEffect(on([library.platform, library.query, library.genre], () => setFocused(0), { defer: true }));
@@ -180,8 +182,8 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       case "up":
       case "down":
         return true;
-      case "prevPlatform": library.cyclePlatform(-1); return true;
-      case "nextPlatform": library.cyclePlatform(1); return true;
+      case "prevPlatform": library.cyclePlatform(-1, library.tvTabs()); return true;
+      case "nextPlatform": library.cyclePlatform(1, library.tvTabs()); return true;
       case "prevLetter": jumpLetter(-1); return true;
       case "nextLetter": jumpLetter(1); return true;
       case "favorite": void toggleFavorite(); return true;
@@ -246,7 +248,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
             when={!library.query()}
             fallback={<span class="tv-tab active">Search: “{library.query()}”</span>}
           >
-            <For each={library.platformTabs()}>
+            <For each={library.tvTabs()}>
               {(id) => (
                 <button class="tv-tab" classList={{ active: library.platform() === id }} onClick={() => library.setPlatform(id)}>
                   {tabLabel(id)}

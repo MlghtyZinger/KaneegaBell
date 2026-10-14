@@ -311,6 +311,25 @@ Everything works without accounts or API keys:
   the app only uses the documented API. Games not found are retried weekly.
 - MobyGames isn't used: its API now requires a paid subscription.
 
+## Collections
+
+The **Collections** tab (next to Favorites and Recent) holds:
+- **Your own collections.** "New collection" (the first tile) asks for a name. Add a game from its
+  details with **Collections…** (tick any collections; a game can be in several), or start a new
+  collection with it there. Open a collection to see its games; B goes back to the tiles.
+- **Series**, automatically: every series or franchise (from Wikidata, see Covers and metadata) you
+  have two or more games from, in release order. Hide the ones you don't want; "Show hidden
+  series" brings them back.
+
+**Edit** (Y on a tile, or Edit… above an open collection): the logo (automatic, one of its games'
+clear logos, a cover, or your own PNG/JPEG/WebP image, which is copied into `data\art\c\`), and
+for your own collections the name, the order of the list, how its games are sorted (when added,
+title, release date) and deleting it (its games stay in the library). A series' logo also shows on
+its series card in the game details. Without a picked logo, a tile is a mosaic of its first four
+covers with the name (series: their first game's logo). Collections are kept in the library
+(`collections`, `collection_games`, `collection_looks`); TV Mode shows an open collection's games
+but has no Collections overview yet.
+
 ## TV Mode
 
 A big-screen view in the spirit of Steam's Big Picture, for the couch: switch with the left stick
@@ -524,6 +543,11 @@ window, so they're written for players.
 - New: each series gets its own color, taken from its first game's cover.
 - New: the series card shows the series logo (its first game's clear logo) when there is one.
 - New: covers in the series card show which games you've played, and glow on the next one you haven't played yet.
+- New: a Collections tab next to Favorites: make your own collections and put any game in as many as you like.
+- New: game details have a Collections… button to add the game to collections, or start a new one with it.
+- New: series you have two or more games from show up in Collections automatically; hide any you don't want.
+- New: pick the logo of any collection or series: one of its games' logos, a cover, or your own image.
+- New: your collections can be renamed, reordered, sorted by when added, title or release date, and deleted.
 - Changed: series are looked up once more after this update.
 
 ### 0.2.5 (2026-10-15)

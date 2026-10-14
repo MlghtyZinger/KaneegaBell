@@ -468,6 +468,8 @@ fn prune(conn: &Connection) -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Series {
+    /// Its collection key ("s:<item>"), for the logo the user picked.
+    pub key: String,
     pub name: String,
     /// "series" | "franchise"
     pub kind: String,
@@ -524,7 +526,7 @@ pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
                 .then(num(&a.2).total_cmp(&num(&b.2)))
                 .then_with(|| a.4.cmp(&b.4))
         });
-        out.push(Series { name, kind, number, games: list.into_iter().map(|m| m.0).collect() });
+        out.push(Series { key: format!("s:{series_qid}"), name, kind, number, games: list.into_iter().map(|m| m.0).collect() });
     }
     Ok(out)
 }

@@ -1003,6 +1003,61 @@ pub fn set_lb_match(app: AppHandle, state: State<'_, AppState>, id: i64, db_id: 
     Ok(())
 }
 
+// ---------------------------------------------------------------- collections
+
+#[tauri::command]
+pub fn list_collections(state: State<'_, AppState>) -> Result<Vec<crate::collections::Collection>> {
+    crate::collections::list(&state.db())
+}
+
+/// A new collection (with a first game, when made from a game's details). Returns its key.
+#[tauri::command]
+pub fn create_collection(state: State<'_, AppState>, name: String, game_id: Option<i64>) -> Result<String> {
+    crate::collections::create(&state.db(), &name, game_id)
+}
+
+#[tauri::command]
+pub fn rename_collection(state: State<'_, AppState>, key: String, name: String) -> Result<()> {
+    crate::collections::rename(&state.db(), &key, &name)
+}
+
+#[tauri::command]
+pub fn delete_collection(state: State<'_, AppState>, key: String) -> Result<()> {
+    crate::collections::delete(&state.db(), state.data_dir(), &key)
+}
+
+#[tauri::command]
+pub fn set_in_collection(state: State<'_, AppState>, key: String, game_id: i64, member: bool) -> Result<()> {
+    crate::collections::set_member(&state.db(), &key, game_id, member)
+}
+
+#[tauri::command]
+pub fn set_collection_order(state: State<'_, AppState>, key: String, order: String) -> Result<()> {
+    crate::collections::set_game_order(&state.db(), &key, &order)
+}
+
+#[tauri::command]
+pub fn move_collection(state: State<'_, AppState>, key: String, delta: i64) -> Result<()> {
+    crate::collections::move_by(&mut state.db(), &key, delta)
+}
+
+#[tauri::command]
+pub fn set_collection_hidden(state: State<'_, AppState>, key: String, hidden: bool) -> Result<()> {
+    crate::collections::set_hidden(&state.db(), &key, hidden)
+}
+
+/// The logo: "auto", "game:<id>" or "cover:<id>".
+#[tauri::command]
+pub fn set_collection_logo(state: State<'_, AppState>, key: String, choice: String) -> Result<()> {
+    crate::collections::set_logo(&state.db(), state.data_dir(), &key, &choice)
+}
+
+/// The logo from an image file the user picked (copied into KB's folder).
+#[tauri::command]
+pub fn set_collection_logo_file(state: State<'_, AppState>, key: String, path: String) -> Result<()> {
+    crate::collections::set_logo_file(&state.db(), state.data_dir(), &key, Path::new(&path))
+}
+
 // ---------------------------------------------------------------- Wikidata
 
 /// One Wikidata pass. Emits `wd-progress`, then `wd-finished` / `wd-failed`.

@@ -338,7 +338,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       it was added later, not because it comes last.)
 - [ ] l. Game details sidebar + customization options
 - [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon
-- [ ] n. Collections (manual, smart, automatic)
+- [ ] n. Collections (manual, smart, automatic). Part 1 done early (owner's request 2026-10-15):
+      Collections tab, the user's own collections, series as automatic collections (2+ games,
+      hideable), logos for collections and series (a game's logo, a cover, or the user's image).
+      Left: smart collections (rules), developer/publisher collections, a TV Mode overview.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
 - [ ] p. Animations (Full/Reduced/Off)
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,

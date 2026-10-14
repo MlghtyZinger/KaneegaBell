@@ -114,6 +114,7 @@ fn a_pass_matches_and_keeps_only_the_library_s_series() {
 
     // Each game knows its number, and the series lists the library's games in order.
     let jak = |number: &str| Series {
+        key: "s:1".into(),
         name: "Jak and Daxter".into(),
         kind: "series".into(),
         number: Some(number.into()),

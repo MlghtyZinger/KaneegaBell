@@ -1,5 +1,15 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
-import { library, type PlatformFilter } from "../state/library";
+import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
+import { collections } from "../state/collections";
+import {
+  CollectionBanner,
+  CollectionEditor,
+  CollectionTile,
+  NewCollectionTile,
+  newCollection,
+  openCollection,
+} from "../components/Collections";
+import type { Collection } from "../api";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
@@ -58,13 +68,49 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   let navigate: Navigator | undefined;
 
   const games = library.visibleGames;
+
+  // Collections: the overview (tiles) and one open collection ("col:<key>").
+  type Tile = { kind: "new" } | { kind: "col"; c: Collection } | { kind: "hidden" };
+  const overview = () => library.platform() === "collections" && !library.query();
+  const openKey = () => (library.query() ? null : collectionKeyOf(library.platform()));
+  const openCol = () => {
+    const k = openKey();
+    return k ? collections.byKey().get(k) : undefined;
+  };
+  const tiles = createMemo<Tile[]>(() => [
+    { kind: "new" },
+    ...collections.visible().map((c) => ({ kind: "col" as const, c })),
+    ...(collections.hiddenCount() > 0 ? [{ kind: "hidden" as const }] : []),
+  ]);
+  const [editKey, setEditKey] = createSignal<string | null>(null);
+  const editing = () => {
+    const k = editKey();
+    return k ? collections.byKey().get(k) : undefined;
+  };
+  // Coming back from a collection lands on its tile.
+  let lastTile = 0;
+  function activateTile(i: number) {
+    const t = tiles()[i];
+    if (!t) return;
+    if (t.kind === "new") newCollection(null, (key) => openCollection(key));
+    else if (t.kind === "hidden") collections.setShowHidden(!collections.showHidden());
+    else {
+      lastTile = i;
+      openCollection(t.c.key);
+    }
+  }
+  const editTile = (i: number) => {
+    const t = tiles()[i];
+    if (t?.kind === "col") setEditKey(t.c.key);
+  };
   const shortNames = createMemo(() => new Map(library.platforms().map((p) => [p.id, p.shortName])));
 
   // Views mixing platforms (All, Favorites, search) show one section per
   // platform, so each row holds covers of one shape. Recent stays a single
   // list in play order.
-  const mixed = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform());
-  const sectioned = () => library.grouped() && mixed() && library.platform() !== "recent";
+  const mixed = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform()) || !!openKey();
+  // A collection stays one list in its own order (like Recent).
+  const sectioned = () => library.grouped() && mixed() && library.platform() !== "recent" && !openKey();
   const sectionCounts = createMemo(() => {
     const counts = new Map<string, number>();
     for (const g of games()) counts.set(g.platformId, (counts.get(g.platformId) ?? 0) + 1);
@@ -98,16 +144,21 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   // In sections the header names the platform; elsewhere mixed views badge each card.
   const showPlatformBadge = () => mixed() && !sectioned();
 
-  // New tab, search or genre -> start at the top.
-  createEffect(on([library.platform, library.query, library.genre], () => setFocused(0), { defer: true }));
+  // New tab, search or genre -> start at the top (back in Collections: on the tile you left).
+  createEffect(
+    on([library.platform, library.query, library.genre], () => setFocused(overview() ? Math.min(lastTile, tiles().length - 1) : 0), {
+      defer: true,
+    }),
+  );
   // Clamp when the list shrinks (rescan).
   createEffect(() => {
-    const n = games().length;
+    const n = overview() ? tiles().length : games().length;
     if (focused() >= n) setFocused(Math.max(0, n - 1));
   });
 
   function move(dir: NavDir) {
-    if (games().length === 0 || !navigate) return;
+    const n = overview() ? tiles().length : games().length;
+    if (n === 0 || !navigate) return;
     setFocused(navigate(focused(), dir));
   }
 
@@ -167,11 +218,16 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         return true;
       case "prevPlatform": library.cyclePlatform(-1); return true;
       case "nextPlatform": library.cyclePlatform(1); return true;
-      case "prevLetter": jumpLetter(-1); return true;
-      case "nextLetter": jumpLetter(1); return true;
-      case "favorite": void toggleFavorite(); return true;
+      case "prevLetter": if (!overview()) jumpLetter(-1); return true;
+      case "nextLetter": if (!overview()) jumpLetter(1); return true;
+      // In the Collections overview, Y edits the focused collection.
+      case "favorite": if (overview()) editTile(focused()); else void toggleFavorite(); return true;
       case "secondary": openSearch(); return true;
       case "select": {
+        if (overview()) {
+          activateTile(focused());
+          return true;
+        }
         const g = games()[focused()];
         if (g) setInfoId(g.id);
         return true;
@@ -183,6 +239,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         }
         if (library.genre() !== null) {
           library.setGenre(null);
+          return true;
+        }
+        if (openKey()) {
+          library.setPlatform("collections");
           return true;
         }
         return false;
@@ -198,8 +258,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (id === "all") return "All";
     if (id === "favorites") return "★ Favorites";
     if (id === "recent") return "Recent";
+    if (id === "collections") return "Collections";
     return library.platforms().find((x) => x.id === id)?.shortName ?? id;
   };
+  const tabActive = (id: PlatformFilter) => library.platform() === id || (id === "collections" && !!collectionKeyOf(library.platform()));
   // The tab row scrolls sideways when it doesn't fit: keep the active tab in
   // view, and fade the edge(s) that have more tabs past them.
   let tabsEl!: HTMLElement;
@@ -226,6 +288,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (id === "all") return library.games().length;
     if (id === "favorites") return library.favorites().length;
     if (id === "recent") return library.recent().length;
+    if (id === "collections") return collections.visible().length;
     return library.platforms().find((x) => x.id === id)?.count ?? 0;
   };
 
@@ -251,7 +314,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
               {(id) => (
                 <button
                   class="tab"
-                  classList={{ active: library.platform() === id }}
+                  classList={{ active: tabActive(id) }}
                   onClick={() => library.setPlatform(id)}
                 >
                   {tabLabel(id)}
@@ -291,6 +354,55 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       </header>
 
       <Show
+        when={!overview()}
+        fallback={
+          <>
+            <div class="grid-wrap" onWheel={onWheel}>
+              <VirtualGrid
+                items={tiles()}
+                focused={focused()}
+                onFocus={setFocused}
+                onActivate={activateTile}
+                onNavigator={(n) => (navigate = n)}
+                minCardWidth={Math.round(library.cardSize() * 1.35)}
+                itemAspect={(t) => (t.kind === "col" ? 0.62 : 0.62)}
+                gap={18}
+                renderItem={(t, isFocused) => (
+                  <Show
+                    when={t().kind === "col" && (t() as { c: Collection }).c}
+                    fallback={
+                      t().kind === "new" ? (
+                        <NewCollectionTile focused={isFocused} />
+                      ) : (
+                        <div class="col-tile col-new" classList={{ focused: isFocused() }}>
+                          <span>{collections.showHidden() ? "Hide hidden series" : `Show hidden series (${collections.hiddenCount()})`}</span>
+                        </div>
+                      )
+                    }
+                  >
+                    {(c) => <CollectionTile c={c()} focused={isFocused} />}
+                  </Show>
+                )}
+              />
+            </div>
+            <footer class="hints">
+              <Hint action="select" label="Open" />
+              <Hint action="favorite" label="Edit" />
+              <Hint action="secondary" label="Search" />
+              <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
+              <Hint action="menu" label="Settings" />
+              <Hint actions={["zoomOut", "zoomIn"]} label="Tile size" />
+              <span class="footer-jobs">
+                <JobPill />
+              </span>
+            </footer>
+          </>
+        }
+      >
+      <Show when={openCol()}>
+        {(c) => <CollectionBanner c={c()} onEdit={() => setEditKey(c().key)} onBack={() => library.setPlatform("collections")} />}
+      </Show>
+      <Show
         when={games().length > 0}
         fallback={
           <div class="empty">
@@ -307,15 +419,28 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                   </>
                 }
               >
-                <h2>No matches</h2>
-                <p>
-                  {library.query() ? `Nothing matches “${library.query()}”` : "No games here"}
-                  {genreName() ? ` in ${genreName()}` : ""}.
-                </p>
-                <div class="hints-row">
-                  <Hint action="secondary" label="Search again" />
-                  <Hint action="back" label={library.query() ? "Clear search" : "All genres"} />
-                </div>
+                <Show
+                  when={openKey() && library.genre() === null}
+                  fallback={
+                    <>
+                      <h2>No matches</h2>
+                      <p>
+                        {library.query() ? `Nothing matches “${library.query()}”` : "No games here"}
+                        {genreName() ? ` in ${genreName()}` : ""}.
+                      </p>
+                      <div class="hints-row">
+                        <Hint action="secondary" label="Search again" />
+                        <Hint action="back" label={library.query() ? "Clear search" : "All genres"} />
+                      </div>
+                    </>
+                  }
+                >
+                  <h2>Nothing in this collection yet</h2>
+                  <p>Add games from their details: Collections….</p>
+                  <div class="hints-row">
+                    <Hint action="back" label="Collections" />
+                  </div>
+                </Show>
               </Show>
             </Show>
           </div>
@@ -354,7 +479,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <Hint action="menu" label="Settings" />
           <Hint action="toggleTv" label="TV Mode" />
           <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
-          <Show when={mixed() && library.platform() !== "recent"}>
+          <Show when={mixed() && library.platform() !== "recent" && !openKey()}>
             <Hint action="toggleGroups" label={library.grouped() ? "One list" : "Sections"} />
           </Show>
           <span class="footer-jobs">
@@ -378,9 +503,22 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           </span>
         </footer>
       </Show>
+      </Show>
 
       <Show when={infoId()} keyed>
         {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}
+      </Show>
+      <Show when={editing()}>
+        {(c) => (
+          <CollectionEditor
+            c={c()}
+            onClose={() => setEditKey(null)}
+            onDeleted={() => {
+              lastTile = 0;
+              library.setPlatform("collections");
+            }}
+          />
+        )}
       </Show>
     </div>
   );

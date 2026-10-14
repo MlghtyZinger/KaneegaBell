@@ -2006,3 +2006,198 @@ html.nav-mode .tv-menu-item:focus {
   background: rgb(255 190 80 / 0.16);
   color: #ffd08a;
 }
+/* ------------------------------------------------------------ Collections */
+
+.col-tile {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 70ms ease-out;
+}
+
+.col-tile.focused {
+  box-shadow: var(--focus-ring);
+  transform: scale(1.03);
+  z-index: 1;
+}
+
+.col-tile.hidden {
+  opacity: 0.55;
+}
+
+/* Up to four covers, 2x2, filling the tile. */
+.col-mosaic {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.col-mosaic.one {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.col-mosaic img,
+.col-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.col-cover {
+  position: absolute;
+  inset: 0;
+}
+
+.col-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(10 11 14 / 0.15) 0%, rgb(10 11 14 / 0.55) 45%, rgb(10 11 14 / 0.92) 100%);
+}
+
+.col-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.col-kind {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.col-name {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.col-logo {
+  display: block;
+  max-width: 85%;
+  max-height: clamp(36px, 7vh, 80px);
+  object-fit: contain;
+  object-position: left bottom;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.7));
+}
+
+.col-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-dim);
+  border-style: dashed;
+  background: transparent;
+  font-size: var(--fs-sm);
+}
+
+.col-plus {
+  font-size: calc(var(--fs-xl) * 1.2);
+  line-height: 1;
+  color: var(--accent-strong);
+}
+
+/* The strip above an open collection. */
+.col-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px var(--gap) 0;
+}
+
+.col-banner .col-name.banner {
+  font-size: var(--fs-lg);
+}
+
+.col-banner .col-logo.banner {
+  max-height: clamp(32px, 5vh, 56px);
+  max-width: 320px;
+}
+
+.col-editor {
+  width: min(760px, 94vw);
+}
+
+.col-editor h2 {
+  margin-top: 2px;
+}
+
+.col-editor-preview {
+  width: min(320px, 70%);
+  aspect-ratio: 1 / 0.62;
+  margin: 8px 0 4px;
+}
+
+.col-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.col-choice {
+  height: clamp(64px, 9vh, 104px);
+  padding: 4px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  cursor: pointer;
+}
+
+.col-choice.logo {
+  padding: 8px 12px;
+}
+
+.col-choice img {
+  height: 100%;
+  width: auto;
+  max-width: 240px;
+  object-fit: contain;
+  display: block;
+}
+
+.col-choice.selected,
+.btn.selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.col-choice:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.col-picker {
+  width: min(560px, 94vw);
+}
+
+.col-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 14px;
+  max-height: 46vh;
+  overflow-y: auto;
+}

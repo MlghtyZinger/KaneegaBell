@@ -14,6 +14,7 @@ import { UpdateDialog } from "./components/UpdateDialog";
 import { updates } from "./state/updates";
 import { WhatsNew } from "./components/WhatsNew";
 import { whatsNew } from "./state/whatsNew";
+import { collections } from "./state/collections";
 import "./styles/app.css";
 
 type View = "library" | "settings";
@@ -89,6 +90,7 @@ export default function App() {
   // webview whose window is shown later. TV-mode fullscreen is applied in Rust.
   onMount(() => {
     library.listenForScans();
+    collections.listen();
     updates.listen();
     session.listen();
     // Controller actions from the Rust gamepad thread go through the same

@@ -1,5 +1,6 @@
 mod achievements;
 mod art;
+mod collections;
 mod commands;
 mod db;
 mod display;
@@ -258,6 +259,16 @@ pub fn run() {
             commands::set_lb_match,
             commands::wd_status,
             commands::cover_accent,
+            commands::list_collections,
+            commands::create_collection,
+            commands::rename_collection,
+            commands::delete_collection,
+            commands::set_in_collection,
+            commands::set_collection_order,
+            commands::move_collection,
+            commands::set_collection_hidden,
+            commands::set_collection_logo,
+            commands::set_collection_logo_file,
             commands::fetch_wikidata,
             commands::set_wd_enabled,
             updates::check_for_update,

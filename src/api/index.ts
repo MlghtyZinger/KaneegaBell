@@ -74,8 +74,35 @@ export interface GameMetadata {
   series: Series[];
 }
 
+/** A logo the user picked for a collection or series. */
+export type CollectionLogo = { type: "game"; id: number } | { type: "cover"; id: number } | { type: "file"; version: number };
+
+/** One of the user's collections, or a series / franchise shown as one. */
+export interface Collection {
+  /** "c:<id>" (the user's) or "s:<series>" (from Wikidata). */
+  key: string;
+  name: string;
+  kind: "mine" | "series" | "franchise";
+  /** The games in it, in its order. */
+  games: number[];
+  logo: CollectionLogo | null;
+  /** Series hidden from the Collections tab. */
+  hidden: boolean;
+  /** The user's collections: how its games are ordered. */
+  gameOrder: "added" | "title" | "release" | null;
+}
+
+/** A collection's or series' own logo image (the user's file, copied into KB's folder). */
+export function collectionLogoUrl(key: string, version: number): string {
+  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
+  const [kind, id] = key.split(":");
+  return `${base}/${kind === "s" ? "cs" : "cc"}/${id}?v=${version}`;
+}
+
 /** A series or franchise a game belongs to (Wikidata). */
 export interface Series {
+  /** Its collection key ("s:<item>"), for the logo the user picked. */
+  key: string;
   name: string;
   kind: "series" | "franchise";
   /** The game's number in it ("2"), when known. */
@@ -513,6 +540,17 @@ export const api = {
   lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
   setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
   wdStatus: () => invoke<WdStatus>("wd_status"),
+  listCollections: () => invoke<Collection[]>("list_collections"),
+  createCollection: (name: string, gameId: number | null) => invoke<string>("create_collection", { name, gameId }),
+  renameCollection: (key: string, name: string) => invoke<void>("rename_collection", { key, name }),
+  deleteCollection: (key: string) => invoke<void>("delete_collection", { key }),
+  setInCollection: (key: string, gameId: number, member: boolean) => invoke<void>("set_in_collection", { key, gameId, member }),
+  setCollectionOrder: (key: string, order: "added" | "title" | "release") => invoke<void>("set_collection_order", { key, order }),
+  moveCollection: (key: string, delta: number) => invoke<void>("move_collection", { key, delta }),
+  setCollectionHidden: (key: string, hidden: boolean) => invoke<void>("set_collection_hidden", { key, hidden }),
+  /** "auto", "game:<id>" (its clear logo) or "cover:<id>". */
+  setCollectionLogo: (key: string, choice: string) => invoke<void>("set_collection_logo", { key, choice }),
+  setCollectionLogoFile: (key: string, path: string) => invoke<void>("set_collection_logo_file", { key, path }),
   /** A cover's main color (`#rrggbb`), to tint its series; null without one. */
   coverAccent: (id: number) => invoke<string | null>("cover_accent", { id }),
   /** A Wikidata pass; `force` asks about every platform again ("Update now"). */

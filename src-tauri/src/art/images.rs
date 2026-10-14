@@ -114,6 +114,26 @@ pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) ->
     Ok((img.width(), img.height()))
 }
 
+/// Stores a user's logo image at `path` (PNG, JPEG or WebP; resized like the
+/// game logos, transparency kept).
+pub fn store_logo_at(path: &Path, bytes: &[u8]) -> Result<()> {
+    let img = match image::load_from_memory(bytes) {
+        Ok(img) => img,
+        // The image crate here reads PNG and JPEG; WebP goes through libwebp.
+        Err(_) => {
+            let bad = || Error::msg("That file isn't a PNG, JPEG or WebP image.");
+            let d = webp::Decoder::new(bytes).decode().ok_or_else(bad)?;
+            let (w, h, px) = (d.width(), d.height(), d.to_vec());
+            if d.is_alpha() {
+                DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, px).ok_or_else(bad)?)
+            } else {
+                DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, px).ok_or_else(bad)?)
+            }
+        }
+    };
+    write_atomic(path, &webp(&fit(&img, LOGO_MAX), 90.0)?)
+}
+
 pub fn remove_extra(data_dir: &Path, extra: Extra, game_id: i64) {
     let _ = fs::remove_file(extra_path(data_dir, extra, game_id));
 }

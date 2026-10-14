@@ -152,6 +152,8 @@ pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
          DELETE FROM wd_games;
          DELETE FROM wd_series;
          DELETE FROM wd_game_series;
+         DELETE FROM collections;
+         DELETE FROM collection_looks;
          DELETE FROM settings;
          DELETE FROM platforms;
          DELETE FROM emulators;",

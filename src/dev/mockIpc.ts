@@ -123,8 +123,70 @@ export function installMockIpc() {
   const lib = makeLibrary(n);
   const settings = makeSettings(lib);
   mockWindows("main");
+  // Collections: two of "yours" and two series, kept in memory.
+  type MockCollection = {
+    key: string;
+    name: string;
+    kind: "mine" | "series" | "franchise";
+    games: number[];
+    logo: unknown;
+    hidden: boolean;
+    gameOrder: string | null;
+  };
+  let nextCol = 3;
+  const cols: MockCollection[] = [
+    { key: "c:1", name: "Couch co-op", kind: "mine", games: [3, 8, 13, 21], logo: null, hidden: false, gameOrder: "added" },
+    { key: "c:2", name: "Comfort games", kind: "mine", games: [], logo: null, hidden: false, gameOrder: "added" },
+    { key: "s:100", name: "Mock Saga", kind: "series", games: [5, 6, 7, 8], logo: null, hidden: false, gameOrder: null },
+    { key: "s:200", name: "Mock Universe", kind: "franchise", games: [30, 31, 32], logo: null, hidden: true, gameOrder: null },
+  ];
+  const col = (key: string) => cols.find((c) => c.key === key)!;
   mockIPC((cmd, args) => {
+    const a = (args ?? {}) as Record<string, unknown>;
     switch (cmd) {
+      case "list_collections":
+        return structuredClone(cols);
+      case "create_collection": {
+        const key = `c:${nextCol++}`;
+        cols.splice(cols.filter((c) => c.kind === "mine").length, 0, {
+          key,
+          name: String(a.name).trim(),
+          kind: "mine",
+          games: a.gameId ? [a.gameId as number] : [],
+          logo: null,
+          hidden: false,
+          gameOrder: "added",
+        });
+        return key;
+      }
+      case "rename_collection":
+        col(a.key as string).name = String(a.name);
+        return null;
+      case "delete_collection":
+        cols.splice(cols.indexOf(col(a.key as string)), 1);
+        return null;
+      case "set_in_collection": {
+        const c = col(a.key as string);
+        c.games = c.games.filter((g) => g !== a.gameId);
+        if (a.member) c.games.push(a.gameId as number);
+        return null;
+      }
+      case "set_collection_order":
+        col(a.key as string).gameOrder = a.order as string;
+        return null;
+      case "move_collection":
+        return null;
+      case "set_collection_hidden":
+        col(a.key as string).hidden = Boolean(a.hidden);
+        return null;
+      case "set_collection_logo": {
+        const [type, id] = String(a.choice).split(":");
+        col(a.key as string).logo = a.choice === "auto" ? null : { type, id: Number(id) };
+        return null;
+      }
+      case "set_collection_logo_file":
+        col(a.key as string).logo = { type: "file", version: 1 };
+        return null;
       case "get_library":
         return lib;
       case "get_settings":
