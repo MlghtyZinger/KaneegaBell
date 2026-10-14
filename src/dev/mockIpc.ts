@@ -61,7 +61,8 @@ function makeLibrary(n: number): Library {
       variant: r() < 0.05 ? "T-En v1.2" : null,
       region: "USA",
       favorite: r() < 0.03,
-      playSeconds: 0,
+      // Every 5th game "played" (series cards show played / next marks).
+      playSeconds: i % 5 === 0 ? 3600 : 0,
       lastPlayed: null,
       isMultidisc: r() < 0.03,
       // No images exist in the mock: cards fall back to text, but keep the cover's shape.
@@ -238,6 +239,8 @@ export function installMockIpc() {
         return { displayMissing: false };
       case "lb_status":
         return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17 };
+      case "cover_accent":
+        return ["#f0a050", "#6fb3ff", "#e86a7a", "#7fd88f"][(args as { id: number }).id % 4];
       case "wd_status":
         return { enabled: true, checkedAt: 1_791_964_000, total: 5000, matched: 3890, withSeries: 2410, notFound: 1088, ambiguous: 22 };
       case "lb_search":

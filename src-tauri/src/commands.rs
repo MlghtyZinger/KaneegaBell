@@ -148,6 +148,13 @@ pub struct GameInfo {
     meta: queries::GameMetadata,
 }
 
+/// The main color of a game's cover (`#rrggbb`), to tint its series; None
+/// without a cover or for a colorless one.
+#[tauri::command]
+pub fn cover_accent(state: State<'_, AppState>, id: i64) -> Option<String> {
+    art::color::accent(state.data_dir(), id)
+}
+
 #[tauri::command]
 pub fn get_game(state: State<'_, AppState>, id: i64) -> Result<GameInfo> {
     let conn = state.db();

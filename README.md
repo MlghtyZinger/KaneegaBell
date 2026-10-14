@@ -244,6 +244,9 @@ Everything works without accounts or API keys:
   only to order games released the same year). When you have two or more games from a series, the
   game details show its name above the title and a series card under Play with the covers of your
   games from it in release order (select one to open it); with one game, nothing is shown.
+  Each series is tinted with the main color of its first game's cover (computed from the
+  thumbnail when the details open), shows that game's clear logo as its emblem when there is one,
+  marks the games you've played and, once you've started it, glows on the next one you haven't.
   - KB asks Wikidata's query service once per platform with games (its games' English titles,
     alternate titles, first release year and IGDB ID; a few seconds each, one at a time), matches
     your games in memory, then asks for the series of the matched games only. Only those entries
@@ -518,6 +521,9 @@ window, so they're written for players.
 - New: after an update, KB shows what's new once.
 - New: when you have two or more games from a series, its name shows above the title (e.g. "Jak and Daxter").
 - New: a series card under Play shows the covers of your games from that series in release order; select one to open it.
+- New: each series gets its own color, taken from its first game's cover.
+- New: the series card shows the series logo (its first game's clear logo) when there is one.
+- New: covers in the series card show which games you've played, and glow on the next one you haven't played yet.
 - Changed: series are looked up once more after this update.
 
 ### 0.2.5 (2026-10-15)

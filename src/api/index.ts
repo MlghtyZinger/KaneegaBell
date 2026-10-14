@@ -513,6 +513,8 @@ export const api = {
   lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
   setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
   wdStatus: () => invoke<WdStatus>("wd_status"),
+  /** A cover's main color (`#rrggbb`), to tint its series; null without one. */
+  coverAccent: (id: number) => invoke<string | null>("cover_accent", { id }),
   /** A Wikidata pass; `force` asks about every platform again ("Update now"). */
   fetchWikidata: (force: boolean) => invoke<boolean>("fetch_wikidata", { force }),
   setWdEnabled: (enabled: boolean) => invoke<void>("set_wd_enabled", { enabled }),

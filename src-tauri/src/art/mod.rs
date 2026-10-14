@@ -9,6 +9,7 @@
 //! view. Everything is cached (index listings in `api_cache`, images on disk),
 //! so the library works fully offline afterwards.
 
+pub mod color;
 pub mod extras;
 pub mod gametdb;
 pub mod http;

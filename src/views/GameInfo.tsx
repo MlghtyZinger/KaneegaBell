@@ -69,6 +69,10 @@ function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: numb
   const members = () => owned(s());
   // Other series or franchises it belongs to that you also have more of.
   const others = () => props.game.meta.series.filter((x) => x !== s() && owned(x).length >= 2);
+  // The series' emblem: the clear logo of its earliest game that has one.
+  const emblem = () => members().find((m) => (m.logo ?? 0) > 0);
+  // Once you've started the series: the earliest game you haven't played yet.
+  const nextUp = () => (members().some((m) => m.playSeconds > 0) ? members().find((m) => m.playSeconds === 0)?.id : undefined);
   return (
     <div class="series-card">
       <div class="series-text">
@@ -76,7 +80,9 @@ function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: numb
           <SeriesGlyph />
           {s().kind === "series" ? "Series" : "Franchise"}
         </div>
-        <div class="series-name">{s().name}</div>
+        <Show when={emblem()} fallback={<div class="series-name">{s().name}</div>}>
+          {(e) => <img class="series-logo" src={artUrl(e().id, e().logo!, "l")} alt={s().name} title={s().name} decoding="async" />}
+        </Show>
         <Show when={others().length > 0}>
           <div class="series-also">Also part of {others().map((o) => o.name).join(", ")}</div>
         </Show>
@@ -86,12 +92,22 @@ function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: numb
           {(m) => (
             <button
               class="series-cover"
-              classList={{ current: m.id === props.game.id }}
-              title={m.title}
+              classList={{ current: m.id === props.game.id, played: m.playSeconds > 0, next: m.id === nextUp() }}
+              title={m.playSeconds > 0 ? `${m.title} · played` : m.id === nextUp() ? `${m.title} · next to play` : m.title}
               onClick={() => m.id !== props.game.id && props.onOpen(m.id)}
             >
               <Show when={m.art > 0} fallback={<span class="series-cover-name">{m.title}</span>}>
                 <img src={artUrl(m.id, m.art, "t")} alt={m.title} decoding="async" />
+              </Show>
+              <Show when={m.playSeconds > 0}>
+                <span class="series-mark played-mark" aria-label="Played">
+                  ✓
+                </span>
+              </Show>
+              <Show when={m.id === nextUp()}>
+                <span class="series-mark next-mark" aria-label="Next to play">
+                  ▶
+                </span>
               </Show>
             </button>
           )}
@@ -144,6 +160,14 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   const [favorite, setFavorite] = createSignal<boolean | null>(null);
   const isFavorite = () => favorite() ?? library.games().find((g) => g.id === id())?.favorite ?? false;
+  // The series' color: the main color of its earliest game's cover.
+  const colorSource = () => {
+    const g = game();
+    const s = g && mainSeries(g);
+    return s ? (owned(s).find((m) => m.art > 0)?.id ?? null) : null;
+  };
+  const [seriesColor] = createResource(colorSource, (gid) => api.coverAccent(gid).catch(() => null));
+  const tint = () => (colorSource() != null ? seriesColor() : null);
   // Another game from the series opened in place: forget this one's state.
   createEffect(
     on(
@@ -244,7 +268,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   </Show>
                 </div>
               </div>
-              <div class="info-main">
+              <div class="info-main" style={{ "--series": tint() ?? undefined }}>
               <Show when={mainSeries(g())}>
                 {(s) => (
                   <div class="series-eyebrow">

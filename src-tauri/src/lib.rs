@@ -257,6 +257,7 @@ pub fn run() {
             commands::lb_search,
             commands::set_lb_match,
             commands::wd_status,
+            commands::cover_accent,
             commands::fetch_wikidata,
             commands::set_wd_enabled,
             updates::check_for_update,
