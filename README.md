@@ -78,7 +78,7 @@ A **development copy** (run from `src-tauri\target\...`) keeps its own separate 
 ## Installing (for players) and updates
 
 Download `KaneegaBell_<version>_x64-setup.exe` from the
-[latest release](https://github.com/SultanAlshehhi100/KaneegaBell/releases/latest) and run it:
+[latest release](https://github.com/MlghtyZinger/KaneegaBell/releases/latest) and run it:
 
 - No administrator rights needed: it installs for your Windows user (under `%LOCALAPPDATA%`),
   adds a Start menu entry and an uninstaller (Settings → Apps). If the PC somehow lacks

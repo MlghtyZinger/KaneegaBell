@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const REPO = "SultanAlshehhi100/KaneegaBell";
+export const REPO = "MlghtyZinger/KaneegaBell";
 
 export function assetUrl(version, fileName) {
   return `https://github.com/${REPO}/releases/download/v${version}/${encodeURIComponent(fileName)}`;

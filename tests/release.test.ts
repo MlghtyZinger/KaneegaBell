@@ -36,7 +36,7 @@ test("the manifest points at the release's installer with its signature", () => 
   assert.equal(m.platforms["windows-x86_64"].signature, "c2lnbmF0dXJl");
   assert.equal(
     m.platforms["windows-x86_64"].url,
-    "https://github.com/SultanAlshehhi100/KaneegaBell/releases/download/v0.3.0/KaneegaBell_0.3.0_x64-setup.exe",
+    "https://github.com/MlghtyZinger/KaneegaBell/releases/download/v0.3.0/KaneegaBell_0.3.0_x64-setup.exe",
   );
   assert.equal(assetUrl("1.0.0", "a b.exe").endsWith("a%20b.exe"), true);
   assert.throws(() => latestJson({ version: "1", signature: " ", fileName: "x.exe" }), /signature/);

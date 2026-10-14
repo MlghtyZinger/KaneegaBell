@@ -20,7 +20,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $root
-$repo = "SultanAlshehhi100/KaneegaBell"
+$repo = "MlghtyZinger/KaneegaBell"
 
 function Fail($msg) { Write-Host "release: $msg" -ForegroundColor Red; exit 1 }
 function Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }

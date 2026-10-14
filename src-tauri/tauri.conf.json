@@ -30,7 +30,7 @@
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MkQyQThEOUYzNjhDNTEKUldSUmpEYWZqU290ZWNSajJVMGxpV0pnQTJXbHFDbjJyQXJIV0xSOVBwSDUwWitPbStuclZhcDYK",
-      "endpoints": ["https://github.com/SultanAlshehhi100/KaneegaBell/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/MlghtyZinger/KaneegaBell/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
   },
