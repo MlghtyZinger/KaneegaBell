@@ -1298,10 +1298,72 @@ function UpdatesBlock(props: { s: Settings; run: Run }) {
         </Show>
       </div>
       <p class="dim small">
-        Updates come from KaneegaBell's GitHub releases and are only installed when you choose to, never while a game
-        is running. Each one is signed, and KB refuses any download that isn't.
+        Updates are only installed when you choose to, never while a game is running. Each one is signed, and KB
+        refuses any download that isn't.
         {info()?.devBuild ? " This copy runs from a build folder, so it doesn't check by itself; use Check now." : ""}
       </p>
+      <UpdateCodeField run={props.run} onSaved={() => void checkNow()} />
+    </>
+  );
+}
+
+/** The update access code: lets this copy read KaneegaBell's private releases. */
+function UpdateCodeField(props: { run: Run; onSaved: () => void }) {
+  const [has, { refetch }] = createResource(() => api.hasUpdateCode().catch(() => false));
+  const [code, setCode] = createSignal("");
+  const save = () =>
+    props.run(
+      async () => {
+        await api.setUpdateCode(code());
+        setCode("");
+        await refetch();
+        props.onSaved();
+      },
+      { notice: "Access code saved. This copy can get updates now." },
+    );
+  const remove = () =>
+    props.run(async () => {
+      await api.removeUpdateCode();
+      await refetch();
+    });
+
+  return (
+    <>
+      <label class="field-label">Update access code</label>
+      <Show
+        when={has()}
+        fallback={
+          <>
+            <div class="row">
+              <input
+                class="input grow mono"
+                type="password"
+                aria-label="Update access code"
+                autocomplete="off"
+                placeholder="Paste the code you were given"
+                value={code()}
+                onInput={(e) => setCode(e.currentTarget.value)}
+                onKeyDown={(e) => e.key === "Enter" && code().trim() && void save()}
+              />
+              <button class="btn primary" disabled={!code().trim()} onClick={() => void save()}>
+                Save
+              </button>
+            </div>
+            <p class="dim small">
+              KaneegaBell's updates are private. Ask the person who gave you KaneegaBell for an access code, paste it here
+              once, and updates arrive by themselves. It's kept in KB's folder, encrypted with your Windows login.
+            </p>
+          </>
+        }
+      >
+        <div class="row">
+          <span class="ok-text">Saved</span>
+          <button class="btn small danger" onClick={() => void remove()}>
+            Remove code
+          </button>
+        </div>
+        <p class="dim small">If updates stop with an "expired" message, ask for a new code and enter it here.</p>
+      </Show>
     </>
   );
 }

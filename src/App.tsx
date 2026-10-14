@@ -92,6 +92,8 @@ export default function App() {
     // Controller actions from the Rust gamepad thread go through the same
     // dispatcher as the keyboard.
     void events.onNav((a) => dispatchFromGamepad(a as Action));
+    // The update access code is missing (said once) or stopped working.
+    void events.onUpdateAccess((message) => showNotice(message, 20_000));
     library
       .reload()
       // Two frames later the grid has been laid out and painted: the app is interactive.

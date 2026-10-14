@@ -459,6 +459,10 @@ export const api = {
   checkForUpdate: () => invoke<UpdateInfo | null>("check_for_update"),
   /** Downloads and installs the update found by the last check (KB restarts). */
   installUpdate: () => invoke<void>("install_update"),
+  /** Saves an update access code (checked against the updates first). */
+  setUpdateCode: (code: string) => invoke<void>("set_update_code", { code }),
+  removeUpdateCode: () => invoke<void>("remove_update_code"),
+  hasUpdateCode: () => invoke<boolean>("has_update_code"),
   /** A one-time message from startup (e.g. the library was moved), or null. */
   getStartupNotice: () => invoke<string | null>("get_startup_notice"),
   /** Opens a page on a known site (Backloggd, RetroAchievements...) in the default browser. */
@@ -488,6 +492,9 @@ export const events = {
     listen<string>("meta-failed", (e) => cb(e.payload)),
   onUpdateAvailable: (cb: (u: UpdateInfo) => void): Promise<UnlistenFn> =>
     listen<UpdateInfo>("update-available", (e) => cb(e.payload)),
+  /** The update access code is missing or stopped working (message to show). */
+  onUpdateAccess: (cb: (message: string) => void): Promise<UnlistenFn> =>
+    listen<string>("update-access", (e) => cb(e.payload)),
   onUpdateProgress: (cb: (p: UpdateProgress) => void): Promise<UnlistenFn> =>
     listen<UpdateProgress>("update-progress", (e) => cb(e.payload)),
   onSgdbProgress: (cb: (p: SgdbProgress) => void): Promise<UnlistenFn> =>

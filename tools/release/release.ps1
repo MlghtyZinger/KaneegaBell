@@ -2,14 +2,17 @@
 #
 #   powershell -ExecutionPolicy Bypass -File tools\release\release.ps1 -Version 0.3.0 -Notes "What changed"
 #   ... -NotesFile notes.md          (changelog from a file instead)
-#   ... -Publish                     (also push and create the GitHub release; asks first)
+#   ... -Publish                     (also push and publish the release; asks first)
 #
 # Steps: checks the work tree is clean -> sets the version everywhere -> runs
 # the tests -> builds the installer signed with the updater key (asks for its
-# password) -> writes latest.json -> commits "Release vX.Y.Z" + tag ->
-# with -Publish and your OK: pushes and creates the GitHub release (with the
-# gh tool if it's installed and signed in, otherwise it tells you what to
-# upload). The finished files are in release\vX.Y.Z\.
+# password) -> commits "Release vX.Y.Z" + tag -> with -Publish and your OK:
+# pushes, creates the GitHub release with the installer and its signature, and
+# updates latest.json on the repo's "updates" branch, which installed copies
+# read (with their update access code once the repo is private). Publishing
+# uses GitHub's gh tool, signed in once with "gh auth login".
+#
+# The finished files stay in release\vX.Y.Z\ (installer, .sig, latest.json).
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [string]$Notes,
@@ -30,10 +33,11 @@ function Run($exe, [string[]]$argList) {
 }
 
 # A PATH entry with a stray quote breaks npm/cmd; drop such entries and make
-# sure Node is reachable (this process only).
+# sure Node and gh are reachable (this process only).
 $env:Path = (($env:Path -split ';') | Where-Object { $_ -and $_ -notmatch '"' }) -join ';'
-$nodeDir = "C:\Program Files\nodejs"
-if (-not (Get-Command node -ErrorAction SilentlyContinue) -and (Test-Path "$nodeDir\node.exe")) { $env:Path += ";$nodeDir" }
+foreach ($dir in "C:\Program Files\nodejs", "C:\Program Files\GitHub CLI") {
+    if ((Test-Path $dir) -and -not (($env:Path -split ';') -contains $dir)) { $env:Path += ";$dir" }
+}
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail "Node.js not found" }
 $tauri = Join-Path $root "node_modules\@tauri-apps\cli\tauri.js"
 
@@ -48,10 +52,16 @@ $current = (& node -e "console.log(require('./src-tauri/tauri.conf.json').versio
 $newer = (& node --input-type=module -e "import { compareVersions } from './tools/release/set-version.mjs'; console.log(compareVersions('$Version', '$current') > 0)").Trim()
 # The current version may be released once (its first release), else it must be newer.
 if ($newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer than the current $current" }
+if ($Publish) {
+    # Before the password and the build, not after.
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Fail "publishing needs GitHub's gh tool (winget install GitHub.cli), then 'gh auth login' once" }
+    & gh auth status *> $null
+    if ($LASTEXITCODE -ne 0) { Fail "gh isn't signed in: run 'gh auth login' once (GitHub.com, HTTPS, log in with a web browser)" }
+}
 
 $out = Join-Path $root "release\v$Version"
 New-Item -ItemType Directory -Force $out | Out-Null
-# Kept beside the upload folder, so that folder holds exactly the three files to upload.
+# Kept beside the upload folder, so that folder holds only the release files.
 $notesPath = Join-Path $root "release\v$Version-notes.md"
 if ($NotesFile) { Copy-Item $NotesFile $notesPath -Force }
 elseif ($Notes) { [IO.File]::WriteAllText($notesPath, $Notes + "`n", (New-Object Text.UTF8Encoding($false))) }
@@ -86,7 +96,10 @@ $installerName = "KaneegaBell_${Version}_x64-setup.exe"
 $installer = Join-Path $root "src-tauri\target\release\bundle\nsis\$installerName"
 if (-not (Test-Path $installer) -or -not (Test-Path "$installer.sig")) { Fail "installer or signature missing: $installer(.sig)" }
 Copy-Item $installer, "$installer.sig" $out -Force
-Run node @("tools\release\latest-json.mjs", $Version, (Join-Path $out $installerName), $notesPath, (Join-Path $out "latest.json"))
+$installerOut = Join-Path $out $installerName
+# The public-link manifest, attached to the release: what KB 0.2.2 and older
+# read (only reachable while the repo is public).
+Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, (Join-Path $out "latest.json"))
 
 Step "Commit and tag"
 Run git @("add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "package.json", "package-lock.json")
@@ -94,32 +107,42 @@ Run git @("add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri
 git diff --cached --quiet
 if ($LASTEXITCODE -ne 0) { Run git @("commit", "-q", "-m", "Release v$Version") }
 Run git @("tag", "-a", "v$Version", "-m", "KaneegaBell $Version")
-
-$files = @((Join-Path $out $installerName), (Join-Path $out "$installerName.sig"), (Join-Path $out "latest.json"))
-Write-Host "`nUpload exactly these three files (from $out):" -ForegroundColor Green
-$files | ForEach-Object { Write-Host "  $(Split-Path $_ -Leaf)" }
+Write-Host "`nRelease files in $out" -ForegroundColor Green
 
 if (-not $Publish) {
-    Write-Host "`nNot published. To publish: run again with -Publish (after deleting the tag: git tag -d v$Version), or push yourself:"
-    Write-Host "  git push origin main v$Version"
-    Write-Host "  then create a release for tag v$Version at https://github.com/$repo/releases/new and attach the three files above."
+    Write-Host "`nNot published. To publish, delete the tag (git tag -d v$Version) and run again with -Publish."
     exit 0
 }
 
 Step "Publish"
-$answer = Read-Host "Publish KaneegaBell $Version publicly on github.com/$repo? Everyone with KB will be offered it. (yes/no)"
+$answer = Read-Host "Publish KaneegaBell $Version on github.com/$repo? Everyone with KB will be offered it. (yes/no)"
 if ($answer -ne "yes") { Write-Host "Not published. The commit and tag stay local."; exit 0 }
 Run git @("push", "origin", "main", "v$Version")
-$gh = Get-Command gh -ErrorAction SilentlyContinue
-if ($gh) {
-    & gh auth status *> $null
-    if ($LASTEXITCODE -eq 0) {
-        Run gh (@("release", "create", "v$Version", "--repo", $repo, "--title", "KaneegaBell $Version", "--notes-file", $notesPath, "--latest") + $files)
-        Write-Host "`nPublished: https://github.com/$repo/releases/tag/v$Version" -ForegroundColor Green
-        exit 0
-    }
+Run gh @("release", "create", "v$Version", "--repo", $repo, "--title", "KaneegaBell $Version", "--notes-file", $notesPath, "--latest",
+    $installerOut, "$installerOut.sig", (Join-Path $out "latest.json"))
+
+# The manifest KB 0.2.3+ reads: latest.json on the "updates" branch, with the
+# installer's API link (readable with an access code once the repo is private).
+$release = (& gh api "repos/$repo/releases/tags/v$Version") | ConvertFrom-Json
+$assetId = ($release.assets | Where-Object { $_.name -eq $installerName }).id
+if (-not $assetId) { Fail "the release has no $installerName asset" }
+$apiManifest = Join-Path $out "latest-api.json"
+Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, $apiManifest, "$assetId")
+
+& gh api "repos/$repo/git/ref/heads/updates" *> $null
+if ($LASTEXITCODE -ne 0) {
+    $mainSha = (git rev-parse HEAD).Trim()
+    Run gh @("api", "-X", "POST", "repos/$repo/git/refs", "-f", "ref=refs/heads/updates", "-f", "sha=$mainSha")
 }
-Write-Host "`nPushed. Now create the release by hand:" -ForegroundColor Yellow
-Write-Host "  1. Open https://github.com/$repo/releases/new?tag=v$Version"
-Write-Host "  2. Title: KaneegaBell $Version; paste the notes from $notesPath"
-Write-Host "  3. Attach the three files listed above (latest.json is what installed copies look for), keep 'Set as the latest release' ticked, and publish."
+$existing = $null
+$file = & gh api "repos/$repo/contents/latest.json?ref=updates" 2>$null
+if ($LASTEXITCODE -eq 0) { $existing = ($file | ConvertFrom-Json).sha }
+$content = [Convert]::ToBase64String([IO.File]::ReadAllBytes($apiManifest))
+$put = @("api", "-X", "PUT", "repos/$repo/contents/latest.json", "-f", "message=KaneegaBell $Version", "-f", "branch=updates", "-f", "content=$content")
+if ($existing) { $put += @("-f", "sha=$existing") }
+Run gh ($put + @("--silent"))
+
+# Read it back the way KB does.
+$check = (& gh api -H "Accept: application/vnd.github.raw+json" "repos/$repo/contents/latest.json?ref=updates") | ConvertFrom-Json
+if ($check.version -ne $Version) { Fail "the updates branch doesn't show $Version (got $($check.version))" }
+Write-Host "`nPublished: https://github.com/$repo/releases/tag/v$Version (installed copies will be offered it)" -ForegroundColor Green

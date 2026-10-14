@@ -226,6 +226,8 @@ export function installMockIpc() {
         ];
       case "tv_enter":
         return { displayMissing: false };
+      case "has_update_code":
+        return false;
       case "preview_launch":
         return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
       case "list_dir": {

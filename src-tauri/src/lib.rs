@@ -251,6 +251,9 @@ pub fn run() {
             commands::refresh_zoom,
             updates::check_for_update,
             updates::install_update,
+            updates::set_update_code,
+            updates::remove_update_code,
+            updates::has_update_code,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

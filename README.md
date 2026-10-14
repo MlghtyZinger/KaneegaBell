@@ -77,42 +77,58 @@ A **development copy** (run from `src-tauri\target\...`) keeps its own separate 
 
 ## Installing (for players) and updates
 
-Download `KaneegaBell_<version>_x64-setup.exe` from the
-[latest release](https://github.com/MlghtyZinger/KaneegaBell/releases/latest) and run it:
+KaneegaBell is shared privately: get the installer (`KaneegaBell_<version>_x64-setup.exe`) and an
+**update access code** from whoever gave you KB, and run the installer:
 
-- No administrator rights needed: it installs for your Windows user (under `%LOCALAPPDATA%`),
-  adds a Start menu entry and an uninstaller (Settings → Apps). If the PC somehow lacks
-  Microsoft's WebView2 runtime, the installer fetches it.
-- The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your
-  PC" the first time: choose **More info → Run anyway**.
-- Your library, settings and keys are kept in your own profile and are never touched by updates
-  or included in releases. Get emulators only from their official sites.
+- No administrator rights needed: it installs for your Windows user (pick a folder you own, e.g.
+  `C:\Games\KaneegaBell`), adds a Start menu entry and an uninstaller (Settings → Apps). If the
+  PC somehow lacks Microsoft's WebView2 runtime, the installer fetches it.
+- The installer isn't code-signed, so Windows SmartScreen may say "Windows protected your PC" the
+  first time: choose **More info → Run anyway**.
+- Your library, settings and keys stay in KB's `data\` folder; updates never touch them. Get
+  emulators only from their official sites.
 
-**Updates:** KaneegaBell checks GitHub once, ~10 s after it starts (Settings → General can turn
-this off, or "Check now"). When there's a new version it shows the changelog with **Update now /
-Later / Skip this version**. Updating never happens while a game is running; KB downloads the
-installer, verifies its signature against the key built into the app (anything not signed by
-the project's key is refused), closes, installs and starts again by itself. Copies run from a
-build folder (`target\...`) don't check automatically.
+**Updates:** paste the access code once in Settings → General → Updates. KB then checks once,
+~10 s after it starts (or "Check now"), and offers new versions with their changelog: **Update now
+/ Later / Skip this version**. Updating never happens while a game runs; KB downloads the
+installer, verifies its signature against the key built into the app (anything not signed by the
+project's key is refused), closes, installs and starts again by itself. A code lasts up to a year;
+when it expires KB says so, and a new one is pasted the same way. Copies run from a build folder
+(`target\...`) don't check automatically.
 
 ## Making a release (maintainer)
 
-One-time: the updater signing key in `%USERPROFILE%\.tauri\kaneegabell.key` (made with
-`tauri signer generate`), backed up with its password. Its public half is in
-`src-tauri/tauri.conf.json` → `plugins.updater.pubkey`. **If the key or password is lost,
-installed copies can never update again.** Never commit it (`*.key` is git-ignored).
+One-time setup:
+- The updater signing key in `%USERPROFILE%\.tauri\kaneegabell.key` (made with `tauri signer
+  generate`), backed up with its password. Its public half is in `src-tauri/tauri.conf.json` →
+  `plugins.updater.pubkey`. **If the key or password is lost, installed copies can never update
+  again.** Never commit it (`*.key` is git-ignored).
+- GitHub's `gh` tool (`winget install GitHub.cli`), signed in once: `gh auth login` (GitHub.com,
+  HTTPS, log in with a web browser).
 
 ```bash
 powershell -ExecutionPolicy Bypass -File tools/release/release.ps1 -Version 0.3.0 -Notes "What changed" -Publish
 ```
 
 It checks the work tree is clean, sets the version in every file, runs the tests, builds the
-installer signed with the key (asking for the password; nothing is stored), writes
-`latest.json`, commits "Release v0.3.0" and tags it. With `-Publish` it asks for confirmation,
-pushes, and creates the GitHub release with the installer, its `.sig` and `latest.json` (using
-GitHub's `gh` tool when it's installed and signed in; otherwise it prints what to upload). Leave
-"Set as the latest release" on: the app reads `releases/latest/download/latest.json`. Day-to-day
-builds (`npm run tauri build -- --no-bundle`) don't need the key.
+installer signed with the key (asking for the password; nothing is stored), commits "Release
+v0.3.0" and tags it. With `-Publish` it asks for confirmation, pushes, creates the GitHub release
+with the installer and its `.sig`, and writes `latest.json` to the repo's `updates` branch: that's
+what installed copies read, through GitHub's API with their access code (so it works with a
+private repo). Nothing is uploaded by hand. Day-to-day builds (`--no-bundle`) don't need the key.
+
+### Update access codes (one per person)
+A code is a GitHub fine-grained token that can only *read* this repository:
+1. github.com → your picture → **Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens → Generate new token**.
+2. Name it after the person (e.g. "KB updates: Alex"), expiration up to 1 year.
+3. **Repository access: Only select repositories → KaneegaBell.**
+   **Permissions → Repository permissions → Contents: Read-only** (Metadata: read-only is added
+   automatically). Nothing else.
+4. Generate, copy the token (shown once) and send it privately; they paste it in Settings →
+   General → Updates. Revoke a person's token to stop their updates.
+With a code someone can read the repository (code and releases), nothing more. Make a new one
+before it expires (GitHub emails you a reminder).
 ## First run
 
 1. **Settings → Emulators → "Find emulators in a folder…"** and pick the folder that holds your
