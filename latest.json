@@ -1,11 +1,11 @@
 {
-  "version": "0.2.4",
-  "notes": "Covers, logos, backgrounds and game info from the LaunchBox Games Database, no account needed. Fix match searches LaunchBox. TV Mode: PSP covers show whole.",
-  "pub_date": "2026-10-14T14:41:11Z",
+  "version": "0.2.5",
+  "notes": "- New: game details show the game's series and franchise (e.g. \"Jak and Daxter\", \"Final Fantasy\"), from Wikidata, no account needed.\n- New: Settings → Game info has a Wikidata section with Update now and an off switch.",
+  "pub_date": "2026-10-14T20:18:09Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRTSEpibVF2MUN6bWhYWXdMdUN0Vko5S1BnMENqL1RjTmpaK0wrb243ZW90eVRkeWg1a3VnOFZhZzNVOEd3THpZVU5tekVNU2c3NE5uNVNCcXNxM1FNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxOTg4MTM2CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi40ClBHc1lBRVRGd3ZtOW52KzVFdGFBVWY2Z0prUEVibW9wZysvb29nNzBTNzZ0bVRPNU9ieWcrNVZyczFUdDN2eGhubWd6UHZjbHFpK1JKVXJ0N0pOd0NnPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.4_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVdWUTR4R0lydE1DVnBIOE8wOXlOV3VOZi8wa3cweThrOEV6WWYrdzBmem84RzBubjBPaGVESVpyRFErd0xsRU03R0R3Tm9HY3RuQXFRdWtmWURsYUFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDA4Njc4CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi41CkdMOE9WWUwwMmdJdnVwaTBEQzJ2UkZKZk51a0xHNXpVdkhweldOYkFsRnowKy82SjU2SzJuK3l1UWpmQ3pMejFZR014UUpoK0V0RDgrQ3lpYTlYbUFRPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.5_x64-setup.exe?ref=updates"
     }
   }
 }
