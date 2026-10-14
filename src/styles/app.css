@@ -1702,7 +1702,8 @@ html.nav-mode .tv-menu-item:focus {
 }
 /* ------------------------------------------------------------ updates */
 
-.update-panel {
+.update-panel,
+.confirm-panel {
   width: min(720px, 94vw);
 }
 

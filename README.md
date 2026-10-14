@@ -115,6 +115,19 @@ Keyboard: arrows move, `Enter` details (and `Enter` again to play), `Q`/`E` (or 
 switch platform, `Home`/`End` jump by letter, `F` favorite, `F1` settings, `Esc` back, `F11`
 fullscreen.
 
+### Storage and reset (Settings → General)
+Both only delete inside KB's data folder (`%APPDATA%\com.kaneegabell.kb`); game files,
+emulators and saves are never touched.
+- **Clear downloaded data**: deletes downloaded covers, backgrounds, logos, game info, achievement
+  data and cached web responses, then fetches them again in the background. The library, play
+  time, favorites, folders, settings, keys and anything you picked yourself (covers,
+  backgrounds, logos, "Fix match" choices) stay.
+- **Reset KaneegaBell**: back to a first start (library, play time, favorites, folders, emulator
+  paths and settings are forgotten; optionally the saved keys too). A copy of the old library is
+  kept as `library.before-reset.db`. To undo: close KB, delete `library.db`, `library.db-wal`
+  and `library.db-shm`, rename `library.before-reset.db` to `library.db`, start KB, then use
+  Clear downloaded data so the covers come back.
+
 ## Controllers
 
 | Action | PlayStation | Xbox | Keyboard |

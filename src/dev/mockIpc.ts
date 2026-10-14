@@ -215,6 +215,10 @@ export function installMockIpc() {
           { igdbId: 1, name: "Okami", year: 2006, cover: null, onPlatform: true, summary: "Play as Amaterasu, the sun goddess, in wolf form." },
           { igdbId: 2, name: "Okami HD", year: 2012, cover: null, onPlatform: false, summary: "A remaster." },
         ];
+      case "get_storage":
+        return { downloadedBytes: 182_452_224, dataDir: "C:\\Users\\you\\AppData\\Roaming\\com.kaneegabell.kb" };
+      case "clear_downloaded":
+        return 182_452_224;
       case "preview_launch":
         return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
       case "list_dir": {

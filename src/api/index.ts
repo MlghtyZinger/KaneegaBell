@@ -93,6 +93,12 @@ export interface AppInfo {
   devBuild: boolean;
 }
 
+export interface Storage {
+  /** Covers, backgrounds, logos, badges and cached web responses. */
+  downloadedBytes: number;
+  dataDir: string;
+}
+
 export interface UpdateInfo {
   version: string;
   currentVersion: string;
@@ -424,6 +430,11 @@ export const api = {
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
   appInfo: () => invoke<AppInfo>("app_info"),
+  getStorage: () => invoke<Storage>("get_storage"),
+  /** Deletes downloaded art/info/achievement data and fetches it again; returns bytes freed. */
+  clearDownloaded: () => invoke<number>("clear_downloaded"),
+  /** Back to a first start (keeps a copy of the library); reload the page afterwards. */
+  resetApp: (forgetKeys: boolean) => invoke<void>("reset_app", { forgetKeys }),
   /** Looks for a newer KB release; null when up to date. */
   checkForUpdate: () => invoke<UpdateInfo | null>("check_for_update"),
   /** Downloads and installs the update found by the last check (KB restarts). */

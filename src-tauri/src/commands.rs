@@ -151,12 +151,12 @@ pub fn set_favorite(state: State<'_, AppState>, id: i64, favorite: bool) -> Resu
 
 /// The exact argv a launch would run, for the details panel.
 #[tauri::command]
-pub fn preview_launch(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<Vec<String>> {
+pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<Vec<String>> {
     let conn = state.db();
     let game = queries::game_detail(&conn, id)?;
     let cfg = queries::launch_config(&conn, &game.platform_id)?;
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
-    let playlists = app.path().app_data_dir().map_err(|e| Error::msg(e.to_string()))?.join("playlists");
+    let playlists = state.data_dir().join("playlists");
     Ok(launcher::prepare(&game, &cfg, cores_dir.as_deref().map(Path::new), &playlists)?.argv)
 }
 
@@ -872,6 +872,89 @@ pub struct AppInfo {
 #[tauri::command]
 pub fn app_info(app: AppHandle) -> AppInfo {
     AppInfo { version: app.package_info().version.to_string(), dev_build: crate::updates::is_dev_build() }
+}
+
+// ---------------------------------------------------------------- storage
+
+/// Holds the library worker's slot (no scan or lookup can start) until dropped.
+struct WorkerSlot<'a>(&'a AtomicBool);
+
+impl Drop for WorkerSlot<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
+impl AppState {
+    /// For clearing and resetting: refuses while a game, a scan or a lookup runs.
+    fn exclusive(&self) -> Result<WorkerSlot<'_>> {
+        if self.input.game_running.load(Ordering::Acquire) {
+            return Err(Error::msg("Close the game first."));
+        }
+        if self.scanning.swap(true, Ordering::AcqRel) {
+            return Err(Error::msg("KB is busy scanning or looking up games. Stop that first (or wait), then try again."));
+        }
+        Ok(WorkerSlot(&self.scanning))
+    }
+}
+
+#[tauri::command]
+pub fn get_storage(state: State<'_, AppState>) -> Result<crate::maintenance::Storage> {
+    crate::maintenance::storage(&state.db(), state.data_dir())
+}
+
+/// Deletes the downloaded covers, artwork, game info and achievement data,
+/// then fetches them again (where the automatic lookups are on). Returns the
+/// bytes freed.
+#[tauri::command]
+pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u64> {
+    let freed = {
+        let _slot = state.exclusive()?;
+        crate::maintenance::clear_downloaded(&mut state.db(), state.data_dir())?
+    };
+    log::info!("cleared downloaded data ({freed} bytes)");
+    let (art, meta, ra, sgdb) = {
+        let conn = state.db();
+        let art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
+        (art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?)
+    };
+    state.art_pending.fetch_or(art, Ordering::AcqRel);
+    state.meta_pending.fetch_or(meta, Ordering::AcqRel);
+    state.ra_pending.fetch_or(ra, Ordering::AcqRel);
+    state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
+    if art || meta || ra || sgdb {
+        kick_worker(app, &state);
+    }
+    Ok(freed)
+}
+
+/// Resets KB to a first start (see `maintenance::reset`), optionally also
+/// removing the saved keys. The page reloads afterwards.
+#[tauri::command]
+pub async fn reset_app(app: AppHandle, forget_keys: bool) -> Result<()> {
+    let state = app.state::<AppState>();
+    {
+        let _slot = state.exclusive()?;
+        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending] {
+            flag.store(false, Ordering::Release);
+        }
+        let backup = crate::maintenance::reset(&mut state.db(), state.data_dir())?;
+        log::info!("reset KaneegaBell (the old library is kept as {})", backup.display());
+    }
+    state.input.set_combo(ExitCombo::default());
+    if forget_keys {
+        for name in [IGDB_ID, IGDB_SECRET, IGDB_TOKEN, SGDB_KEY, RA_USER, RA_KEY] {
+            secrets::delete(name)?;
+        }
+    }
+    // Cached images of the old library could otherwise show up for new
+    // games that reuse its ids.
+    if let Some(w) = app.get_webview_window("main") {
+        if let Err(e) = w.clear_all_browsing_data() {
+            log::warn!("couldn't clear the page cache: {e}");
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------- web links

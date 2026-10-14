@@ -253,6 +253,51 @@ from eroding them**. In priority order:
   chdman/maxcso downloads need the owner's OK.
 - Backloggd sync only if an official API appears.
 
+## 13. Keyless game info and better covers (added 2026-10-14)
+The owner wants game info and covers that work for everyone **without anyone entering API keys**,
+and a better keyless cover source than libretro-thumbnails/GameTDB (they miss games and have no
+backgrounds/logos). Research done 2026-10-14; re-check terms and formats before building.
+
+**Candidates that need no key:**
+1. **LaunchBox Games Database** (best fit, do first). `gamesdb.launchbox-app.com/Metadata.zip`
+   (~103 MB, rebuilt daily, no account) holds every game's title, alternate names, platform,
+   release date, overview, developer, publisher, genres, max players, rating, and the file
+   names of its images, served from `images.launchbox-app.com/<file name>`: front boxes, **clear
+   logos and fanart backgrounds** (so TV Mode gets logos/heroes without a SteamGridDB key),
+   screenshots, discs, by region. RomM uses it as a provider.
+   - Terms: there is **no published API or license** for outside use. LaunchBox staff have said on
+     their forum that other apps already use the file and that the image names can be used to build
+     image URLs. Be polite: download the zip at most weekly (only when it changed, by
+     `Last-Modified`), stream-parse it into a small table for KB's platforms only, never ship it,
+     cache images like today, credit "LaunchBox Games Database" in the UI/README. The owner may want
+     to ask LaunchBox on their forum before the friend's build relies on it.
+   - Matching: platform + normalized title + alternate names (the same rules as libretro), region
+     preference, manual "Fix match" picker.
+2. **Wikidata** (CC0, keyless SPARQL at query.wikidata.org; needs a descriptive User-Agent, has a
+   query-time budget). One query per platform returns every game's labels, release date,
+   developers, publishers, genres, **series (P179)** and IDs (IGDB P5794, MobyGames, etc.). Good
+   for series collections (section 6) and developer/publisher without IGDB. No covers (non-free
+   images aren't on Commons). Cache per platform for a month.
+3. **Hasheous** (hasheous.org, free, AGPL, run by the Gaseous project). Its hash lookup
+   (`/api/v1/Lookup/ByHash/md5|sha1|crc/...`) needs no key and maps No-Intro/Redump/TOSEC dumps to
+   IGDB / RetroAchievements IDs: exact identification instead of title matching. Its IGDB metadata
+   proxy needs an app-level "Client API Key" (registered once by the app's developer, not by each
+   user); shipping that is an owner decision (see "keys never shipped" in CLAUDE.md). Rate
+   limits aren't published: be gentle, sequential, cached.
+4. **libretro-database** (GitHub, CC-BY-SA-4.0): per-system DAT files keyed by checksum with
+   developer, publisher, genre, release year, franchise and serials. Fully offline once
+   downloaded; credit required. Mostly cartridge/older systems; thin for PS2/PS3/Wii.
+
+**Ruled out:** ScreenScraper (account needed; developer credentials embedded in open-source apps are
+a grey area), TheGamesDB, RAWG, GiantBomb (all need keys), MobyGames (paid), GameFAQs/
+TheCoverProject (no API, scraping not allowed). IGDB, SteamGridDB and RetroAchievements stay as
+optional per-user upgrades.
+
+**Plan shape:** LaunchBox DB as the new primary keyless source for covers, logos, backgrounds and
+info (libretro/GameTDB stay as fallbacks, IGDB/SGDB picks win when set up), then Wikidata for series,
+then Hasheous hash identification. Settings → Game info shows each source, what it adds and its
+credit; each can be turned off. All downloads stay in the background worker, cached, never on focus.
+
 ## Explicit non-goals (updated)
 - No ROM, BIOS, firmware, key or game-content downloading of any kind (unchanged)
 - **(changed)** No themes *store*, hosted server or accounts. File-based themes and a
@@ -263,9 +308,16 @@ from eroding them**. In priority order:
 
 ## Suggested milestone order
 Each milestone is runnable and tested, and passes the perf gate.
-- [ ] i. Rename to KaneegaBell + data/credential migration + version info
-- [ ] j. Installer + auto-updater (+ code-signing decision); first build for the friend
+- [x] i. Rename to KaneegaBell + data/credential migration + version info
+- [x] j. Installer + auto-updater (+ code-signing decision: skipped for now); first release v0.2.0
+- [x] 0.2.1: Settings → General → "Storage and reset": Clear downloaded data (keeps the library and
+      the user's own picks, then refetches) and Reset KaneegaBell (back to first start, keeps
+      `library.before-reset.db`, optionally removes saved keys)
 - [ ] k. Resolution/DPI/multi-monitor pass + perf regression gate + WebView2 suspend test
+- [ ] s. Keyless game info and better covers (section 13): LaunchBox Games Database → Wikidata
+      series → Hasheous hash identification. **Do this right after k**: the sidebar (l),
+      icons (m) and collections (n) all get better with its data. (Lettered s because it was added
+      later, not because it comes last.)
 - [ ] l. Game details sidebar + customization options
 - [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon
 - [ ] n. Collections (manual, smart, automatic)

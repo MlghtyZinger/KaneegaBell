@@ -1055,7 +1055,125 @@ function GeneralSection(props: { s: Settings; run: Run }) {
       </p>
 
       <UpdatesBlock s={props.s} run={props.run} />
+      <StorageBlock run={props.run} />
     </section>
+  );
+}
+
+const size = (n: number) =>
+  n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(0)} MB` : `${Math.round(n / 1024)} KB`;
+
+function StorageBlock(props: { run: Run }) {
+  const [storage, { refetch }] = createResource(() => api.getStorage().catch(() => null));
+  const [asking, setAsking] = createSignal<"clear" | "reset" | null>(null);
+  const [forgetKeys, setForgetKeys] = createSignal(false);
+  const [working, setWorking] = createSignal(false);
+  const [failed, setFailed] = createSignal<string | null>(null);
+
+  const ask = (what: "clear" | "reset") => {
+    setForgetKeys(false);
+    setFailed(null);
+    setAsking(what);
+  };
+  const close = () => !working() && setAsking(null);
+
+  async function confirm() {
+    setWorking(true);
+    setFailed(null);
+    try {
+      if (asking() === "reset") {
+        await api.resetApp(forgetKeys());
+        location.reload();
+        return;
+      }
+      const freed = await api.clearDownloaded();
+      setAsking(null);
+      await props.run(() => library.reload(), {
+        notice: `Downloaded data cleared (${size(freed)} freed). KB is fetching it again in the background.`,
+      });
+      await refetch();
+    } catch (e) {
+      setFailed(errorText(e));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <>
+      <h2>Storage and reset</h2>
+      <p>
+        Downloaded data: <span class="mono">{storage() ? size(storage()!.downloadedBytes) : "…"}</span>{" "}
+        <span class="dim small">(covers, backgrounds, logos, game info, achievement data)</span>
+      </p>
+      <div class="row">
+        <button class="btn" onClick={() => ask("clear")}>
+          Clear downloaded data…
+        </button>
+        <button class="btn danger" onClick={() => ask("reset")}>
+          Reset KaneegaBell…
+        </button>
+      </div>
+      <p class="dim small">
+        Your games, emulators and saves are never touched: both only delete inside KB's own folder
+        {storage() ? <> (<span class="mono">{storage()!.dataDir}</span>)</> : null}.
+      </p>
+      <Show when={asking()}>
+        {(what) => (
+          <div class="overlay" onClick={(e) => e.target === e.currentTarget && close()}>
+            <NavScope class="panel confirm-panel" modal onBack={close}>
+              <Show
+                when={what() === "reset"}
+                fallback={
+                  <>
+                    <h2>Clear downloaded data?</h2>
+                    <p>
+                      KB deletes the covers, backgrounds, logos, game info and achievement data it downloaded, then
+                      downloads them again in the background. Use this if artwork or info looks wrong or out of date.
+                    </p>
+                    <p class="dim">
+                      Kept: your games, play time, favorites, folders, settings and keys, plus the covers, backgrounds,
+                      logos and matches you picked yourself.
+                    </p>
+                  </>
+                }
+              >
+                <h2>Reset KaneegaBell?</h2>
+                <p>
+                  KB goes back to how it was on the first start. It forgets your library, play time, favorites, ROM
+                  folders, emulator paths and every setting, and deletes the downloaded data.
+                </p>
+                <p class="dim">
+                  Your game files, emulators and saves are not touched. A copy of the old library is kept in KB's
+                  folder as <span class="mono">library.before-reset.db</span>, in case you change your mind.
+                </p>
+                <label class="check">
+                  <input type="checkbox" checked={forgetKeys()} onChange={(e) => setForgetKeys(e.currentTarget.checked)} />
+                  Also remove my saved keys (IGDB, SteamGridDB, RetroAchievements)
+                </label>
+              </Show>
+              <Show when={failed()}>
+                <p class="warn">{failed()}</p>
+              </Show>
+              <div class="row">
+                <button class="btn" data-autofocus disabled={working()} onClick={close}>
+                  Cancel
+                </button>
+                <button class="btn danger" disabled={working()} onClick={() => void confirm()}>
+                  {working() ? "Working…" : what() === "reset" ? "Reset KaneegaBell" : "Clear downloaded data"}
+                </button>
+              </div>
+              <div class="panel-actions">
+                <div class="hints-row">
+                  <Hint action="select" label="Choose" />
+                  <Hint action="back" label="Cancel" />
+                </div>
+              </div>
+            </NavScope>
+          </div>
+        )}
+      </Show>
+    </>
   );
 }
 

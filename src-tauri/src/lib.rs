@@ -6,6 +6,7 @@ mod error;
 mod fsbrowse;
 mod input;
 mod launcher;
+mod maintenance;
 mod metadata;
 mod migrate;
 #[cfg(test)]
@@ -169,6 +170,9 @@ pub fn run() {
             commands::open_url,
             commands::get_startup_notice,
             commands::app_info,
+            commands::get_storage,
+            commands::clear_downloaded,
+            commands::reset_app,
             updates::check_for_update,
             updates::install_update,
         ])
