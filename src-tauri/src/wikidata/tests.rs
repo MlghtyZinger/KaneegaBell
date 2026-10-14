@@ -24,15 +24,19 @@ impl Source for FakeSource {
         self.queries.lock().unwrap().push(query.to_string());
         if query.contains("VALUES ?g") {
             let mut out = Vec::new();
-            for (g, s, label, kind) in [
-                (526700, 1, "Jak and Daxter", "series"),
-                (960458, 1, "Jak and Daxter", "series"),
-                (633011, 2, "Final Fantasy X subseries", "series"),
-                (633011, 3, "Final Fantasy", "franchise"),
-                (999, 3, "Final Fantasy", "franchise"),
+            for (g, s, label, kind, ord) in [
+                (526700, 1, "Jak and Daxter", "series", "2"),
+                (960458, 1, "Jak and Daxter", "series", "3"),
+                (633011, 2, "Final Fantasy X subseries", "series", "2"),
+                (633011, 3, "Final Fantasy", "franchise", ""),
+                (999, 3, "Final Fantasy", "franchise", ""),
             ] {
                 if query.contains(&format!("wd:Q{g} ")) || query.contains(&format!("wd:Q{g} }}")) {
-                    out.push(row(&[("g", &e(g)), ("s", &e(s)), ("sl", label), ("kind", kind)]));
+                    let mut r = row(&[("g", &e(g)), ("s", &e(s)), ("sl", label), ("kind", kind)]);
+                    if !ord.is_empty() {
+                        r.insert("ord".into(), ord.into());
+                    }
+                    out.push(r);
                 }
             }
             return Ok(out);
@@ -108,8 +112,25 @@ fn a_pass_matches_and_keeps_only_the_library_s_series() {
     assert_eq!(status_of(&conn, tetris), ("ambiguous".into(), None));
     assert_eq!(status_of(&conn, stranger), ("notfound".into(), None));
 
-    assert_eq!(series_for(&conn, jak2).unwrap(), vec!["Jak and Daxter"]);
-    assert_eq!(series_for(&conn, ffx2).unwrap(), vec!["Final Fantasy X subseries", "Final Fantasy"], "series before franchise");
+    // Each game knows its number, and the series lists the library's games in order.
+    let jak = |number: &str| Series {
+        name: "Jak and Daxter".into(),
+        kind: "series".into(),
+        number: Some(number.into()),
+        games: vec![jak2, jak3],
+    };
+    assert_eq!(series_for(&conn, jak2).unwrap(), vec![jak("2")]);
+    assert_eq!(series_for(&conn, jak3).unwrap(), vec![jak("3")]);
+    let ff: Vec<(String, String, Option<String>)> =
+        series_for(&conn, ffx2).unwrap().into_iter().map(|s| (s.name, s.kind, s.number)).collect();
+    assert_eq!(
+        ff,
+        vec![
+            ("Final Fantasy X subseries".into(), "series".into(), Some("2".into())),
+            ("Final Fantasy".into(), "franchise".into(), None),
+        ],
+        "series before franchise"
+    );
     assert!(series_for(&conn, stranger).unwrap().is_empty());
     // Only the matched entries are stored, not the platform's whole list.
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM wd_games"), 3);
@@ -135,6 +156,13 @@ fn a_pass_matches_and_keeps_only_the_library_s_series() {
     assert!(wanted(&conn).unwrap());
     pass(&mut conn, &source, false);
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM games WHERE wd_id = 526700"), 2, "matched by the alternate title");
+    // Two copies of Jak II: the series shows each game once (the one looked at).
+    let europe: i64 = conn.query_row("SELECT MAX(id) FROM games", [], |r| r.get(0)).unwrap();
+    assert_eq!(series_for(&conn, jak2).unwrap()[0].games, vec![jak2, jak3]);
+    assert_eq!(series_for(&conn, europe).unwrap()[0].games, vec![europe, jak3]);
+    // The numbers order the list, whatever order the games were added in.
+    conn.execute("UPDATE wd_game_series SET ord = '1' WHERE game_qid = 960458", []).unwrap();
+    assert_eq!(series_for(&conn, jak2).unwrap()[0].games, vec![jak3, jak2]);
 
     // Removed games' entries go at the next pass.
     conn.execute("DELETE FROM games WHERE id = ?1", [ffx2]).unwrap();
@@ -235,5 +263,5 @@ fn wikidata_live() {
     println!("{s:?} in {:?}", t.elapsed());
     println!("Jak II: {:?}", series_for(&conn, jak).unwrap());
     println!("FF X-2: {:?}", series_for(&conn, ff).unwrap());
-    assert!(series_for(&conn, jak).unwrap().iter().any(|s| s.contains("Jak")));
+    assert!(series_for(&conn, jak).unwrap().iter().any(|s| s.name.contains("Jak") && s.number.as_deref() == Some("2")));
 }

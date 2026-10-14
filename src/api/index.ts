@@ -71,7 +71,17 @@ export interface GameMetadata {
   lbStatus: "none" | "ok" | "manual" | "notfound" | "ambiguous";
   players: number | null;
   /** Series, then franchises (Wikidata). */
-  series: string[];
+  series: Series[];
+}
+
+/** A series or franchise a game belongs to (Wikidata). */
+export interface Series {
+  name: string;
+  kind: "series" | "franchise";
+  /** The game's number in it ("2"), when known. */
+  number: string | null;
+  /** The library's games in it, this one included, in series order. */
+  games: number[];
 }
 
 export interface WdStatus {

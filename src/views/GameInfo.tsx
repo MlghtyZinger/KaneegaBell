@@ -1,5 +1,5 @@
-import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
-import { api, artUrl, backloggdUrl, errorText, events, type GameDetail } from "../api";
+import { createEffect, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { api, artUrl, backloggdUrl, errorText, events, type GameDetail, type Series } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
@@ -36,6 +36,73 @@ function matchLine(m: GameDetail["meta"], igdb: boolean): string {
   return `${lb} · ${m.igdbId ? `IGDB: matched${m.matchStatus === "manual" ? " (your pick)" : ""}` : "not on IGDB"}`;
 }
 
+/** The series shown up top: a real series first, else a franchise. */
+function mainSeries(g: GameDetail): Series | null {
+  return g.meta.series.find((s) => s.kind === "series") ?? g.meta.series[0] ?? null;
+}
+
+/** A small stack-of-cases mark for series. */
+function SeriesGlyph() {
+  return (
+    <svg class="series-glyph" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="5" y="1.5" width="9" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55" />
+      <rect x="2" y="3.5" width="9" height="11" rx="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
+ * The game's series: how far along it is, the other games you have from it
+ * (covers; select one to open it) and any wider franchise.
+ */
+function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: number) => void }) {
+  const s = () => props.series;
+  const members = () =>
+    s()
+      .games.map((id) => library.games().find((r) => r.id === id))
+      .filter((r): r is NonNullable<typeof r> => !!r);
+  const others = () => props.game.meta.series.filter((x) => x !== s());
+  const have = () => members().length;
+  return (
+    <div class="series-card">
+      <div class="series-text">
+        <div class="series-kicker">
+          <SeriesGlyph />
+          {s().name} {s().kind === "series" ? "series" : "franchise"}
+        </div>
+        <div class="series-place">
+          {s().number ? `Game ${s().number}` : ""}
+          {s().number ? " · " : ""}
+          {have() > 1 ? `you have ${have()}` : "the only one in your library"}
+        </div>
+        <Show when={others().length > 0}>
+          <div class="series-also">
+            Also part of {others().map((o) => `${o.name}${o.kind === "franchise" ? " (franchise)" : ""}`).join(", ")}
+          </div>
+        </Show>
+      </div>
+      <Show when={have() > 1}>
+        <div class="series-covers">
+          <For each={members()}>
+            {(m) => (
+              <button
+                class="series-cover"
+                classList={{ current: m.id === props.game.id }}
+                title={m.title}
+                onClick={() => m.id !== props.game.id && props.onOpen(m.id)}
+              >
+                <Show when={m.art > 0} fallback={<span class="series-cover-name">{m.title}</span>}>
+                  <img src={artUrl(m.id, m.art, "t")} alt={m.title} decoding="async" />
+                </Show>
+              </button>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
 /** Quote an argv element the way a Windows command line would show it. */
 function showArg(a: string): string {
   return /[\s"]/.test(a) || a === "" ? `"${a.replace(/"/g, '\\"')}"` : a;
@@ -46,7 +113,9 @@ function showArg(a: string): string {
  * and the exact command a launch runs.
  */
 export function GameInfo(props: { id: number; onClose: () => void }) {
-  const [game, { refetch }] = createResource(() => props.id, api.getGame);
+  // The game shown: the one opened, or another picked from its series.
+  const [id, setId] = createSignal(props.id);
+  const [game, { refetch }] = createResource(() => id(), api.getGame);
   const [refreshing, setRefreshing] = createSignal(false);
   const [picking, setPicking] = createSignal<PictureKind | null>(null);
   const [matching, setMatching] = createSignal(false);
@@ -58,7 +127,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   async function refreshCover() {
     setRefreshing(true);
     try {
-      await api.refreshArt(props.id);
+      await api.refreshArt(id());
     } catch {
       setRefreshing(false);
     }
@@ -70,18 +139,31 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   });
   onCleanup(() => void unlisten.then((f) => f()));
   const [argv] = createResource(
-    () => props.id,
+    () => id(),
     (id) => api.previewLaunch(id).then((a) => ({ ok: true as const, a }), (e) => ({ ok: false as const, e: errorText(e) })),
   );
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   const [favorite, setFavorite] = createSignal<boolean | null>(null);
-  const isFavorite = () => favorite() ?? library.games().find((g) => g.id === props.id)?.favorite ?? false;
+  const isFavorite = () => favorite() ?? library.games().find((g) => g.id === id())?.favorite ?? false;
+  // Another game from the series opened in place: forget this one's state.
+  createEffect(
+    on(
+      id,
+      () => {
+        setFavorite(null);
+        setLaunchError(null);
+        setRaGameId(null);
+        setRefreshing(false);
+      },
+      { defer: true },
+    ),
+  );
 
   async function toggleFavorite() {
     const next = !isFavorite();
     setFavorite(next);
-    await api.setFavorite(props.id, next);
+    await api.setFavorite(id(), next);
     await library.reload();
   }
 
@@ -90,7 +172,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(props.id);
+      await api.launchGame(id());
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
       setLaunchError(errorText(e));
@@ -165,15 +247,23 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 </div>
               </div>
               <div class="info-main">
+              <Show when={mainSeries(g())}>
+                {(s) => (
+                  <div class="series-eyebrow">
+                    <SeriesGlyph />
+                    <span>
+                      {s().name}
+                      {s().number ? ` · #${s().number}` : ""}
+                    </span>
+                  </div>
+                )}
+              </Show>
               <h2>{g().title}</h2>
               <Show when={g().variant}>
                 <p class="dim">{g().variant}</p>
               </Show>
               <Show when={metaLine(g())}>
                 <p class="meta-line">{metaLine(g())}</p>
-              </Show>
-              <Show when={g().meta.series.length > 0}>
-                <p class="meta-line">Series: {g().meta.series.join(" · ")}</p>
               </Show>
               <Show when={g().meta.genres.length > 0}>
                 <div class="genre-row">
@@ -196,6 +286,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
               </Show>
+              <Show when={mainSeries(g())}>
+                {(s) => <SeriesCard game={g()} series={s()} onOpen={setId} />}
+              </Show>
               <Show when={g().meta.description}>
                 <p class="description">{g().meta.description}</p>
               </Show>
@@ -205,7 +298,10 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 </button>
                 <span class="dim small">{matchLine(g().meta, !!services()?.igdb)}</span>
               </div>
-              <Achievements gameId={g().id} onRaGame={setRaGameId} />
+              {/* Keyed: a game opened from the series loads its own achievements. */}
+              <Show when={id()} keyed>
+                {(gameId) => <Achievements gameId={gameId} onRaGame={setRaGameId} />}
+              </Show>
               <dl class="facts">
                 <dt>Platform</dt>
                 <dd>{g().platformId.toUpperCase()}</dd>

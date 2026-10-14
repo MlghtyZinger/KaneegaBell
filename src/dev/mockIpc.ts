@@ -152,7 +152,13 @@ export function installMockIpc() {
                 lbStatus: "ok",
                 players: 2,
                 slug: g.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                series: g.id % 3 === 0 ? ["Mock Saga", "Mock Universe"] : [],
+                series:
+                  g.id % 3 === 0
+                    ? [
+                        { name: "Mock Saga", kind: "series", number: "2", games: [g.id - 1, g.id, g.id + 1, g.id + 2] },
+                        { name: "Mock Universe", kind: "franchise", number: null, games: [g.id] },
+                      ]
+                    : [],
               }
             : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null, lbId: null, lbStatus: "notfound", players: null, series: [] },
         };

@@ -424,7 +424,7 @@ pub struct GameMetadata {
     pub lb_status: String,
     pub players: Option<i64>,
     /// Series, then franchises, from Wikidata.
-    pub series: Vec<String>,
+    pub series: Vec<crate::wikidata::Series>,
 }
 
 type InfoRow = (Option<String>, Option<String>, Option<i64>, Option<String>, Option<String>);

@@ -155,16 +155,18 @@ pub fn info_query(platform_item: &str) -> String {
     )
 }
 
-/// The series (P179) and franchises (P8345) of the given games, with English
-/// names. The service's planner times out on this unless told to keep the
-/// written order (~1 s with the hint).
+/// The series (P179, with the game's number in it: P1545) and franchises
+/// (P8345) of the given games, with English names. The service's planner
+/// times out on this unless told to keep the written order (a few seconds
+/// with the hint).
 pub fn series_query(qids: &[i64]) -> String {
     let values: Vec<String> = qids.iter().map(|q| format!("wd:Q{q}")).collect();
     format!(
-        "SELECT ?g ?s ?sl ?kind WHERE {{
+        "SELECT ?g ?s ?sl ?kind ?ord WHERE {{
            hint:Query hint:optimizer \"None\" .
            VALUES ?g {{ {} }}
-           {{ ?g wdt:P179 ?s BIND(\"series\" AS ?kind) }} UNION {{ ?g wdt:P8345 ?s BIND(\"franchise\" AS ?kind) }}
+           {{ ?g p:P179 ?st . ?st ps:P179 ?s . OPTIONAL {{ ?st pq:P1545 ?ord }} BIND(\"series\" AS ?kind) }}
+           UNION {{ ?g wdt:P8345 ?s BIND(\"franchise\" AS ?kind) }}
            ?s rdfs:label ?sl FILTER(LANG(?sl) = \"en\")
          }}",
         values.join(" ")
@@ -176,9 +178,10 @@ pub fn series_query(qids: &[i64]) -> String {
 pub fn series_query_plain(qids: &[i64]) -> String {
     let values: Vec<String> = qids.iter().map(|q| format!("wd:Q{q}")).collect();
     format!(
-        "SELECT ?g ?s ?sl ?kind WHERE {{
+        "SELECT ?g ?s ?sl ?kind ?ord WHERE {{
            VALUES ?g {{ {} }}
-           {{ ?g wdt:P179 ?s BIND(\"series\" AS ?kind) }} UNION {{ ?g wdt:P8345 ?s BIND(\"franchise\" AS ?kind) }}
+           {{ ?g p:P179 ?st . ?st ps:P179 ?s . OPTIONAL {{ ?st pq:P1545 ?ord }} BIND(\"series\" AS ?kind) }}
+           UNION {{ ?g wdt:P8345 ?s BIND(\"franchise\" AS ?kind) }}
            SERVICE wikibase:label {{ bd:serviceParam wikibase:language \"en\". ?s rdfs:label ?sl . }}
          }}",
         values.join(" ")
@@ -419,7 +422,10 @@ fn store(conn: &mut Connection, outcomes: &[(i64, Outcome)], matched: &[i64], li
             clear.execute([q])?;
         }
         let mut name = tx.prepare("INSERT INTO wd_series (qid, name) VALUES (?1, ?2) ON CONFLICT(qid) DO UPDATE SET name = excluded.name")?;
-        let mut link = tx.prepare("INSERT OR IGNORE INTO wd_game_series (game_qid, series_qid, kind) VALUES (?1, ?2, ?3)")?;
+        let mut link = tx.prepare(
+            "INSERT INTO wd_game_series (game_qid, series_qid, kind, ord) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(game_qid, series_qid, kind) DO UPDATE SET ord = COALESCE(ord, excluded.ord)",
+        )?;
         for r in series {
             let (Some(g), Some(sq), Some(label), Some(kind)) =
                 (r.get("g").and_then(|v| qid(v)), r.get("s").and_then(|v| qid(v)), r.get("sl"), r.get("kind"))
@@ -431,7 +437,8 @@ fn store(conn: &mut Connection, outcomes: &[(i64, Outcome)], matched: &[i64], li
                 continue;
             }
             name.execute(params![sq, label])?;
-            link.execute(params![g, sq, kind])?;
+            let ord = r.get("ord").map(|o| o.trim()).filter(|o| !o.is_empty());
+            link.execute(params![g, sq, kind, ord])?;
         }
         let mut set = tx.prepare("UPDATE games SET wd_status = ?2, wd_id = ?3 WHERE id = ?1")?;
         for (id, o) in outcomes {
@@ -457,18 +464,68 @@ fn prune(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// A game's series, then franchises (names, no repeats).
-pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<String>> {
+/// A series or franchise a game belongs to, for the game details.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Series {
+    pub name: String,
+    /// "series" | "franchise"
+    pub kind: String,
+    /// The game's number in it ("2"), when Wikidata has one.
+    pub number: Option<String>,
+    /// The library's games in it, this one included, in series order (by
+    /// number, then release year, then title); one per Wikidata entry.
+    pub games: Vec<i64>,
+}
+
+/// A game's series, then franchises (no repeated names).
+pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT s.name FROM games g
+        "SELECT gs.series_qid, s.name, gs.kind, gs.ord, g.wd_id FROM games g
          JOIN wd_game_series gs ON gs.game_qid = g.wd_id
          JOIN wd_series s ON s.qid = gs.series_qid
          WHERE g.id = ?1 AND g.wd_status = 'ok'
          ORDER BY gs.kind DESC, s.name",
     )?;
-    let names: Vec<String> = stmt.query_map([game_id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+    let rows: Vec<(i64, String, String, Option<String>, i64)> = stmt
+        .query_map([game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut members = conn.prepare_cached(
+        "SELECT g.id, g.wd_id, gs.ord, w.year, g.sort_title FROM wd_game_series gs
+         JOIN games g ON g.wd_id = gs.game_qid AND g.wd_status = 'ok' AND g.missing = 0
+         LEFT JOIN wd_games w ON w.qid = gs.game_qid
+         WHERE gs.series_qid = ?1 AND gs.kind = ?2
+         ORDER BY g.id",
+    )?;
     let mut seen = HashSet::new();
-    Ok(names.into_iter().filter(|n| seen.insert(n.to_lowercase())).collect())
+    let mut out = Vec::new();
+    for (series_qid, name, kind, number, own_qid) in rows {
+        if !seen.insert(name.to_lowercase()) {
+            continue;
+        }
+        type Member = (i64, i64, Option<String>, Option<i64>, String);
+        let list: Vec<Member> = members
+            .query_map(params![series_qid, kind], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        // Two copies of one game (e.g. two regions): this one, else the first.
+        let mut by_entry: HashMap<i64, Member> = HashMap::new();
+        for m in list {
+            if m.1 == own_qid && m.0 != game_id {
+                continue;
+            }
+            by_entry.entry(m.1).or_insert(m);
+        }
+        let mut list: Vec<Member> = by_entry.into_values().collect();
+        let num = |o: &Option<String>| o.as_deref().and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(f64::MAX);
+        list.sort_by(|a, b| {
+            num(&a.2)
+                .total_cmp(&num(&b.2))
+                .then(a.3.unwrap_or(i64::MAX).cmp(&b.3.unwrap_or(i64::MAX)))
+                .then_with(|| a.4.cmp(&b.4))
+        });
+        out.push(Series { name, kind, number, games: list.into_iter().map(|m| m.0).collect() });
+    }
+    Ok(out)
 }
 
 /// Forgets a game's match so the next pass looks it up again (e.g. its

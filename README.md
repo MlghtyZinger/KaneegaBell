@@ -240,7 +240,9 @@ Everything works without accounts or API keys:
   - Settings → Game info can turn it off. Credit: game info and pictures from the LaunchBox
     Games Database, made by its community. LaunchBox staff have said other apps use the file.
 - **[Wikidata](https://www.wikidata.org)** (keyless, CC0): each game's **series** and
-  **franchise** (e.g. "Jak and Daxter", "Final Fantasy"), shown in the game details.
+  **franchise** (e.g. "Jak and Daxter", "Final Fantasy") and its **number** in the series
+  ("series ordinal"). The game details show the series and number above the title, and a series
+  card under Play with the other games you have from it, in series order (select one to open it).
   - KB asks Wikidata's query service once per platform with games (its games' English titles,
     alternate titles, first release year and IGDB ID; a few seconds each, one at a time), matches
     your games in memory, then asks for the series of the matched games only. Only those entries
@@ -513,6 +515,9 @@ window, so they're written for players.
 ### 0.2.6 (not released yet)
 - New: Settings → General → Updates → What's new lists every update and what it changed.
 - New: after an update, KB shows what's new once.
+- New: game details show the series above the title, with the game's number in it (e.g. "Jak and Daxter · #2").
+- New: a series card under Play shows where the game falls in its series and the covers of the other games you have from it; select one to open it.
+- Changed: series are looked up once more after this update, to add the numbers.
 
 ### 0.2.5 (2026-10-15)
 - New: game details show the game's series and franchise (e.g. "Jak and Daxter", "Final Fantasy"), from Wikidata, no account needed.
