@@ -1073,14 +1073,10 @@ kbd.ps-favorite { color: #4fe0c0; }
   color: var(--accent-strong);
 }
 
-.series-place {
+.series-name {
   margin-top: 2px;
   font-size: var(--fs-md);
   font-weight: 600;
-}
-
-.series-place::first-letter {
-  text-transform: uppercase;
 }
 
 .series-also {

@@ -36,9 +36,18 @@ function matchLine(m: GameDetail["meta"], igdb: boolean): string {
   return `${lb} · ${m.igdbId ? `IGDB: matched${m.matchStatus === "manual" ? " (your pick)" : ""}` : "not on IGDB"}`;
 }
 
-/** The series shown up top: a real series first, else a franchise. */
+/** A series' games that are in the library list, in release order. */
+function owned(s: Series) {
+  return s.games.map((id) => library.games().find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r);
+}
+
+/**
+ * The series to show: a real series first, else a franchise, and only one you
+ * have at least two games from (one game alone says nothing worth showing).
+ */
 function mainSeries(g: GameDetail): Series | null {
-  return g.meta.series.find((s) => s.kind === "series") ?? g.meta.series[0] ?? null;
+  const shown = g.meta.series.filter((s) => owned(s).length >= 2);
+  return shown.find((s) => s.kind === "series") ?? shown[0] ?? null;
 }
 
 /** A small stack-of-cases mark for series. */
@@ -52,53 +61,42 @@ function SeriesGlyph() {
 }
 
 /**
- * The game's series: how far along it is, the other games you have from it
- * (covers; select one to open it) and any wider franchise.
+ * The game's series: its name and the games you have from it, in release
+ * order (covers; select one to open it).
  */
 function SeriesCard(props: { game: GameDetail; series: Series; onOpen: (id: number) => void }) {
   const s = () => props.series;
-  const members = () =>
-    s()
-      .games.map((id) => library.games().find((r) => r.id === id))
-      .filter((r): r is NonNullable<typeof r> => !!r);
-  const others = () => props.game.meta.series.filter((x) => x !== s());
-  const have = () => members().length;
+  const members = () => owned(s());
+  // Other series or franchises it belongs to that you also have more of.
+  const others = () => props.game.meta.series.filter((x) => x !== s() && owned(x).length >= 2);
   return (
     <div class="series-card">
       <div class="series-text">
         <div class="series-kicker">
           <SeriesGlyph />
-          {s().name} {s().kind === "series" ? "series" : "franchise"}
+          {s().kind === "series" ? "Series" : "Franchise"}
         </div>
-        <div class="series-place">
-          {s().number ? `Game ${s().number}` : ""}
-          {s().number ? " · " : ""}
-          {have() > 1 ? `you have ${have()}` : "the only one in your library"}
-        </div>
+        <div class="series-name">{s().name}</div>
         <Show when={others().length > 0}>
-          <div class="series-also">
-            Also part of {others().map((o) => `${o.name}${o.kind === "franchise" ? " (franchise)" : ""}`).join(", ")}
-          </div>
+          <div class="series-also">Also part of {others().map((o) => o.name).join(", ")}</div>
         </Show>
       </div>
-      <Show when={have() > 1}>
-        <div class="series-covers">
-          <For each={members()}>
-            {(m) => (
-              <button
-                class="series-cover"
-                classList={{ current: m.id === props.game.id }}
-                title={m.title}
-                onClick={() => m.id !== props.game.id && props.onOpen(m.id)}
-              >
-                <Show when={m.art > 0} fallback={<span class="series-cover-name">{m.title}</span>}>
-                  <img src={artUrl(m.id, m.art, "t")} alt={m.title} decoding="async" />
-                </Show>
-              </button>
-            )}
-          </For>
-        </div>
-      </Show>
+      <div class="series-covers">
+        <For each={members()}>
+          {(m) => (
+            <button
+              class="series-cover"
+              classList={{ current: m.id === props.game.id }}
+              title={m.title}
+              onClick={() => m.id !== props.game.id && props.onOpen(m.id)}
+            >
+              <Show when={m.art > 0} fallback={<span class="series-cover-name">{m.title}</span>}>
+                <img src={artUrl(m.id, m.art, "t")} alt={m.title} decoding="async" />
+              </Show>
+            </button>
+          )}
+        </For>
+      </div>
     </div>
   );
 }
@@ -251,10 +249,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 {(s) => (
                   <div class="series-eyebrow">
                     <SeriesGlyph />
-                    <span>
-                      {s().name}
-                      {s().number ? ` · #${s().number}` : ""}
-                    </span>
+                    <span>{s().name}</span>
                   </div>
                 )}
               </Show>

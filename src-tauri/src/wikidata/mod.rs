@@ -473,8 +473,8 @@ pub struct Series {
     pub kind: String,
     /// The game's number in it ("2"), when Wikidata has one.
     pub number: Option<String>,
-    /// The library's games in it, this one included, in series order (by
-    /// number, then release year, then title); one per Wikidata entry.
+    /// The library's games in it, this one included, in release order (then
+    /// series number, then title); one per Wikidata entry.
     pub games: Vec<i64>,
 }
 
@@ -516,11 +516,12 @@ pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
             by_entry.entry(m.1).or_insert(m);
         }
         let mut list: Vec<Member> = by_entry.into_values().collect();
+        // Release order; the series number settles games from the same year.
         let num = |o: &Option<String>| o.as_deref().and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(f64::MAX);
         list.sort_by(|a, b| {
-            num(&a.2)
-                .total_cmp(&num(&b.2))
-                .then(a.3.unwrap_or(i64::MAX).cmp(&b.3.unwrap_or(i64::MAX)))
+            a.3.unwrap_or(i64::MAX)
+                .cmp(&b.3.unwrap_or(i64::MAX))
+                .then(num(&a.2).total_cmp(&num(&b.2)))
                 .then_with(|| a.4.cmp(&b.4))
         });
         out.push(Series { name, kind, number, games: list.into_iter().map(|m| m.0).collect() });

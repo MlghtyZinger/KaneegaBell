@@ -160,9 +160,13 @@ fn a_pass_matches_and_keeps_only_the_library_s_series() {
     let europe: i64 = conn.query_row("SELECT MAX(id) FROM games", [], |r| r.get(0)).unwrap();
     assert_eq!(series_for(&conn, jak2).unwrap()[0].games, vec![jak2, jak3]);
     assert_eq!(series_for(&conn, europe).unwrap()[0].games, vec![europe, jak3]);
-    // The numbers order the list, whatever order the games were added in.
-    conn.execute("UPDATE wd_game_series SET ord = '1' WHERE game_qid = 960458", []).unwrap();
+    // Release order decides, whatever order the games were added in or numbered.
+    conn.execute("UPDATE wd_game_series SET ord = '9' WHERE game_qid = 960458", []).unwrap();
+    conn.execute("UPDATE wd_games SET year = 2001 WHERE qid = 960458", []).unwrap();
     assert_eq!(series_for(&conn, jak2).unwrap()[0].games, vec![jak3, jak2]);
+    // Same year: the series number settles it.
+    conn.execute("UPDATE wd_games SET year = 2003 WHERE qid = 960458", []).unwrap();
+    assert_eq!(series_for(&conn, jak2).unwrap()[0].games, vec![jak2, jak3]);
 
     // Removed games' entries go at the next pass.
     conn.execute("DELETE FROM games WHERE id = ?1", [ffx2]).unwrap();
