@@ -107,10 +107,12 @@ One-time setup:
   HTTPS, log in with a web browser).
 
 ```bash
-powershell -ExecutionPolicy Bypass -File tools/release/release.ps1 -Version 0.3.0 -Notes "What changed" -Publish
+powershell -ExecutionPolicy Bypass -File tools/release/release.ps1 -Version 0.3.0 -Publish
 ```
 
-It checks the work tree is clean, sets the version in every file, runs the tests, builds the
+First add the version to **Patch notes** (at the end of this file) and commit it: the script uses
+those lines as the changelog shown in KB's update window (`-Notes "..."` or `-NotesFile` override
+that). It checks the work tree is clean, sets the version in every file, runs the tests, builds the
 installer signed with the key (asking for the password; nothing is stored), commits "Release
 v0.3.0" and tags it. With `-Publish` it asks for confirmation, pushes, creates the GitHub release
 with the installer and its `.sig`, and puts the installer and `latest.json` on the repo's `updates`
@@ -481,3 +483,45 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] j. Installer (per-user NSIS) and signed auto-updates from GitHub Releases
 - [x] k. Screens, scaling and monitors (fit-the-screen zoom, window memory, TV Mode display,
       text size and overscan), perf regression gate, everything in KB's own folder
+- [x] s (part 1). LaunchBox Games Database: covers, logos, backgrounds and game info without a key
+
+## Patch notes
+
+Newest first, one change per line. The release script copies a version's lines into KB's update
+window, so they're written for players.
+
+### 0.2.4 (2026-10-14)
+- New: covers, logos and backgrounds from the LaunchBox Games Database, no account or key needed.
+- New: game info from LaunchBox (description, release date, developer, publisher, genres, players).
+- New: TV Mode gets logos and backgrounds without a SteamGridDB key.
+- New: Fix match can search LaunchBox as well as IGDB.
+- New: Settings → Game info shows how many games LaunchBox found, with Update now and an off switch.
+- Fixed: PSP covers in TV Mode show the whole box instead of being cropped.
+- Fixed: the platform tabs in TV Mode no longer show a boxy focus outline.
+- Fixed: updating from 0.2.3 failed with "signature verification failed" (fixed on the download side, no reinstall needed).
+
+### 0.2.3 (2026-10-14)
+- New: private updates: enter your update access code once in Settings → General → Updates.
+- New: KB says when the access code is missing or has expired.
+
+### 0.2.2 (2026-10-14)
+- New: KB fits big screens and TVs, from 1280×720 to 4K, ultrawide included.
+- New: Settings → Interface size: "Fit the screen" or "Follow Windows scaling only".
+- New: KB remembers the window's monitor, size and position, also when fullscreen.
+- New: TV Mode can open on a chosen display (e.g. the TV) and moves back when you leave it.
+- New: TV Mode text size presets and an overscan margin for TVs that cut off the edges.
+- Changed: all of KB's files (library, covers, keys, browser data) are kept in the `data` folder next to KB, nothing in AppData.
+- Changed: saved keys are stored encrypted in that folder (moved automatically from Windows Credential Manager).
+- Changed: uninstalling with "Delete the application data" ticked also removes the `data` folder.
+- Improved: KB uses almost no CPU while a game is running.
+
+### 0.2.1 (2026-10-14)
+- New: Settings → General → Storage and reset.
+- New: Clear downloaded data: deletes the downloaded covers, game info and achievement data, then fetches them again (your games, play time, favorites, keys and own picks stay).
+- New: Reset KaneegaBell: back to a fresh start, optionally removing saved keys (a copy of the old library is kept).
+
+### 0.2.0 (2026-10-14)
+- New: the app is now called KaneegaBell (KB); your library, play time and keys moved over automatically.
+- New: installer (no admin rights needed).
+- New: signed automatic updates, with Update now / Later / Skip this version.
+- New: Settings → General → Updates: Check now, and an option to turn update checks off.

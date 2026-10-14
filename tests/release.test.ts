@@ -4,6 +4,35 @@ import assert from "node:assert/strict";
 import { compareVersions, setCargoVersion, setJsonVersion, setLockVersion } from "../tools/release/set-version.mjs";
 // @ts-expect-error plain JS helpers without type declarations
 import { assetUrl, latestJson } from "../tools/release/latest-json.mjs";
+// @ts-expect-error plain JS helpers without type declarations
+import { notesFor } from "../tools/release/notes.mjs";
+import { readFileSync } from "node:fs";
+
+test("patch notes come from the README's section, one line per change", () => {
+  const readme = [
+    "# KB",
+    "### 0.3.0",
+    "- not this one (outside Patch notes)",
+    "## Patch notes",
+    "Intro text.",
+    "### 0.3.10 (2026-11-01)",
+    "- other version",
+    "### 0.3.1 (2026-10-20)",
+    "- New: one",
+    "",
+    "- Fixed: two",
+    "### 0.3.0",
+    "- older",
+    "## After",
+  ].join("\r\n");
+  assert.equal(notesFor(readme, "0.3.1"), "- New: one\n- Fixed: two");
+  assert.equal(notesFor(readme, "0.3.0"), "- older");
+  assert.equal(notesFor(readme, "0.4.0"), null);
+  // The real README has notes for the current version.
+  const real = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const conf = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));
+  assert.ok(notesFor(real, conf.version), `README has patch notes for ${conf.version}`);
+});
 
 test("version bumps touch only the app's own version", () => {
   const conf = '{\n  "productName": "KaneegaBell",\n  "version": "0.2.0",\n  "plugins": { "x": { "version": "9.9.9" } }\n}';

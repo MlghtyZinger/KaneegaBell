@@ -1,6 +1,8 @@
 # Builds a signed KaneegaBell release and (optionally) publishes it to GitHub.
 #
-#   powershell -ExecutionPolicy Bypass -File tools\release\release.ps1 -Version 0.3.0 -Notes "What changed"
+#   powershell -ExecutionPolicy Bypass -File tools\release\release.ps1 -Version 0.3.0
+#   (the changelog is the "### 0.3.0" lines under "## Patch notes" in README.md)
+#   ... -Notes "What changed"        (changelog given here instead)
 #   ... -NotesFile notes.md          (changelog from a file instead)
 #   ... -Publish                     (also push and publish the release; asks first)
 #   ... -Repoint                     (only rewrite the updates branch for a published version)
@@ -86,7 +88,11 @@ $notesPath = Join-Path $root "release\v$Version-notes.md"
 if ($NotesFile) { Copy-Item $NotesFile $notesPath -Force }
 elseif ($Notes) { [IO.File]::WriteAllText($notesPath, $Notes + "`n", (New-Object Text.UTF8Encoding($false))) }
 elseif ($publishOnly -and (Test-Path $notesPath)) { }
-else { Fail "give the changelog with -Notes `"...`" or -NotesFile file.md" }
+else {
+    # Usually: the version's lines in the README's "Patch notes" section.
+    & node tools\release\notes.mjs $Version $notesPath
+    if ($LASTEXITCODE -ne 0) { Fail "add a '### $Version' heading with one '- ' line per change under '## Patch notes' in README.md (or use -Notes / -NotesFile)" }
+}
 $installerName = "KaneegaBell_${Version}_x64-setup.exe"
 $installerOut = Join-Path $out $installerName
 

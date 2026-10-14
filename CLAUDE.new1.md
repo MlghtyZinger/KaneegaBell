@@ -352,6 +352,10 @@ Each milestone is runnable and tested, and passes the perf gate.
    live tests run against **copies** of the real library DB only.
 4. Keep the README current: setup, keys, adding a platform, making/sharing themes, the release
    process, performance results.
+   **Patch notes** (README, last section; owner's request 2026-10-14): every user-visible change gets
+   a line under the next version's `### X.Y.Z` heading as it's made, newest version first, **one
+   change per line** (`- New:` / `Changed:` / `Improved:` / `Fixed:`), short and written for players.
+   `release.ps1` uses those lines as the update window's changelog.
 5. Commit at sensible points with clear messages.
 6. How the owner runs the app:
    `C:\Emulator files\src-tauri\target\release\KaneegaBell.exe` (renamed in milestone i; it was
