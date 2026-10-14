@@ -133,19 +133,26 @@ pub fn schedule_save(app: &AppHandle) {
     });
 }
 
-fn save(app: &AppHandle) -> Result<()> {
+/// Saves the placement now (also called when the window closes, so a move
+/// right before closing isn't lost).
+pub fn save(app: &AppHandle) -> Result<()> {
     let Some(window) = app.get_webview_window("main") else { return Ok(()) };
     let state = app.state::<crate::commands::AppState>();
-    // Fullscreen, minimized (also while a game runs) and TV Mode on another
-    // display aren't the desktop window's own placement.
-    if window.is_fullscreen()?
-        || window.is_minimized()?
-        || state.input.game_running.load(Ordering::Acquire)
-        || tv_session_active(app)
-    {
+    // Minimized (also while a game runs) and TV Mode on another display
+    // aren't the desktop window's own placement.
+    if window.is_minimized()? || state.input.game_running.load(Ordering::Acquire) || tv_session_active(app) {
         return Ok(());
     }
     let conn = state.db();
+    if window.is_fullscreen()? {
+        // Fullscreen has no size of its own, but the display counts ("Start
+        // fullscreen" opens there next time): keep the windowed size, moved
+        // onto this display if it was on another one.
+        let Some(monitor) = window.current_monitor()? else { return Ok(()) };
+        let previous = queries::get_setting::<Placement>(&conn, PLACEMENT_KEY)?;
+        let Some(moved) = onto_monitor(previous, &monitor) else { return Ok(()) };
+        return queries::set_setting(&conn, PLACEMENT_KEY, &serde_json::to_value(moved)?);
+    }
     let placement = if window.is_maximized()? {
         // Keep the size it returns to when un-maximized.
         let previous = queries::get_setting::<Placement>(&conn, PLACEMENT_KEY)?;
@@ -157,6 +164,30 @@ fn save(app: &AppHandle) -> Result<()> {
         current_placement(&window, false)?
     };
     queries::set_setting(&conn, PLACEMENT_KEY, &serde_json::to_value(placement)?)
+}
+
+/// The saved placement moved onto `monitor` (centered in its work area, same
+/// size, shrunk to fit), or None when it's already there.
+fn onto_monitor(previous: Option<Placement>, monitor: &Monitor) -> Option<Placement> {
+    let area = Rect::of_work_area(monitor);
+    let screen = Rect::of_monitor(monitor);
+    let p = previous.unwrap_or(Placement { x: 0, y: 0, width: 1600.0, height: 900.0, maximized: false });
+    if previous.is_some() && screen.contains(p.x + 8, p.y + 8) {
+        return None;
+    }
+    Some(centered(p, area, monitor.scale_factor()))
+}
+
+fn centered(p: Placement, area: Rect, scale: f64) -> Placement {
+    let width = p.width.min(area.w as f64 / scale * 0.9);
+    let height = p.height.min(area.h as f64 / scale * 0.9);
+    Placement {
+        x: area.x + ((area.w as f64 - width * scale) / 2.0).round() as i32,
+        y: area.y + ((area.h as f64 - height * scale) / 2.0).round() as i32,
+        width,
+        height,
+        maximized: p.maximized,
+    }
 }
 
 fn current_placement(window: &WebviewWindow, maximized: bool) -> Result<Placement> {
@@ -433,6 +464,19 @@ mod tests {
         for n in os_display_names() {
             println!("{} = {:?} ({})", n.gdi, n.friendly, n.path);
         }
+    }
+
+    #[test]
+    fn fullscreen_on_another_display_moves_the_windowed_size_there() {
+        let left = Rect { x: -1920, y: 172, w: 1920, h: 1080 };
+        let p = Placement { x: 100, y: 100, width: 1600.0, height: 900.0, maximized: true };
+        let moved = centered(p, left, 1.0);
+        assert_eq!(moved, Placement { x: -1760, y: 262, width: 1600.0, height: 900.0, maximized: true });
+        // Too big for a smaller display: shrunk to 90% of it.
+        let big = Placement { width: 2400.0, height: 1300.0, ..p };
+        let m = centered(big, left, 1.0);
+        assert_eq!((m.width, m.height), (1728.0, 972.0));
+        assert!(grabbable(Rect { x: m.x, y: m.y, w: 1728, h: 972 }, &[left]));
     }
 
     #[test]

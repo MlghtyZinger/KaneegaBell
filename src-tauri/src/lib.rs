@@ -142,6 +142,11 @@ pub fn run() {
                 display::apply_zoom(window.app_handle());
             }
             WindowEvent::ScaleFactorChanged { .. } => display::apply_zoom(window.app_handle()),
+            WindowEvent::CloseRequested { .. } => {
+                if let Err(e) = display::save(window.app_handle()) {
+                    log::warn!("couldn't save the window placement: {e}");
+                }
+            }
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
