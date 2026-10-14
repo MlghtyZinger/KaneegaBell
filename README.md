@@ -440,6 +440,6 @@ Built in milestones. See `CLAUDE.md` for the full spec.
       it opens a Backloggd search for the title). Backloggd has no public API (checked Oct 2026)
       and scraping is out, so syncing your backlog/played status waits for an official API.
 - [x] i. Renamed to KaneegaBell (data and saved keys migrated automatically)
+- [x] j. Installer (per-user NSIS) and signed auto-updates from GitHub Releases
 - [x] k. Screens, scaling and monitors (fit-the-screen zoom, window memory, TV Mode display,
       text size and overscan), perf regression gate, everything in KB's own folder
-- [x] j. Installer (per-user NSIS) and signed auto-updates from GitHub Releases
