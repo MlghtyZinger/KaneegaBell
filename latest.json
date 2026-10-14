@@ -1,0 +1,11 @@
+{
+  "version": "0.2.3",
+  "notes": "Private updates: enter your update access code once in Settings → General → Updates.",
+  "pub_date": "2026-10-14T12:01:16Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWJUbGxENHoveWttWkJ0U2M4S2l1QURmNklDMENYaC9ZU0djY3U5K3o3ZTJMWWt4b1RkbTRjY3ZWL2pGMkp1REZvelNIQ1B6eW9yWlZIWTM5T01UelE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkxOTc4ODk3CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjNfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi4zCnFPd3cxNGY5aHBMY2d0UWRLYktWQlc5K1NVdTRCZDhsTzBrQkx5MGE3ZjA1b3VZZDlxUzlXWHhBK2FPdk1vZHNsWnc4QWlkQ1o0TlRibEFXL0p5YkRRPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/releases/assets/640249712"
+    }
+  }
+}
