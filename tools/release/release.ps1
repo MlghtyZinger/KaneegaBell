@@ -27,6 +27,15 @@ $repo = "MlghtyZinger/KaneegaBell"
 
 function Fail($msg) { Write-Host "release: $msg" -ForegroundColor Red; exit 1 }
 function Step($msg) { Write-Host "`n== $msg" -ForegroundColor Cyan }
+# Runs a native command with its error output hidden and returns its exit code
+# (stdout goes to $script:QuietOut). Windows PowerShell 5.1 turns redirected
+# native error output into exceptions under "Stop", so relax that meanwhile.
+function Quiet($exe, [string[]]$argList) {
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try { $script:QuietOut = & $exe @argList 2>$null; return $LASTEXITCODE }
+    finally { $ErrorActionPreference = $old }
+}
 function Run($exe, [string[]]$argList) {
     & $exe @argList
     if ($LASTEXITCODE -ne 0) { Fail "$exe $($argList -join ' ') failed (exit $LASTEXITCODE)" }
@@ -55,8 +64,7 @@ if ($newer -ne "true" -and $Version -ne $current) { Fail "v$Version isn't newer 
 if ($Publish) {
     # Before the password and the build, not after.
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { Fail "publishing needs GitHub's gh tool (winget install GitHub.cli), then 'gh auth login' once" }
-    & gh auth status *> $null
-    if ($LASTEXITCODE -ne 0) { Fail "gh isn't signed in: run 'gh auth login' once (GitHub.com, HTTPS, log in with a web browser)" }
+    if ((Quiet gh @("auth", "status")) -ne 0) { Fail "gh isn't signed in: run 'gh auth login' once (GitHub.com, HTTPS, log in with a web browser)" }
 }
 
 $out = Join-Path $root "release\v$Version"
@@ -129,14 +137,12 @@ if (-not $assetId) { Fail "the release has no $installerName asset" }
 $apiManifest = Join-Path $out "latest-api.json"
 Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, $apiManifest, "$assetId")
 
-& gh api "repos/$repo/git/ref/heads/updates" *> $null
-if ($LASTEXITCODE -ne 0) {
+if ((Quiet gh @("api", "repos/$repo/git/ref/heads/updates")) -ne 0) {
     $mainSha = (git rev-parse HEAD).Trim()
     Run gh @("api", "-X", "POST", "repos/$repo/git/refs", "-f", "ref=refs/heads/updates", "-f", "sha=$mainSha")
 }
 $existing = $null
-$file = & gh api "repos/$repo/contents/latest.json?ref=updates" 2>$null
-if ($LASTEXITCODE -eq 0) { $existing = ($file | ConvertFrom-Json).sha }
+if ((Quiet gh @("api", "repos/$repo/contents/latest.json?ref=updates")) -eq 0) { $existing = ($script:QuietOut | ConvertFrom-Json).sha }
 $content = [Convert]::ToBase64String([IO.File]::ReadAllBytes($apiManifest))
 $put = @("api", "-X", "PUT", "repos/$repo/contents/latest.json", "-f", "message=KaneegaBell $Version", "-f", "branch=updates", "-f", "content=$content")
 if ($existing) { $put += @("-f", "sha=$existing") }
