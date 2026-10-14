@@ -12,6 +12,8 @@ import { OskHost } from "./components/OnScreenKeyboard";
 import { ScanToast } from "./components/ScanToast";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { updates } from "./state/updates";
+import { WhatsNew } from "./components/WhatsNew";
+import { whatsNew } from "./state/whatsNew";
 import "./styles/app.css";
 
 type View = "library" | "settings";
@@ -99,6 +101,8 @@ export default function App() {
       // Two frames later the grid has been laid out and painted: the app is interactive.
       .then(() => requestAnimationFrame(() => requestAnimationFrame(() => void api.perfMark("interactive").catch(() => {}))))
       .catch((e) => console.error("library load failed", e));
+    // Just updated: show what changed (once), after the first paint.
+    setTimeout(() => void whatsNew.showIfUpdated().catch(() => {}), 1500);
   });
 
   return (
@@ -127,6 +131,7 @@ export default function App() {
         </div>
       </Show>
       <UpdateDialog />
+      <WhatsNew />
       <OskHost />
       {/* Settings shows the full report itself. */}
       <ScanToast hidden={view() === "settings"} />

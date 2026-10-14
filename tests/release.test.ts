@@ -5,7 +5,7 @@ import { compareVersions, setCargoVersion, setJsonVersion, setLockVersion } from
 // @ts-expect-error plain JS helpers without type declarations
 import { assetUrl, latestJson } from "../tools/release/latest-json.mjs";
 // @ts-expect-error plain JS helpers without type declarations
-import { notesFor } from "../tools/release/notes.mjs";
+import { allNotes, notesFor } from "../tools/release/notes.mjs";
 import { readFileSync } from "node:fs";
 
 test("patch notes come from the README's section, one line per change", () => {
@@ -28,6 +28,19 @@ test("patch notes come from the README's section, one line per change", () => {
   assert.equal(notesFor(readme, "0.3.1"), "- New: one\n- Fixed: two");
   assert.equal(notesFor(readme, "0.3.0"), "- older");
   assert.equal(notesFor(readme, "0.4.0"), null);
+  // Every version, for the What's new window.
+  assert.deepEqual(allNotes(readme), [
+    { version: "0.3.10", date: "2026-11-01", changes: [{ kind: "", text: "Other version" }] },
+    {
+      version: "0.3.1",
+      date: "2026-10-20",
+      changes: [
+        { kind: "new", text: "One" },
+        { kind: "fixed", text: "Two" },
+      ],
+    },
+    { version: "0.3.0", date: null, changes: [{ kind: "", text: "Older" }] },
+  ]);
   // The real README has notes for the current version.
   const real = readFileSync(new URL("../README.md", import.meta.url), "utf8");
   const conf = JSON.parse(readFileSync(new URL("../src-tauri/tauri.conf.json", import.meta.url), "utf8"));

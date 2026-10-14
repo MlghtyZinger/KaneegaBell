@@ -510,6 +510,10 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.2.6 (not released yet)
+- New: Settings → General → Updates → What's new lists every update and what it changed.
+- New: after an update, KB shows what's new once.
+
 ### 0.2.5 (2026-10-15)
 - New: game details show the game's series and franchise (e.g. "Jak and Daxter", "Final Fantasy"), from Wikidata, no account needed.
 - New: Settings → Game info has a Wikidata section with Update now and an off switch.

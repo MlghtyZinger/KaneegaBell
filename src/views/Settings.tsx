@@ -3,6 +3,7 @@ import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
 import { updates } from "../state/updates";
+import { whatsNew } from "../state/whatsNew";
 import { buttonLabel, COMBO_BUTTONS, session } from "../state/session";
 import { NavScope } from "../components/NavScope";
 import { Picker } from "../components/Picker";
@@ -1447,6 +1448,9 @@ function UpdatesBlock(props: { s: Settings; run: Run }) {
       <div class="row">
         <button class="btn" disabled={checking()} onClick={() => void checkNow()}>
           {checking() ? "Checking…" : "Check now"}
+        </button>
+        <button class="btn" onClick={() => whatsNew.setOpen(true)}>
+          What's new
         </button>
         <Show when={result()}>
           <span class="dim">{result()}</span>

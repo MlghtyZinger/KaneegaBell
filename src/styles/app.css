@@ -1747,3 +1747,105 @@ html.nav-mode .tv-menu-item:focus {
 .update-progress {
   margin: 8px 0;
 }
+
+/* What's new: every version's patch notes. */
+.whats-new-panel {
+  width: min(820px, 94vw);
+}
+
+.wn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 4px;
+}
+
+.wn-version {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  outline: none;
+  scroll-margin: 12px;
+}
+
+.wn-version:focus-visible,
+.wn-version:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.wn-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wn-ver {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.wn-here {
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(91 157 255 / 0.18);
+  color: var(--accent-strong);
+}
+
+.wn-date {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.wn-changes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.wn-changes li {
+  display: grid;
+  grid-template-columns: 6.5em 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.wn-tag {
+  justify-self: start;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--text-dim);
+}
+
+.wn-new {
+  background: rgb(91 157 255 / 0.18);
+  color: var(--accent-strong);
+}
+
+.wn-fixed {
+  background: rgb(80 200 120 / 0.16);
+  color: #8fe0a8;
+}
+
+.wn-improved {
+  background: rgb(60 200 200 / 0.15);
+  color: #84dede;
+}
+
+.wn-changed {
+  background: rgb(255 190 80 / 0.16);
+  color: #ffd08a;
+}
