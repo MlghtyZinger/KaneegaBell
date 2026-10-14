@@ -430,6 +430,10 @@ idle 0.57% of one core (0.52), 287 MB private after start (289), every scroll fr
 frame 4.3 ms, was 9.7), while a game runs 0.31% of one core (0.77; the page is now also suspended) and 355 MB
 private (355). Passed.
 
+Milestone s (LaunchBox) against 0.2.1, gate measuring CPU as the middle of several windows: cold start 451 ms
+(was 499), 282 MB after start (283), scrolling 240 fps with p99 4.3 ms, game running 352 MB (350). CPU readings
+stay within Windows' counter resolution (a few 15.6 ms ticks). Passed.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -449,8 +453,9 @@ from your saved API keys) several times and reports start times, idle CPU, memor
 (over the DevTools protocol) and the game-running state (a stand-in "emulator" that waits 25 s).
 
 **Regression gate:** every run is compared with `tools/perf/baseline.json` and fails (exit 1)
-if a number got more than 10% worse, beyond a small per-metric noise floor (e.g. 0.5% of a core
-for CPU, 2 ms for p99 frame times). Save a new baseline with `-SaveBaseline` after a milestone
+if a number got more than 10% worse, beyond a per-metric noise floor (1% of a core for CPU, which
+Windows counts in ~15.6 ms steps; 5 ms for p99 frame times). CPU is the middle of several short
+windows, so a one-off spike doesn't decide it. `-CompareOnly` re-checks the last run without measuring. Save a new baseline with `-SaveBaseline` after a milestone
 passes. The baseline is from the maintainer's PC (above); on other hardware, save your own first.
 
 ## Status

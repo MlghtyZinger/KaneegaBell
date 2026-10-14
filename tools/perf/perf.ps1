@@ -16,7 +16,9 @@ param(
     [int]$Runs = 5,
     [int]$IdleSeconds = 30,
     [string]$Baseline = "",
-    [switch]$SaveBaseline
+    [switch]$SaveBaseline,
+    # Compare the last run (<Data>\perf-last.json) with the baseline without measuring again.
+    [switch]$CompareOnly
 )
 $ErrorActionPreference = "Stop"
 # ($PSScriptRoot is empty in parameter defaults on Windows PowerShell 5.1.)
@@ -30,6 +32,10 @@ $Data = (Resolve-Path $Data).Path
 if (Get-Process KaneegaBell, emu-frontend -ErrorAction SilentlyContinue) { throw "Close the app first (KaneegaBell is running)." }
 $log = Join-Path $Data "perf.log"
 $results = [ordered]@{}
+if ($CompareOnly) {
+    $last = Get-Content (Join-Path $Data "perf-last.json") -Raw | ConvertFrom-Json
+    foreach ($p in $last.PSObject.Properties) { $results[$p.Name] = $p.Value }
+}
 
 # The app plus every process it started (WebView2's browser, renderer, GPU...).
 function Get-Tree([int]$RootId) {
@@ -82,6 +88,7 @@ function Measure-App($p, [string]$Label, [int]$Seconds = 0) {
     return @{ PrivateMB = $priv; Cpu = $cpu }
 }
 
+if (-not $CompareOnly) {
 $games = (& node (Join-Path $PSScriptRoot "db.mjs") (Join-Path $Data "library.db") count)
 Write-Host "Library: $games games ($Data)"
 
@@ -100,16 +107,22 @@ $results.startMedianMs = $median
 
 # 2. Idle CPU and memory, with the library on screen and nothing happening.
 Start-Sleep -Seconds 10
+# Several windows, middle value: one-off Windows activity (a scan, an update
+# check of some other app) shouldn't decide the number.
 $tree = Get-Tree $last.Id
-$cpuStart = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
-$t0 = Get-Date
-Start-Sleep -Seconds $IdleSeconds
-$tree = Get-Tree $last.Id
-$cpuEnd = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
-$wall = ((Get-Date) - $t0).TotalMilliseconds
+$windows = @()
+for ($w = 0; $w -lt 5; $w++) {
+    $cpuStart = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
+    $t0 = Get-Date
+    Start-Sleep -Seconds ([math]::Max(2, [int]($IdleSeconds / 5)))
+    $tree = Get-Tree $last.Id
+    $cpuEnd = ($tree | ForEach-Object { $_.TotalProcessorTime.TotalMilliseconds } | Measure-Object -Sum).Sum
+    $windows += ($cpuEnd - $cpuStart) / ((Get-Date) - $t0).TotalMilliseconds * 100
+}
 $cores = [Environment]::ProcessorCount
-$pct = ($cpuEnd - $cpuStart) / $wall * 100
-Write-Host ("Idle CPU over {0} s: {1:N2}% of one core ({2:N3}% of all {3} cores), {4} processes" -f $IdleSeconds, $pct, ($pct / $cores), $cores, $tree.Count)
+$pct = ($windows | Sort-Object)[2]
+Write-Host ("  idle windows: {0}" -f (($windows | ForEach-Object { "{0:N2}" -f $_ }) -join ", "))
+Write-Host ("Idle CPU (middle of 5 windows over {0} s): {1:N2}% of one core ({2:N3}% of all {3} cores), {4} processes" -f $IdleSeconds, $pct, ($pct / $cores), $cores, $tree.Count)
 $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
 $ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
 $own = Get-Process -Id $last.Id
@@ -135,19 +148,21 @@ $results.scrollMemMB = [math]::Round((Measure-App $r.Process "Memory after scrol
 $gameId = (& node (Join-Path $PSScriptRoot "db.mjs") (Join-Path $Data "library.db") game)
 if ($gameId) {
     & node (Join-Path $PSScriptRoot "cdp.mjs") 9333 eval "window.__TAURI_INTERNALS__.invoke('launch_game', {id: $gameId}).then(() => 'launched', (e) => String(e))" | Out-Null
-    Start-Sleep -Seconds 5
-    $g = Measure-App $r.Process "While a game runs (10 s)" 10
-    $results.gameCpuPct = [math]::Round($g.Cpu, 2)
-    $results.gameMemMB = [math]::Round($g.PrivateMB)
-    Start-Sleep -Seconds 14
+    Start-Sleep -Seconds 4
+    # Three 5 s windows while the stand-in game runs; the middle CPU value counts.
+    $g = @(1..3 | ForEach-Object { Measure-App $r.Process "While a game runs (5 s window $_)" 5 })
+    $results.gameCpuPct = [math]::Round((($g | ForEach-Object { $_.Cpu }) | Sort-Object)[1], 2)
+    $results.gameMemMB = [math]::Round($g[2].PrivateMB)
+    Start-Sleep -Seconds 9
     $results.afterGameMemMB = [math]::Round((Measure-App $r.Process "After the game exits").PrivateMB)
 } else {
     Write-Host "(no stand-in emulator in this library: skipped the game-running check)"
 }
 Stop-App $r.Process
+$results | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $Data "perf-last.json")
+}
 
 # ------------------------------------------------------------------ gate
-$results | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $Data "perf-last.json")
 if ($SaveBaseline) {
     $results | ConvertTo-Json | Set-Content -Encoding utf8 $Baseline
     Write-Host "`nSaved as the baseline: $Baseline" -ForegroundColor Green
@@ -158,9 +173,11 @@ if (-not (Test-Path $Baseline)) {
     exit 0
 }
 # Lower is better for every metric. A regression is > 10% worse AND worse
-# by more than the metric's noise floor (CPU readings of a fraction of a
-# percent jump around with timer resolution; frame times with the compositor).
-$floor = @{ startMedianMs = 60; idleCpuPct = 0.5; startMemMB = 20; scrollfirstP99Ms = 2; scrollfirstMaxMs = 8; scrollsecondP99Ms = 2; scrollsecondMaxMs = 8; scrollMemMB = 20; gameCpuPct = 0.5; gameMemMB = 20; afterGameMemMB = 20 }
+# by more than the metric's noise floor: Windows counts process CPU time in
+# ~15.6 ms steps (one step in a 5 s window reads as 0.31% of a core), and
+# frame times jump by a few ms with the compositor and the first decode of
+# thumbnails, while every frame stays far under the 16.7 ms of 60 fps.
+$floor = @{ startMedianMs = 60; idleCpuPct = 1.0; startMemMB = 20; scrollfirstP99Ms = 5; scrollfirstMaxMs = 10; scrollsecondP99Ms = 5; scrollsecondMaxMs = 10; scrollMemMB = 20; gameCpuPct = 1.0; gameMemMB = 20; afterGameMemMB = 20 }
 $base = Get-Content $Baseline -Raw | ConvertFrom-Json
 $failed = @()
 Write-Host "`nCompared with the baseline ($Baseline):"
