@@ -496,12 +496,12 @@ pub fn genres(conn: &Connection) -> Result<(Vec<(i64, String)>, HashMap<i64, Vec
 /// found more than a week ago.
 pub fn games_needing_sgdb(conn: &Connection, now: i64) -> Result<Vec<crate::art::extras::Target>> {
     let mut stmt = conn.prepare(
-        "SELECT g.id, g.title, m.title, g.sgdb_id,
+        "SELECT g.id, g.sgdb_id,
                 g.art_status IN ('notfound', 'error') AND g.art_manual = 0,
                 EXISTS (SELECT 1 FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1),
                 EXISTS (SELECT 1 FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1),
                 g.extras_manual
-         FROM games g JOIN platforms p ON p.id = g.platform_id LEFT JOIN metadata m ON m.game_id = g.id
+         FROM games g JOIN platforms p ON p.id = g.platform_id
          WHERE g.missing = 0 AND p.enabled = 1
            AND (g.sgdb_status IN ('none', 'error')
                 OR (g.sgdb_status = 'notfound' AND COALESCE(g.sgdb_checked_at, 0) < ?1))
@@ -510,13 +510,11 @@ pub fn games_needing_sgdb(conn: &Connection, now: i64) -> Result<Vec<crate::art:
     let rows = stmt.query_map([now - crate::art::extras::NOTFOUND_RETRY_SECS], |r| {
         Ok(crate::art::extras::Target {
             id: r.get(0)?,
-            title: r.get(1)?,
-            igdb_title: r.get(2)?,
-            sgdb_id: r.get(3)?,
-            needs_cover: r.get(4)?,
-            has_hero: r.get(5)?,
-            has_logo: r.get(6)?,
-            extras_manual: r.get(7)?,
+            sgdb_id: r.get(1)?,
+            needs_cover: r.get(2)?,
+            has_hero: r.get(3)?,
+            has_logo: r.get(4)?,
+            extras_manual: r.get(5)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -536,12 +534,35 @@ pub fn set_sgdb(conn: &Connection, game_id: i64, status: &str, sgdb_id: Option<i
 }
 
 /// (title, IGDB title, SteamGridDB id) for one game.
-pub fn sgdb_state(conn: &Connection, game_id: i64) -> Result<(String, Option<String>, Option<i64>)> {
-    Ok(conn.query_row(
-        "SELECT g.title, m.title, g.sgdb_id FROM games g LEFT JOIN metadata m ON m.game_id = g.id WHERE g.id = ?1",
-        [game_id],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-    )?)
+pub fn sgdb_id(conn: &Connection, game_id: i64) -> Result<Option<i64>> {
+    Ok(conn.query_row("SELECT sgdb_id FROM games WHERE id = ?1", [game_id], |r| r.get(0))?)
+}
+
+/// The names to look a game up by on SteamGridDB, best first: its own title,
+/// IGDB's name, then LaunchBox's name and alternate names (".hack//Infection"
+/// for a file called "Dot Hack Part 1 - Infection"). No repeats, at most
+/// `SEARCH_TITLES` (each one is a request).
+pub fn sgdb_titles(conn: &Connection, game_id: i64) -> Result<Vec<String>> {
+    const SEARCH_TITLES: usize = 4;
+    let mut stmt = conn.prepare(
+        "SELECT g.title FROM games g WHERE g.id = ?1
+         UNION ALL SELECT m.title FROM metadata m WHERE m.game_id = ?1 AND m.title IS NOT NULL
+         UNION ALL SELECT l.name FROM games g JOIN lb_games l ON l.db_id = g.lb_id WHERE g.id = ?1
+         UNION ALL SELECT n.name FROM games g JOIN lb_names n ON n.db_id = g.lb_id AND n.platform_id = g.platform_id
+                   WHERE g.id = ?1 AND n.is_alt = 1",
+    )?;
+    let mut out: Vec<String> = Vec::new();
+    for name in stmt.query_map([game_id], |r| r.get::<_, String>(0))? {
+        let name = name?;
+        let key = crate::scanner::normalize::search_key(&name);
+        if !key.is_empty() && !out.iter().any(|o| crate::scanner::normalize::search_key(o) == key) {
+            out.push(name);
+        }
+        if out.len() == SEARCH_TITLES {
+            break;
+        }
+    }
+    Ok(out)
 }
 
 /// Records a game's hero or logo (`kind`) as the selected one; `source` is

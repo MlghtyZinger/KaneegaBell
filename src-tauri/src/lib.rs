@@ -63,7 +63,10 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 ///   240 fps, every frame ~4.2 ms). GPU memory itself isn't capped: a 64 MB
 ///   cap left parts of the screen undrawn with two panels open on a big
 ///   high-DPI window (holes in the grid, half-drawn pickers);
-/// - the network service runs inside the browser process (one process less).
+/// - the network service runs inside the browser process (one process less);
+/// - WebView2's web cache stays under 32 MB. KB keeps its own pictures in
+///   `data\art`; the cache only held the pickers' previews (full-size web
+///   images), and without a cap it had grown past 300 MB on the owner's PC.
 ///
 /// Arguments in `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (the perf tools use it
 /// for DevTools) would replace these, so they're merged in and the variable is
@@ -71,12 +74,33 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 fn webview_args() -> String {
     let mut disable = vec!["msWebOOUI", "msPdfOOUI", "msSmartScreenProtection"].into_iter().map(String::from).collect::<Vec<_>>();
     let mut enable = vec!["NetworkServiceInProcess2".to_string()];
-    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string()];
+    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string(), format!("--disk-cache-size={WEB_CACHE_BYTES}")];
     if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
         merge_browser_args(&extra, &mut disable, &mut enable, &mut other);
     }
     format!("--disable-features={} --enable-features={} {}", disable.join(","), enable.join(","), other.join(" "))
+}
+
+const WEB_CACHE_BYTES: u64 = 32 * 1024 * 1024;
+
+/// Once: deletes a web cache that grew before the cap existed (it only holds
+/// downloaded previews; WebView2 rebuilds it). Runs before WebView2 starts.
+fn trim_web_cache(conn: &rusqlite::Connection, webview_dir: &std::path::Path) {
+    if db::queries::get_setting::<bool>(conn, "webCacheTrimmed").ok().flatten() == Some(true) {
+        return;
+    }
+    let cache = webview_dir.join("EBWebView").join("Default").join("Cache");
+    if cache.is_dir() {
+        match std::fs::remove_dir_all(&cache) {
+            Ok(()) => log::info!("removed the old web cache ({})", cache.display()),
+            Err(e) => {
+                log::warn!("couldn't remove the old web cache: {e}");
+                return;
+            }
+        }
+    }
+    let _ = db::queries::set_setting(conn, "webCacheTrimmed", &serde_json::Value::Bool(true));
 }
 
 /// Chromium keeps only the last `--enable-features` / `--disable-features`,
@@ -176,6 +200,7 @@ pub fn run() {
             let conn = db::init(&db_path)?;
             // The window is made here (not from the config) so WebView2 keeps
             // its own files in the data folder too, instead of AppData.
+            trim_web_cache(&conn, &dir.join("webview"));
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
                     tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?

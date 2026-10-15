@@ -135,10 +135,16 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [raGameId, setRaGameId] = createSignal<number | null>(null);
   const open = (url: string) => void api.openUrl(url).catch(() => {});
 
+  // Set when Refresh left a cover the user picked.
+  const [kept, setKept] = createSignal(false);
   async function refreshCover() {
     setRefreshing(true);
+    setKept(false);
     try {
-      await api.refreshArt(id());
+      if ((await api.refreshArt(id())) === "kept") {
+        setRefreshing(false);
+        setKept(true);
+      }
     } catch {
       setRefreshing(false);
     }
@@ -174,6 +180,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
         setLaunchError(null);
         setRaGameId(null);
         setRefreshing(false);
+        setKept(false);
       },
       { defer: true },
     ),
@@ -230,6 +237,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                       Logo…
                     </button>
                   </div>
+                </Show>
+                <Show when={kept()}>
+                  <span class="dim small">You picked this cover, so Refresh keeps it. Change cover… picks another.</span>
                 </Show>
                 <Show when={g().artSource}>
                   <span class="dim small">

@@ -1,4 +1,5 @@
-//! SteamGridDB pass (optional key): finds each game on SteamGridDB by title,
+//! SteamGridDB pass (optional key): finds each game on SteamGridDB by its
+//! names (its title, IGDB's and LaunchBox's names),
 //! then stores its best-voted hero (wide background) and logo for TV Mode,
 //! and a cover for games no keyless source had one for. Everything is cached
 //! on disk; each game is looked up once (not found: retried weekly).
@@ -21,9 +22,6 @@ pub const NOTFOUND_RETRY_SECS: i64 = 7 * 24 * 3600;
 #[derive(Debug, Clone)]
 pub struct Target {
     pub id: i64,
-    pub title: String,
-    /// The IGDB match's name, a second name to search by.
-    pub igdb_title: Option<String>,
     pub sgdb_id: Option<i64>,
     /// No cover from any other source (and the user didn't remove it).
     pub needs_cover: bool,
@@ -95,9 +93,7 @@ fn process(conn: &Connection, data_dir: &Path, sgdb: &Sgdb, fetch: &dyn Fetch, t
     let sgdb_id = match t.sgdb_id {
         Some(id) => id,
         None => {
-            let titles: Vec<String> = std::iter::once(t.title.clone())
-                .chain(t.igdb_title.clone().filter(|n| !n.eq_ignore_ascii_case(&t.title)))
-                .collect();
+            let titles = queries::sgdb_titles(conn, t.id)?;
             match find(sgdb, &titles)? {
                 Some(id) => id,
                 None => return Ok(false),
@@ -170,11 +166,10 @@ fn resolve(conn: &Connection, sgdb: &Sgdb, game_id: i64, query: Option<&str>) ->
         // The user typed it: take SteamGridDB's top result.
         return Ok(sgdb.search(q)?.first().map(|g| g.id));
     }
-    let (title, igdb_title, stored) = queries::sgdb_state(conn, game_id)?;
-    if let Some(id) = stored {
+    if let Some(id) = queries::sgdb_id(conn, game_id)? {
         return Ok(Some(id));
     }
-    let titles: Vec<String> = std::iter::once(title).chain(igdb_title).collect();
+    let titles = queries::sgdb_titles(conn, game_id)?;
     let found = find(sgdb, &titles)?;
     queries::set_sgdb(conn, game_id, if found.is_some() { "ok" } else { "notfound" }, found, queries::now())?;
     Ok(found)
@@ -285,6 +280,39 @@ mod tests {
         // The library row carries the hero/logo versions for TV Mode.
         let row = queries::library(&conn).unwrap().into_iter().find(|g| g.id == okami).unwrap();
         assert!(row.hero > 0 && row.logo > 0);
+    }
+
+    #[test]
+    fn launchbox_names_find_games_the_file_name_misses() {
+        // SteamGridDB knows ".hack//Infection"; the file says "Dot Hack Part 1: Infection".
+        let api = FakePost::new(|url: &str, _: &[(&str, &str)], _: &str| {
+            if url.contains("/search/autocomplete/Dot") {
+                json(200, j!({"success": true, "data": [{"id": 1, "name": "Dot"}]}))
+            } else if url.contains("/search/autocomplete/") && url.contains("Infection") {
+                json(200, j!({"success": true, "data": [{"id": 88, "name": ".hack//Infection"}]}))
+            } else if url.contains("/heroes/game/88") {
+                json(200, j!({"success": true, "data": [{"id": 801, "url": "https://cdn/h.png", "thumb": "https://cdn/h_t.png"}]}))
+            } else {
+                json(200, j!({"success": true, "data": []}))
+            }
+        });
+        let conn = crate::db::test_db();
+        let id = add(&conn, "Dot Hack Part 1: Infection", "ok");
+        conn.execute_batch(&format!(
+            "UPDATE games SET lb_id = 7218 WHERE id = {id};
+             INSERT INTO lb_games (db_id, name, fetched_at) VALUES (7218, '.hack//Infection: Part 1', 0);
+             INSERT INTO lb_names (db_id, platform_id, name, is_alt) VALUES (7218, 'ps2', '.hack//Infection', 1),
+                                                                         (7218, 'ps2', 'Dot Hack Part 1: Infection', 1);"
+        ))
+        .unwrap();
+        assert_eq!(
+            queries::sgdb_titles(&conn, id).unwrap(),
+            ["Dot Hack Part 1: Infection", ".hack//Infection: Part 1", ".hack//Infection"],
+            "own title first, LaunchBox's names after, no repeats"
+        );
+        let sgdb = Sgdb::new(&api, "key".into());
+        let c = candidates(&conn, &sgdb, id, Kind::Hero, None).unwrap();
+        assert_eq!(c.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["801"]);
     }
 
     #[test]

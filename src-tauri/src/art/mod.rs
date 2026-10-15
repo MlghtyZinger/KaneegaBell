@@ -294,31 +294,33 @@ pub fn run(
     Ok(summary)
 }
 
-/// Downloads the first cover that exists among a job's tries.
+/// Downloads the first cover that exists among a job's tries. A disc scan
+/// filed as a box is passed over for the next try, and used only if nothing
+/// else turns up.
 fn fetch_first(fetch: &dyn Fetch, data_dir: &Path, job: &Job) -> Outcome {
     let id = job.id;
     let mut error = None;
+    let mut disc: Option<(&Try, images::Processed)> = None;
+    let keep = |t: &Try, p: images::Processed| match images::store(data_dir, id, &p) {
+        Ok(()) => Outcome::Found { id, source: t.source, name: t.name.clone(), url: t.url.clone(), width: p.width, height: p.height },
+        Err(e) => Outcome::Failed { id, error: e.to_string() },
+    };
     for t in &job.tries {
         match fetch.get(&t.url) {
-            Ok(Some(bytes)) => {
-                return match images::process(&bytes).and_then(|p| {
-                    images::store(data_dir, id, &p)?;
-                    Ok(p)
-                }) {
-                    Ok(p) => Outcome::Found {
-                        id,
-                        source: t.source,
-                        name: t.name.clone(),
-                        url: t.url.clone(),
-                        width: p.width,
-                        height: p.height,
-                    },
-                    Err(e) => Outcome::Failed { id, error: e.to_string() },
+            Ok(Some(bytes)) => match images::process(&bytes) {
+                Ok(p) if p.disc => {
+                    log::info!("art: skipping a disc scan for game {id}: {}", t.name);
+                    disc.get_or_insert((t, p));
                 }
-            }
+                Ok(p) => return keep(t, p),
+                Err(e) => return Outcome::Failed { id, error: e.to_string() },
+            },
             Ok(None) => {}
             Err(e) => error = Some(e.to_string()),
         }
+    }
+    if let Some((t, p)) = disc {
+        return keep(t, p);
     }
     match error {
         Some(error) => Outcome::Failed { id, error },
@@ -486,7 +488,18 @@ pub fn remove(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
     queries::set_art_status(conn, game_id, "removed", queries::now())
 }
 
-/// Forgets a game's art so the next job fetches it again ("Refresh art").
+/// "Refresh" in the details: looks the cover up again, unless it's one the
+/// user picked (or removed), which stays. Returns whether a lookup is due.
+pub fn refresh(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<bool> {
+    let manual: bool = conn.query_row("SELECT art_manual FROM games WHERE id = ?1", [game_id], |r| r.get(0))?;
+    if manual {
+        return Ok(false);
+    }
+    reset(conn, data_dir, game_id)?;
+    Ok(true)
+}
+
+/// Forgets a game's art so the next job fetches it again.
 pub fn reset(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
     for p in [images::thumb_path(data_dir, game_id), images::full_path(data_dir, game_id)] {
         let _ = std::fs::remove_file(p);
@@ -505,6 +518,22 @@ mod tests {
     use http::fake::FakeHttp;
 
     const PS2: &str = "Sony - PlayStation 2";
+
+    #[test]
+    fn refresh_keeps_a_cover_the_user_picked() {
+        let conn = db_with_games(&[("Picked", "a.iso", "USA"), ("Automatic", "b.iso", "USA")]);
+        let data = tempfile::tempdir().unwrap();
+        for id in [1, 2] {
+            queries::set_boxart(&conn, id, "launchbox", "box", "https://img/box.png", 10, 14, 0).unwrap();
+        }
+        queries::set_art_manual(&conn, 1).unwrap();
+        let status = |id: i64| -> String { conn.query_row("SELECT art_status FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+
+        assert!(!refresh(&conn, data.path(), 1).unwrap(), "the user's pick stays");
+        assert_eq!(status(1), "ok");
+        assert!(refresh(&conn, data.path(), 2).unwrap(), "an automatic cover is looked up again");
+        assert_eq!(status(2), "none");
+    }
 
     fn db_with_games(games: &[(&str, &str, &str)]) -> Connection {
         let conn = crate::db::test_db();

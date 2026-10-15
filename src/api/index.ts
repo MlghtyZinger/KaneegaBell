@@ -547,7 +547,8 @@ export const api = {
   startScan: () => invoke<boolean>("start_scan"),
   cancelScan: () => invoke<void>("cancel_scan"),
   fetchArt: () => invoke<boolean>("fetch_art"),
-  refreshArt: (id: number) => invoke<boolean>("refresh_art", { id }),
+  /** "kept" when the cover is the user's own pick (Refresh leaves it). */
+  refreshArt: (id: number) => invoke<"queued" | "kept">("refresh_art", { id }),
   coverCandidates: (id: number, query: string | null = null, kind: "cover" | "hero" | "logo" = "cover") =>
     invoke<CoverCandidate[]>("cover_candidates", { id, query, kind }),
   setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string, kind: "cover" | "hero" | "logo" = "cover") =>

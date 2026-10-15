@@ -591,6 +591,10 @@ window, so they're written for players.
 - Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.
 - New: Esc opens Settings when there's nothing left to close.
 - Fixed: on big or high-DPI screens, parts of the screen could stay undrawn with two windows open (a half-drawn background or cover picker, holes in the grid).
+- Fixed: Refresh no longer replaces a cover you picked yourself.
+- Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.
+- Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. ".hack//Infection").
+- Improved: KB's web cache stays under 32 MB; the cover pickers' previews had grown it past 300 MB (cleared once on the first start).
 - Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.
 - Improved: Settings → Library → Covers lists the games that still have no cover.
 

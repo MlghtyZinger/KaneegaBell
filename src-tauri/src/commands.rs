@@ -503,12 +503,16 @@ pub fn remove_cover(app: AppHandle, state: State<'_, AppState>, id: i64) -> Resu
     Ok(())
 }
 
-/// Forgets one game's art and fetches it again.
+/// Looks one game's cover up again: "queued", or "kept" when the cover is the
+/// user's own pick (Refresh never undoes a choice; Change cover… does).
 #[tauri::command]
-pub fn refresh_art(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<bool> {
-    art::reset(&state.db(), state.data_dir(), id)?;
+pub fn refresh_art(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<&'static str> {
+    if !art::refresh(&state.db(), state.data_dir(), id)? {
+        return Ok("kept");
+    }
     state.art_pending.store(true, Ordering::Release);
-    Ok(kick_worker(app, &state))
+    kick_worker(app, &state);
+    Ok("queued")
 }
 
 /// Covers left to fetch from last time (offline, interrupted, or a new cover

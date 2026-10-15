@@ -22,6 +22,29 @@ pub struct Processed {
     pub full: Vec<u8>,
     pub width: u32,
     pub height: u32,
+    /// Looks like a disc scan, not a box (see `looks_like_disc`).
+    pub disc: bool,
+}
+
+/// A disc scan rather than box art: a square picture whose four corners are
+/// see-through or one plain color, with the middle (the disc's hole) the same.
+/// Box art has artwork in the middle. LaunchBox sometimes files a disc under
+/// "Box - Front" (Budokai Tenkaichi 3's Spanish "box").
+pub fn looks_like_disc(img: &DynamicImage) -> bool {
+    let (w, h) = (img.width(), img.height());
+    if w < 16 || h < 16 || !(0.9..=1.1).contains(&(w as f32 / h as f32)) {
+        return false;
+    }
+    let rgba = img.to_rgba8();
+    let px = |fx: f32, fy: f32| *rgba.get_pixel(((w - 1) as f32 * fx) as u32, ((h - 1) as f32 * fy) as u32);
+    let clear = |p: image::Rgba<u8>| p[3] < 40;
+    let near = |a: image::Rgba<u8>, b: image::Rgba<u8>| (0..3).all(|i| a[i].abs_diff(b[i]) <= 24) && a[3].abs_diff(b[3]) <= 40;
+    let corners = [px(0.02, 0.02), px(0.98, 0.02), px(0.02, 0.98), px(0.98, 0.98)];
+    let center = px(0.5, 0.5);
+    if corners.iter().all(|&c| clear(c)) {
+        return clear(center) || corners.iter().all(|&c| near(c, center));
+    }
+    corners.iter().all(|&c| near(c, corners[0])) && near(center, corners[0])
 }
 
 fn webp(img: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
@@ -45,6 +68,7 @@ pub fn process(bytes: &[u8]) -> Result<Processed> {
         full: webp(&fit(&img, FULL_MAX), FULL_QUALITY)?,
         width: img.width(),
         height: img.height(),
+        disc: looks_like_disc(&img),
     })
 }
 
@@ -149,6 +173,53 @@ pub fn test_png(w: u32, h: u32) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A disc: a colored ring around a hole, on `bg` (see-through or a color).
+    fn disc(bg: image::Rgba<u8>) -> DynamicImage {
+        DynamicImage::ImageRgba8(image::RgbaImage::from_fn(300, 300, |x, y| {
+            let d = ((x as f32 - 150.0).powi(2) + (y as f32 - 150.0).powi(2)).sqrt();
+            if (25.0..145.0).contains(&d) {
+                image::Rgba([(x % 200) as u8 + 30, (y % 200) as u8 + 20, 90, 255])
+            } else {
+                bg
+            }
+        }))
+    }
+
+    #[test]
+    fn disc_scans_are_told_from_boxes() {
+        assert!(looks_like_disc(&disc(image::Rgba([0, 0, 0, 0]))), "disc with see-through corners and hole");
+        assert!(looks_like_disc(&disc(image::Rgba([255, 255, 255, 255]))), "disc scanned on white");
+        let art = |w, h| DynamicImage::ImageRgb8(image::RgbImage::from_fn(w, h, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 128])));
+        assert!(!looks_like_disc(&art(300, 420)), "a tall box");
+        assert!(!looks_like_disc(&art(300, 300)), "a square box (GBA) with artwork in the middle");
+        // A square box with a white border: the middle is still artwork.
+        let framed = DynamicImage::ImageRgb8(image::RgbImage::from_fn(300, 300, |x, y| {
+            if x < 12 || y < 12 || x > 287 || y > 287 { image::Rgb([255, 255, 255]) } else { image::Rgb([200, (x % 256) as u8, 40]) }
+        }));
+        assert!(!looks_like_disc(&framed), "a framed square box");
+    }
+
+    /// Checks real pictures: `DISC_FILES="a.png;b.jpg" cargo test disc_check_files -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn disc_check_files() {
+        for p in std::env::var("DISC_FILES").unwrap().split(';') {
+            let img = if p.ends_with(".webp") {
+                let bytes = std::fs::read(p).unwrap();
+                let d = webp::Decoder::new(&bytes).decode().unwrap();
+                let (w, h) = (d.width(), d.height());
+                if d.is_alpha() {
+                    DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, d.to_vec()).unwrap())
+                } else {
+                    DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, d.to_vec()).unwrap())
+                }
+            } else {
+                image::open(p).unwrap()
+            };
+            println!("{} {}x{} disc={}", p, img.width(), img.height(), looks_like_disc(&img));
+        }
+    }
 
     fn dims(webp: &[u8]) -> (u32, u32) {
         let d = webp::Decoder::new(webp).decode().unwrap();
