@@ -557,7 +557,7 @@ window, so they're written for players.
 - New: pick the logo of any collection or series: one of its games' logos, a cover, or your own image.
 - New: your collections can be renamed, reordered, sorted by when added, title or release date, and deleted.
 - Changed: the platform tabs moved to a slim sidebar on the left: icons, opening to names and game counts on hover or with the controller (left from the first column).
-- New: the sidebar's button at the bottom switches between opening on hover, always open and always closed.
+- New: the sidebar's button at the bottom switches between opening on hover, always open and always closed (with a controller: down past the last system, then A).
 - New: rename your own collection right from its page (Rename… at the top; with a controller, press up from the first row).
 - New: collection tiles show a pencil on hover to edit them.
 - New: TV Mode's hint bar shows how to go back to desktop mode (and it's clickable).

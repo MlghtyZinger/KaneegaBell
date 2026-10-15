@@ -328,6 +328,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (rf !== null && railMode() === "closed") {
       const t = library.platformTabs()[rf];
       if (t) return { title: tabLabel(t), count: t === "collections" ? "" : `${tabCount(t)} games` };
+      return { title: `Sidebar: ${RAIL_MODES[railMode()].label}`, count: "A to change" };
     }
     const n = games().length;
     const g = `${n} game${n === 1 ? "" : "s"}`;
@@ -384,8 +385,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     const i = railFocus()!;
     switch (a) {
       case "up": setRailFocus(Math.max(0, i - 1)); return true;
-      case "down": setRailFocus(Math.min(tabs.length - 1, i + 1)); return true;
-      case "select": pickTab(tabs[i]); return true;
+      // One stop past the last tab: the mode button (A cycles the mode).
+      case "down": setRailFocus(Math.min(tabs.length, i + 1)); return true;
+      case "select":
+        if (i >= tabs.length) setRailMode(RAIL_MODES[railMode()].next);
+        else pickTab(tabs[i]);
+        return true;
       case "back":
       case "right": closeRail(); return true;
       case "left": return true;
@@ -475,7 +480,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <button
           class="rail-row rail-pin"
-          classList={{ active: railMode() !== "hover" }}
+          classList={{ active: railMode() !== "hover", focused: railFocus() === library.platformTabs().length }}
           tabIndex={-1}
           title={RAIL_MODES[railMode()].tip}
           onClick={() => setRailMode(RAIL_MODES[railMode()].next)}
