@@ -368,6 +368,13 @@ Each milestone is runnable and tested, and passes the perf gate.
       performance (performance stays the top priority: no heavier rendering, settings screens stay
       code-split and load only when opened). Ideas to propose: shorter texts with details behind a
       "More" toggle, grouped rows instead of long paragraphs, one status line per source.
+- [ ] Storage audit (owner, 2026-10-15; **right after 0.2.7 is uploaded**, as its own small update): list
+      everything in both data folders with sizes, check every place KB writes files/cache rows for a
+      limit or cleanup. Known items: delete `data\ra` badges **only for games that were removed**
+      (owner's rule: keep them otherwise, they're small), offer to delete `library.before-reset.db`,
+      disable WebView2 components KB doesn't use (Subresource Filter, speech model, ~18 MB), check old
+      `api_cache` rows and partial LaunchBox downloads. Background: the web cache had grown to 312 MB
+      (fixed in 0.2.7 with `--disk-cache-size`).
 - [ ] u. Customization (section 7, split out of l on 2026-10-15): sort (title, last played, play time,
       release year, date added), start tab, hide/reorder platforms, hide empty platforms, button glyphs
       (auto/Xbox/PlayStation/generic), text size, settings export/import (no keys). List view and card
