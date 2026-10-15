@@ -530,6 +530,9 @@ covers, 108–110 MB while a game runs, 138–141 MB after. Runs 2 and 3 passed;
 a game ran (309 MB vs 253 in the others) while its Task Manager figure was the lowest of the three (108 MB), so a
 counting blip. TV Mode holding right: every frame ~4.2 ms, max 4.4 ms. Earlier runs the same day failed while a game
 used ~4 CPU cores in the background (cold start 523–611 ms, single 21–25 ms frames); with the PC idle they passed.
+After the cover fixes and the 32 MB web cache cap (`--disk-cache-size`, confirmed on the WebView2 process): cold start
+429 / 432 ms, 240 fps, 107–142 MB in Task Manager; run 2 passed, run 1 tripped only on the first launch of the new exe
+(one 1.7 s start and one high memory reading; its other four starts ~430 ms).
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
