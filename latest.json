@@ -1,11 +1,11 @@
 {
-  "version": "0.2.8",
-  "notes": "- Fixed: Refresh no longer replaces a cover you picked yourself.\n- Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.\n- Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. \".hack//Infection\").\n- Improved: KB's web cache stays under 32 MB; the cover pickers' previews had grown it past 300 MB (cleared once on the first start).",
-  "pub_date": "2026-10-15T18:28:05Z",
+  "version": "0.2.9",
+  "notes": "- Improved: when a game leaves your library, its achievement badges and cached achievement lists go too (badges another game still uses stay).\n- Improved: pictures and badges that removed games left behind in earlier versions are cleaned up once on the first start.\n- Improved: KB no longer lets WebView2 download add-ons it never uses (ad-filter lists, a speech model, hyphenation data); the ones already downloaded (~20 MB) are removed on the first start.\n- New: Settings → General → Storage and reset shows the library copy a reset keeps, with a \"Delete reset backup\" button.\n- Changed: \"Clear downloaded data\" also empties the web cache (on the next start).",
+  "pub_date": "2026-10-15T21:12:42Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWMrMEJVY1BIcEdIaGx6K0k4T2JHVy9tWkNiZDNocktnTFlkY3VzUGU2QXpxMHh4Y09GT0J5Nm1ROHk1YUlyNEpMWWttMUdrKzZPZWlmOW9tL3dDQ3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDg4ODU1CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjhfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi44Cjg0dkhiUUhrSllrbUlsSC96TUVZbkRzaUo3V2ZPV0tiYWlJemNNTDVGWFFaMVVYMkxxVHVMZmhBK1JXQm43NTVWSEVWSFVOOGRWaFlxOTk2Q2VXZER3PT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.8_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWNJaUVtbkRzbnFBRW9uNzFXaE5TbUp6ZnZGUzZ1N2lBOUJvVUZBTkx2VUsvUkMycFVaQlZ4aFhVVjZNdUVsN0lqWjQrK3hQdng4WHU3ck8xZmtGZ2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDk4NzUwCWZpbGU6S2FuZWVnYUJlbGxfMC4yLjlfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi45CjA3K1ZYWTBqYmI1bkpxREFSRXUvdGFXSVB0UncxV2dmcXRxUGlPd2VGSFNtRlp3T05ZZk1Dd0QxR0ZiRGdHdHVYcC9GME9teDNuM0NEbmdaMUNzNkF3PT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.9_x64-setup.exe?ref=updates"
     }
   }
 }
