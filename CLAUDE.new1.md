@@ -343,11 +343,12 @@ Each milestone is runnable and tested, and passes the perf gate.
       sidebar and details). Options/Start stays Settings; Esc opens Settings when there's nothing to
       close (back first). TV Mode unchanged. After this milestone: answer the owner's question about
       a Steam integration "like RetroArch does it".
-- **Release order (owner, 2026-10-16), one milestone per release:** 0.2.9 storage audit fixes → q
-      (0.3.0, maybe two releases; the owner will add more platforms/emulators then) → t (Settings
+- **Release order (owner, 2026-10-16), one milestone per release:** 0.2.9 storage audit fixes → r
+      (0.3.0, compressed-disc hashing; moved up by the owner) → q
+      (0.3.1, maybe two releases; the owner will add more platforms/emulators then) → t (Settings
       touch-up, includes code-splitting Settings) → m (icons) → Steam-style list view → n rest, o, p,
-      r, u. The separate code-split release (0.2.10) was dropped: it saves only ~10-30 ms today, so
-      Settings is split in t and TV Mode in p. r moves up if the owner plans to compress soon.
+      u. The separate code-split release (0.2.10) was dropped: it saves only ~10-30 ms today, so
+      Settings is split in t and TV Mode in p.
 - [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon. Icons show on
       the sidebar title, Recent, collections, platform tabs; the grid stays covers.
 - [ ] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a third layout

@@ -594,7 +594,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.2.9
+### 0.2.9 (2026-10-16)
 - Improved: when a game leaves your library, its achievement badges and cached achievement lists go too (badges another game still uses stay).
 - Improved: pictures and badges that removed games left behind in earlier versions are cleaned up once on the first start.
 - Improved: KB no longer lets WebView2 download add-ons it never uses (ad-filter lists, a speech model, hyphenation data); the ones already downloaded (~20 MB) are removed on the first start.
