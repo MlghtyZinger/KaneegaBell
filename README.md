@@ -578,6 +578,7 @@ window, so they're written for players.
 - New: the card-size slider shows a zoom percentage (100% is the default).
 - Fixed: with the controller in the sidebar or top bar, the card you came from no longer looks selected too.
 - Fixed: the sidebar's focus outline was cut off at the edges.
+- Fixed: the logo above an open series or collection was tiny; it's now shown full size next to its name.
 - Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 

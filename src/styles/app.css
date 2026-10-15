@@ -2127,13 +2127,18 @@ html.nav-mode .tv-menu-item:focus {
   padding: 8px var(--gap) 0;
 }
 
-.col-banner .col-name.banner {
+/* The logo or name; it takes the free space so Edit… sits at the far right. */
+.col-banner .in-banner {
+  margin-right: auto;
+}
+
+.col-banner .col-name.in-banner {
   font-size: var(--fs-lg);
 }
 
-.col-banner .col-logo.banner {
-  max-height: clamp(32px, 5vh, 56px);
-  max-width: 320px;
+.col-banner .col-logo.in-banner {
+  max-height: clamp(44px, 8vh, 88px);
+  max-width: min(420px, 40%);
 }
 
 .col-editor {

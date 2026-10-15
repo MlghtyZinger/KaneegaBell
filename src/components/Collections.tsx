@@ -125,7 +125,7 @@ export function CollectionBanner(props: { c: Collection; focused: string | null;
         ← Collections
       </button>
       <span class="col-kind">{KIND_LABEL[props.c.kind]}</span>
-      <Emblem c={props.c} class="banner" />
+      <Emblem c={props.c} class="in-banner" />
       <Show when={props.c.kind === "mine"}>
         <button class="btn small" classList={{ "nav-focus": props.focused === "rename" }} onClick={() => renameCollection(props.c)}>
           Rename…
