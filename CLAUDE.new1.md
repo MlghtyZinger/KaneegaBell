@@ -375,6 +375,9 @@ Each milestone is runnable and tested, and passes the perf gate.
       disable WebView2 components KB doesn't use (Subresource Filter, speech model, ~18 MB), check old
       `api_cache` rows and partial LaunchBox downloads. Background: the web cache had grown to 312 MB
       (fixed in 0.2.7 with `--disk-cache-size`).
+- [-] Steam integration: **skipped** (owner, 2026-10-15). Games launch only through KB, so no Steam
+      shortcuts or Steam library import; putting KB on Steam ($100, Steamworks) and Discord status
+      weren't wanted either. KB can be added to Steam by hand as one non-Steam game if ever needed.
 - [ ] u. Customization (section 7, split out of l on 2026-10-15): sort (title, last played, play time,
       release year, date added), start tab, hide/reorder platforms, hide empty platforms, button glyphs
       (auto/Xbox/PlayStation/generic), text size, settings export/import (no keys). List view and card
