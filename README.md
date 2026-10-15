@@ -518,6 +518,12 @@ between the processes): ~125 MB at start, ~225 MB right after scrolling all 5,00
 and `--use-angle=gl`. Each lowered "private" memory only by moving the covers into shared memory (renderer working set
 ~650–690 MB), and the in-process GPU also dropped frames. The baseline was saved again after this pass.
 
+0.2.7: the `--force-gpu-mem-available-mb=64` cap is gone. On a 2000×1125 window at 150% scaling with
+two panels open (details + cover picker), it left screen tiles undrawn (holes in the grid, a half-drawn picker);
+reproduced over DevTools and gone without it. Memory without it, same library: ~126 MB in Task Manager at start,
+~230 MB right after scrolling all 5,000 covers (224 with it), ~106 MB while a game runs, ~140 MB after. The cover
+cache limit (16 MB) stays: that's what keeps scrolling memory down.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -577,6 +583,7 @@ window, so they're written for players.
 - Changed: Triangle/Y, F or right-click opens the full game details (the sidebar's More… too).
 - Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.
 - New: Esc opens Settings when there's nothing left to close.
+- Fixed: on big or high-DPI screens, parts of the screen could stay undrawn with two windows open (a half-drawn background or cover picker, holes in the grid).
 - Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.
 - Improved: Settings → Library → Covers lists the games that still have no cover.
 

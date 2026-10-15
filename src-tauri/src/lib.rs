@@ -58,9 +58,11 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 
 /// WebView2's browser arguments. Besides wry's defaults (no mini menu, no
 /// SmartScreen), these keep memory down without slowing the grid:
-/// - the GPU process may keep 16 MB of decoded covers and 64 MB of GPU memory
-///   instead of growing to ~850 MB after scrolling a big library (measured on
-///   5,000 games: still 240 fps, every frame ~4.2 ms);
+/// - the GPU process may keep 16 MB of decoded covers instead of growing to
+///   ~850 MB after scrolling a big library (measured on 5,000 games: still
+///   240 fps, every frame ~4.2 ms). GPU memory itself isn't capped: a 64 MB
+///   cap left parts of the screen undrawn with two panels open on a big
+///   high-DPI window (holes in the grid, half-drawn pickers);
 /// - the network service runs inside the browser process (one process less).
 ///
 /// Arguments in `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (the perf tools use it
@@ -69,7 +71,7 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 fn webview_args() -> String {
     let mut disable = vec!["msWebOOUI", "msPdfOOUI", "msSmartScreenProtection"].into_iter().map(String::from).collect::<Vec<_>>();
     let mut enable = vec!["NetworkServiceInProcess2".to_string()];
-    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string(), "--force-gpu-mem-available-mb=64".to_string()];
+    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string()];
     if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
         merge_browser_args(&extra, &mut disable, &mut enable, &mut other);
