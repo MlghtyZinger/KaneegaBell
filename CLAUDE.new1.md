@@ -343,7 +343,14 @@ Each milestone is runnable and tested, and passes the perf gate.
       hideable), logos for collections and series (a game's logo, a cover, or the user's image).
       Left: smart collections (rules), developer/publisher collections, a TV Mode overview.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
-- [ ] p. Animations (Full/Reduced/Off)
+- [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
+      touch up"; deferred here to avoid getting sidetracked). Found so far: some LaunchBox
+      backgrounds have transparent or framed edges (Boktai: the previous game's art shows through),
+      some have letterbox bars baked in (Fire Emblem Echoes), some contain the game's logo (Paper
+      Mario: logo shown twice), and dark logos are hard to read on dark art (Echoes). Idea tried and
+      shelved: an opaque base in the cover's color (`cover_accent`) under each background, the art
+      masked to fade out toward the text, tabs and shelf, and a thin light outline on logos. Also:
+      a Collections screen in TV Mode (see n).
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
       Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
 - [ ] r. CHD/RVZ/CSO hashing for RetroAchievements
