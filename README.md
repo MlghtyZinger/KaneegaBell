@@ -589,7 +589,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.2.8 (not released yet)
+### 0.2.8 (2026-10-15)
 - Fixed: Refresh no longer replaces a cover you picked yourself.
 - Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.
 - Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. ".hack//Infection").
