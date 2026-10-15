@@ -2,8 +2,11 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount, type J
 import { buildRows, gridMove, type NavDir, type Rows } from "./gridNav";
 
 export type { NavDir };
-/** The item to focus when moving from `index` in `dir` (may be `index` itself). */
-export type Navigator = (index: number, dir: NavDir) => number;
+/**
+ * The item to focus when moving from `index` in `dir` (may be `index` itself);
+ * `atRowStart` tells whether an item is the first of its row.
+ */
+export type Navigator = ((index: number, dir: NavDir) => number) & { atRowStart: (index: number) => boolean };
 
 interface Props<T> {
   items: T[];
@@ -125,7 +128,12 @@ export function VirtualGrid<T>(props: Props<T>) {
     return out;
   });
 
-  const navigate: Navigator = (i, dir) => gridMove(layout().rows, i, dir);
+  const navigate: Navigator = Object.assign((i: number, dir: NavDir) => gridMove(layout().rows, i, dir), {
+    atRowStart: (i: number) => {
+      const r = layout().rows;
+      return i >= 0 && i < r.row.length && r.start[r.row[i]] === i;
+    },
+  });
   onMount(() => props.onNavigator?.(navigate));
 
   onMount(() => {

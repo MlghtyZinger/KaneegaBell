@@ -2201,3 +2201,253 @@ html.nav-mode .tv-menu-item:focus {
   max-height: 46vh;
   overflow-y: auto;
 }
+
+/* ------------------------------------------------------------ Slim top bar + rail */
+
+.icon {
+  width: 1.25em;
+  height: 1.25em;
+  flex: none;
+  display: block;
+}
+
+.topbar.slim {
+  gap: 12px;
+  padding: 6px calc(var(--gap) * 1.5) 6px 0;
+  min-height: 0;
+}
+
+.kb-mark {
+  width: var(--rail-w);
+  flex: none;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent-strong);
+  font-size: var(--fs-sm);
+}
+
+.here {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.here-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.here-count {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: clamp(160px, 22vw, 340px);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: text;
+}
+
+.search-box span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-box.active {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.icon-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.genre-picker.compact {
+  font-size: var(--fs-sm);
+}
+
+.library {
+  --rail-w: 60px;
+  --rail-open-w: 240px;
+}
+
+.lib-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.lib-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--rail-w);
+}
+
+.lib-body.rail-pinned .lib-main {
+  margin-left: var(--rail-open-w);
+}
+
+/* Icons only; opens over the grid (so covers don't jump) with names and counts. */
+.rail {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  width: var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.rail.open {
+  width: var(--rail-open-w);
+  box-shadow: 12px 0 32px rgb(0 0 0 / 0.45);
+}
+
+.lib-body.rail-pinned .rail {
+  box-shadow: none;
+}
+
+.rail-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  height: clamp(34px, 4.4vh, 46px);
+  margin: 0 8px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rail-row:hover {
+  background: var(--bg-sunken);
+  color: var(--text);
+}
+
+.rail-row.active {
+  background: var(--accent);
+  color: #0e1014;
+}
+
+.rail-row.focused {
+  box-shadow: var(--focus-ring);
+}
+
+.rail-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  flex: none;
+  font-size: 1.15em;
+}
+
+.rail-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 90ms ease-out;
+}
+
+.rail-count {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 90ms ease-out;
+}
+
+.rail.open .rail-name,
+.rail.open .rail-count {
+  opacity: 1;
+}
+
+.rail-row.active .rail-count {
+  color: #0e1014;
+}
+
+.rail-divider {
+  height: 1px;
+  margin: 6px 16px;
+  background: var(--border);
+  flex: none;
+}
+
+.rail-pin {
+  margin-top: 6px;
+  color: var(--text-faint);
+}
+
+.rail-pin.active {
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+/* Placeholder platform icons, tinted by maker family. */
+.fam-nintendo { color: #ff7a7a; }
+.fam-sony { color: #79acff; }
+.fam-sega { color: #5fd6d6; }
+.rail-row.active .platform-icon { color: #0e1014; }

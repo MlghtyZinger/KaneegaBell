@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections } from "../state/collections";
 import {
@@ -10,6 +10,7 @@ import {
   openCollection,
 } from "../components/Collections";
 import type { Collection } from "../api";
+import { Icon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
@@ -158,6 +159,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   function move(dir: NavDir) {
     const n = overview() ? tiles().length : games().length;
+    // Left from the first column (or an empty view) moves into the rail.
+    if (dir === "left" && (n === 0 || !navigate || navigate.atRowStart(focused()))) {
+      openRail();
+      return;
+    }
     if (n === 0 || !navigate) return;
     setFocused(navigate(focused(), dir));
   }
@@ -205,6 +211,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   }
 
   const onAction = (a: Action): boolean => {
+    if (railFocus() !== null && railAction(a)) return true;
     switch (a) {
       case "left":
       case "right":
@@ -255,35 +262,16 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   onCleanup(pushHandler(onAction));
 
   const tabLabel = (id: PlatformFilter) => {
-    if (id === "all") return "All";
-    if (id === "favorites") return "★ Favorites";
+    if (id === "all") return "All games";
+    if (id === "favorites") return "Favorites";
     if (id === "recent") return "Recent";
     if (id === "collections") return "Collections";
-    return library.platforms().find((x) => x.id === id)?.shortName ?? id;
+    return library.platforms().find((x) => x.id === id)?.name ?? id;
   };
+  const LIBRARY_ICONS: Record<string, IconName> = { all: "all", favorites: "star", recent: "clock", collections: "stack" };
+  const tabIcon = (id: PlatformFilter) =>
+    LIBRARY_ICONS[id] ? <Icon name={LIBRARY_ICONS[id]} /> : <PlatformIcon id={id} />;
   const tabActive = (id: PlatformFilter) => library.platform() === id || (id === "collections" && !!collectionKeyOf(library.platform()));
-  // The tab row scrolls sideways when it doesn't fit: keep the active tab in
-  // view, and fade the edge(s) that have more tabs past them.
-  let tabsEl!: HTMLElement;
-  const [tabFade, setTabFade] = createSignal({ left: false, right: false });
-  const updateTabFade = () => {
-    const el = tabsEl;
-    setTabFade({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
-  };
-  createEffect(
-    on([library.platform, library.platformTabs, library.query], () =>
-      queueMicrotask(() => {
-        tabsEl?.querySelector(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
-        updateTabFade();
-      }),
-    ),
-  );
-  onMount(() => {
-    const ro = new ResizeObserver(updateTabFade);
-    ro.observe(tabsEl);
-    onCleanup(() => ro.disconnect());
-  });
-
   const tabCount = (id: PlatformFilter) => {
     if (id === "all") return library.games().length;
     if (id === "favorites") return library.favorites().length;
@@ -291,67 +279,154 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (id === "collections") return collections.visible().length;
     return library.platforms().find((x) => x.id === id)?.count ?? 0;
   };
+  const firstPlatformTab = () => library.platformTabs().findIndex((t) => library.platforms().some((p) => p.id === t));
+
+  // Where you are, for the top bar (the rail shows only icons most of the time).
+  const here = () => {
+    const n = games().length;
+    const g = `${n} game${n === 1 ? "" : "s"}`;
+    if (library.query()) return { title: `Search: “${library.query()}”`, count: g };
+    const c = openCol();
+    if (c) return { title: c.name, count: g };
+    const p = library.platform();
+    if (p === "collections") {
+      const k = collections.visible().length;
+      return { title: "Collections", count: `${k} collection${k === 1 ? "" : "s"}` };
+    }
+    return { title: tabLabel(p), count: g };
+  };
+
+  // The rail on the left: icons; it opens (icon + name + count) on hover, when
+  // the controller moves into it (left from the first column), or when pinned.
+  const [railHover, setRailHover] = createSignal(false);
+  const [railFocus, setRailFocus] = createSignal<number | null>(null);
+  const [railPinned, setRailPinnedRaw] = createSignal(false);
+  void api
+    .getSetting<boolean>("railPinned")
+    .then((v) => setRailPinnedRaw(v === true))
+    .catch(() => {});
+  function setRailPinned(on: boolean) {
+    setRailPinnedRaw(on);
+    void api.setSetting("railPinned", on).catch(() => {});
+  }
+  const railOpen = () => railPinned() || railHover() || railFocus() !== null;
+  const openRail = () => setRailFocus(Math.max(0, library.platformTabs().findIndex(tabActive)));
+  const closeRail = () => setRailFocus(null);
+  function pickTab(id: PlatformFilter) {
+    library.setQuery("");
+    library.setPlatform(id);
+    closeRail();
+    setRailHover(false);
+  }
+  /** Controller/keyboard while the rail has focus; false = not handled here. */
+  function railAction(a: Action): boolean {
+    const tabs = library.platformTabs();
+    const i = railFocus()!;
+    switch (a) {
+      case "up": setRailFocus(Math.max(0, i - 1)); return true;
+      case "down": setRailFocus(Math.min(tabs.length - 1, i + 1)); return true;
+      case "select": pickTab(tabs[i]); return true;
+      case "back":
+      case "right": closeRail(); return true;
+      case "left": return true;
+      default: return false;
+    }
+  }
+  let railEl: HTMLDivElement | undefined;
+  createEffect(() => {
+    const i = railFocus();
+    if (i !== null) queueMicrotask(() => railEl?.querySelectorAll(".rail-row")[i]?.scrollIntoView({ block: "nearest" }));
+  });
 
   return (
     <div class="library">
-      <header class="topbar">
-        <nav
-          class="platform-tabs"
-          classList={{ "fade-left": tabFade().left, "fade-right": tabFade().right }}
-          aria-label="Platforms"
-          ref={tabsEl}
-          onScroll={updateTabFade}
-        >
-          <Show
-            when={!library.query()}
-            fallback={
-              <button class="tab active" onClick={() => library.setQuery("")} title="Clear search">
-                Search: “{library.query()}” <span class="tab-count">✕</span>
-              </button>
-            }
-          >
-            <For each={library.platformTabs()}>
-              {(id) => (
-                <button
-                  class="tab"
-                  classList={{ active: tabActive(id) }}
-                  onClick={() => library.setPlatform(id)}
-                >
-                  {tabLabel(id)}
-                  <span class="tab-count">{tabCount(id)}</span>
-                </button>
-              )}
-            </For>
-          </Show>
-        </nav>
+      <header class="topbar slim">
+        <span class="kb-mark" aria-hidden="true">
+          KB
+        </span>
+        <div class="here">
+          <span class="here-title">{here().title}</span>
+          <span class="here-count">{here().count}</span>
+        </div>
         <div class="topbar-right">
-          {/* With games, progress sits in the footer, leaving room for the tabs. */}
-          <Show when={games().length === 0}>
+          {/* With games, progress sits in the footer. */}
+          <Show when={games().length === 0 && !overview()}>
             <JobPill />
+          </Show>
+          <button class="search-box" classList={{ active: !!library.query() }} onClick={openSearch} title="Search every platform">
+            <Icon name="search" />
+            <span>{library.query() || "Search games"}</span>
+          </button>
+          <Show when={library.query()}>
+            <button class="icon-btn" onClick={() => library.setQuery("")} title="Clear search">
+              <Icon name="close" />
+            </button>
           </Show>
           <Show when={library.genres().length > 0}>
             <Picker
-              class={`genre-picker${library.genre() !== null ? " active" : ""}`}
+              class={`genre-picker compact${library.genre() !== null ? " active" : ""}`}
               title="Show genre"
               value={library.genre() === null ? "" : String(library.genre())}
               options={genreOptions()}
               onChange={(v) => library.setGenre(v === "" ? null : Number(v))}
               open={genreOpen()}
               onOpenChange={setGenreOpen}
-              label={genreName() ? `Genre: ${genreName()}` : "Genre"}
+              label={genreName() ?? "Genre"}
             />
           </Show>
-          <button class="btn ghost" onClick={openSearch}>
-            Search
+          <button class="icon-btn" onClick={props.onTvMode} title="TV Mode (L3 / F10)">
+            <Icon name="tv" />
           </button>
-          <button class="btn ghost" onClick={props.onTvMode} title="Big-screen view (L3 / F10)">
-            TV Mode
-          </button>
-          <button class="btn ghost" onClick={props.onOpenSettings}>
-            Settings
+          <button class="icon-btn" onClick={props.onOpenSettings} title="Settings">
+            <Icon name="gear" />
           </button>
         </div>
       </header>
+
+      <div class="lib-body" classList={{ "rail-pinned": railPinned() }}>
+      <nav
+        class="rail"
+        classList={{ open: railOpen() }}
+        aria-label="Library and platforms"
+        onMouseEnter={() => setRailHover(true)}
+        onMouseLeave={() => setRailHover(false)}
+      >
+        <div class="rail-list" ref={railEl}>
+          <For each={library.platformTabs()}>
+            {(id, i) => (
+              <>
+                <Show when={i() === firstPlatformTab()}>
+                  <div class="rail-divider" />
+                </Show>
+                <button
+                  class="rail-row"
+                  classList={{ active: tabActive(id), focused: railFocus() === i() }}
+                  title={tabLabel(id)}
+                  tabIndex={-1}
+                  onClick={() => pickTab(id)}
+                >
+                  <span class="rail-icon">{tabIcon(id)}</span>
+                  <span class="rail-name">{tabLabel(id)}</span>
+                  <span class="rail-count">{tabCount(id)}</span>
+                </button>
+              </>
+            )}
+          </For>
+        </div>
+        <button
+          class="rail-row rail-pin"
+          classList={{ active: railPinned() }}
+          tabIndex={-1}
+          title={railPinned() ? "Let the sidebar fold away" : "Keep the sidebar open"}
+          onClick={() => setRailPinned(!railPinned())}
+        >
+          <span class="rail-icon">
+            <Icon name="pin" />
+          </span>
+          <span class="rail-name">{railPinned() ? "Fold away" : "Keep open"}</span>
+        </button>
+      </nav>
+      <div class="lib-main">
 
       <Show
         when={!overview()}
@@ -504,6 +579,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </footer>
       </Show>
       </Show>
+
+      </div>
+      </div>
 
       <Show when={infoId()} keyed>
         {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}

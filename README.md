@@ -183,6 +183,12 @@ emulators and saves are never touched.
 | Genre filter (with IGDB) | Share | View | G |
 | **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
+**Sidebar (library):** the tabs (All, Favorites, Recent, Collections, then each platform) are in
+a slim icon sidebar on the left. Press left on the first column of the grid to move into it: it
+opens with names and game counts, up/down picks, A/Cross switches, B/Circle or right goes back
+to the grid. Hovering opens it too, and "Keep open" at its bottom pins it. LB/RB still switch
+tabs from anywhere. In the Collections tab, Y/Triangle edits the focused collection.
+
 The exit combo is configurable in Settings → General. Every screen works with a controller
 alone: D-pad moves focus to the nearest control, A/Cross presses it, and the hints bar shows
 the buttons for the device you used last.
@@ -548,6 +554,9 @@ window, so they're written for players.
 - New: series you have two or more games from show up in Collections automatically; hide any you don't want.
 - New: pick the logo of any collection or series: one of its games' logos, a cover, or your own image.
 - New: your collections can be renamed, reordered, sorted by when added, title or release date, and deleted.
+- Changed: the platform tabs moved to a slim sidebar on the left: icons, opening to names and game counts on hover or with the controller (left from the first column).
+- New: the sidebar can be pinned open.
+- Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 
 ### 0.2.5 (2026-10-15)
