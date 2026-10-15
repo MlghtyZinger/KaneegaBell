@@ -1906,7 +1906,7 @@ dependencies = [
 
 [[package]]
 name = "kaneegabell"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "env_logger",
  "flate2",
