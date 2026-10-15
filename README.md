@@ -524,6 +524,13 @@ reproduced over DevTools and gone without it. Memory without it, same library: ~
 ~230 MB right after scrolling all 5,000 covers (224 with it), ~106 MB while a game runs, ~140 MB after. The cover
 cache limit (16 MB) stays: that's what keeps scrolling memory down.
 
+0.2.7 release gate (game details sidebar, idle PC), 3 runs: cold start 427 / 431 / 448 ms, 116–118 MB in Task Manager at
+start, scrolling 240 fps with p99 4.3 ms and no frame over 8.4 ms, 209–214 MB in Task Manager after scrolling all 5,000
+covers, 108–110 MB while a game runs, 138–141 MB after. Runs 2 and 3 passed; run 1 tripped on "private" memory while
+a game ran (309 MB vs 253 in the others) while its Task Manager figure was the lowest of the three (108 MB), so a
+counting blip. TV Mode holding right: every frame ~4.2 ms, max 4.4 ms. Earlier runs the same day failed while a game
+used ~4 CPU cores in the background (cold start 523–611 ms, single 21–25 ms frames); with the PC idle they passed.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -578,7 +585,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.2.7 (not released yet)
+### 0.2.7 (2026-10-15)
 - New: choosing a game (Cross/A, Enter or double-click) opens a sidebar on the right with its background, logo, facts, play time and achievement progress, plus Play, Favorite and More….
 - Changed: Triangle/Y, F or right-click opens the full game details (the sidebar's More… too).
 - Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.

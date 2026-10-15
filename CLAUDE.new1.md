@@ -336,7 +336,7 @@ Each milestone is runnable and tested, and passes the perf gate.
       of 105 dev-library games; the two misses are fan hacks, which Hasheous's DATs don't list either,
       and compressed files (CHD/RVZ/CSO) have other checksums than the dumps it knows. Compression is
       handled by milestone r instead. IGDB and SteamGridDB stay as optional upgrades (owner's choice).
-- [ ] l. Game details sidebar (customization moved to u, owner's choice). **Controls decided (owner, 2026-10-15):**
+- [x] l. Game details sidebar, released in 0.2.7 (customization moved to u, owner's choice). **Controls decided (owner, 2026-10-15):**
       choosing a game (pad ✕/A, Enter, double-click) opens the sidebar on the right with focus inside
       and Play ready (A again plays), B/Esc closes it; it has Play, Favorite and More…. △/Y, F and
       right-click open the full details screen. No favorite shortcut any more (favorite lives in the
