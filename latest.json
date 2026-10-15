@@ -1,11 +1,11 @@
 {
-  "version": "0.2.7",
-  "notes": "- New: choosing a game (Cross/A, Enter or double-click) opens a sidebar on the right with its background, logo, facts, play time and achievement progress, plus Play, Favorite and More….\n- Changed: Triangle/Y, F or right-click opens the full game details (the sidebar's More… too).\n- Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.\n- New: Esc opens Settings when there's nothing left to close.\n- Fixed: on big or high-DPI screens, parts of the screen could stay undrawn with two windows open (a half-drawn background or cover picker, holes in the grid).\n- Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.\n- Improved: Settings → Library → Covers lists the games that still have no cover.",
-  "pub_date": "2026-10-15T17:20:38Z",
+  "version": "0.2.8",
+  "notes": "- Fixed: Refresh no longer replaces a cover you picked yourself.\n- Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.\n- Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. \".hack//Infection\").\n- Improved: KB's web cache stays under 32 MB; the cover pickers' previews had grown it past 300 MB (cleared once on the first start).",
+  "pub_date": "2026-10-15T18:28:05Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVR5WkNhSzVkam1mRGxZVkpmd1dqbCtWcXhFdzE0WU5Fb0JlWXNib2ppSVJzdzFJREJqdVlmSy8vUGQ5ZmhjRG13WTNHcGVkbWtDVVNYUXNpa3pjTEFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDg0NjYxCWZpbGU6S2FuZWVnYUJlbGxfMC4yLjdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi43CmJpajcyMnd3dCtoaDgvVGFkb1J2NFV0eWord2xZRWx4cjUvYVAyZmltNGtnZ1FSK2JpL1hZamV4UnRMbFJBeGxQK0ZBUUlISmpyalVsdHA4M2NBZURBPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.7_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWMrMEJVY1BIcEdIaGx6K0k4T2JHVy9tWkNiZDNocktnTFlkY3VzUGU2QXpxMHh4Y09GT0J5Nm1ROHk1YUlyNEpMWWttMUdrKzZPZWlmOW9tL3dDQ3dBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDg4ODU1CWZpbGU6S2FuZWVnYUJlbGxfMC4yLjhfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi44Cjg0dkhiUUhrSllrbUlsSC96TUVZbkRzaUo3V2ZPV0tiYWlJemNNTDVGWFFaMVVYMkxxVHVMZmhBK1JXQm43NTVWSEVWSFVOOGRWaFlxOTk2Q2VXZER3PT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.8_x64-setup.exe?ref=updates"
     }
   }
 }
