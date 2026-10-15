@@ -497,6 +497,11 @@ memory reading at another display scale, single-frame spikes of 10–21 ms, 1.5%
 baseline exe measured right after tripped it too (a 16.6 ms frame, a 46 ms spike in the fast flick, start 506 ms,
 282 MB), so these were the PC's noise at the time, not the change. Nothing new runs at startup or while scrolling.
 
+0.2.6 (sidebar, collections, series card), 3 runs: cold start 501 / 455 / 456 ms, 268–276 MB after start, scrolling
+240 fps with p99 4.3 ms (single-frame maxima 4.3–9.9 ms), game running 371–374 MB at 0–0.31% of one core. Memory
+after a game exits was 457 / 455 / 445 MB against the baseline's 415 (+7–10%); the first run crossed the 10% line by
+1 MB, the other two passed. That's a real but small rise (the collections and series data the library now keeps).
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
