@@ -343,11 +343,25 @@ Each milestone is runnable and tested, and passes the perf gate.
       sidebar and details). Options/Start stays Settings; Esc opens Settings when there's nothing to
       close (back first). TV Mode unchanged. After this milestone: answer the owner's question about
       a Steam integration "like RetroArch does it".
-- [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon
+- **Release order (owner, 2026-10-16), one milestone per release:** 0.2.9 storage audit fixes → q
+      (0.3.0, maybe two releases; the owner will add more platforms/emulators then) → t (Settings
+      touch-up, includes code-splitting Settings) → m (icons) → Steam-style list view → n rest, o, p,
+      r, u. The separate code-split release (0.2.10) was dropped: it saves only ~10-30 ms today, so
+      Settings is split in t and TV Mode in p. r moves up if the owner plans to compress soon.
+- [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon. Icons show on
+      the sidebar title, Recent, collections, platform tabs; the grid stays covers.
+- [ ] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a third layout
+      next to "Sections"/"One list": games as text rows with their icon on the left, the focused
+      game's info on the right (a wider version of the sidebar). Up/down moves, the panel follows.
 - [ ] n. Collections (manual, smart, automatic). Part 1 done early (owner's request 2026-10-15):
       Collections tab, the user's own collections, series as automatic collections (2+ games,
       hideable), logos for collections and series (a game's logo, a cover, or the user's image).
       Left: smart collections (rules), developer/publisher collections, a TV Mode overview.
+      **Owner's concern (2026-10-16):** adding lots of automatic collections would overcrowd the tab.
+      Proposed instead: nothing new appears unless the user makes it; smart collections become
+      saved filters (the genre filter grows into platform/genre/developer/year/played/play time,
+      and a combination can be saved); developer/publisher become filter fields, not automatic
+      collections. Waiting for the owner's answer.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
@@ -359,6 +373,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       dark art (Echoes). Idea tried and shelved: an opaque base in the cover's color
       (`cover_accent`) under each background, the art masked to fade out toward the text, tabs and
       shelf, and a thin light outline on logos. Also: a Collections screen in TV Mode (see n).
+      Boktai is one example of a general cropping/covering problem (owner, 2026-10-16): present 2-3
+      layout mockups first, like the sidebar, before building. Code-split TV Mode here.
       Owner wants this looked at next session ("look into this tomorrow").
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
       Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
