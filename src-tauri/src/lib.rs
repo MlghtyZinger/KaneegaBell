@@ -56,6 +56,41 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
     Some(exe_dir.join("data"))
 }
 
+/// WebView2's browser arguments. Besides wry's defaults (no mini menu, no
+/// SmartScreen), these keep memory down without slowing the grid:
+/// - the GPU process may keep 16 MB of decoded covers and 64 MB of GPU memory
+///   instead of growing to ~850 MB after scrolling a big library (measured on
+///   5,000 games: still 240 fps, every frame ~4.2 ms);
+/// - the network service runs inside the browser process (one process less).
+///
+/// Arguments in `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (the perf tools use it
+/// for DevTools) would replace these, so they're merged in and the variable is
+/// cleared.
+fn webview_args() -> String {
+    let mut disable = vec!["msWebOOUI", "msPdfOOUI", "msSmartScreenProtection"].into_iter().map(String::from).collect::<Vec<_>>();
+    let mut enable = vec!["NetworkServiceInProcess2".to_string()];
+    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string(), "--force-gpu-mem-available-mb=64".to_string()];
+    if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
+        std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
+        merge_browser_args(&extra, &mut disable, &mut enable, &mut other);
+    }
+    format!("--disable-features={} --enable-features={} {}", disable.join(","), enable.join(","), other.join(" "))
+}
+
+/// Chromium keeps only the last `--enable-features` / `--disable-features`,
+/// so their lists are joined; other arguments are added as they are.
+fn merge_browser_args(extra: &str, disable: &mut Vec<String>, enable: &mut Vec<String>, other: &mut Vec<String>) {
+    for arg in extra.split_whitespace() {
+        if let Some(list) = arg.strip_prefix("--disable-features=") {
+            disable.extend(list.split(',').filter(|f| !f.is_empty()).map(String::from));
+        } else if let Some(list) = arg.strip_prefix("--enable-features=") {
+            enable.extend(list.split(',').filter(|f| !f.is_empty()).map(String::from));
+        } else {
+            other.push(arg.to_string());
+        }
+    }
+}
+
 /// Picks the data folder: the override (a test library), else `data` in
 /// KB's own folder, so everything stays together. The first time, the library
 /// moves there from where earlier versions kept it (AppData, or the folder
@@ -143,6 +178,7 @@ pub fn run() {
                 Some(cfg) => Some(
                     tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?
                         .data_directory(dir.join("webview"))
+                        .additional_browser_args(&webview_args())
                         .build()?,
                 ),
                 None => app.get_webview_window("main"),
@@ -281,4 +317,18 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_browser_args;
+
+    #[test]
+    fn extra_browser_args_join_the_feature_lists() {
+        let (mut d, mut e, mut o) = (vec!["A".to_string()], vec!["B".to_string()], vec!["--x".to_string()]);
+        merge_browser_args("--remote-debugging-port=9333 --disable-features=C,D --enable-features=E", &mut d, &mut e, &mut o);
+        assert_eq!(d, ["A", "C", "D"]);
+        assert_eq!(e, ["B", "E"]);
+        assert_eq!(o, ["--x", "--remote-debugging-port=9333"]);
+    }
 }

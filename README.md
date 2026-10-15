@@ -497,10 +497,18 @@ memory reading at another display scale, single-frame spikes of 10–21 ms, 1.5%
 baseline exe measured right after tripped it too (a 16.6 ms frame, a 46 ms spike in the fast flick, start 506 ms,
 282 MB), so these were the PC's noise at the time, not the change. Nothing new runs at startup or while scrolling.
 
-0.2.6 (sidebar, collections, series card), 3 runs: cold start 501 / 455 / 456 ms, 268–276 MB after start, scrolling
-240 fps with p99 4.3 ms (single-frame maxima 4.3–9.9 ms), game running 371–374 MB at 0–0.31% of one core. Memory
-after a game exits was 457 / 455 / 445 MB against the baseline's 415 (+7–10%); the first run crossed the 10% line by
-1 MB, the other two passed. That's a real but small rise (the collections and series data the library now keeps).
+0.2.6 memory pass. Before it, 0.2.6 measured 445–457 MB after a game exits (+7–10% on 415) and ~1,100 MB after
+scrolling all 5,000 covers. A per-process breakdown showed WebView2's GPU process holding ~850 MB of decoded covers
+after scrolling. KB now starts WebView2 with `--force-gpu-mem-discardable-limit-mb=16` and
+`--force-gpu-mem-available-mb=64` (and the network service inside the browser process, one process less). Three
+runs after: cold start 441–521 ms, 258–263 MB private at start, scrolling 240 fps with p99 4.3 ms (one 125 ms hitch in
+one fast flick, not repeated), 400–414 MB after scrolling (was ~1,100), 259–262 MB while a game runs (was ~370),
+346–352 MB after a game exits (was ~450). TV Mode holding right for 12 s: every frame ~4.2 ms, max 4.4 ms.
+The perf tool now also reports what **Task Manager** shows (private working set, which leaves out memory shared
+between the processes): ~125 MB at start, ~225 MB right after scrolling all 5,000 covers, ~115 MB while a game runs,
+~150 MB after it. Tried and rejected: GPU inside the browser process, CPU rasterization, `--disable-direct-composition`
+and `--use-angle=gl`. Each lowered "private" memory only by moving the covers into shared memory (renderer working set
+~650–690 MB), and the in-process GPU also dropped frames. The baseline was saved again after this pass.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -584,6 +592,7 @@ window, so they're written for players.
 - Fixed: with the controller in the sidebar or top bar, the card you came from no longer looks selected too.
 - Fixed: the sidebar's focus outline was cut off at the edges.
 - Fixed: the logo above an open series or collection was tiny; it's now shown full size next to its name.
+- Improved: KB uses much less memory: about 125 MB in Task Manager at rest, and no more growing past 1 GB after scrolling a big library.
 - Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 

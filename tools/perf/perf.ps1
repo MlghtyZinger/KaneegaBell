@@ -1,4 +1,4 @@
-# Measures the release app against CLAUDE.md's performance targets on a
+﻿# Measures the release app against CLAUDE.md's performance targets on a
 # generated library (see README -> Performance), and gates regressions.
 # Opens and closes the app several times; run it when KB isn't open.
 #
@@ -83,9 +83,18 @@ function Measure-App($p, [string]$Label, [int]$Seconds = 0) {
     }
     $ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
     $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
+    $tm = Get-TaskManagerMB $tree
     $cpuText = if ($null -ne $cpu) { ", CPU {0:N2}% of one core" -f $cpu } else { "" }
-    Write-Host ("{0}: {1:N0} MB private, {2:N0} MB working set{3}" -f $Label, $priv, $ws, $cpuText)
-    return @{ PrivateMB = $priv; Cpu = $cpu }
+    Write-Host ("{0}: {1:N0} MB private, {2:N0} MB working set, {3:N0} MB in Task Manager{4}" -f $Label, $priv, $ws, $tm, $cpuText)
+    return @{ PrivateMB = $priv; TaskManagerMB = $tm; Cpu = $cpu }
+}
+
+# What Task Manager's Memory column shows for these processes (their private
+# working sets; memory shared between them isn't counted).
+function Get-TaskManagerMB($tree) {
+    $ids = @($tree | ForEach-Object { $_.Id })
+    $sum = (Get-CimInstance Win32_PerfRawData_PerfProc_Process | Where-Object { $ids -contains [int]$_.IDProcess } | Measure-Object -Property WorkingSetPrivate -Sum).Sum
+    return $sum / 1MB
 }
 
 if (-not $CompareOnly) {
@@ -126,9 +135,11 @@ Write-Host ("Idle CPU (middle of 5 windows over {0} s): {1:N2}% of one core ({2:
 $priv = ($tree | Measure-Object -Property PrivateMemorySize64 -Sum).Sum / 1MB
 $ws = ($tree | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
 $own = Get-Process -Id $last.Id
-Write-Host ("Memory: app process {0:N0} MB private; with WebView2 {1:N0} MB private, {2:N0} MB working set" -f ($own.PrivateMemorySize64 / 1MB), $priv, $ws)
+$tm = Get-TaskManagerMB $tree
+Write-Host ("Memory: app process {0:N0} MB private; with WebView2 {1:N0} MB private, {2:N0} MB working set, {3:N0} MB in Task Manager" -f ($own.PrivateMemorySize64 / 1MB), $priv, $ws, $tm)
 $results.idleCpuPct = [math]::Round($pct, 2)
 $results.startMemMB = [math]::Round($priv)
+$results.startTaskManagerMB = [math]::Round($tm)
 Stop-App $last
 
 # 3. Scrolling smoothness (DevTools protocol enabled for this run only).
@@ -141,7 +152,9 @@ foreach ($pass in "first", "second") {
     $results["scroll${pass}P99Ms"] = $scroll.$pass.p99ms
     $results["scroll${pass}MaxMs"] = $scroll.$pass.maxMs
 }
-$results.scrollMemMB = [math]::Round((Measure-App $r.Process "Memory after scrolling the library (app + WebView2)").PrivateMB)
+$m = Measure-App $r.Process "Memory after scrolling the library (app + WebView2)"
+$results.scrollMemMB = [math]::Round($m.PrivateMB)
+$results.scrollTaskManagerMB = [math]::Round($m.TaskManagerMB)
 
 # 4. While a game runs. The generated library's PS2 "emulator" is PowerShell
 # waiting 25 s; launching goes through the real path (minimize, low memory).
@@ -153,8 +166,11 @@ if ($gameId) {
     $g = @(1..3 | ForEach-Object { Measure-App $r.Process "While a game runs (5 s window $_)" 5 })
     $results.gameCpuPct = [math]::Round((($g | ForEach-Object { $_.Cpu }) | Sort-Object)[1], 2)
     $results.gameMemMB = [math]::Round($g[2].PrivateMB)
+    $results.gameTaskManagerMB = [math]::Round($g[2].TaskManagerMB)
     Start-Sleep -Seconds 9
-    $results.afterGameMemMB = [math]::Round((Measure-App $r.Process "After the game exits").PrivateMB)
+    $m = Measure-App $r.Process "After the game exits"
+    $results.afterGameMemMB = [math]::Round($m.PrivateMB)
+    $results.afterGameTaskManagerMB = [math]::Round($m.TaskManagerMB)
 } else {
     Write-Host "(no stand-in emulator in this library: skipped the game-running check)"
 }
@@ -177,7 +193,7 @@ if (-not (Test-Path $Baseline)) {
 # ~15.6 ms steps (one step in a 5 s window reads as 0.31% of a core), and
 # frame times jump by a few ms with the compositor and the first decode of
 # thumbnails, while every frame stays far under the 16.7 ms of 60 fps.
-$floor = @{ startMedianMs = 60; idleCpuPct = 1.0; startMemMB = 20; scrollfirstP99Ms = 5; scrollfirstMaxMs = 10; scrollsecondP99Ms = 5; scrollsecondMaxMs = 10; scrollMemMB = 20; gameCpuPct = 1.0; gameMemMB = 20; afterGameMemMB = 20 }
+$floor = @{ startMedianMs = 60; idleCpuPct = 1.0; startMemMB = 20; scrollfirstP99Ms = 5; scrollfirstMaxMs = 10; scrollsecondP99Ms = 5; scrollsecondMaxMs = 10; scrollMemMB = 20; gameCpuPct = 1.0; gameMemMB = 20; afterGameMemMB = 20; startTaskManagerMB = 20; scrollTaskManagerMB = 20; gameTaskManagerMB = 20; afterGameTaskManagerMB = 20 }
 $base = Get-Content $Baseline -Raw | ConvertFrom-Json
 $failed = @()
 Write-Host "`nCompared with the baseline ($Baseline):"

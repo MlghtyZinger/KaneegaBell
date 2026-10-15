@@ -1,13 +1,17 @@
 ﻿{
-    "startMedianMs":  499,
+    "startMedianMs":  468,
     "idleCpuPct":  0,
-    "startMemMB":  283,
+    "startMemMB":  261,
+    "startTaskManagerMB":  126,
     "scrollfirstP99Ms":  4.3,
-    "scrollfirstMaxMs":  4.4,
+    "scrollfirstMaxMs":  9.7,
     "scrollsecondP99Ms":  4.3,
-    "scrollsecondMaxMs":  4.4,
-    "scrollMemMB":  1087,
-    "gameCpuPct":  0,
-    "gameMemMB":  350,
-    "afterGameMemMB":  415
+    "scrollsecondMaxMs":  9.2,
+    "scrollMemMB":  400,
+    "scrollTaskManagerMB":  224,
+    "gameCpuPct":  0.31,
+    "gameMemMB":  262,
+    "gameTaskManagerMB":  116,
+    "afterGameMemMB":  352,
+    "afterGameTaskManagerMB":  154
 }
