@@ -551,7 +551,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.2.6 (not released yet)
+### 0.2.6 (2026-10-15)
 - New: Settings → General → Updates → What's new lists every update and what it changed.
 - New: after an update, KB shows what's new once.
 - New: when you have two or more games from a series, its name shows above the title (e.g. "Jak and Daxter").
