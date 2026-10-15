@@ -527,7 +527,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <span class="rail-name">{RAIL_MODES[railMode()].label}</span>
         </button>
       </nav>
-      <div class="lib-main">
+      <div class="lib-main" classList={{ "focus-away": railFocus() !== null || topFocus() !== null || bannerFocus() !== null }}>
 
       <Show
         when={!overview()}
@@ -682,6 +682,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             onPointerUp={(e) => e.currentTarget.blur()}
             tabIndex={-1}
           />
+          <span class="zoom-pct" title="Card size (100% = the default)">
+            {Math.round((library.cardSize() / library.CARD_DEFAULT) * 100)}%
+          </span>
           <span class="hint-count">
             {focused() + 1} / {games().length}
           </span>

@@ -574,6 +574,10 @@ window, so they're written for players.
 - New: Settings → General → Storage and reset → Forget removed games: delete games whose files are gone, with their play time and pictures.
 - New: an option to forget removed games automatically at each scan.
 - Fixed: pictures of games that left the library are now deleted instead of left behind.
+- Fixed: at some card sizes the grid flickered between two sizes (the scrollbar kept appearing and disappearing).
+- New: the card-size slider shows a zoom percentage (100% is the default).
+- Fixed: with the controller in the sidebar or top bar, the card you came from no longer looks selected too.
+- Fixed: the sidebar's focus outline was cut off at the edges.
 - Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 

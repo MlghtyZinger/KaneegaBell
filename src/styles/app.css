@@ -2505,3 +2505,35 @@ html.nav-mode .tv-menu-item:focus {
 .topbar .nav-focus {
   box-shadow: var(--focus-ring);
 }
+
+/* The scrollbar's space is always reserved: otherwise, at a card size where the
+   rows just about fill the window, the scrollbar appearing narrows the grid,
+   the cards shrink, the scrollbar goes away, and it flickers back and forth. */
+.vgrid {
+  scrollbar-gutter: stable;
+}
+
+/* While the controller is in the sidebar, the top bar or a collection's
+   buttons, the card it came from keeps only a faint marker (one focus at a time). */
+.lib-main.focus-away .card.focused,
+.lib-main.focus-away .col-tile.focused {
+  box-shadow: 0 0 0 2px rgb(255 215 94 / 0.35);
+  transform: none;
+}
+
+/* The sidebar's focus ring sits inside the row: its edges and scroll box can't crop it. */
+.rail-row.focused {
+  box-shadow: inset 0 0 0 3px var(--focus);
+}
+
+.rail-list {
+  padding-top: 2px;
+}
+
+.zoom-pct {
+  min-width: 3.5em;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

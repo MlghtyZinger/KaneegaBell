@@ -81,7 +81,9 @@ function createLibraryStore() {
   // stick, +/-, Ctrl+wheel or the slider; saved so it sticks across restarts.
   const CARD_MIN = 120;
   const CARD_MAX = 480;
-  const [cardSize, setCardSizeRaw] = createSignal(210);
+  /** The default card size: 100% on the zoom readout. */
+  const CARD_DEFAULT = 210;
+  const [cardSize, setCardSizeRaw] = createSignal(CARD_DEFAULT);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   function setCardSize(px: number) {
     const v = Math.round(Math.min(CARD_MAX, Math.max(CARD_MIN, px)));
@@ -314,6 +316,7 @@ function createLibraryStore() {
     zoom,
     CARD_MIN,
     CARD_MAX,
+    CARD_DEFAULT,
     grouped,
     setGrouped,
     genres,
