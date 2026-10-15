@@ -332,10 +332,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       filter-while-streaming; 91% of 1,776 real dump names matched.
 - [x] s (part 2). Wikidata series/franchises (P179/P8345): per-platform queries, only matched entries
       kept, monthly recheck for unmatched; User-Agent contact = the owner's GitHub profile (their choice).
-- [ ] s (part 3). Hasheous hash identification (owner's choice: unmatched cartridge games
-      automatically, disc images only on a button; only checksums are sent). Before l: the
-      sidebar (l), icons (m) and collections (n) all get better with its data. (Lettered s because
-      it was added later, not because it comes last.)
+- [-] s (part 3). Hasheous hash identification: **dropped** (owner, 2026-10-15). LaunchBox matched 103
+      of 105 dev-library games; the two misses are fan hacks, which Hasheous's DATs don't list either,
+      and compressed files (CHD/RVZ/CSO) have other checksums than the dumps it knows. Compression is
+      handled by milestone r instead. IGDB and SteamGridDB stay as optional upgrades (owner's choice).
 - [ ] l. Game details sidebar + customization options
 - [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon
 - [ ] n. Collections (manual, smart, automatic). Part 1 done early (owner's request 2026-10-15):
@@ -356,7 +356,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       Owner wants this looked at next session ("look into this tomorrow").
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
       Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
-- [ ] r. CHD/RVZ/CSO hashing for RetroAchievements
+- [ ] r. CHD/RVZ/CSO hashing for RetroAchievements (needed **before** the owner compresses any games;
+      until then compressed games launch fine but show no achievements)
 - [ ] t. Settings touch-up (owner, 2026-10-15): make Settings compact and more readable without costing
       performance (performance stays the top priority: no heavier rendering, settings screens stay
       code-split and load only when opened). Ideas to propose: shorter texts with details behind a
