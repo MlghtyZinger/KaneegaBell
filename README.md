@@ -530,7 +530,8 @@ covers, 108–110 MB while a game runs, 138–141 MB after. Runs 2 and 3 passed;
 a game ran (309 MB vs 253 in the others) while its Task Manager figure was the lowest of the three (108 MB), so a
 counting blip. TV Mode holding right: every frame ~4.2 ms, max 4.4 ms. Earlier runs the same day failed while a game
 used ~4 CPU cores in the background (cold start 523–611 ms, single 21–25 ms frames); with the PC idle they passed.
-After the cover fixes and the 32 MB web cache cap (`--disk-cache-size`, confirmed on the WebView2 process): cold start
+0.2.8 (built after 0.2.7 was tagged): after the cover fixes and the 32 MB web cache cap (`--disk-cache-size`,
+confirmed on the WebView2 process): cold start
 429 / 432 ms, 240 fps, 107–142 MB in Task Manager; run 2 passed, run 1 tripped only on the first launch of the new exe
 (one 1.7 s start and one high memory reading; its other four starts ~430 ms).
 
@@ -588,16 +589,18 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.2.8 (not released yet)
+- Fixed: Refresh no longer replaces a cover you picked yourself.
+- Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.
+- Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. ".hack//Infection").
+- Improved: KB's web cache stays under 32 MB; the cover pickers' previews had grown it past 300 MB (cleared once on the first start).
+
 ### 0.2.7 (2026-10-15)
 - New: choosing a game (Cross/A, Enter or double-click) opens a sidebar on the right with its background, logo, facts, play time and achievement progress, plus Play, Favorite and More….
 - Changed: Triangle/Y, F or right-click opens the full game details (the sidebar's More… too).
 - Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.
 - New: Esc opens Settings when there's nothing left to close.
 - Fixed: on big or high-DPI screens, parts of the screen could stay undrawn with two windows open (a half-drawn background or cover picker, holes in the grid).
-- Fixed: Refresh no longer replaces a cover you picked yourself.
-- Fixed: a disc scan that LaunchBox lists as a box front is no longer chosen as the cover when a real box exists.
-- Improved: SteamGridDB backgrounds and logos are also searched by LaunchBox's names, so games named differently on disk are found (e.g. ".hack//Infection").
-- Improved: KB's web cache stays under 32 MB; the cover pickers' previews had grown it past 300 MB (cleared once on the first start).
 - Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.
 - Improved: Settings → Library → Covers lists the games that still have no cover.
 
