@@ -165,6 +165,11 @@ emulators and saves are never touched.
   kept as `library.before-reset.db`. To undo: close KB, delete `library.db`, `library.db-wal`
   and `library.db-shm`, rename `library.before-reset.db` to `library.db`, start KB, then use
   Clear downloaded data so the covers come back.
+- **Removed games**: when a game's file disappears, a scan deletes it from the library unless you
+  played or favorited it; those stay hidden so their play time and favorite come back with the
+  file (an unplugged drive, a moved folder). **Forget removed games…** deletes the hidden ones for
+  good (play time, favorite, collection places, pictures); **Forget removed games automatically**
+  makes scans do that right away. Pictures of games that left the library are always deleted.
 
 ## Controllers
 
@@ -566,6 +571,9 @@ window, so they're written for players.
 - New: TV Mode's hint bar shows how to go back to desktop mode (and it's clickable).
 - New: the top bar works with a controller: press up from the first row of covers to reach Search, Genre, TV Mode and Settings.
 - Fixed: switching between desktop and TV Mode no longer changes the button hints from your controller to keyboard keys.
+- New: Settings → General → Storage and reset → Forget removed games: delete games whose files are gone, with their play time and pictures.
+- New: an option to forget removed games automatically at each scan.
+- Fixed: pictures of games that left the library are now deleted instead of left behind.
 - Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 

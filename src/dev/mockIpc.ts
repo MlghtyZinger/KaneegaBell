@@ -134,6 +134,7 @@ export function installMockIpc() {
     gameOrder: string | null;
   };
   let nextCol = 3;
+  let removedGames = 3;
   const cols: MockCollection[] = [
     { key: "c:1", name: "Couch co-op", kind: "mine", games: [3, 8, 13, 21], logo: null, hidden: false, gameOrder: "added" },
     { key: "c:2", name: "Comfort games", kind: "mine", games: [], logo: null, hidden: false, gameOrder: "added" },
@@ -144,6 +145,13 @@ export function installMockIpc() {
   mockIPC((cmd, args) => {
     const a = (args ?? {}) as Record<string, unknown>;
     switch (cmd) {
+      case "get_removed":
+        return { count: removedGames };
+      case "forget_removed": {
+        const n = removedGames;
+        removedGames = 0;
+        return n;
+      }
       case "list_collections":
         return structuredClone(cols);
       case "create_collection": {

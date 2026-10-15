@@ -1234,7 +1234,7 @@ function GeneralSection(props: { s: Settings; run: Run }) {
       <TvModeBlock s={props.s} run={props.run} />
 
       <UpdatesBlock s={props.s} run={props.run} />
-      <StorageBlock run={props.run} />
+      <StorageBlock s={props.s} run={props.run} />
     </section>
   );
 }
@@ -1242,14 +1242,15 @@ function GeneralSection(props: { s: Settings; run: Run }) {
 const size = (n: number) =>
   n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(0)} MB` : `${Math.round(n / 1024)} KB`;
 
-function StorageBlock(props: { run: Run }) {
+function StorageBlock(props: { s: Settings; run: Run }) {
   const [storage, { refetch }] = createResource(() => api.getStorage().catch(() => null));
-  const [asking, setAsking] = createSignal<"clear" | "reset" | null>(null);
+  const [removed, { refetch: refetchRemoved }] = createResource(() => api.getRemoved().catch(() => null));
+  const [asking, setAsking] = createSignal<"clear" | "reset" | "forget" | null>(null);
   const [forgetKeys, setForgetKeys] = createSignal(false);
   const [working, setWorking] = createSignal(false);
   const [failed, setFailed] = createSignal<string | null>(null);
 
-  const ask = (what: "clear" | "reset") => {
+  const ask = (what: "clear" | "reset" | "forget") => {
     setForgetKeys(false);
     setFailed(null);
     setAsking(what);
@@ -1263,6 +1264,14 @@ function StorageBlock(props: { run: Run }) {
       if (asking() === "reset") {
         await api.resetApp(forgetKeys());
         location.reload();
+        return;
+      }
+      if (asking() === "forget") {
+        const n = await api.forgetRemoved();
+        setAsking(null);
+        await props.run(() => library.reload(), { notice: `Forgot ${n} removed game${n === 1 ? "" : "s"}.` });
+        await refetchRemoved();
+        await refetch();
         return;
       }
       const freed = await api.clearDownloaded();
@@ -1297,10 +1306,46 @@ function StorageBlock(props: { run: Run }) {
         Your games, emulators and saves are never touched: both only delete inside KB's own folder
         {storage() ? <> (<span class="mono">{storage()!.dataDir}</span>)</> : null}.
       </p>
+      <h3>Removed games</h3>
+      <p>
+        {removed()?.count
+          ? `${removed()!.count} game${removed()!.count === 1 ? " is" : "s are"} hidden because ${removed()!.count === 1 ? "its file is" : "their files are"} gone.`
+          : "No removed games are kept."}
+      </p>
+      <div class="row">
+        <button class="btn" disabled={!removed()?.count} onClick={() => ask("forget")}>
+          Forget removed games…
+        </button>
+      </div>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={props.s.values.forgetRemovedGames === true}
+          onChange={(e) => props.run(() => api.setSetting("forgetRemovedGames", e.currentTarget.checked))}
+        />
+        Forget removed games automatically
+      </label>
+      <p class="dim small">
+        When a game's file disappears, KB keeps it hidden if you played or favorited it, so its play time and favorite
+        come back if the file returns (e.g. a drive that wasn't plugged in). Games you never played are removed at the
+        next scan. Forgetting deletes the hidden ones for good: play time, favorite, collections and pictures. With the
+        switch on, scans do that right away.
+      </p>
       <Show when={asking()}>
         {(what) => (
           <div class="overlay" onClick={(e) => e.target === e.currentTarget && close()}>
             <NavScope class="panel confirm-panel" modal onBack={close}>
+              <Show when={what() === "forget"}>
+                <h2>Forget removed games?</h2>
+                <p>
+                  KB deletes the {removed()?.count ?? ""} hidden game{removed()?.count === 1 ? "" : "s"} whose files are
+                  gone, with their play time, favorites, collection places and pictures. This can't be undone.
+                </p>
+                <p class="dim">If a file comes back later, its game is found again by the next scan, as a new game.</p>
+              </Show>
+              <Show
+                when={what() !== "forget"}
+              >
               <Show
                 when={what() === "reset"}
                 fallback={
@@ -1331,6 +1376,7 @@ function StorageBlock(props: { run: Run }) {
                   Also remove my saved keys (IGDB, SteamGridDB, RetroAchievements)
                 </label>
               </Show>
+              </Show>
               <Show when={failed()}>
                 <p class="warn">{failed()}</p>
               </Show>
@@ -1339,7 +1385,13 @@ function StorageBlock(props: { run: Run }) {
                   Cancel
                 </button>
                 <button class="btn danger" disabled={working()} onClick={() => void confirm()}>
-                  {working() ? "Working…" : what() === "reset" ? "Reset KaneegaBell" : "Clear downloaded data"}
+                  {working()
+                    ? "Working…"
+                    : what() === "reset"
+                      ? "Reset KaneegaBell"
+                      : what() === "forget"
+                        ? "Forget them"
+                        : "Clear downloaded data"}
                 </button>
               </div>
               <div class="panel-actions">

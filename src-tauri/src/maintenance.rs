@@ -105,6 +105,37 @@ fn ids(conn: &Connection, sql: &str) -> Result<HashSet<i64>> {
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
+/// Games whose files are gone. KB keeps them hidden when they carry play
+/// time, a last-played date or a favorite (so that comes back with the file);
+/// the others are deleted by the scan.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Removed {
+    pub count: i64,
+}
+
+pub fn removed(conn: &Connection) -> Result<Removed> {
+    Ok(Removed { count: conn.query_row("SELECT COUNT(*) FROM games WHERE missing = 1", [], |r| r.get(0))? })
+}
+
+/// Forgets the removed (hidden) games for good: their play time, favorites,
+/// collection memberships, details and pictures. Returns how many.
+pub fn forget_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
+    // Not one that's running right now (its session is still being counted).
+    let n = conn.execute("DELETE FROM games WHERE missing = 1 AND running_since IS NULL", [])?;
+    prune_orphan_art(conn, data_dir)?;
+    Ok(n)
+}
+
+/// Deletes the pictures of games that are no longer in the library.
+pub fn prune_orphan_art(conn: &Connection, data_dir: &Path) -> Result<()> {
+    let keep = ids(conn, "SELECT id FROM games")?;
+    for d in ["t", "f", "h", "l"] {
+        prune_images(&data_dir.join("art").join(d), &keep)?;
+    }
+    Ok(())
+}
+
 /// Clears the downloaded data (see `CLEAR_SQL`). Returns the bytes freed.
 pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
     let before = storage(conn, data_dir)?.downloaded_bytes;
@@ -258,6 +289,38 @@ mod tests {
             assert!(data.join("art").join(d).join(format!("{picked}.webp")).exists());
         }
         assert!(!data.join("ra").exists());
+    }
+
+    #[test]
+    fn removed_games_can_be_forgotten_with_their_pictures() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        let conn = db::test_db();
+        let kept = add_game(&conn, "Still here");
+        let gone = add_game(&conn, "Gone but played");
+        let running = add_game(&conn, "Gone, running");
+        conn.execute("UPDATE games SET missing = 1 WHERE id IN (?1, ?2)", [gone, running]).unwrap();
+        conn.execute("UPDATE games SET running_since = 1 WHERE id = ?1", [running]).unwrap();
+        let col = crate::collections::create(&conn, "Mine", Some(gone)).unwrap();
+        for id in [kept, gone] {
+            for d in ["t", "f", "h", "l"] {
+                write(&data.join("art").join(d).join(format!("{id}.webp")));
+            }
+        }
+        // A leftover picture of a game deleted earlier.
+        write(&data.join("art").join("t").join("999.webp"));
+        assert_eq!(removed(&conn).unwrap(), Removed { count: 2 });
+
+        assert_eq!(forget_removed(&conn, data).unwrap(), 1);
+        assert_eq!(count(&conn, &format!("SELECT COUNT(*) FROM games WHERE id = {gone}")), 0);
+        assert_eq!(count(&conn, &format!("SELECT COUNT(*) FROM games WHERE id = {running}")), 1, "not while it runs");
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM collection_games"), 0, "left its collection");
+        assert!(crate::collections::list(&conn).unwrap().iter().any(|c| c.key == col), "the collection stays");
+        for d in ["t", "f", "h", "l"] {
+            assert!(!data.join("art").join(d).join(format!("{gone}.webp")).exists());
+            assert!(data.join("art").join(d).join(format!("{kept}.webp")).exists());
+        }
+        assert!(!data.join("art").join("t").join("999.webp").exists());
     }
 
     #[test]

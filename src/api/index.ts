@@ -540,6 +540,10 @@ export const api = {
   lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
   setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
   wdStatus: () => invoke<WdStatus>("wd_status"),
+  /** Games hidden because their files are gone. */
+  getRemoved: () => invoke<{ count: number }>("get_removed"),
+  /** Forgets the removed games for good; returns how many. */
+  forgetRemoved: () => invoke<number>("forget_removed"),
   listCollections: () => invoke<Collection[]>("list_collections"),
   createCollection: (name: string, gameId: number | null) => invoke<string>("create_collection", { name, gameId }),
   renameCollection: (key: string, name: string) => invoke<void>("rename_collection", { key, name }),

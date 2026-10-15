@@ -311,7 +311,43 @@ pub fn update_source(state: State<'_, AppState>, id: i64, platform_id: Option<St
 
 #[tauri::command]
 pub fn remove_source(state: State<'_, AppState>, id: i64) -> Result<Vec<queries::GameChange>> {
-    queries::remove_source(&state.db(), id)
+    let conn = state.db();
+    let gone = queries::remove_source(&conn, id)?;
+    after_removals(&conn, state.data_dir());
+    Ok(gone)
+}
+
+/// After games may have left the library: forgets the hidden ones when the
+/// user asked for that ("Forget removed games automatically"), and deletes
+/// the pictures of games that are gone.
+fn after_removals(conn: &Connection, data_dir: &Path) {
+    let auto = queries::get_setting::<bool>(conn, "forgetRemovedGames").ok().flatten() == Some(true);
+    let r = if auto {
+        crate::maintenance::forget_removed(conn, data_dir).map(|n| {
+            if n > 0 {
+                log::info!("forgot {n} removed games");
+            }
+        })
+    } else {
+        crate::maintenance::prune_orphan_art(conn, data_dir)
+    };
+    if let Err(e) = r {
+        log::warn!("cleaning up after removed games: {e}");
+    }
+}
+
+/// Settings → Storage: how many removed games are kept hidden.
+#[tauri::command]
+pub fn get_removed(state: State<'_, AppState>) -> Result<crate::maintenance::Removed> {
+    crate::maintenance::removed(&state.db())
+}
+
+/// "Forget removed games": deletes them for good. Returns how many.
+#[tauri::command]
+pub fn forget_removed(app: AppHandle, state: State<'_, AppState>) -> Result<usize> {
+    let n = crate::maintenance::forget_removed(&state.db(), state.data_dir())?;
+    let _ = app.emit("library-changed", ());
+    Ok(n)
 }
 
 #[tauri::command]
@@ -620,6 +656,9 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
             },
             cancel,
         )?;
+        if !summary.cancelled {
+            after_removals(&conn, db_path.parent().unwrap_or(Path::new(".")));
+        }
         let auto_art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
         let needs_art = queries::count_games_needing_art(&conn, queries::now())? > 0;
         let next = FollowUp {

@@ -259,6 +259,8 @@ pub fn run() {
             commands::set_lb_match,
             commands::wd_status,
             commands::cover_accent,
+            commands::get_removed,
+            commands::forget_removed,
             commands::list_collections,
             commands::create_collection,
             commands::rename_collection,
