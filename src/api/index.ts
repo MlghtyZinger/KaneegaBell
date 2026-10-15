@@ -286,6 +286,14 @@ export interface RaProgress {
   achievements: Achievement[];
 }
 
+/** Achievement progress at a glance (from the cache). */
+export interface AchievementGlance {
+  earned: number;
+  total: number;
+  pointsEarned: number;
+  pointsTotal: number;
+}
+
 /** A version of a game RetroAchievements accepts. */
 export interface AcceptedDump {
   name: string;
@@ -587,6 +595,8 @@ export const api = {
   setRaKeys: (user: string, key: string) => invoke<string>("set_ra_keys", { user, key }),
   removeRaKeys: () => invoke<void>("remove_ra_keys"),
   getAchievements: (id: number, refresh = false) => invoke<GameAchievements>("get_achievements", { id, refresh }),
+  /** Cached achievement progress for the sidebar (never goes online); null when none is cached. */
+  achievementGlance: (id: number) => invoke<AchievementGlance | null>("achievement_glance", { id }),
   appInfo: () => invoke<AppInfo>("app_info"),
   listDisplays: () => invoke<DisplayRow[]>("list_displays"),
   /** TV Mode's window: fullscreen, on the chosen TV display when it's connected. */

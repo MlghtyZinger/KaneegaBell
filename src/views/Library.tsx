@@ -20,6 +20,7 @@ import { GameCard } from "../components/GameCard";
 import { Hint } from "../components/Hints";
 import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
+import { GameSidebar } from "../components/GameSidebar";
 import { api, type GameRow } from "../api";
 
 /** What the background worker is doing (one job at a time). */
@@ -57,7 +58,20 @@ function initial(title: string): string {
 
 export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () => void }) {
   const { focused, setFocused } = library;
+  // The full details screen (△ / F / right-click) and the sidebar (A / Enter / double-click).
   const [infoId, setInfoId] = createSignal<number | null>(null);
+  const [sideOpen, setSideOpen] = createSignal(false);
+  const focusedGame = () => (overview() ? undefined : games()[focused()]);
+  // The sidebar shows the focused game; a click on another cover moves it there.
+  const sideId = () => (sideOpen() ? (focusedGame()?.id ?? null) : null);
+  const openSide = (i: number) => {
+    setFocused(i);
+    setSideOpen(true);
+  };
+  const openDetails = (i: number) => {
+    const g = games()[i];
+    if (g) setInfoId(g.id);
+  };
   const [genreOpen, setGenreOpen] = createSignal(false);
   const genreOptions = createMemo(() => [
     { value: "", label: "All genres" },
@@ -149,7 +163,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // New tab, search or genre -> start at the top (back in Collections: on the tile you left).
   createEffect(
-    on([library.platform, library.query, library.genre], () => setFocused(overview() ? Math.min(lastTile, tiles().length - 1) : 0), {
+    on([library.platform, library.query, library.genre], () => {
+      setSideOpen(false);
+      setFocused(overview() ? Math.min(lastTile, tiles().length - 1) : 0);
+    }, {
       defer: true,
     }),
   );
@@ -257,13 +274,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     }
   }
 
-  async function toggleFavorite() {
-    const g = games()[focused()];
-    if (!g) return;
-    await api.setFavorite(g.id, !g.favorite);
-    await library.reload();
-  }
-
   function openSearch() {
     const before = library.query();
     osk.open({
@@ -298,16 +308,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       case "nextPlatform": library.cyclePlatform(1); return true;
       case "prevLetter": if (!overview()) jumpLetter(-1); return true;
       case "nextLetter": if (!overview()) jumpLetter(1); return true;
-      // In the Collections overview, Y edits the focused collection.
-      case "favorite": if (overview()) editTile(focused()); else void toggleFavorite(); return true;
+      // △ / Y / F: the full details screen (in the Collections overview: edit the collection).
+      case "favorite": if (overview()) editTile(focused()); else openDetails(focused()); return true;
       case "secondary": openSearch(); return true;
       case "select": {
-        if (overview()) {
-          activateTile(focused());
-          return true;
-        }
-        const g = games()[focused()];
-        if (g) setInfoId(g.id);
+        if (overview()) activateTile(focused());
+        else if (games()[focused()]) openSide(focused());
         return true;
       }
       case "back":
@@ -527,7 +533,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <span class="rail-name">{RAIL_MODES[railMode()].label}</span>
         </button>
       </nav>
-      <div class="lib-main" classList={{ "focus-away": railFocus() !== null || topFocus() !== null || bannerFocus() !== null }}>
+      <div class="lib-main" classList={{ "focus-away": railFocus() !== null || topFocus() !== null || bannerFocus() !== null || sideOpen() }}>
 
       <Show
         when={!overview()}
@@ -635,7 +641,8 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             items={games()}
             focused={focused()}
             onFocus={setFocused}
-            onActivate={(i) => setInfoId(games()[i].id)}
+            onActivate={openSide}
+            onContext={openDetails}
             onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
             itemAspect={itemAspect}
@@ -652,9 +659,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           />
         </div>
         <footer class="hints">
-          <Hint action="select" label="Details" />
+          <Hint action="select" label="Open" />
+          <Hint action="favorite" label="Details" />
           <Hint action="secondary" label="Search" />
-          <Hint action="favorite" label="Favorite" />
           <Show when={library.genres().length > 0}>
             <Hint action="filter" label="Genre" />
           </Show>
@@ -693,6 +700,16 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       </Show>
 
       </div>
+      <Show when={sideId()}>
+        {(id) => (
+          <GameSidebar
+            id={id()}
+            onClose={() => setSideOpen(false)}
+            onMore={setInfoId}
+            onSettings={props.onOpenSettings}
+          />
+        )}
+      </Show>
       </div>
 
       <Show when={infoId()} keyed>

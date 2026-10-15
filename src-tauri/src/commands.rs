@@ -1473,6 +1473,20 @@ pub async fn get_achievements(app: AppHandle, id: i64, refresh: bool) -> Result<
     .map_err(|e| Error::msg(e.to_string()))?
 }
 
+/// The game details sidebar's achievement line: cached progress only (never
+/// online, never hashing), None without RetroAchievements or a cached fetch.
+#[tauri::command]
+pub async fn achievement_glance(app: AppHandle, id: i64) -> Result<Option<achievements::Glance>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(user) = secrets::get(RA_USER)? else { return Ok(None) };
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        achievements::glance(&conn, &user, id)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
 fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
     let due = throttled(250);
     // Ask the UI to reload every couple of seconds so covers appear progressively.

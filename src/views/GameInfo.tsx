@@ -9,6 +9,7 @@ import { Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
 import { CollectionPicker } from "../components/Collections";
 import { collections } from "../state/collections";
+import { mainSeries, owned } from "../state/series";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -38,22 +39,8 @@ function matchLine(m: GameDetail["meta"], igdb: boolean): string {
   return `${lb} · ${m.igdbId ? `IGDB: matched${m.matchStatus === "manual" ? " (your pick)" : ""}` : "not on IGDB"}`;
 }
 
-/** A series' games that are in the library list, in release order. */
-function owned(s: Series) {
-  return s.games.map((id) => library.games().find((r) => r.id === id)).filter((r): r is NonNullable<typeof r> => !!r);
-}
-
-/**
- * The series to show: a real series first, else a franchise, and only one you
- * have at least two games from (one game alone says nothing worth showing).
- */
-function mainSeries(g: GameDetail): Series | null {
-  const shown = g.meta.series.filter((s) => owned(s).length >= 2);
-  return shown.find((s) => s.kind === "series") ?? shown[0] ?? null;
-}
-
 /** A small stack-of-cases mark for series. */
-function SeriesGlyph() {
+export function SeriesGlyph() {
   return (
     <svg class="series-glyph" viewBox="0 0 16 16" aria-hidden="true">
       <rect x="5" y="1.5" width="9" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55" />
@@ -173,7 +160,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   // The series' color: the main color of its earliest game's cover.
   const colorSource = () => {
     const g = game();
-    const s = g && mainSeries(g);
+    const s = g && mainSeries(g.meta);
     return s ? (owned(s).find((m) => m.art > 0)?.id ?? null) : null;
   };
   const [seriesColor] = createResource(colorSource, (gid) => api.coverAccent(gid).catch(() => null));
@@ -279,7 +266,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 </div>
               </div>
               <div class="info-main" style={{ "--series": tint() ?? undefined }}>
-              <Show when={mainSeries(g())}>
+              <Show when={mainSeries(g().meta)}>
                 {(s) => (
                   <div class="series-eyebrow">
                     <SeriesGlyph />
@@ -318,7 +305,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
               </Show>
-              <Show when={mainSeries(g())}>
+              <Show when={mainSeries(g().meta)}>
                 {(s) => <SeriesCard game={g()} series={s()} onOpen={setId} />}
               </Show>
               <Show when={g().meta.description}>

@@ -14,6 +14,8 @@ interface Props<T> {
   focused: number;
   onFocus: (index: number) => void;
   onActivate: (index: number) => void;
+  /** Right-click on a card (the browser's own menu is suppressed then). */
+  onContext?: (index: number) => void;
   /** Smallest card width in px; columns are derived from the container width. */
   minCardWidth: number;
   /** Card height / width per item (its cover's shape). */
@@ -207,6 +209,12 @@ export function VirtualGrid<T>(props: Props<T>) {
                 }}
                 onMouseDown={() => props.onFocus(i)}
                 onDblClick={() => props.onActivate(i)}
+                onContextMenu={(e) => {
+                  if (!props.onContext) return;
+                  e.preventDefault();
+                  props.onFocus(i);
+                  props.onContext(i);
+                }}
               >
                 {props.renderItem(() => props.items[i], isFocused)}
               </div>

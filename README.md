@@ -149,9 +149,10 @@ before it expires (GitHub emails you a reminder).
 3. **Scan library.** Rescans are incremental, and games whose files disappear are hidden (not
    deleted), so play time and favorites survive a drive being unplugged.
 
-Keyboard: arrows move, `Enter` details (and `Enter` again to play), `Q`/`E` (or PgUp/PgDn)
-switch platform, `Home`/`End` jump by letter, `F` favorite, `F1` settings, `Esc` back, `F11`
-fullscreen.
+Keyboard: arrows move, `Enter` opens the game sidebar (and `Enter` again plays), `F` the full
+details, `Q`/`E` (or PgUp/PgDn) switch platform, `Home`/`End` jump by letter, `Esc` back (and
+Settings when there's nothing to close), `F1` settings, `F11` fullscreen. Mouse: double-click a
+cover for the sidebar, right-click for the full details.
 
 ### Storage and reset (Settings → General)
 Both only delete inside KB's data folder (`data\` next to the program); game files,
@@ -176,13 +177,20 @@ emulators and saves are never touched.
 | Action | PlayStation | Xbox | Keyboard |
 |---|---|---|---|
 | Move | D-pad / left stick (hold to repeat) | D-pad / left stick | Arrows |
-| Select / details, then Play | Cross | A | Enter |
+| Select; on a game: the sidebar, then Play | Cross | A | Enter |
 | Back / close | Circle | B | Esc |
 | Search | Square | X | `/` |
-| Favorite | Triangle | Y | F |
+| Full game details | Triangle | Y | F |
 | Previous / next tab (platform, Settings section) | L1 / R1 | LB / RB | Q / E |
 | Previous / next letter | L2 / R2 | LT / RT | Home / End |
-| Settings | Options | Menu | F1 |
+| Settings | Options | Menu | F1 (or Esc with nothing to close) |
+
+**Game sidebar:** choosing a game opens a panel on the right with its background and logo,
+platform, year, developer, genres, series, play time, achievement progress (as last fetched; it
+never goes online) and **Play**, **Favorite** and **More…** (the full details: covers, Fix match,
+collections, launch command). Play is ready, so Cross/A twice starts the game; B/Circle closes
+the panel. With the mouse, clicking another cover shows that game. On narrow windows the panel
+opens over the grid. Favorites are set from the sidebar or the full details.
 | Bigger / smaller cards | right stick up / down | right stick up / down | `+` / `-`, Ctrl + wheel |
 | Platform sections on / off (All, Favorites, search) | R3 | RS (click) | V |
 | Genre filter (with IGDB) | Share | View | G |
@@ -565,6 +573,10 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.2.7 (not released yet)
+- New: choosing a game (Cross/A, Enter or double-click) opens a sidebar on the right with its background, logo, facts, play time and achievement progress, plus Play, Favorite and More….
+- Changed: Triangle/Y, F or right-click opens the full game details (the sidebar's More… too).
+- Changed: favorites are set from the sidebar or the full details; Triangle/Y and F no longer favorite.
+- New: Esc opens Settings when there's nothing left to close.
 - Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.
 - Improved: Settings → Library → Covers lists the games that still have no cover.
 

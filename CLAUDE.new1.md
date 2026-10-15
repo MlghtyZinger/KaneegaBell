@@ -336,7 +336,7 @@ Each milestone is runnable and tested, and passes the perf gate.
       of 105 dev-library games; the two misses are fan hacks, which Hasheous's DATs don't list either,
       and compressed files (CHD/RVZ/CSO) have other checksums than the dumps it knows. Compression is
       handled by milestone r instead. IGDB and SteamGridDB stay as optional upgrades (owner's choice).
-- [ ] l. Game details sidebar + customization options. **Controls decided (owner, 2026-10-15):**
+- [ ] l. Game details sidebar (customization moved to u, owner's choice). **Controls decided (owner, 2026-10-15):**
       choosing a game (pad ✕/A, Enter, double-click) opens the sidebar on the right with focus inside
       and Play ready (A again plays), B/Esc closes it; it has Play, Favorite and More…. △/Y, F and
       right-click open the full details screen. No favorite shortcut any more (favorite lives in the
@@ -368,6 +368,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       performance (performance stays the top priority: no heavier rendering, settings screens stay
       code-split and load only when opened). Ideas to propose: shorter texts with details behind a
       "More" toggle, grouped rows instead of long paragraphs, one status line per source.
+- [ ] u. Customization (section 7, split out of l on 2026-10-15): sort (title, last played, play time,
+      release year, date added), start tab, hide/reorder platforms, hide empty platforms, button glyphs
+      (auto/Xbox/PlayStation/generic), text size, settings export/import (no keys). List view and card
+      art wait for m (icons); accent color for o (themes).
 
 ## How to work (carried over, with additions)
 1. Propose a plan for each milestone and **wait for the owner's approval** before writing large

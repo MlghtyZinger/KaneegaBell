@@ -238,6 +238,11 @@ export function installMockIpc() {
         const q = new URLSearchParams(location.search);
         return { igdb: q.get("igdb") === "1", igdbClientId: "abc123…", raUser: q.get("ra") === "1" ? "MockUser" : null };
       }
+      case "achievement_glance": {
+        // Every third game has cached progress.
+        const id = (args as { id: number }).id;
+        return id % 3 === 0 ? { earned: id % 25, total: 40, pointsEarned: (id % 25) * 5, pointsTotal: 400 } : null;
+      }
       case "get_achievements": {
         // ?ra=1: odd ids are recognized with progress, even ids aren't; 3DS is unsupported.
         if (new URLSearchParams(location.search).get("ra") !== "1") return { status: "unsupported", hash: null, progress: null, fetchedAt: null, stale: false, raTitle: null, raGameId: null, accepted: [] };

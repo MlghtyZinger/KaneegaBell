@@ -115,6 +115,8 @@ export function installKeyboard(): () => void {
     }
     const action = KEYMAP[e.key];
     if (action && dispatch(action)) e.preventDefault();
+    // Esc with nothing left to close (the plain library) opens Settings.
+    else if (e.key === "Escape" && dispatch("menu")) e.preventDefault();
   };
   const onPointer = () => setDevice("pointer");
   // Only a mouse that really moves counts. The webview also fires mousemove

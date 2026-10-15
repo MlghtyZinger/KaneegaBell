@@ -316,6 +316,30 @@ pub fn for_game(conn: &Connection, ra: Option<&Ra>, game_id: i64, refresh: bool)
     })
 }
 
+/// Progress at a glance, for the game details sidebar.
+#[derive(Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Glance {
+    pub earned: usize,
+    pub total: usize,
+    pub points_earned: i64,
+    pub points_total: i64,
+}
+
+/// The user's progress in a game from what's already cached: no hashing and
+/// no requests, so it's cheap enough to ask for on every selection. None when
+/// the game hasn't been identified or its progress was never fetched.
+pub fn glance(conn: &Connection, user: &str, game_id: i64) -> Result<Option<Glance>> {
+    let (_, _, _, ra_id) = queries::ra_state(conn, game_id)?;
+    let Some(id) = ra_id.filter(|&id| id > 0) else { return Ok(None) };
+    let Some((body, _)) = queries::cache_get(conn, &progress_key(id, user))? else { return Ok(None) };
+    let p = ra::parse_progress(id, &body)?;
+    if p.total == 0 {
+        return Ok(None);
+    }
+    Ok(Some(Glance { earned: p.earned, total: p.total, points_earned: p.points_earned, points_total: p.points_total }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,6 +410,13 @@ mod tests {
         assert_eq!(a.status, "ok");
         let p = a.progress.unwrap();
         assert_eq!((p.total, p.earned, p.points_earned), (1, 1, 5));
+
+        // The sidebar's glance reads that cache and asks nothing.
+        let before = http.requests.lock().unwrap().len();
+        let g = glance(&conn, "Me", id).unwrap();
+        assert_eq!(g, Some(Glance { earned: 1, total: 1, points_earned: 5, points_total: 5 }));
+        assert_eq!(http.requests.lock().unwrap().len(), before);
+        assert_eq!(glance(&conn, "someone else", id).unwrap(), None, "another user's progress was never fetched");
     }
 
     #[test]

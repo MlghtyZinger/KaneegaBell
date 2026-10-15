@@ -2542,3 +2542,159 @@ html.nav-mode .tv-menu-item:focus {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* ------------------------------------------------- Game details sidebar */
+
+/* Beside the grid (the grid gets narrower and re-flows); over it on narrow windows. */
+.game-side {
+  flex: none;
+  width: clamp(300px, 24vw, 440px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-raised);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 1100px) {
+  .game-side {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 6;
+    box-shadow: -12px 0 32px rgb(0 0 0 / 0.45);
+  }
+}
+
+.side-pad {
+  padding: var(--gap);
+}
+
+/* The background (or the cover) with the logo over its lower edge. */
+.side-hero {
+  position: relative;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.side-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* No background: the whole cover instead. */
+.side-hero-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.side-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 45%, rgb(0 0 0 / 0.65));
+  pointer-events: none;
+}
+
+.side-logo {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 1;
+  transform: translateX(-50%);
+  max-width: 78%;
+  max-height: 42%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.85));
+}
+
+.side-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--gap);
+}
+
+.side-series {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.side-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: 1.2;
+}
+
+.side-meta,
+.side-played {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.side-meta {
+  color: var(--text-dim);
+}
+
+.side-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.side-actions .btn.big {
+  flex: 1 1 auto;
+}
+
+.side-ach-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+
+.side-ach-bar {
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.side-ach-bar > div {
+  height: 100%;
+  background: var(--accent);
+}
+
+.side-desc {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.side-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: auto;
+  padding: 10px var(--gap);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
