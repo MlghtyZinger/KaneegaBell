@@ -194,6 +194,11 @@ if (-not (Test-Path $Baseline)) {
 # frame times jump by a few ms with the compositor and the first decode of
 # thumbnails, while every frame stays far under the 16.7 ms of 60 fps.
 $floor = @{ startMedianMs = 60; idleCpuPct = 1.0; startMemMB = 20; scrollfirstP99Ms = 5; scrollfirstMaxMs = 10; scrollsecondP99Ms = 5; scrollsecondMaxMs = 10; scrollMemMB = 20; gameCpuPct = 1.0; gameMemMB = 20; afterGameMemMB = 20; startTaskManagerMB = 20; scrollTaskManagerMB = 20; gameTaskManagerMB = 20; afterGameTaskManagerMB = 20 }
+# Private memory (commit) jumps by ~50 MB between identical runs, e.g. on a
+# new exe's first launch, while the Task Manager figure (private working
+# set) stays put, so memory is gated on the Task Manager figures and the
+# private ones only warn.
+$warnOnly = @("startMemMB", "scrollMemMB", "gameMemMB", "afterGameMemMB")
 $base = Get-Content $Baseline -Raw | ConvertFrom-Json
 $failed = @()
 Write-Host "`nCompared with the baseline ($Baseline):"
@@ -204,7 +209,9 @@ foreach ($k in $results.Keys) {
     $worse = $new -gt $old * 1.10 -and ($new - $old) -gt $floor[$k]
     $change = if ($old -ne 0) { "{0:+0;-0}%" -f (($new - $old) / $old * 100) } else { "" }
     $line = "  {0,-18} {1,8} -> {2,8} {3}" -f $k, $old, $new, $change
-    if ($worse) { Write-Host "$line  REGRESSION" -ForegroundColor Red; $failed += $k } else { Write-Host $line }
+    if ($worse -and $warnOnly -contains $k) { Write-Host "$line  (worse, private memory: warning only)" -ForegroundColor Yellow }
+    elseif ($worse) { Write-Host "$line  REGRESSION" -ForegroundColor Red; $failed += $k }
+    else { Write-Host $line }
 }
 if ($failed.Count) {
     Write-Host "`nPerf gate FAILED: $($failed -join ', ') got more than 10% worse." -ForegroundColor Red

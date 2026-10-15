@@ -228,6 +228,8 @@ export interface Storage {
   /** Covers, backgrounds, logos, badges and cached web responses. */
   downloadedBytes: number;
   dataDir: string;
+  /** Size of the library copy the last reset kept, if there is one. */
+  resetBackupBytes: number | null;
 }
 
 export interface UpdateInfo {
@@ -609,6 +611,8 @@ export const api = {
   getStorage: () => invoke<Storage>("get_storage"),
   /** Deletes downloaded art/info/achievement data and fetches it again; returns bytes freed. */
   clearDownloaded: () => invoke<number>("clear_downloaded"),
+  /** Deletes the library copy the last reset kept. */
+  deleteResetBackup: () => invoke<void>("delete_reset_backup"),
   /** Back to a first start (keeps a copy of the library); reload the page afterwards. */
   resetApp: (forgetKeys: boolean) => invoke<void>("reset_app", { forgetKeys }),
   /** Looks for a newer KB release; null when up to date. */

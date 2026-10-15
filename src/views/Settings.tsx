@@ -1292,12 +1292,12 @@ const size = (n: number) =>
 function StorageBlock(props: { s: Settings; run: Run }) {
   const [storage, { refetch }] = createResource(() => api.getStorage().catch(() => null));
   const [removed, { refetch: refetchRemoved }] = createResource(() => api.getRemoved().catch(() => null));
-  const [asking, setAsking] = createSignal<"clear" | "reset" | "forget" | null>(null);
+  const [asking, setAsking] = createSignal<"clear" | "reset" | "forget" | "backup" | null>(null);
   const [forgetKeys, setForgetKeys] = createSignal(false);
   const [working, setWorking] = createSignal(false);
   const [failed, setFailed] = createSignal<string | null>(null);
 
-  const ask = (what: "clear" | "reset" | "forget") => {
+  const ask = (what: "clear" | "reset" | "forget" | "backup") => {
     setForgetKeys(false);
     setFailed(null);
     setAsking(what);
@@ -1318,6 +1318,12 @@ function StorageBlock(props: { s: Settings; run: Run }) {
         setAsking(null);
         await props.run(() => library.reload(), { notice: `Forgot ${n} removed game${n === 1 ? "" : "s"}.` });
         await refetchRemoved();
+        await refetch();
+        return;
+      }
+      if (asking() === "backup") {
+        await api.deleteResetBackup();
+        setAsking(null);
         await refetch();
         return;
       }
@@ -1353,6 +1359,20 @@ function StorageBlock(props: { s: Settings; run: Run }) {
         Your games, emulators and saves are never touched: both only delete inside KB's own folder
         {storage() ? <> (<span class="mono">{storage()!.dataDir}</span>)</> : null}.
       </p>
+      <Show when={storage()?.resetBackupBytes}>
+        {(bytes) => (
+          <>
+            <p>
+              Library copy from the last reset: <span class="mono">{size(bytes())}</span>
+            </p>
+            <div class="row">
+              <button class="btn" onClick={() => ask("backup")}>
+                Delete reset backup…
+              </button>
+            </div>
+          </>
+        )}
+      </Show>
       <h3>Removed games</h3>
       <p>
         {removed()?.count
@@ -1390,8 +1410,15 @@ function StorageBlock(props: { s: Settings; run: Run }) {
                 </p>
                 <p class="dim">If a file comes back later, its game is found again by the next scan, as a new game.</p>
               </Show>
+              <Show when={what() === "backup"}>
+                <h2>Delete the reset backup?</h2>
+                <p>
+                  KB deletes <span class="mono">library.before-reset.db</span>, the copy of your library from before the
+                  last reset. Your current library isn't affected. This can't be undone.
+                </p>
+              </Show>
               <Show
-                when={what() !== "forget"}
+                when={what() !== "forget" && what() !== "backup"}
               >
               <Show
                 when={what() === "reset"}
@@ -1401,6 +1428,7 @@ function StorageBlock(props: { s: Settings; run: Run }) {
                     <p>
                       KB deletes the covers, backgrounds, logos, game info and achievement data it downloaded, then
                       downloads them again in the background. Use this if artwork or info looks wrong or out of date.
+                      The web cache (picker previews) is emptied the next time KB starts.
                     </p>
                     <p class="dim">
                       Kept: your games, play time, favorites, folders, settings and keys, plus the covers, backgrounds,
@@ -1438,7 +1466,9 @@ function StorageBlock(props: { s: Settings; run: Run }) {
                       ? "Reset KaneegaBell"
                       : what() === "forget"
                         ? "Forget them"
-                        : "Clear downloaded data"}
+                        : what() === "backup"
+                          ? "Delete it"
+                          : "Clear downloaded data"}
                 </button>
               </div>
               <div class="panel-actions">

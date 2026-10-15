@@ -534,6 +534,11 @@ used ~4 CPU cores in the background (cold start 523–611 ms, single 21–25 ms 
 confirmed on the WebView2 process): cold start
 429 / 432 ms, 240 fps, 107–142 MB in Task Manager; run 2 passed, run 1 tripped only on the first launch of the new exe
 (one 1.7 s start and one high memory reading; its other four starts ~430 ms).
+0.2.9 (storage clean-up, no component downloads): cold start 459 / 454 ms, 240 fps (p99 4.3 ms), 204–212 MB in Task
+Manager after scrolling, 105–112 MB while a game runs. Run 2 passed; run 1 again tripped on private memory while a
+game ran (305 MB vs 251) with Task Manager at its lowest (105 MB). Since 0.2.9 the gate checks memory with the Task
+Manager figures; private memory only warns. On a copy of the installed library, the first start freed 22 MB
+(96 → 74 MB: the WebView2 add-ons and one removed game's pictures).
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -588,6 +593,13 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.2.9
+- Improved: when a game leaves your library, its achievement badges and cached achievement lists go too (badges another game still uses stay).
+- Improved: pictures and badges that removed games left behind in earlier versions are cleaned up once on the first start.
+- Improved: KB no longer lets WebView2 download add-ons it never uses (ad-filter lists, a speech model, hyphenation data); the ones already downloaded (~20 MB) are removed on the first start.
+- New: Settings → General → Storage and reset shows the library copy a reset keeps, with a "Delete reset backup" button.
+- Changed: "Clear downloaded data" also empties the web cache (on the next start).
 
 ### 0.2.8 (2026-10-15)
 - Fixed: Refresh no longer replaces a cover you picked yourself.

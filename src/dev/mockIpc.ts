@@ -302,9 +302,11 @@ export function installMockIpc() {
           { igdbId: 2, name: "Okami HD", year: 2012, cover: null, onPlatform: false, summary: "A remaster." },
         ];
       case "get_storage":
-        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data" };
+        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data", resetBackupBytes: 9_175_040 };
       case "clear_downloaded":
         return 182_452_224;
+      case "delete_reset_backup":
+        return null;
       case "list_displays":
         return [
           { id: "\\\\?\\DISPLAY#GSM5C7C", name: "LG ULTRAGEAR+", width: 2560, height: 1440, scale: 1.5, primary: true, current: true },

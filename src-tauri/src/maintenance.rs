@@ -23,6 +23,8 @@ pub struct Storage {
     /// Covers, backgrounds, logos, badges and cached web responses.
     pub downloaded_bytes: u64,
     pub data_dir: String,
+    /// Size of the copy of the library the last reset kept, if there is one.
+    pub reset_backup_bytes: Option<u64>,
 }
 
 fn dir_size(dir: &Path) -> u64 {
@@ -49,6 +51,7 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
     Ok(Storage {
         downloaded_bytes: dir_size(&data_dir.join("art")) + dir_size(&data_dir.join("ra")) + cached.max(0) as u64,
         data_dir: data_dir.to_string_lossy().into_owned(),
+        reset_backup_bytes: reset_backup_bytes(data_dir),
     })
 }
 
@@ -57,6 +60,8 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
 /// IGDB and LaunchBox matches they fixed (their details are fetched again).
 /// Achievement fingerprints are KB's own work on the game files, so they
 /// stay; which RetroAchievements game each one is gets looked up again.
+/// WebView2's web cache is in use while KB runs, so it's emptied on the next
+/// start (see `trim_web_cache`).
 const CLEAR_SQL: &str = "
     DELETE FROM api_cache;
     DELETE FROM artwork WHERE NOT (
@@ -80,6 +85,7 @@ const CLEAR_SQL: &str = "
     DELETE FROM wd_game_series;
     UPDATE games SET wd_status = 'none', wd_id = NULL;
     DELETE FROM settings WHERE key = 'wikidata';
+    DELETE FROM settings WHERE key = 'webCacheTrimmed';
 ";
 
 /// Deletes `<id>.webp` files in `dir` except those of the `keep` games.
@@ -123,17 +129,47 @@ pub fn removed(conn: &Connection) -> Result<Removed> {
 pub fn forget_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
     // Not one that's running right now (its session is still being counted).
     let n = conn.execute("DELETE FROM games WHERE missing = 1 AND running_since IS NULL", [])?;
-    prune_orphan_art(conn, data_dir)?;
+    prune_leftovers(conn, data_dir)?;
     Ok(n)
 }
 
-/// Deletes the pictures of games that are no longer in the library.
-pub fn prune_orphan_art(conn: &Connection, data_dir: &Path) -> Result<()> {
+/// Deletes what games that are no longer in the library left behind: their
+/// pictures, and their RetroAchievements lists, badges and icons (those no
+/// remaining game uses). Hidden games keep everything.
+pub fn prune_leftovers(conn: &Connection, data_dir: &Path) -> Result<()> {
     let keep = ids(conn, "SELECT id FROM games")?;
     for d in ["t", "f", "h", "l"] {
         prune_images(&data_dir.join("art").join(d), &keep)?;
     }
+    crate::achievements::prune_removed(conn, data_dir)?;
     Ok(())
+}
+
+/// Shortly after startup, once: cleans up what removed games left behind
+/// (from versions before 0.2.9, or rows the startup housekeeping deleted).
+pub fn sweep_leftovers_once(conn: &Connection, data_dir: &Path) {
+    if crate::db::queries::get_setting::<bool>(conn, "leftoversSwept").ok().flatten() == Some(true) {
+        return;
+    }
+    match prune_leftovers(conn, data_dir) {
+        Ok(()) => {
+            let _ = crate::db::queries::set_setting(conn, "leftoversSwept", &serde_json::Value::Bool(true));
+        }
+        Err(e) => log::warn!("couldn't clean up after removed games: {e}"),
+    }
+}
+
+/// Whether the copy of the library a reset leaves behind exists, and its size.
+pub fn reset_backup_bytes(data_dir: &Path) -> Option<u64> {
+    fs::metadata(data_dir.join(RESET_BACKUP)).ok().filter(|m| m.is_file()).map(|m| m.len())
+}
+
+/// "Delete the reset backup".
+pub fn delete_reset_backup(data_dir: &Path) -> Result<()> {
+    match fs::remove_file(data_dir.join(RESET_BACKUP)) {
+        Err(e) if e.kind() != ErrorKind::NotFound => Err(e.into()),
+        _ => Ok(()),
+    }
 }
 
 /// Clears the downloaded data (see `CLEAR_SQL`). Returns the bytes freed.
@@ -248,6 +284,7 @@ mod tests {
             .unwrap();
         conn.execute("INSERT INTO api_cache (key, body, fetched_at) VALUES ('k', x'0102', 0)", []).unwrap();
         crate::db::queries::set_setting(&conn, "autoArt", &serde_json::json!(false)).unwrap();
+        crate::db::queries::set_setting(&conn, "webCacheTrimmed", &serde_json::json!(true)).unwrap();
         for id in [auto, picked] {
             for d in ["t", "f", "h", "l"] {
                 write(&data.join("art").join(d).join(format!("{id}.webp")));
@@ -261,6 +298,7 @@ mod tests {
         // The library, play time, favorites and settings are untouched.
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM games WHERE favorite = 1 AND play_seconds = 3600"), 2);
         assert_eq!(crate::db::queries::get_setting::<bool>(&conn, "autoArt").unwrap(), Some(false));
+        assert_eq!(crate::db::queries::get_setting::<bool>(&conn, "webCacheTrimmed").unwrap(), None, "web cache emptied next start");
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM api_cache"), 0);
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM metadata"), 0);
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM games WHERE ra_game_id IS NOT NULL"), 0);
@@ -321,6 +359,88 @@ mod tests {
             assert!(data.join("art").join(d).join(format!("{kept}.webp")).exists());
         }
         assert!(!data.join("art").join("t").join("999.webp").exists());
+    }
+
+    fn progress(badges: &[&str], icon: &str) -> Vec<u8> {
+        let list: serde_json::Map<String, serde_json::Value> = badges
+            .iter()
+            .enumerate()
+            .map(|(i, b)| (i.to_string(), serde_json::json!({"ID": i, "Title": "a", "BadgeName": b})))
+            .collect();
+        serde_json::to_vec(&serde_json::json!({"Title": "g", "ImageIcon": format!("/Images/{icon}.png"), "Achievements": list}))
+            .unwrap()
+    }
+
+    #[test]
+    fn removed_games_leave_no_badges_behind() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        let conn = db::test_db();
+        add_game(&conn, "Kept"); // ra_game_id 9
+        let hidden = add_game(&conn, "Hidden");
+        conn.execute("UPDATE games SET ra_game_id = 7, missing = 1 WHERE id = ?1", [hidden]).unwrap();
+        // Game 5 left the library; it shares badge 300 with game 9.
+        for (id, badges, icon) in [(9, ["100", "300"], "900"), (7, ["200", "201"], "700"), (5, ["500", "300"], "555")] {
+            conn.execute(
+                "INSERT INTO api_cache (key, body, fetched_at) VALUES (?1, ?2, 0)",
+                rusqlite::params![format!("ra:progress:{id}:me"), progress(&badges, icon)],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO api_cache (key, body, fetched_at) VALUES (?1, x'00', 0)",
+                [format!("ra:gamehashes:{id}")],
+            )
+            .unwrap();
+            for b in badges {
+                write(&data.join("ra").join("badges").join(format!("{b}.png")));
+                write(&data.join("ra").join("badges").join(format!("{b}_lock.png")));
+            }
+            write(&data.join("ra").join("icons").join(format!("{icon}.png")));
+        }
+        // A badge no cached list mentions is left alone.
+        write(&data.join("ra").join("badges").join("999.png"));
+
+        prune_leftovers(&conn, data).unwrap();
+
+        let badge = |n: &str| data.join("ra").join("badges").join(format!("{n}.png")).exists();
+        for n in ["100", "100_lock", "300", "300_lock", "200", "201_lock", "999"] {
+            assert!(badge(n), "{n} kept");
+        }
+        assert!(!badge("500") && !badge("500_lock"), "only the removed game used 500");
+        assert!(!data.join("ra").join("icons").join("555.png").exists());
+        assert!(data.join("ra").join("icons").join("700.png").exists(), "hidden games keep theirs");
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM api_cache WHERE key LIKE '%:5:%' OR key LIKE '%:5'"), 0);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM api_cache WHERE key LIKE 'ra:%'"), 4);
+    }
+
+    #[test]
+    fn leftovers_are_swept_once_and_again_after_startup_pruning() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        let conn = db::test_db();
+        write(&data.join("art").join("h").join("42.webp"));
+        sweep_leftovers_once(&conn, data);
+        assert!(!data.join("art").join("h").join("42.webp").exists());
+
+        write(&data.join("art").join("h").join("43.webp"));
+        sweep_leftovers_once(&conn, data);
+        assert!(data.join("art").join("h").join("43.webp").exists(), "only once");
+
+        conn.execute("DELETE FROM settings WHERE key = 'leftoversSwept'", []).unwrap();
+        sweep_leftovers_once(&conn, data);
+        assert!(!data.join("art").join("h").join("43.webp").exists());
+    }
+
+    #[test]
+    fn the_reset_backup_can_be_deleted() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = dir.path();
+        assert_eq!(reset_backup_bytes(data), None);
+        write(&data.join(RESET_BACKUP));
+        assert_eq!(reset_backup_bytes(data), Some(3));
+        delete_reset_backup(data).unwrap();
+        assert_eq!(reset_backup_bytes(data), None);
+        delete_reset_backup(data).unwrap();
     }
 
     #[test]

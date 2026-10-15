@@ -361,7 +361,7 @@ Each milestone is runnable and tested, and passes the perf gate.
       Proposed instead: nothing new appears unless the user makes it; smart collections become
       saved filters (the genre filter grows into platform/genre/developer/year/played/play time,
       and a combination can be saved); developer/publisher become filter fields, not automatic
-      collections. Waiting for the owner's answer.
+      collections. **Approved by the owner (2026-10-16); build it in n.**
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
@@ -402,7 +402,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       game's art, `ra:progress`/`ra:gamehashes` rows and (when no owned game uses them) its RA badges
       when its row is removed, plus a one-time sweep of existing leftovers; disable the unused
       WebView2 components by switch; "Delete reset backup" button in Storage and reset; maybe clear
-      the web cache with "Clear downloaded data". Waiting for the owner's OK.
+      the web cache with "Clear downloaded data". **Built 2026-10-16 (all five, owner's OK), for 0.2.9:**
+      `prune_leftovers` after every removal + a once-at-startup sweep, `--disable-component-update`
+      (verified: no add-on folders appear) + one-time removal of the old ones, "Delete reset backup",
+      Clear downloaded data resets `webCacheTrimmed`. A copy of the installed library went 96 → 74 MB.
 - [-] Steam integration: **skipped** (owner, 2026-10-15). Games launch only through KB, so no Steam
       shortcuts or Steam library import; putting KB on Steam ($100, Steamworks) and Discord status
       weren't wanted either. KB can be added to Steam by hand as one non-Steam game if ever needed.

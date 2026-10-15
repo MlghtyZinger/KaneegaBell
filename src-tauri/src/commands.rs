@@ -319,7 +319,7 @@ pub fn remove_source(state: State<'_, AppState>, id: i64) -> Result<Vec<queries:
 
 /// After games may have left the library: forgets the hidden ones when the
 /// user asked for that ("Forget removed games automatically"), and deletes
-/// the pictures of games that are gone.
+/// the pictures and achievement badges of games that are gone.
 fn after_removals(conn: &Connection, data_dir: &Path) {
     let auto = queries::get_setting::<bool>(conn, "forgetRemovedGames").ok().flatten() == Some(true);
     let r = if auto {
@@ -329,7 +329,7 @@ fn after_removals(conn: &Connection, data_dir: &Path) {
             }
         })
     } else {
-        crate::maintenance::prune_orphan_art(conn, data_dir)
+        crate::maintenance::prune_leftovers(conn, data_dir)
     };
     if let Err(e) = r {
         log::warn!("cleaning up after removed games: {e}");
@@ -523,6 +523,7 @@ pub fn resume_art_on_startup(app: AppHandle) {
         let state = app.state::<AppState>();
         let pending = (|| -> Result<(bool, bool, bool, bool, bool, bool)> {
             let conn = state.db();
+            crate::maintenance::sweep_leftovers_once(&conn, state.data_dir());
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
             let lb = crate::launchbox::wanted(&conn)? || crate::launchbox::check_due(&conn)?;
@@ -1211,6 +1212,12 @@ impl AppState {
 #[tauri::command]
 pub fn get_storage(state: State<'_, AppState>) -> Result<crate::maintenance::Storage> {
     crate::maintenance::storage(&state.db(), state.data_dir())
+}
+
+/// Settings → Storage: deletes the copy of the library the last reset kept.
+#[tauri::command]
+pub fn delete_reset_backup(state: State<'_, AppState>) -> Result<()> {
+    crate::maintenance::delete_reset_backup(state.data_dir())
 }
 
 /// Deletes the downloaded covers, artwork, game info and achievement data,

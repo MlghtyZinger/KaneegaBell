@@ -192,6 +192,54 @@ pub fn media(data_dir: &Path, http: &dyn crate::art::http::Fetch, kind: &str, na
     Some(bytes)
 }
 
+/// Forgets what was cached for RetroAchievements games that left the library
+/// (deleted, not just hidden): their cached lists, and the badges and game
+/// icons that no game still in the library uses. Returns the images deleted.
+pub fn prune_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
+    let owned: HashSet<i64> = {
+        let mut stmt = conn.prepare("SELECT DISTINCT ra_game_id FROM games WHERE ra_game_id > 0")?;
+        let rows = stmt.query_map([], |r| r.get(0))?;
+        rows.collect::<rusqlite::Result<_>>()?
+    };
+    let mut keep: HashSet<String> = HashSet::new();
+    let mut unused: HashSet<String> = HashSet::new();
+    let mut stale: Vec<String> = Vec::new();
+    {
+        let mut stmt =
+            conn.prepare("SELECT key, body FROM api_cache WHERE key LIKE 'ra:progress:%' OR key LIKE 'ra:gamehashes:%'")?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let key: String = row.get(0)?;
+            let Some(id) = key.split(':').nth(2).and_then(|s| s.parse::<i64>().ok()) else { continue };
+            let gone = !owned.contains(&id);
+            if gone {
+                stale.push(key.clone());
+            }
+            if !key.starts_with("ra:progress:") {
+                continue;
+            }
+            let body: Vec<u8> = row.get(1)?;
+            let Ok(p) = ra::parse_progress(id, &body) else { continue };
+            let names = p
+                .achievements
+                .iter()
+                .flat_map(|a| [format!("badges/{}", a.badge), format!("badges/{}_lock", a.badge)])
+                .chain(p.icon.map(|i| format!("icons/{i}")));
+            if gone { unused.extend(names) } else { keep.extend(names) }
+        }
+    }
+    let mut deleted = 0;
+    for name in unused.difference(&keep) {
+        if std::fs::remove_file(data_dir.join("ra").join(format!("{name}.png"))).is_ok() {
+            deleted += 1;
+        }
+    }
+    for key in &stale {
+        conn.execute("DELETE FROM api_cache WHERE key = ?1", [key])?;
+    }
+    Ok(deleted)
+}
+
 /// What the game details screen shows.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

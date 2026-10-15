@@ -66,7 +66,9 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 /// - the network service runs inside the browser process (one process less);
 /// - WebView2's web cache stays under 32 MB. KB keeps its own pictures in
 ///   `data\art`; the cache only held the pickers' previews (full-size web
-///   images), and without a cap it had grown past 300 MB on the owner's PC.
+///   images), and without a cap it had grown past 300 MB on the owner's PC;
+/// - no component downloads: WebView2 otherwise fetches ~20 MB of add-ons KB
+///   never uses (ad-filter lists, a speech model, hyphenation data).
 ///
 /// Arguments in `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` (the perf tools use it
 /// for DevTools) would replace these, so they're merged in and the variable is
@@ -74,7 +76,11 @@ fn kb_folder_data_dir() -> Option<PathBuf> {
 fn webview_args() -> String {
     let mut disable = vec!["msWebOOUI", "msPdfOOUI", "msSmartScreenProtection"].into_iter().map(String::from).collect::<Vec<_>>();
     let mut enable = vec!["NetworkServiceInProcess2".to_string()];
-    let mut other = vec!["--force-gpu-mem-discardable-limit-mb=16".to_string(), format!("--disk-cache-size={WEB_CACHE_BYTES}")];
+    let mut other = vec![
+        "--force-gpu-mem-discardable-limit-mb=16".to_string(),
+        format!("--disk-cache-size={WEB_CACHE_BYTES}"),
+        "--disable-component-update".to_string(),
+    ];
     if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
         merge_browser_args(&extra, &mut disable, &mut enable, &mut other);
@@ -85,7 +91,8 @@ fn webview_args() -> String {
 const WEB_CACHE_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Once: deletes a web cache that grew before the cap existed (it only holds
-/// downloaded previews; WebView2 rebuilds it). Runs before WebView2 starts.
+/// downloaded previews; WebView2 rebuilds it), and again after "Clear
+/// downloaded data" or a reset. Runs before WebView2 starts.
 fn trim_web_cache(conn: &rusqlite::Connection, webview_dir: &std::path::Path) {
     if db::queries::get_setting::<bool>(conn, "webCacheTrimmed").ok().flatten() == Some(true) {
         return;
@@ -101,6 +108,39 @@ fn trim_web_cache(conn: &rusqlite::Connection, webview_dir: &std::path::Path) {
         }
     }
     let _ = db::queries::set_setting(conn, "webCacheTrimmed", &serde_json::Value::Bool(true));
+}
+
+/// Add-ons earlier versions let WebView2 download (see `webview_args`).
+/// The certificate lists are kept.
+const UNUSED_WEB_COMPONENTS: &[&str] = &[
+    "Subresource Filter",
+    "Speech Recognition",
+    "hyphen-data",
+    "component_crx_cache",
+    "Trust Protection Lists",
+    "WidevineCdm",
+    "MEIPreload",
+    "AutoLaunchProtocolsComponent",
+    "OriginTrials",
+    "TrustTokenKeyCommitments",
+];
+
+/// Once, before WebView2 starts: deletes those add-ons.
+fn remove_unused_web_components(conn: &rusqlite::Connection, webview_dir: &std::path::Path) {
+    if db::queries::get_setting::<bool>(conn, "webComponentsRemoved").ok().flatten() == Some(true) {
+        return;
+    }
+    let root = webview_dir.join("EBWebView");
+    for name in UNUSED_WEB_COMPONENTS {
+        match std::fs::remove_dir_all(root.join(name)) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                log::warn!("couldn't remove WebView2's {name}: {e}");
+                return;
+            }
+            _ => {}
+        }
+    }
+    let _ = db::queries::set_setting(conn, "webComponentsRemoved", &serde_json::Value::Bool(true));
 }
 
 /// Chromium keeps only the last `--enable-features` / `--disable-features`,
@@ -201,6 +241,7 @@ pub fn run() {
             // The window is made here (not from the config) so WebView2 keeps
             // its own files in the data folder too, instead of AppData.
             trim_web_cache(&conn, &dir.join("webview"));
+            remove_unused_web_components(&conn, &dir.join("webview"));
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
                     tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?
@@ -310,6 +351,7 @@ pub fn run() {
             commands::app_info,
             commands::get_storage,
             commands::clear_downloaded,
+            commands::delete_reset_backup,
             commands::reset_app,
             commands::list_displays,
             commands::tv_enter,

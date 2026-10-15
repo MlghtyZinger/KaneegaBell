@@ -70,6 +70,8 @@ pub fn init(path: &Path) -> Result<Connection> {
     let pruned = queries::prune_orphans(&conn)?;
     if pruned > 0 {
         log::info!("removed {pruned} leftover entries from deleted folders");
+        // Their pictures and badges go in the startup cleanup.
+        conn.execute("DELETE FROM settings WHERE key = 'leftoversSwept'", [])?;
     }
     Ok(conn)
 }
