@@ -1130,3 +1130,29 @@ pub fn all_settings(conn: &Connection) -> Result<serde_json::Map<String, serde_j
     }
     Ok(map)
 }
+
+/// A game a source couldn't match. Settings → Game info lists them by name.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Unmatched {
+    pub id: i64,
+    pub title: String,
+    pub platform: String,
+    /// Several possible matches (Fix match picks one) rather than none.
+    pub ambiguous: bool,
+}
+
+/// Games whose `status_column` ('lb_status', 'wd_status') says 'notfound' or
+/// 'ambiguous', by platform then title. `filter` narrows to the platforms the
+/// source covers (an SQL condition on `g` / `p`).
+pub fn unmatched(conn: &Connection, status_column: &str, filter: &str) -> Result<Vec<Unmatched>> {
+    let sql = format!(
+        "SELECT g.id, g.title, p.short_name, g.{status_column} = 'ambiguous'
+         FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1 AND ({filter}) AND g.{status_column} IN ('notfound', 'ambiguous')
+         ORDER BY p.sort_order, g.sort_title"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], |r| Ok(Unmatched { id: r.get(0)?, title: r.get(1)?, platform: r.get(2)?, ambiguous: r.get(3)? }))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}

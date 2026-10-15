@@ -77,6 +77,9 @@ fn a_pass_matches_keeps_only_the_library_and_applies_art_and_info() {
     assert_eq!(status_of(&conn, jak), ("ok".into(), Some(101)));
     assert_eq!(status_of(&conn, ookami), ("ok".into(), Some(102)), "matched by its Japanese alternate title");
     assert_eq!(status_of(&conn, stranger), ("notfound".into(), None));
+    // Settings lists the game that wasn't found by name.
+    let st = status(&conn).unwrap();
+    assert_eq!(st.unmatched.iter().map(|u| (u.id, u.ambiguous)).collect::<Vec<_>>(), [(stranger, false)]);
 
     // Names for the enabled platforms only (not the Windows game); details and
     // images only for the library's matches.

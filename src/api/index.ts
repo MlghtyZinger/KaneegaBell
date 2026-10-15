@@ -111,6 +111,15 @@ export interface Series {
   games: number[];
 }
 
+/** A game a source couldn't match (listed by name in Settings). */
+export interface Unmatched {
+  id: number;
+  title: string;
+  platform: string;
+  /** Several possible matches rather than none. */
+  ambiguous: boolean;
+}
+
 export interface WdStatus {
   enabled: boolean;
   /** Last time Wikidata was asked (unix seconds). */
@@ -120,6 +129,8 @@ export interface WdStatus {
   withSeries: number;
   notFound: number;
   ambiguous: number;
+  /** The games behind notFound and ambiguous, by name. */
+  unmatched: Unmatched[];
 }
 
 export interface WdProgress {
@@ -154,6 +165,8 @@ export interface LbStatus {
   total: number;
   notFound: number;
   ambiguous: number;
+  /** The games behind notFound and ambiguous, by name. */
+  unmatched: Unmatched[];
 }
 
 export interface LbProgress {

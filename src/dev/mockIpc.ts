@@ -308,11 +308,11 @@ export function installMockIpc() {
       case "tv_enter":
         return { displayMissing: false };
       case "lb_status":
-        return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17 };
+        return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17, unmatched: mockUnmatched(12, 2) };
       case "cover_accent":
         return ["#f0a050", "#6fb3ff", "#e86a7a", "#7fd88f"][(args as { id: number }).id % 4];
       case "wd_status":
-        return { enabled: true, checkedAt: 1_791_964_000, total: 5000, matched: 3890, withSeries: 2410, notFound: 1088, ambiguous: 22 };
+        return { enabled: true, checkedAt: 1_791_964_000, total: 5000, matched: 3890, withSeries: 2410, notFound: 1088, ambiguous: 22, unmatched: mockUnmatched(3, 1) };
       case "lb_search":
         return [
           { dbId: 1, name: "Okami", alsoKnownAs: "Ookami", score: 1 },
@@ -338,4 +338,10 @@ export function installMockIpc() {
     }
   });
   console.info(`[mock] Tauri IPC mocked with ${n} games`);
+}
+
+/** A few games a source "couldn't match", for Settings → Game info. */
+function mockUnmatched(notFound: number, ambiguous: number) {
+  const names = ["Fire Emblem: Mystrey of the Emblem", "Mother 2: Perfect Edition", "v1_patched", "Zelda Hack Deluxe"];
+  return Array.from({ length: notFound + ambiguous }, (_, i) => ({ id: i + 1, title: names[i % names.length] + (i >= names.length ? ` ` + i : ""), platform: ["SNES", "GBA", "PS2"][i % 3], ambiguous: i >= notFound }));
 }

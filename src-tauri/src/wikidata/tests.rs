@@ -111,6 +111,12 @@ fn a_pass_matches_and_keeps_only_the_library_s_series() {
     assert_eq!(status_of(&conn, jak3), ("ok".into(), Some(960458)));
     assert_eq!(status_of(&conn, tetris), ("ambiguous".into(), None));
     assert_eq!(status_of(&conn, stranger), ("notfound".into(), None));
+    // Settings lists both by name: the one with several matches, and the missing one.
+    let mut missed = status(&conn).unwrap().unmatched.iter().map(|u| (u.id, u.ambiguous)).collect::<Vec<_>>();
+    missed.sort();
+    let mut want = vec![(tetris, true), (stranger, false)];
+    want.sort();
+    assert_eq!(missed, want);
 
     // Each game knows its number, and the series lists the library's games in order.
     let jak = |number: &str| Series {

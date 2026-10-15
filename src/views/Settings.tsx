@@ -22,6 +22,40 @@ const SECTIONS: [Section, string][] = [
 
 type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
 
+/** A missed game, as Settings lists it. */
+type Missed = { title: string; platform: string; ambiguous?: boolean };
+const SHOWN = 8;
+
+/**
+ * Names the games a source couldn't find (and, separately, those with several
+ * possible matches), so "2 not found" says which two. Long lists show the
+ * first few with a button for the rest.
+ */
+function MissedGames(props: { games: Missed[]; label?: string }) {
+  const [all, setAll] = createSignal(false);
+  const groups = () =>
+    [
+      [props.label ?? "Not found", props.games.filter((g) => !g.ambiguous)],
+      ["Several possible matches (use Fix match)", props.games.filter((g) => g.ambiguous)],
+    ] as const;
+  return (
+    <For each={groups().filter(([, list]) => list.length > 0)}>
+      {([label, list]) => (
+        <p class="missed small">
+          <span class="dim">{label}: </span>
+          {(all() ? list : list.slice(0, SHOWN)).map((g) => `${g.title} (${g.platform})`).join(" · ")}
+          <Show when={!all() && list.length > SHOWN}>
+            {" "}
+            <button class="btn ghost small" onClick={() => setAll(true)}>
+              and {list.length - SHOWN} more
+            </button>
+          </Show>
+        </p>
+      )}
+    </For>
+  );
+}
+
 export function SettingsView(props: { onClose: () => void }) {
   // A store reconciled by id: after each change only the edited row updates,
   // so the focused control (and controller navigation) stays put.
@@ -128,6 +162,14 @@ function platformOptions(platforms: PlatformRow[]) {
 
 function LibrarySection(props: { s: Settings; run: Run }) {
   const platformName = (id: string) => props.s.platforms.find((p) => p.id === id)?.name ?? id.toUpperCase();
+  // Games still without a cover, from the library already loaded (no query).
+  const coverless = () => {
+    const short = new Map(library.platforms().map((p) => [p.id, p.shortName]));
+    return library
+      .games()
+      .filter((g) => !g.art)
+      .map((g) => ({ title: g.title, platform: short.get(g.platformId) ?? g.platformId.toUpperCase() }));
+  };
   const [newPath, setNewPath] = createSignal("");
   const [newPlatform, setNewPlatform] = createSignal("");
   // Once the user picks a platform themselves, stop auto-suggesting.
@@ -253,6 +295,9 @@ function LibrarySection(props: { s: Settings; run: Run }) {
           )}
         </Show>
       </div>
+      <Show when={!library.artProgress()}>
+        <MissedGames games={coverless()} label="No cover yet" />
+      </Show>
       <label class="check">
         <input
           type="checkbox"
@@ -659,6 +704,7 @@ function LaunchBoxSection(props: { run: Run }) {
                   "No games on the platforms it covers yet."
                 )}
               </p>
+              <MissedGames games={st().unmatched} />
               <div class="row">
                 <Show
                   when={library.lbProgress()}
@@ -734,6 +780,7 @@ function WikidataSection(props: { run: Run }) {
                   "No games yet."
                 )}
               </p>
+              <MissedGames games={st().unmatched} />
               <div class="row">
                 <Show
                   when={library.wdProgress()}

@@ -357,6 +357,10 @@ Each milestone is runnable and tested, and passes the perf gate.
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
       Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
 - [ ] r. CHD/RVZ/CSO hashing for RetroAchievements
+- [ ] t. Settings touch-up (owner, 2026-10-15): make Settings compact and more readable without costing
+      performance (performance stays the top priority: no heavier rendering, settings screens stay
+      code-split and load only when opened). Ideas to propose: shorter texts with details behind a
+      "More" toggle, grouped rows instead of long paragraphs, one status line per source.
 
 ## How to work (carried over, with additions)
 1. Propose a plan for each milestone and **wait for the owner's approval** before writing large

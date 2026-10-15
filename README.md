@@ -564,6 +564,10 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.2.7 (not released yet)
+- Improved: Settings → Game info names the games LaunchBox and Wikidata couldn't find (and those with several possible matches), instead of only counting them.
+- Improved: Settings → Library → Covers lists the games that still have no cover.
+
 ### 0.2.6 (2026-10-15)
 - New: Settings → General → Updates → What's new lists every update and what it changed.
 - New: after an update, KB shows what's new once.

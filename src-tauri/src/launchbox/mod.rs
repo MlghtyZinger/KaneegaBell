@@ -680,6 +680,8 @@ pub struct Status {
     pub total: i64,
     pub not_found: i64,
     pub ambiguous: i64,
+    /// The games behind `not_found` and `ambiguous`, by name.
+    pub unmatched: Vec<crate::db::queries::Unmatched>,
 }
 
 pub fn status(conn: &Connection) -> Result<Status> {
@@ -693,7 +695,8 @@ pub fn status(conn: &Connection) -> Result<Status> {
         [],
         |r| Ok((r.get(0)?, r.get::<_, Option<i64>>(1)?.unwrap_or(0), r.get::<_, Option<i64>>(2)?.unwrap_or(0), r.get::<_, Option<i64>>(3)?.unwrap_or(0))),
     )?;
-    Ok(Status { enabled: enabled(conn)?, imported_at: stamp(conn)?.imported_at, matched, total, not_found, ambiguous })
+    let unmatched = crate::db::queries::unmatched(conn, "lb_status", "p.launchbox_platform IS NOT NULL")?;
+    Ok(Status { enabled: enabled(conn)?, imported_at: stamp(conn)?.imported_at, matched, total, not_found, ambiguous, unmatched })
 }
 
 #[cfg(test)]

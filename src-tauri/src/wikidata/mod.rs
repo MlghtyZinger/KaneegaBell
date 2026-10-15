@@ -549,6 +549,8 @@ pub struct Status {
     pub with_series: i64,
     pub not_found: i64,
     pub ambiguous: i64,
+    /// The games behind `not_found` and `ambiguous`, by name.
+    pub unmatched: Vec<crate::db::queries::Unmatched>,
 }
 
 pub fn status(conn: &Connection) -> Result<Status> {
@@ -567,7 +569,8 @@ pub fn status(conn: &Connection) -> Result<Status> {
         Ok((r.get::<_, i64>(0)?, n(r.get(1)?), n(r.get(2)?), n(r.get(3)?), n(r.get(4)?)))
     })?;
     let checked_at = stamps(conn)?.values().copied().max();
-    Ok(Status { enabled: enabled(conn)?, checked_at, total, matched, with_series, not_found, ambiguous })
+    let unmatched = crate::db::queries::unmatched(conn, "wd_status", &format!("g.platform_id IN ({})", platform_list()))?;
+    Ok(Status { enabled: enabled(conn)?, checked_at, total, matched, with_series, not_found, ambiguous, unmatched })
 }
 
 #[cfg(test)]
