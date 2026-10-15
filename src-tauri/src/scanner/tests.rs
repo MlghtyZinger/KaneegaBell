@@ -476,6 +476,42 @@ fn rescan_is_incremental_and_flags_missing_games() {
 }
 
 #[test]
+fn a_converted_game_keeps_its_play_time_and_favorite() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let dir = t.path().join("Luigi's Mansion (USA)");
+    let iso = dir.join("Luigi's Mansion (USA).iso");
+    let id: i64 = conn
+        .query_row("SELECT id FROM games WHERE launch_path = ?1", [iso.to_string_lossy()], |r| r.get(0))
+        .unwrap();
+    queries::set_favorite(&conn, id, true).unwrap();
+    conn.execute("UPDATE games SET play_seconds = 3600, ra_hash = 'old' WHERE id = ?1", [id]).unwrap();
+
+    // Converted to RVZ: the .iso is gone, the .rvz is new.
+    let rvz = dir.join("Luigi's Mansion (USA).rvz");
+    fs::rename(&iso, &rvz).unwrap();
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    assert_eq!((s.added, s.missing, s.games_total), (0, 0, 4));
+    let report: Vec<_> = s.changes.iter().map(|c| (c.kind, c.title.as_str())).collect();
+    assert_eq!(report, [("replaced", "Luigi's Mansion")]);
+    let (path, fav, played, hash): (String, bool, i64, Option<String>) = conn
+        .query_row("SELECT launch_path, favorite, play_seconds, ra_hash FROM games WHERE id = ?1", [id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })
+        .unwrap();
+    assert_eq!(path, rvz.to_string_lossy());
+    assert!(fav);
+    assert_eq!(played, 3600);
+    assert_eq!(hash, None, "the new file is hashed again");
+
+    // Both files present (kept the original while trying the new one): two entries.
+    fs::copy(&rvz, dir.join("Luigi's Mansion (USA).iso")).unwrap();
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    assert_eq!((s.added, s.games_total), (1, 5));
+}
+
+#[test]
 fn vanished_games_without_user_data_are_deleted_not_kept() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));

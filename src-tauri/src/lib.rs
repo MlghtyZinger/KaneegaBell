@@ -3,6 +3,7 @@ mod art;
 mod collections;
 mod commands;
 mod db;
+mod disc;
 mod display;
 mod error;
 mod fsbrowse;

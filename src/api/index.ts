@@ -512,7 +512,7 @@ export interface ScanSummary {
 /** One line of the scan report. */
 export interface GameChange {
   /** hidden = gone from disk but kept for its play time or favorite; moved = now detected as another platform. */
-  kind: "added" | "removed" | "hidden" | "moved";
+  kind: "added" | "removed" | "hidden" | "moved" | "replaced";
   platformId: string;
   fromPlatform: string | null;
   title: string;

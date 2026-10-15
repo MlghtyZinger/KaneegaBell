@@ -574,7 +574,8 @@ code {
 }
 
 .scan-report-group.added h3 { color: var(--ok); }
-.scan-report-group.moved h3 { color: var(--accent-strong); }
+.scan-report-group.moved h3,
+.scan-report-group.replaced h3 { color: var(--accent-strong); }
 .scan-report-group.removed h3 { color: var(--danger); }
 .scan-report-group.hidden h3 { color: var(--text-dim); }
 

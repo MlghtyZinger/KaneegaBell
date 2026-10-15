@@ -300,6 +300,8 @@ impl Resolver<'_> {
         // Optical discs: Sega CD / PSP / PS1 vs PS2 (via SYSTEM.CNF) + serial.
         if sniff.platform.is_none() && matches!(probe_ext.as_str(), "bin" | "img" | "iso") {
             sniff = detect::sniff_disc(&probe);
+        } else if sniff.platform.is_none() && crate::disc::is_compressed(&probe_ext) {
+            sniff = detect::sniff_compressed_disc(&probe);
         }
 
         let platform = match (self.source_platform, sniff.platform) {

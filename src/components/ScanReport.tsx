@@ -8,11 +8,12 @@ type Kind = GameChange["kind"];
 
 const HEADINGS: Record<Kind, string> = {
   added: "Added",
+  replaced: "New file (e.g. compressed); play time, favorites and picks kept",
   moved: "Moved to another platform",
   removed: "Removed (no longer on disk)",
   hidden: "Hidden (no longer on disk; kept because you played or favorited them)",
 };
-const ORDER: Kind[] = ["added", "moved", "removed", "hidden"];
+const ORDER: Kind[] = ["added", "replaced", "moved", "removed", "hidden"];
 
 function label(c: GameChange): string {
   return c.variant ? `${c.title} (${c.variant})` : c.title;

@@ -212,6 +212,50 @@ pub fn sniff_disc(path: &Path) -> Sniff {
     run().unwrap_or_default()
 }
 
+/// Compressed disc images (.chd, .cso/.zso): the same checks as `sniff_disc`,
+/// reading the original sectors through `crate::disc`.
+pub fn sniff_compressed_disc(path: &Path) -> Sniff {
+    let run = || -> crate::error::Result<Sniff> {
+        let mut disc = crate::disc::open(path)?;
+        let mut read = |lba: u32, bytes: u32| -> crate::error::Result<Vec<u8>> {
+            let mut out = Vec::new();
+            let bytes = bytes.min(64 * 1024) as usize; // root dirs and SYSTEM.CNF are tiny
+            let mut sector = lba;
+            while out.len() < bytes {
+                let chunk = disc.read(sector, 2048)?;
+                if chunk.is_empty() {
+                    break;
+                }
+                out.extend_from_slice(&chunk);
+                sector += 1;
+            }
+            out.truncate(bytes);
+            Ok(out)
+        };
+        if read(0, 16)?.starts_with(b"SEGADISCSYSTEM") {
+            return Ok(Sniff { platform: Some("segacd"), serial: None });
+        }
+        let pvd = read(16, 2048)?;
+        if pvd.get(1..6) != Some(b"CD001") {
+            return Ok(Sniff::default());
+        }
+        match ascii_field(&pvd, 8, 32).as_deref() {
+            Some("PSP GAME") => return Ok(Sniff { platform: Some("psp"), serial: None }),
+            Some("PLAYSTATION") => {}
+            _ => return Ok(Sniff::default()),
+        }
+        let (Some(root_lba), Some(root_len)) = (le32(&pvd, 158), le32(&pvd, 166)) else { return Ok(Sniff::default()) };
+        let dir = read(root_lba, root_len)?;
+        let Some((cnf_lba, cnf_len)) = find_dir_entry(&dir, "SYSTEM.CNF") else { return Ok(Sniff::default()) };
+        let cnf = read(cnf_lba, cnf_len)?;
+        Ok(match parse_system_cnf(&String::from_utf8_lossy(&cnf)) {
+            Some((platform, serial)) => Sniff { platform: Some(platform), serial },
+            None => Sniff::default(),
+        })
+    };
+    run().unwrap_or_default()
+}
+
 /// NDS: 12-byte title at 0, 4-char game code at 0x0C.
 pub fn nds(b: &[u8]) -> Option<String> {
     ascii_field(b, 0x0C, 4).filter(|c| c.len() == 4 && c.bytes().all(|x| x.is_ascii_alphanumeric()))

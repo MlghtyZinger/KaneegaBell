@@ -743,7 +743,8 @@ pub struct ApplyResult {
 #[serde(rename_all = "camelCase")]
 pub struct GameChange {
     /// "added" | "removed" (deleted) | "hidden" (gone, kept for its play time
-    /// or favorite) | "moved" (now detected as another platform)
+    /// or favorite) | "moved" (now detected as another platform) | "replaced"
+    /// (a new file for a game whose old file is gone, e.g. compressed)
     pub kind: &'static str,
     pub platform_id: String,
     /// For "moved": the platform it was listed under before.
@@ -778,6 +779,14 @@ pub fn apply_scan(
          RETURNING id",
     )?;
     let mut seen = tx.prepare_cached("INSERT OR IGNORE INTO scan_seen (id) VALUES (?1)")?;
+    // A new file whose game is already listed under a file that's gone, e.g.
+    // a .cue converted to .chd: same platform, title and variant.
+    let mut predecessors = tx.prepare_cached(
+        "SELECT id, launch_path FROM games
+         WHERE platform_id = ?1 AND title = ?2 AND variant IS ?3 AND id NOT IN (SELECT id FROM scan_seen)",
+    )?;
+    let mut relink =
+        tx.prepare_cached("UPDATE games SET launch_path = ?2, ra_hash = NULL, ra_game_id = NULL WHERE id = ?1")?;
     let mut clear_files = tx.prepare_cached("DELETE FROM game_files WHERE game_id = ?1")?;
     let mut add_file = tx.prepare_cached(
         "INSERT OR REPLACE INTO game_files (game_id, path, disc_no, size, mtime) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -796,8 +805,22 @@ pub fn apply_scan(
     for c in candidates {
         match known.get(&path_key(&c.launch_path)) {
             None => {
-                added += 1;
-                changes.push(change("added", c, None));
+                // Only when exactly one such game exists, so nothing is guessed.
+                let gone: Vec<(i64, String)> = predecessors
+                    .query_map(params![c.platform, c.name.title, c.name.variant], |r| Ok((r.get(0)?, r.get(1)?)))?
+                    .filter_map(|r| r.ok())
+                    .filter(|(_, path)| !std::path::Path::new(path).exists())
+                    .collect();
+                if let [(id, _)] = gone.as_slice() {
+                    // It keeps its play time, favorite, collections and picks; the
+                    // upsert below then takes it over (and hashes the new file).
+                    relink.execute(params![id, c.launch_path.to_string_lossy()])?;
+                    updated += 1;
+                    changes.push(change("replaced", c, None));
+                } else {
+                    added += 1;
+                    changes.push(change("added", c, None));
+                }
             }
             Some(k) if k.platform != c.platform => {
                 updated += 1;

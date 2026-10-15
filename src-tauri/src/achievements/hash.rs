@@ -18,12 +18,17 @@
 //! - PS3 (game folders): PARAM.SFO + USRDIR/EBOOT.BIN.
 //!
 //! Files over 64 MB are hashed up to 64 MB, as rcheevos does.
+//!
+//! Compressed images hash like the dumps they came from: CHD and CSO/ZSO are
+//! read as the original sectors (`crate::disc`), RVZ/WIA/GCZ/CISO as the
+//! original disc (`nod`).
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use super::wbfs::Wbfs;
+use crate::disc::{self, Sectors};
 use crate::error::{Error, Result};
 
 const MAX_BUFFER_SIZE: u64 = 64 * 1024 * 1024;
@@ -70,9 +75,16 @@ fn le32(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
 }
 
+/// Dolphin's compressed formats (RVZ, WIA, GCZ, CISO, TGC) as the original
+/// disc image. Wii partitions are stored decrypted in RVZ/WIA, so they're
+/// encrypted again: the Wii hash reads encrypted clusters.
+fn dolphin_disc(path: &Path) -> Result<nod::Disc> {
+    let options = nod::OpenOptions { rebuild_encryption: true, validate_hashes: false };
+    nod::Disc::new_with_options(path, &options).map_err(|e| Error::msg(format!("couldn't read the disc image: {e}")))
+}
+
 /// The hash of a game file for a RetroAchievements console, `None` when the
-/// console or file format can't be hashed (3DS needs console keys; Dolphin's
-/// compressed formats aren't readable here).
+/// console or file format can't be hashed (3DS needs console keys).
 pub fn hash_file(console: u32, path: &Path) -> Result<Option<String>> {
     let ext = path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
     if ext == "m3u" {
@@ -91,17 +103,19 @@ pub fn hash_file(console: u32, path: &Path) -> Result<Option<String>> {
         console::NDS => Some(nds(path)?),
         console::GAMECUBE => match ext.as_str() {
             "iso" | "gcm" => gamecube(&mut File::open(path)?)?,
+            "rvz" | "wia" | "gcz" | "ciso" | "tgc" => gamecube(&mut dolphin_disc(path)?)?,
             _ => None,
         },
         console::WII => match ext.as_str() {
             "iso" => wii(&mut File::open(path)?)?,
             "wbfs" => wii(&mut Wbfs::open(path)?)?,
+            "rvz" | "wia" | "gcz" | "ciso" => wii(&mut dolphin_disc(path)?)?,
             _ => None,
         },
-        console::SEGA_CD => sega_cd(&mut CdTrack::open(path)?)?,
-        console::PS1 => psx(&mut CdTrack::open(path)?)?,
-        console::PS2 => ps2(&mut CdTrack::open(path)?)?,
-        console::PSP => psp(&mut CdTrack::open(path)?)?,
+        console::SEGA_CD => sega_cd(disc::open(path)?.as_mut())?,
+        console::PS1 => psx(disc::open(path)?.as_mut())?,
+        console::PS2 => ps2(disc::open(path)?.as_mut())?,
+        console::PSP => psp(disc::open(path)?.as_mut())?,
         console::PS3 => ps3_folder(path)?,
         _ => None,
     })
@@ -272,68 +286,12 @@ fn wii<R: Read + Seek>(r: &mut R) -> Result<Option<String>> {
 }
 
 // ---------------------------------------------------------------- CDs
-
-/// Track 1 of a disc image: a .cue's first track, or a .bin/.iso itself.
-/// Sectors are read as 2048 bytes of user data (raw 2352-byte sectors have
-/// a 16- or 24-byte header, picked from the cue sheet or the sector's sync
-/// pattern and mode byte, like rcheevos' cdreader).
-pub struct CdTrack {
-    file: File,
-    sector_size: u64,
-    data_offset: u64,
-}
-
-impl CdTrack {
-    pub fn open(path: &Path) -> Result<Self> {
-        let ext = path.extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
-        let (data_path, mode) = if ext == "cue" {
-            let text = std::fs::read_to_string(path)?;
-            let dir = path.parent().unwrap_or(Path::new("."));
-            let file = crate::scanner::cue_m3u::cue_files(&text, dir)
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::msg("cue sheet lists no files"))?;
-            (file, cue_track1_mode(&text))
-        } else {
-            (path.to_path_buf(), None)
-        };
-        let mut file = File::open(&data_path)?;
-        let (sector_size, data_offset) = match mode.as_deref() {
-            Some("MODE1/2048") | Some("MODE2/2048") => (2048, 0),
-            Some("MODE1/2352") => (2352, 16),
-            Some("MODE2/2352") => (2352, 24),
-            _ => detect_layout(&mut file)?,
-        };
-        Ok(Self { file, sector_size, data_offset })
-    }
-
-    /// Up to `len` (<= 2048) bytes of user data from sector `lba`.
-    fn read_sector(&mut self, lba: u32, len: usize) -> Result<Vec<u8>> {
-        let at = u64::from(lba) * self.sector_size + self.data_offset;
-        Ok(read_at(&mut self.file, at, len.min(2048))?)
-    }
-}
-
-fn cue_track1_mode(cue: &str) -> Option<String> {
-    let mut lines = cue.lines().map(str::trim);
-    lines.find(|l| l.to_ascii_uppercase().starts_with("TRACK 01") || l.to_ascii_uppercase().starts_with("TRACK 1 "))
-        .and_then(|l| l.split_whitespace().nth(2))
-        .map(|m| m.to_ascii_uppercase())
-}
-
-/// Raw sectors start with the 12-byte sync pattern; byte 15 is the mode.
-fn detect_layout(f: &mut File) -> Result<(u64, u64)> {
-    let head = read_exact_at(f, 0, 16)?;
-    let sync = [0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00];
-    if head[..12] == sync {
-        Ok((2352, if head[15] == 2 { 24 } else { 16 }))
-    } else {
-        Ok((2048, 0))
-    }
-}
+//
+// Track 1 of a disc image (a .cue's first track, a .bin/.iso, or a CHD/CSO),
+// read as 2048-byte sectors of user data through `crate::disc`.
 
 /// rc_cd_find_file_sector: the sector and size of `path` ("DIR\\FILE").
-fn find_file_sector(cd: &mut CdTrack, path: &str) -> Result<Option<(u32, u32)>> {
+fn find_file_sector(cd: &mut dyn Sectors, path: &str) -> Result<Option<(u32, u32)>> {
     let path = path.strip_prefix('\\').unwrap_or(path);
     let (mut sector, mut num_sectors, name) = match path.rfind('\\') {
         Some(slash) => {
@@ -341,7 +299,7 @@ fn find_file_sector(cd: &mut CdTrack, path: &str) -> Result<Option<(u32, u32)>> 
             (dir, 0u32, &path[slash + 1..])
         }
         None => {
-            let pvd = cd.read_sector(16, 256)?;
+            let pvd = cd.read(16, 256)?;
             if pvd.len() < 256 {
                 return Ok(None);
             }
@@ -353,7 +311,7 @@ fn find_file_sector(cd: &mut CdTrack, path: &str) -> Result<Option<(u32, u32)>> 
     };
     let name_bytes = name.as_bytes();
     let len = name_bytes.len();
-    let mut buf = cd.read_sector(sector, 2048)?;
+    let mut buf = cd.read(sector, 2048)?;
     if buf.is_empty() {
         return Ok(None);
     }
@@ -365,7 +323,7 @@ fn find_file_sector(cd: &mut CdTrack, path: &str) -> Result<Option<(u32, u32)>> 
             if num_sectors > 1 {
                 num_sectors -= 1;
                 sector += 1;
-                let next = cd.read_sector(sector, 2048)?;
+                let next = cd.read(sector, 2048)?;
                 if !next.is_empty() {
                     buf = next;
                     buf.resize(2048, 0);
@@ -389,8 +347,8 @@ fn find_file_sector(cd: &mut CdTrack, path: &str) -> Result<Option<(u32, u32)>> 
 }
 
 /// rc_hash_cd_file: appends `size` bytes of a file starting at `sector`.
-fn hash_cd_file(ctx: &mut md5::Context, cd: &mut CdTrack, mut sector: u32, size: u32) -> Result<()> {
-    let mut first = cd.read_sector(sector, 2048)?;
+fn hash_cd_file(ctx: &mut md5::Context, cd: &mut dyn Sectors, mut sector: u32, size: u32) -> Result<()> {
+    let mut first = cd.read(sector, 2048)?;
     if first.len() < 2048 {
         return Err(Error::msg("could not read file on disc"));
     }
@@ -404,7 +362,7 @@ fn hash_cd_file(ctx: &mut md5::Context, cd: &mut CdTrack, mut sector: u32, size:
         }
         size -= chunk.len() as u64;
         sector += 1;
-        chunk = cd.read_sector(sector, size.min(2048) as usize)?;
+        chunk = cd.read(sector, size.min(2048) as usize)?;
         if chunk.is_empty() {
             break;
         }
@@ -413,9 +371,9 @@ fn hash_cd_file(ctx: &mut md5::Context, cd: &mut CdTrack, mut sector: u32, size:
 }
 
 /// The boot executable named in SYSTEM.CNF (`key` "BOOT" / "BOOT2").
-fn playstation_executable(cd: &mut CdTrack, key: &str, prefix: &str) -> Result<Option<(String, u32, u32)>> {
+fn playstation_executable(cd: &mut dyn Sectors, key: &str, prefix: &str) -> Result<Option<(String, u32, u32)>> {
     let Some((cnf, _)) = find_file_sector(cd, "SYSTEM.CNF")? else { return Ok(None) };
-    let text = cd.read_sector(cnf, 2047)?;
+    let text = cd.read(cnf, 2047)?;
     let text = &text[..text.iter().position(|&b| b == 0).unwrap_or(text.len())];
     for line in text.split(|&b| b == b'\n') {
         let Some(rest) = line.strip_prefix(key.as_bytes()) else { continue };
@@ -440,13 +398,13 @@ fn trim_start(b: &[u8]) -> &[u8] {
     &b[n..]
 }
 
-fn psx(cd: &mut CdTrack) -> Result<Option<String>> {
+fn psx(cd: &mut dyn Sectors) -> Result<Option<String>> {
     let found = match playstation_executable(cd, "BOOT", "cdrom:")? {
         Some(f) => Some(f),
         None => find_file_sector(cd, "PSX.EXE")?.map(|(s, z)| ("PSX.EXE".to_string(), s, z)),
     };
     let Some((name, sector, mut size)) = found else { return Ok(None) };
-    let head = cd.read_sector(sector, 32)?;
+    let head = cd.read(sector, 32)?;
     if head.len() < 32 {
         return Err(Error::msg("could not read the PS1 executable"));
     }
@@ -460,9 +418,9 @@ fn psx(cd: &mut CdTrack) -> Result<Option<String>> {
     Ok(Some(hex(ctx.finalize())))
 }
 
-fn ps2(cd: &mut CdTrack) -> Result<Option<String>> {
+fn ps2(cd: &mut dyn Sectors) -> Result<Option<String>> {
     let Some((name, sector, size)) = playstation_executable(cd, "BOOT2", "cdrom0:")? else { return Ok(None) };
-    if cd.read_sector(sector, 4)?.len() < 4 {
+    if cd.read(sector, 4)?.len() < 4 {
         return Err(Error::msg("could not read the PS2 executable"));
     }
     let mut ctx = md5::Context::new();
@@ -471,7 +429,7 @@ fn ps2(cd: &mut CdTrack) -> Result<Option<String>> {
     Ok(Some(hex(ctx.finalize())))
 }
 
-fn psp(cd: &mut CdTrack) -> Result<Option<String>> {
+fn psp(cd: &mut dyn Sectors) -> Result<Option<String>> {
     let Some((sfo, sfo_size)) = find_file_sector(cd, "PSP_GAME\\PARAM.SFO")? else { return Ok(None) };
     let mut ctx = md5::Context::new();
     hash_cd_file(&mut ctx, cd, sfo, sfo_size)?;
@@ -482,8 +440,8 @@ fn psp(cd: &mut CdTrack) -> Result<Option<String>> {
     Ok(Some(hex(ctx.finalize())))
 }
 
-fn sega_cd(cd: &mut CdTrack) -> Result<Option<String>> {
-    let head = cd.read_sector(0, 512)?;
+fn sega_cd(cd: &mut dyn Sectors) -> Result<Option<String>> {
+    let head = cd.read(0, 512)?;
     if head.len() < 512 || (&head[..16] != b"SEGADISCSYSTEM  " && &head[..16] != b"SEGA SEGASATURN ") {
         return Ok(None);
     }

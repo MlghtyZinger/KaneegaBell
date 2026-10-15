@@ -380,7 +380,13 @@ Each milestone is runnable and tested, and passes the perf gate.
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
       Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
 - [ ] r. CHD/RVZ/CSO hashing for RetroAchievements (needed **before** the owner compresses any games;
-      until then compressed games launch fine but show no achievements)
+      until then compressed games launch fine but show no achievements). **Built 2026-10-16 (0.3.0,
+      owner's OK):** `src-tauri/src/disc/` reads CHD (`chd` crate) and CSO v1/v2/ZSO (own reader, own
+      LZ4) as 2048-byte sectors for the PS1/PS2/PSP/Sega CD hashes and scanner sniffing; RVZ/WIA/GCZ/
+      CISO/TGC through `nod` (Wii re-encrypted, `rebuild_encryption`). Migration 014 re-hashes compressed
+      files marked "no hash". Converted files keep their game row (same platform + title + variant,
+      old file gone, exactly one candidate; report kind "replaced"). Test tools (owner's OK): chdman
+      from MAME 0.289 (SHA-256 checked), maxcso 1.13.0, the owner's DolphinTool; scratchpad only.
 - [ ] t. Settings touch-up (owner, 2026-10-15): make Settings compact and more readable without costing
       performance (performance stays the top priority: no heavier rendering, settings screens stay
       code-split and load only when opened). Ideas to propose: shorter texts with details behind a

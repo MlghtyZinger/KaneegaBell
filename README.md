@@ -410,8 +410,9 @@ GBA, the header-stripped ROM for SNES, byte-order-normalized ROM for N64, header
 for DS, the boot executable for PS1/PS2/PSP (read from the disc's file system, `.cue`/`.bin` or
 `.iso`), the first sector for Sega CD, apploader + main executable for GameCube and Wii
 (`.iso`, and Wii `.wbfs` read through its block table), and `PARAM.SFO` + `EBOOT.BIN` for PS3
-folders. Compressed formats (`.chd`, `.rvz`, `.cso`…) aren't hashed yet. 3DS shows no
-achievements (hashing needs console keys).
+folders. Compressed images hash exactly like the dumps they were made from (see
+[Compressing your games](#compressing-your-games)). 3DS shows no achievements (hashing needs
+console keys).
 
 - Hashing runs in the background after scans (a file is only re-hashed when it changes), then
   each hash is looked up in RA's list of known hashes for that console, cached for a week. A
@@ -425,6 +426,40 @@ achievements (hashing needs console keys).
   forces it) and shown from the cache when offline. Badge images are cached on disk.
 - RA rate-limits its API without publishing numbers, so requests are sequential and spaced
   half a second apart.
+
+## Compressing your games
+
+Compressed disc images take less space and play exactly like the originals: the formats are
+lossless, so emulators see the same data, and per-game settings, patches and cheats (which
+emulators tie to the game's ID and checksum, read from inside the disc) keep working. KB reads
+them for RetroAchievements too, and they get the same match as the original dump.
+
+| Platform | Format | Make it with | Plays in |
+|---|---|---|---|
+| PS1, Sega CD | CHD | `chdman createcd -i "Game.cue" -o "Game.chd"` | DuckStation, RetroArch |
+| PS2 (DVD games, `.iso`) | CHD | `chdman createdvd -i "Game.iso" -o "Game.chd"` | PCSX2 |
+| PS2 (CD games, `.cue`) | CHD | `chdman createcd -i "Game.cue" -o "Game.chd"` | PCSX2 |
+| PSP | CSO (or CHD) | `maxcso "Game.iso"` (or `chdman createdvd`) | PPSSPP |
+| GameCube, Wii | RVZ | Dolphin: right-click the game → Convert File… → RVZ (defaults) | Dolphin |
+
+chdman comes with [MAME](https://www.mamedev.org/release.html), maxcso from its
+[GitHub releases](https://github.com/unknownbrackets/maxcso/releases); KB doesn't download or
+run either. Good to know:
+
+- **KB keeps your history.** When a game's file is replaced by a compressed one with the same
+  name (e.g. `Game (USA).cue` → `Game (USA).chd`), the next scan moves its play time, favorite,
+  collections and picked art over to the new file. (If two games could match, it leaves them
+  separate rather than guess.)
+- Patch a disc image (translations, `.xdelta` romhacks) **before** compressing it; patching tools
+  need the uncompressed file. Emulator-side patches and cheats don't care.
+- Keep a PS1 game's `.sbi` file (LibCrypt protection, some PAL games) next to the `.chd`, named
+  the same.
+- Avoid NKit for GameCube/Wii: it throws data away, so RetroAchievements no longer recognizes
+  the game. RVZ with Dolphin's defaults is lossless.
+- Wii `.wbfs` files that RetroAchievements doesn't recognize won't start matching after
+  conversion: the data its hash reads isn't in them. A fresh dump would match.
+- Keep the originals until you've checked a few compressed games play and show their
+  achievements in KB.
 
 ## Scanning rules
 
@@ -539,6 +574,12 @@ Manager after scrolling, 105–112 MB while a game runs. Run 2 passed; run 1 aga
 game ran (305 MB vs 251) with Task Manager at its lowest (105 MB). Since 0.2.9 the gate checks memory with the Task
 Manager figures; private memory only warns. On a copy of the installed library, the first start freed 22 MB
 (96 → 74 MB: the WebView2 add-ons and one removed game's pictures).
+0.3.0 (compressed disc readers; the exe grew 15.8 → 16.5 MB): cold start 481 ms median, 240 fps (p99 4.3 ms, max
+4.4 ms), 201 MB in Task Manager after scrolling, 104–111 MB while a game runs; passed on the first run. Hashing a
+compressed image takes 3–120 ms (background only). Verified on the owner's games: CHD (PS1, Sega CD, PS2 DVD, PSP
+as CD and DVD, zstd and default codecs), CSO v1/v2 and ZSO (PS2, PSP) and RVZ (GameCube) all hash exactly like
+the original dumps. Wii RVZ uses the same reader but couldn't be tested: the owner's Wii games are `.wbfs`, which
+DolphinTool won't convert.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -593,6 +634,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.0
+- New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.
+- New: when you replace a game's file with a compressed one of the same name, KB keeps its play time, favorite, collections and picked art.
+- Improved: compressed PS1, PS2, PSP and Sega CD discs in mixed folders are sorted to the right platform by looking inside them, not just by folder name.
+- New: the README explains which format to use per platform and how to make it.
 
 ### 0.2.9 (2026-10-16)
 - Improved: when a game leaves your library, its achievement badges and cached achievement lists go too (badges another game still uses stay).
