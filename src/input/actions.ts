@@ -117,13 +117,32 @@ export function installKeyboard(): () => void {
     if (action && dispatch(action)) e.preventDefault();
   };
   const onPointer = () => setDevice("pointer");
+  // Only a mouse that really moves counts. The webview also fires mousemove
+  // when the window moves or resizes under a still cursor (switching TV Mode,
+  // going fullscreen), with no movement; that mustn't flip a controller user's
+  // hints to keyboard keys. Small jitter (a bumped desk) doesn't count either.
+  let travelled = 0;
+  const onMove = (e: MouseEvent) => {
+    if (device() === "pointer") return;
+    const d = Math.abs(e.movementX) + Math.abs(e.movementY);
+    if (d === 0) return;
+    travelled += d;
+    if (travelled >= 8) {
+      travelled = 0;
+      setDevice("pointer");
+    }
+  };
+  // Starting with another device resets the count.
+  const resetTravel = () => (travelled = 0);
   window.addEventListener("keydown", onKey);
+  window.addEventListener("keydown", resetTravel);
   window.addEventListener("mousedown", onPointer, { passive: true });
-  window.addEventListener("mousemove", onPointer, { passive: true });
+  window.addEventListener("mousemove", onMove, { passive: true });
   return () => {
     window.removeEventListener("keydown", onKey);
+    window.removeEventListener("keydown", resetTravel);
     window.removeEventListener("mousedown", onPointer);
-    window.removeEventListener("mousemove", onPointer);
+    window.removeEventListener("mousemove", onMove);
   };
 }
 

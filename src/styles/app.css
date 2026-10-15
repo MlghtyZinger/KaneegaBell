@@ -2500,3 +2500,8 @@ html.nav-mode .tv-menu-item:focus {
 .hint-btn:hover {
   color: var(--text);
 }
+
+/* Controller focus on the top bar (up from the top row of covers). */
+.topbar .nav-focus {
+  box-shadow: var(--focus-ring);
+}

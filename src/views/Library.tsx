@@ -166,16 +166,43 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       openRail();
       return;
     }
-    // Up from the top row of an open collection (or an empty one): its banner
-    // buttons (Rename for your own, else Edit).
-    const col = openCol();
-    if (dir === "up" && col && (n === 0 || !navigate || navigate(focused(), "up") === focused())) {
-      const acts = bannerActions(col);
-      setBannerFocus(acts.includes("rename" as never) ? "rename" : "edit");
+    // Up from the top row (or an empty view): an open collection's banner
+    // buttons (Rename for your own, else Edit), otherwise the top bar.
+    if (dir === "up" && (n === 0 || !navigate || navigate(focused(), "up") === focused())) {
+      const col = openCol();
+      if (col) {
+        const acts = bannerActions(col);
+        setBannerFocus(acts.includes("rename" as never) ? "rename" : "edit");
+      } else setTopFocus("search");
       return;
     }
     if (n === 0 || !navigate) return;
     setFocused(navigate(focused(), dir));
+  }
+
+  // Controller focus on the top bar (up from the top row), or null.
+  const [topFocus, setTopFocus] = createSignal<string | null>(null);
+  const topActions = () => ["search", ...(library.genres().length > 0 ? ["genre"] : []), "tv", "settings"];
+  function topAction(a: Action): boolean {
+    const acts = topActions();
+    const i = Math.max(0, acts.indexOf(topFocus()!));
+    switch (a) {
+      case "left": setTopFocus(acts[Math.max(0, i - 1)]); return true;
+      case "right": setTopFocus(acts[Math.min(acts.length - 1, i + 1)]); return true;
+      case "down":
+      case "back": setTopFocus(null); return true;
+      case "up": return true;
+      case "select": {
+        const f = topFocus();
+        setTopFocus(null);
+        if (f === "search") openSearch();
+        else if (f === "genre") setGenreOpen(true);
+        else if (f === "tv") props.onTvMode();
+        else props.onOpenSettings();
+        return true;
+      }
+      default: return false;
+    }
   }
 
   // Controller focus on an open collection's banner buttons, or null.
@@ -194,7 +221,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       case "right": setBannerFocus(acts[Math.min(acts.length - 1, i + 1)]); return true;
       case "down":
       case "back": setBannerFocus(null); return true;
-      case "up": return true;
+      case "up":
+        setBannerFocus(null);
+        setTopFocus("search");
+        return true;
       case "select": {
         const f = bannerFocus();
         setBannerFocus(null);
@@ -252,6 +282,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   const onAction = (a: Action): boolean => {
     if (railFocus() !== null && railAction(a)) return true;
     if (bannerFocus() !== null && bannerAction(a)) return true;
+    if (topFocus() !== null && topAction(a)) return true;
     switch (a) {
       case "left":
       case "right":
@@ -418,7 +449,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <Show when={games().length === 0 && !overview()}>
             <JobPill />
           </Show>
-          <button class="search-box" classList={{ active: !!library.query() }} onClick={openSearch} title="Search every platform">
+          <button
+            class="search-box"
+            classList={{ active: !!library.query(), "nav-focus": topFocus() === "search" }}
+            onClick={openSearch}
+            title="Search every platform"
+          >
             <Icon name="search" />
             <span>{library.query() || "Search games"}</span>
           </button>
@@ -429,7 +465,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           </Show>
           <Show when={library.genres().length > 0}>
             <Picker
-              class={`genre-picker compact${library.genre() !== null ? " active" : ""}`}
+              class={`genre-picker compact${library.genre() !== null ? " active" : ""}${topFocus() === "genre" ? " nav-focus" : ""}`}
               title="Show genre"
               value={library.genre() === null ? "" : String(library.genre())}
               options={genreOptions()}
@@ -439,10 +475,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
               label={genreName() ?? "Genre"}
             />
           </Show>
-          <button class="icon-btn" onClick={props.onTvMode} title="TV Mode (L3 / F10)">
+          <button class="icon-btn" classList={{ "nav-focus": topFocus() === "tv" }} onClick={props.onTvMode} title="TV Mode (L3 / F10)">
             <Icon name="tv" />
           </button>
-          <button class="icon-btn" onClick={props.onOpenSettings} title="Settings">
+          <button class="icon-btn" classList={{ "nav-focus": topFocus() === "settings" }} onClick={props.onOpenSettings} title="Settings">
             <Icon name="gear" />
           </button>
         </div>
