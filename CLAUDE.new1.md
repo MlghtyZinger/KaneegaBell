@@ -375,6 +375,18 @@ Each milestone is runnable and tested, and passes the perf gate.
       disable WebView2 components KB doesn't use (Subresource Filter, speech model, ~18 MB), check old
       `api_cache` rows and partial LaunchBox downloads. Background: the web cache had grown to 312 MB
       (fixed in 0.2.7 with `--disk-cache-size`).
+      **Audit done 2026-10-15 (read-only, on DB copies), release as 0.2.9.** Installed copy 94 MB:
+      art 34, webview 31, ra 3.8, library.db 8.4 + wal 7.7, before-reset backup 8.8. Web cache already
+      gone there (trimmed). Dev copy 244 MB, of which 162 MB is the old web cache: its DB is still at
+      migration 12, so the 0.2.8 exe hasn't run on it yet; the one-time trim removes it on next start.
+      Findings: all 639 RA badges belong to owned games (nothing to delete now); 4 art files (0.5 MB)
+      of one removed game are left behind (art isn't deleted with its game row); `api_cache` is 4.5 MB,
+      all fresh; no `.tmp`/`.part` leftovers anywhere; unused WebView2 components ~20 MB (Subresource
+      Filter 11.3, component_crx_cache 4.5, speech 2.6, hyphenation 1.7). **Proposed fixes:** delete a
+      game's art, `ra:progress`/`ra:gamehashes` rows and (when no owned game uses them) its RA badges
+      when its row is removed, plus a one-time sweep of existing leftovers; disable the unused
+      WebView2 components by switch; "Delete reset backup" button in Storage and reset; maybe clear
+      the web cache with "Clear downloaded data". Waiting for the owner's OK.
 - [-] Steam integration: **skipped** (owner, 2026-10-15). Games launch only through KB, so no Steam
       shortcuts or Steam library import; putting KB on Steam ($100, Steamworks) and Discord status
       weren't wanted either. KB can be added to Steam by hand as one non-Steam game if ever needed.
@@ -408,3 +420,11 @@ Each milestone is runnable and tested, and passes the perf gate.
    Never drive or launch the app while they're using it.
 7. Never download game content; confirm before destructive or outward-facing actions
    (publishing releases, creating repos, data migration).
+8. **Adjustments agreed 2026-10-15:**
+   - One milestone per release (storage audit = 0.2.9, m = 0.3.0, ...). Remind the owner when a
+     request belongs to another milestone.
+   - The perf gate's memory check uses the Task Manager figure (steady); private memory is still
+     printed but can spike on a new exe's first launch, so it only warns.
+   - Code-split TV Mode and Settings (load when opened) before m/o/t add more screens.
+   - Release once, from a clean committed tree (`release.ps1` builds whatever HEAD is when it runs).
+   - Don't run builds, perf runs or scans while the owner is playing; stop at once if asked.
