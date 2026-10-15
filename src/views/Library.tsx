@@ -6,8 +6,10 @@ import {
   CollectionEditor,
   CollectionTile,
   NewCollectionTile,
+  bannerActions,
   newCollection,
   openCollection,
+  renameCollection,
 } from "../components/Collections";
 import type { Collection } from "../api";
 import { Icon, PlatformIcon, type IconName } from "../components/Icons";
@@ -164,8 +166,45 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       openRail();
       return;
     }
+    // Up from the top row of an open collection (or an empty one): its banner
+    // buttons (Rename for your own, else Edit).
+    const col = openCol();
+    if (dir === "up" && col && (n === 0 || !navigate || navigate(focused(), "up") === focused())) {
+      const acts = bannerActions(col);
+      setBannerFocus(acts.includes("rename" as never) ? "rename" : "edit");
+      return;
+    }
     if (n === 0 || !navigate) return;
     setFocused(navigate(focused(), dir));
+  }
+
+  // Controller focus on an open collection's banner buttons, or null.
+  const [bannerFocus, setBannerFocus] = createSignal<string | null>(null);
+  createEffect(on(library.platform, () => setBannerFocus(null), { defer: true }));
+  function bannerAction(a: Action): boolean {
+    const c = openCol();
+    if (!c) {
+      setBannerFocus(null);
+      return false;
+    }
+    const acts: readonly string[] = bannerActions(c);
+    const i = Math.max(0, acts.indexOf(bannerFocus()!));
+    switch (a) {
+      case "left": setBannerFocus(acts[Math.max(0, i - 1)]); return true;
+      case "right": setBannerFocus(acts[Math.min(acts.length - 1, i + 1)]); return true;
+      case "down":
+      case "back": setBannerFocus(null); return true;
+      case "up": return true;
+      case "select": {
+        const f = bannerFocus();
+        setBannerFocus(null);
+        if (f === "back") library.setPlatform("collections");
+        else if (f === "rename") renameCollection(c);
+        else setEditKey(c.key);
+        return true;
+      }
+      default: return false;
+    }
   }
 
   function jumpLetter(dir: 1 | -1) {
@@ -212,6 +251,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   const onAction = (a: Action): boolean => {
     if (railFocus() !== null && railAction(a)) return true;
+    if (bannerFocus() !== null && bannerAction(a)) return true;
     switch (a) {
       case "left":
       case "right":
@@ -283,6 +323,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // Where you are, for the top bar (the rail shows only icons most of the time).
   const here = () => {
+    // Moving through a closed rail: name the focused tab.
+    const rf = railFocus();
+    if (rf !== null && railMode() === "closed") {
+      const t = library.platformTabs()[rf];
+      if (t) return { title: tabLabel(t), count: t === "collections" ? "" : `${tabCount(t)} games` };
+    }
     const n = games().length;
     const g = `${n} game${n === 1 ? "" : "s"}`;
     if (library.query()) return { title: `Search: “${library.query()}”`, count: g };
@@ -296,20 +342,34 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     return { title: tabLabel(p), count: g };
   };
 
-  // The rail on the left: icons; it opens (icon + name + count) on hover, when
-  // the controller moves into it (left from the first column), or when pinned.
+  // The rail on the left: icons; it opens (icon + name + count) on hover or
+  // when the controller moves into it (left from the first column). Its mode
+  // button (at the bottom) cycles: opens on hover -> always open -> always closed.
+  type RailMode = "hover" | "open" | "closed";
+  const RAIL_MODES: Record<RailMode, { next: RailMode; label: string; tip: string }> = {
+    hover: { next: "open", label: "Opens on hover", tip: "Sidebar opens on hover. Click to keep it open." },
+    open: { next: "closed", label: "Always open", tip: "Sidebar always open. Click to keep it closed." },
+    closed: { next: "hover", label: "Always closed", tip: "Sidebar always closed (icons only). Click to open it on hover." },
+  };
   const [railHover, setRailHover] = createSignal(false);
   const [railFocus, setRailFocus] = createSignal<number | null>(null);
-  const [railPinned, setRailPinnedRaw] = createSignal(false);
+  const [railMode, setRailModeRaw] = createSignal<RailMode>("hover");
   void api
-    .getSetting<boolean>("railPinned")
-    .then((v) => setRailPinnedRaw(v === true))
+    .getSetting<string>("railMode")
+    .then(async (v) => {
+      if (v && v in RAIL_MODES) setRailModeRaw(v as RailMode);
+      // "Keep open" from the first version of the rail.
+      else if ((await api.getSetting<boolean>("railPinned")) === true) setRailModeRaw("open");
+    })
     .catch(() => {});
-  function setRailPinned(on: boolean) {
-    setRailPinnedRaw(on);
-    void api.setSetting("railPinned", on).catch(() => {});
+  function setRailMode(m: RailMode) {
+    setRailModeRaw(m);
+    void api.setSetting("railMode", m).catch(() => {});
   }
-  const railOpen = () => railPinned() || railHover() || railFocus() !== null;
+  const railPinned = () => railMode() === "open";
+  // Always closed: icons only, also while the controller moves through them
+  // (the top bar names the focused one).
+  const railOpen = () => railMode() !== "closed" && (railPinned() || railHover() || railFocus() !== null);
   const openRail = () => setRailFocus(Math.max(0, library.platformTabs().findIndex(tabActive)));
   const closeRail = () => setRailFocus(null);
   function pickTab(id: PlatformFilter) {
@@ -415,15 +475,15 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <button
           class="rail-row rail-pin"
-          classList={{ active: railPinned() }}
+          classList={{ active: railMode() !== "hover" }}
           tabIndex={-1}
-          title={railPinned() ? "Let the sidebar fold away" : "Keep the sidebar open"}
-          onClick={() => setRailPinned(!railPinned())}
+          title={RAIL_MODES[railMode()].tip}
+          onClick={() => setRailMode(RAIL_MODES[railMode()].next)}
         >
           <span class="rail-icon">
-            <Icon name="pin" />
+            <Icon name={railMode() === "open" ? "pin" : railMode() === "closed" ? "railClosed" : "railHover"} />
           </span>
-          <span class="rail-name">{railPinned() ? "Fold away" : "Keep open"}</span>
+          <span class="rail-name">{RAIL_MODES[railMode()].label}</span>
         </button>
       </nav>
       <div class="lib-main">
@@ -455,7 +515,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                       )
                     }
                   >
-                    {(c) => <CollectionTile c={c()} focused={isFocused} />}
+                    {(c) => <CollectionTile c={c()} focused={isFocused} onEdit={() => setEditKey(c().key)} />}
                   </Show>
                 )}
               />
@@ -475,7 +535,14 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         }
       >
       <Show when={openCol()}>
-        {(c) => <CollectionBanner c={c()} onEdit={() => setEditKey(c().key)} onBack={() => library.setPlatform("collections")} />}
+        {(c) => (
+          <CollectionBanner
+            c={c()}
+            focused={bannerFocus()}
+            onEdit={() => setEditKey(c().key)}
+            onBack={() => library.setPlatform("collections")}
+          />
+        )}
       </Show>
       <Show
         when={games().length > 0}
@@ -513,6 +580,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                   <h2>Nothing in this collection yet</h2>
                   <p>Add games from their details: Collections….</p>
                   <div class="hints-row">
+                    <Hint action="up" label="Rename / Edit" />
                     <Hint action="back" label="Collections" />
                   </div>
                 </Show>

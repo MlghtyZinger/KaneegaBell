@@ -6,6 +6,7 @@ import { osk } from "../state/osk";
 import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
+import { Icon } from "./Icons";
 
 const KIND_LABEL = { mine: "Collection", series: "Series", franchise: "Franchise" } as const;
 
@@ -23,8 +24,11 @@ function Emblem(props: { c: Collection; class?: string }) {
   );
 }
 
-/** A tile in the Collections tab: a cover mosaic (or the chosen cover) with its logo or name. */
-export function CollectionTile(props: { c: Collection; focused: () => boolean }) {
+/**
+ * A tile in the Collections tab: a cover mosaic (or the chosen cover) with its
+ * logo or name. `onEdit` adds a pencil (shown on hover and focus).
+ */
+export function CollectionTile(props: { c: Collection; focused: () => boolean; onEdit?: () => void }) {
   const chosen = () => collections.chosenPicture(props.c);
   const covers = () => collections.mosaic(props.c);
   return (
@@ -47,6 +51,19 @@ export function CollectionTile(props: { c: Collection; focused: () => boolean })
         </span>
         <Emblem c={props.c} />
       </div>
+      <Show when={props.onEdit}>
+        <button
+          class="col-edit"
+          title={props.c.kind === "mine" ? "Rename, logo and more (Y)" : "Logo, hide (Y)"}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onEdit!();
+          }}
+        >
+          <Icon name="pencil" />
+        </button>
+      </Show>
     </div>
   );
 }
@@ -79,16 +96,42 @@ export function newCollection(gameId: number | null, onMade?: (key: string) => v
   });
 }
 
-/** The strip above an open collection's games. */
-export function CollectionBanner(props: { c: Collection; onEdit: () => void; onBack: () => void }) {
+/** Asks for a new name for one of the user's collections. */
+export function renameCollection(c: Collection) {
+  osk.open({
+    title: "Rename the collection",
+    value: c.name,
+    onDone: (name) => {
+      if (!name.trim() || name.trim() === c.name) return;
+      void api
+        .renameCollection(c.key, name)
+        .then(() => collections.reload())
+        .catch(() => {});
+    },
+  });
+}
+
+/** The banner's buttons, in order (for controller focus). */
+export const bannerActions = (c: Collection) => (c.kind === "mine" ? (["back", "rename", "edit"] as const) : (["back", "edit"] as const));
+
+/**
+ * The strip above an open collection's games. `focused` is the controller's
+ * place among its buttons (up from the top row of covers), or null.
+ */
+export function CollectionBanner(props: { c: Collection; focused: string | null; onEdit: () => void; onBack: () => void }) {
   return (
     <div class="col-banner">
-      <button class="btn ghost small" onClick={props.onBack} title="Back to Collections">
+      <button class="btn ghost small" classList={{ "nav-focus": props.focused === "back" }} onClick={props.onBack} title="Back to Collections">
         ← Collections
       </button>
       <span class="col-kind">{KIND_LABEL[props.c.kind]}</span>
       <Emblem c={props.c} class="banner" />
-      <button class="btn small" onClick={props.onEdit}>
+      <Show when={props.c.kind === "mine"}>
+        <button class="btn small" classList={{ "nav-focus": props.focused === "rename" }} onClick={() => renameCollection(props.c)}>
+          Rename…
+        </button>
+      </Show>
+      <button class="btn small" classList={{ "nav-focus": props.focused === "edit" }} onClick={props.onEdit}>
         Edit…
       </button>
     </div>
@@ -180,12 +223,7 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
         <Show when={mine()}>
           <h3>Collection</h3>
           <div class="row">
-            <button
-              class="btn"
-              onClick={() =>
-                osk.open({ title: "Rename the collection", value: c().name, onDone: (name) => void run(() => api.renameCollection(c().key, name)) })
-              }
-            >
+            <button class="btn" onClick={() => renameCollection(c())}>
               Rename…
             </button>
             <button class="btn" onClick={() => void run(() => api.moveCollection(c().key, -1))}>

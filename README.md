@@ -186,8 +186,10 @@ emulators and saves are never touched.
 **Sidebar (library):** the tabs (All, Favorites, Recent, Collections, then each platform) are in
 a slim icon sidebar on the left. Press left on the first column of the grid to move into it: it
 opens with names and game counts, up/down picks, A/Cross switches, B/Circle or right goes back
-to the grid. Hovering opens it too, and "Keep open" at its bottom pins it. LB/RB still switch
-tabs from anywhere. In the Collections tab, Y/Triangle edits the focused collection.
+to the grid. Hovering opens it too. The button at its bottom cycles: opens on hover, always
+open, always closed (icons only; the top bar names the icon you're on). LB/RB still switch tabs
+from anywhere. In the Collections tab, Y/Triangle edits the focused collection; inside one of
+your collections, up from the first row reaches Rename… and Edit….
 
 The exit combo is configurable in Settings → General. Every screen works with a controller
 alone: D-pad moves focus to the nearest control, A/Cross presses it, and the hints bar shows
@@ -555,7 +557,10 @@ window, so they're written for players.
 - New: pick the logo of any collection or series: one of its games' logos, a cover, or your own image.
 - New: your collections can be renamed, reordered, sorted by when added, title or release date, and deleted.
 - Changed: the platform tabs moved to a slim sidebar on the left: icons, opening to names and game counts on hover or with the controller (left from the first column).
-- New: the sidebar can be pinned open.
+- New: the sidebar's button at the bottom switches between opening on hover, always open and always closed.
+- New: rename your own collection right from its page (Rename… at the top; with a controller, press up from the first row).
+- New: collection tiles show a pencil on hover to edit them.
+- New: TV Mode's hint bar shows how to go back to desktop mode (and it's clickable).
 - Changed: a slimmer top bar shows where you are, a search box, and icons for Genre, TV Mode and Settings.
 - Changed: series are looked up once more after this update.
 

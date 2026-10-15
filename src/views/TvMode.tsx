@@ -358,6 +358,10 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         <Hint action="favorite" label="Favorite" />
         <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
         <Hint action="menu" label="Menu" />
+        {/* Clickable too, for the mouse. */}
+        <button class="hint-btn" onClick={props.onExit} title="Back to the desktop view">
+          <Hint action="toggleTv" label="Desktop mode" />
+        </button>
         <span class="tv-count">
           {games().length > 0 ? `${focused() + 1} / ${games().length}` : ""}
         </span>

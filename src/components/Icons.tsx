@@ -17,7 +17,10 @@ export type IconName =
   | "gamepad"
   | "handheld"
   | "disc"
-  | "close";
+  | "close"
+  | "railHover"
+  | "railClosed"
+  | "pencil";
 
 const PATHS: Record<IconName, () => JSX.Element> = {
   all: () => (
@@ -86,6 +89,20 @@ const PATHS: Record<IconName, () => JSX.Element> = {
     </>
   ),
   close: () => <path d="M6 6l12 12M18 6L6 18" />,
+  pencil: () => <path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5zM13.5 7l3 3" />,
+  // A sidebar that opens (arrow out) / stays folded (arrow in).
+  railHover: () => (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16M13 12h5M15.8 9.6l2.4 2.4-2.4 2.4" />
+    </>
+  ),
+  railClosed: () => (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16M18 12h-5M15.2 9.6L12.8 12l2.4 2.4" />
+    </>
+  ),
 };
 
 export function Icon(props: { name: IconName; class?: string }) {
