@@ -343,9 +343,9 @@ Each milestone is runnable and tested, and passes the perf gate.
       sidebar and details). Options/Start stays Settings; Esc opens Settings when there's nothing to
       close (back first). TV Mode unchanged. After this milestone: answer the owner's question about
       a Steam integration "like RetroArch does it".
-- **Release order (owner, 2026-10-16), one milestone per release:** 0.2.9 storage audit fixes → r
-      (0.3.0, compressed-disc hashing; moved up by the owner) → q
-      (0.3.1, maybe two releases; the owner will add more platforms/emulators then) → t (Settings
+- **Release order (owner, 2026-10-16), one milestone per release:** ~~0.2.9 storage audit fixes~~ →
+      ~~r (0.3.0, compressed-disc hashing)~~ → q part 1 (0.3.1, several emulators per platform) → q part 2
+      (0.3.2 Saturn, 0.3.3 Switch, 0.3.4 Xbox, 0.3.5 Xbox 360 optional) → t (Settings
       touch-up, includes code-splitting Settings) → m (icons) → Steam-style list view → n rest, o, p,
       u. The separate code-split release (0.2.10) was dropped: it saves only ~10-30 ms today, so
       Settings is split in t and TV Mode in p.
@@ -388,6 +388,17 @@ Each milestone is runnable and tested, and passes the perf gate.
       in the sidebar (no long-press: every button is taken). Achievements labels from RA's supported-
       emulator list (docs checked 2026-10: RetroArch, DuckStation, PCSX2, Dolphin, PPSSPP, melonDS;
       not RPCS3/Azahar). Part 2 (0.3.2+): new platforms + the owner's extra emulators.
+      **Part 2 research (2026-10-16; owner's list; emulators are in `E:\Emulators`, run each one's
+      `--help` once with the owner's OK before building):** one platform per release:
+      0.3.2 **Saturn** (RetroArch: Beetle Saturn / Kronos / YabaSanshiro; BIOS `sega_101.bin`,
+      `mpr-17933.bin` in RetroArch's system folder; .cue/.chd/.ccd/.m3u; RA yes: the Sega CD hash already
+      accepts "SEGA SEGASATURN "; add the header to Auto-folder sniffing) → 0.3.3 **Switch** (Eden default,
+      eden-emu.dev; Ryujinx = Ryubing, ryujinx.app, `--fullscreen <game>`; Yuzu legacy, `-f -g <game>`;
+      .nsp/.xci; titles from file names + `[0100…]` title IDs, never decrypt; hide update/DLC files; no RA)
+      → 0.3.4 **Xbox** (xemu `-full-screen -dvd_path <iso>`; RetroArch xemu core is experimental, as an
+      alternative; XISO only; user's MCPX/BIOS/HDD; tell Xbox .iso apart by its header; no RA) → 0.3.5
+      **Xbox 360** (optional, last; Xenia Canary `--fullscreen <game>`; disc ISO/XEX, GOD + .data, XBLA;
+      no RA; only if the owner has games without PC ports).
 - [ ] r. CHD/RVZ/CSO hashing for RetroAchievements (needed **before** the owner compresses any games;
       until then compressed games launch fine but show no achievements). **Built 2026-10-16 (0.3.0,
       owner's OK):** `src-tauri/src/disc/` reads CHD (`chd` crate) and CSO v1/v2/ZSO (own reader, own
