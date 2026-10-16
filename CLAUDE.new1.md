@@ -392,7 +392,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       not RPCS3/Azahar). Part 2 (0.3.2+): new platforms + the owner's extra emulators.
       **Part 2 research (2026-10-16; owner's list; emulators are in `E:\Emulators`, run each one's
       `--help` once with the owner's OK before building):** one platform per release:
-      0.3.2 **Saturn** (RetroArch: Beetle Saturn / Kronos / YabaSanshiro; BIOS `sega_101.bin`,
+      0.3.2 **Saturn** (**built 2026-10-16**: platform `saturn`, core `mednafen_saturn`, RA console 39,
+      header sniff with product number, BIOS warning, DETECT_VERSION 3; also cue sheets whose images are
+      missing are skipped with a warning (the owner's Policenauts folder has only the patch + cues; the
+      owner's RetroArch has all 4 Saturn cores and both BIOS files). RetroArch: Beetle Saturn / Kronos / YabaSanshiro; BIOS `sega_101.bin`,
       `mpr-17933.bin` in RetroArch's system folder; .cue/.chd/.ccd/.m3u; RA yes: the Sega CD hash already
       accepts "SEGA SEGASATURN "; add the header to Auto-folder sniffing) → 0.3.3 **Switch** (Eden default,
       eden-emu.dev; Ryujinx = Ryubing, ryujinx.app, `--fullscreen <game>`; Yuzu legacy, `-f -g <game>`;

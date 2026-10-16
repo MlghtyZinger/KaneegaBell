@@ -37,7 +37,8 @@ pub const DOLPHIN_PLATFORMS: &[&str] = &["gc", "wii"];
 /// Bump when platform detection changes, so the next scan re-sniffs files the
 /// old logic classified instead of trusting the size/mtime cache.
 /// 2: PS1 vs PS2 via SYSTEM.CNF (v1 called every "PLAYSTATION" disc PS1).
-const DETECT_VERSION: i64 = 2;
+/// 3: Saturn ("SEGA SEGASATURN"), compressed discs and cues with a stored pregap read by content.
+const DETECT_VERSION: i64 = 3;
 const MAX_DEPTH: usize = 8;
 
 /// Folder names that never hold games: emulator caches, saves, firmware,
@@ -429,6 +430,12 @@ pub fn scan_files_with(
             progress(n, total);
         }
         if hidden.contains(&path_key(&l.path)) {
+            continue;
+        }
+        // A cue sheet whose disc images aren't there (e.g. a translation patch
+        // that hasn't been applied yet) isn't a game that can start.
+        if l.ext == "cue" && !r.is_empty() && r.iter().all(|p| !p.exists()) {
+            warnings.push(format!("skipped {}: the disc image it lists isn't there ({})", l.path.display(), r[0].display()));
             continue;
         }
         match resolver.resolve(l, &r) {

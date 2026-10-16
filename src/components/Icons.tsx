@@ -123,7 +123,7 @@ export function Icon(props: { name: IconName; class?: string }) {
 }
 
 const HANDHELD = new Set(["gba", "nds", "3ds", "psp"]);
-const DISC = new Set(["gc", "wii", "segacd", "ps1", "ps2", "ps3"]);
+const DISC = new Set(["gc", "wii", "segacd", "saturn", "ps1", "ps2", "ps3"]);
 const FAMILY: Record<string, string> = {
   snes: "nintendo",
   n64: "nintendo",
@@ -133,6 +133,7 @@ const FAMILY: Record<string, string> = {
   wii: "nintendo",
   "3ds": "nintendo",
   segacd: "sega",
+  saturn: "sega",
   ps1: "sony",
   ps2: "sony",
   psp: "sony",

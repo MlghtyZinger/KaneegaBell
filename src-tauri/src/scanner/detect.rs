@@ -85,6 +85,9 @@ pub fn other_iso(b: &[u8]) -> Option<Sniff> {
     if b.get(..14) == Some(b"SEGADISCSYSTEM") {
         return Some(Sniff { platform: Some("segacd"), serial: None });
     }
+    if b.get(..15) == Some(b"SEGA SEGASATURN") {
+        return Some(Sniff { platform: Some("saturn"), serial: saturn_product(b) });
+    }
     if b.get(0x8001..0x8006) == Some(b"CD001") && ascii_field(b, 0x8008, 32).as_deref() == Some("PSP GAME") {
         return Some(Sniff { platform: Some("psp"), serial: None });
     }
@@ -187,6 +190,9 @@ pub fn sniff_disc(path: &Path) -> Sniff {
             if head.get(at..at + 14) == Some(b"SEGADISCSYSTEM") {
                 return Ok(Sniff { platform: Some("segacd"), serial: None });
             }
+            if head.get(at..at + 15) == Some(b"SEGA SEGASATURN") {
+                return Ok(Sniff { platform: Some("saturn"), serial: saturn_product(&head[at..]) });
+            }
         }
         let Some((layout, pvd)) = find_pvd(&head) else { return Ok(Sniff::default()) };
         match ascii_field(&head, pvd + 8, 32).as_deref() {
@@ -233,8 +239,12 @@ pub fn sniff_sectors(path: &Path) -> Sniff {
             out.truncate(bytes);
             Ok(out)
         };
-        if read(0, 16)?.starts_with(b"SEGADISCSYSTEM") {
+        let head = read(0, 256)?;
+        if head.starts_with(b"SEGADISCSYSTEM") {
             return Ok(Sniff { platform: Some("segacd"), serial: None });
+        }
+        if head.starts_with(b"SEGA SEGASATURN") {
+            return Ok(Sniff { platform: Some("saturn"), serial: saturn_product(&head) });
         }
         let pvd = read(16, 2048)?;
         if pvd.get(1..6) != Some(b"CD001") {
@@ -255,6 +265,12 @@ pub fn sniff_sectors(path: &Path) -> Sniff {
         })
     };
     run().unwrap_or_default()
+}
+
+/// Saturn: the product number in the disc header ("SEGA SEGASATURN " at 0,
+/// product number at 0x20, e.g. "T-14310G" or "MK-81009").
+fn saturn_product(header: &[u8]) -> Option<String> {
+    ascii_field(header, 0x20, 10).filter(|s| s.len() >= 4 && s.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-'))
 }
 
 /// NDS: 12-byte title at 0, 4-char game code at 0x0C.

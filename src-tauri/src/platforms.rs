@@ -194,6 +194,20 @@ pub const PLATFORMS: &[PlatformDef] = &[
         ra: Some(9),
     },
     PlatformDef {
+        id: "saturn",
+        name: "Sega Saturn",
+        short_name: "Saturn",
+        emulator: "retroarch",
+        // Beetle Saturn: the most accurate core (docs.libretro.com/library/beetle_saturn).
+        core: Some("mednafen_saturn"),
+        extensions: &["cue", "chd", "ccd", "m3u"],
+        libretro: Some("Sega - Saturn"),
+        launchbox: Some("Sega Saturn"),
+        wikidata: Some("Q200912"),
+        igdb: Some(32),
+        ra: Some(39),
+    },
+    PlatformDef {
         id: "ps1",
         name: "PlayStation",
         short_name: "PS1",
@@ -312,6 +326,14 @@ pub fn retroarch_bios_problem(core: &str, platform_id: &str, system_dir: &Path) 
         "swanstation" | "mednafen_psx" | "mednafen_psx_hw" => {
             let found = files(system_dir).iter().any(|f| (f.starts_with("scph") || f.starts_with("psxonpsp")) && f.ends_with(".bin"));
             (!found).then(|| format!("RetroArch's {name} core needs a PS1 BIOS (e.g. scph5501.bin) in {}.", system_dir.display()))
+        }
+        "mednafen_saturn" => {
+            // sega_101.bin for Japanese games, mpr-17933.bin for US/European ones (names case-sensitive).
+            let have = files(system_dir);
+            let found = ["sega_101.bin", "mpr-17933.bin"].iter().any(|b| have.iter().any(|f| f == b));
+            (!found).then(|| {
+                format!("RetroArch's mednafen_saturn core needs a Saturn BIOS (mpr-17933.bin, or sega_101.bin for Japanese games) in {}.", system_dir.display())
+            })
         }
         "genesis_plus_gx" if platform_id == "segacd" => {
             let found = files(system_dir).iter().any(|f| f.starts_with("bios_cd_") && f.ends_with(".bin"));
@@ -485,6 +507,10 @@ mod tests {
         assert!(retroarch_bios_problem("genesis_plus_gx", "segacd", &sys).is_some());
         assert_eq!(retroarch_bios_problem("genesis_plus_gx", "snes", &sys), None, "Genesis games need no BIOS");
         assert_eq!(retroarch_bios_problem("dolphin", "gc", &sys), None);
+        // Saturn: either region's BIOS will do; the names are case-sensitive.
+        assert!(retroarch_bios_problem("mednafen_saturn", "saturn", &sys).unwrap().contains("mpr-17933.bin"));
+        std::fs::write(sys.join("mpr-17933.bin"), b"x").unwrap();
+        assert_eq!(retroarch_bios_problem("mednafen_saturn", "saturn", &sys), None);
     }
 
     #[test]

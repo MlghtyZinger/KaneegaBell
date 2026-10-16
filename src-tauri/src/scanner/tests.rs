@@ -261,6 +261,44 @@ fn a_cue_with_a_stored_pregap_is_still_sniffed() {
     assert_eq!(got, [("ps1", Some("SLUS-00708"))]);
 }
 
+/// Track 1 of a Saturn disc: raw MODE1 sectors, "SEGA SEGASATURN " header
+/// with the product number at 0x20.
+fn saturn_track() -> Vec<u8> {
+    let mut b = vec![0u8; 2352 * 20];
+    b[1..11].fill(0xFF);
+    b[15] = 1;
+    b[16..32].copy_from_slice(b"SEGA SEGASATURN ");
+    b[16 + 0x20..16 + 0x28].copy_from_slice(b"T-14310G");
+    b
+}
+
+#[test]
+fn saturn_discs_are_told_apart_by_their_header() {
+    // In a folder whose name says nothing: .cue is accepted by Sega CD, PS1
+    // and Saturn, so only the disc header can decide.
+    let t = tempfile::tempdir().unwrap();
+    write(&t.path().join("Unsorted").join("Policenauts (Japan) (Disc 1).bin"), &big(saturn_track()));
+    write(&t.path().join("Unsorted").join("Policenauts (Japan) (Disc 1).cue"), &cue(&["Policenauts (Japan) (Disc 1).bin"]));
+    let (c, w) = scan(t.path(), None);
+    assert!(w.is_empty(), "{w:?}");
+    let got: Vec<_> = c.iter().map(|c| (c.platform.as_str(), c.serial.as_deref())).collect();
+    assert_eq!(got, [("saturn", Some("T-14310G"))]);
+}
+
+#[test]
+fn a_cue_sheet_without_its_disc_images_is_skipped() {
+    // A translation patch whose images haven't been made yet (only the .cue
+    // sheets and the patches are there), in a folder named for the platform.
+    let t = tempfile::tempdir().unwrap();
+    let dir = t.path().join("Sega").join("Saturn").join("Policenauts English");
+    write(&dir.join("POLICENAUTS_1.ENGLISH.cue"), b"FILE \"POLICENAUTS_1-1.ENGLISH.iso\" BINARY\n  TRACK 01 MODE1/2048\n    INDEX 01 00:00:00\n");
+    write(&dir.join("NautsSaturnENG-CD1.XDELTA"), b"patch");
+    let (c, w) = scan(t.path(), None);
+    assert!(c.is_empty(), "{c:?}");
+    assert_eq!(w.len(), 1);
+    assert!(w[0].contains("isn't there"), "{w:?}");
+}
+
 #[test]
 fn folder_name_breaks_ties_when_headers_cant() {
     let t = tempfile::tempdir().unwrap();
@@ -312,7 +350,7 @@ fn auto_skips_folders_of_platforms_that_are_not_set_up_yet() {
     let r = t.path();
     write(&r.join("Xbox").join("Halo (USA).iso"), &vec![0; DISC]);
     write(&r.join("Nintendo").join("Switch").join("Game.iso"), &vec![0; DISC]);
-    write(&r.join("Sega").join("Saturn").join("Policenauts").join("Track 01.bin"), &vec![0; DISC]);
+    write(&r.join("Sega").join("Dreamcast").join("Shenmue").join("Track 01.bin"), &vec![0; DISC]);
     write(&r.join("Nintendo").join("GBA").join("Golden Sun (USA, Europe).gba"), &[0; 0xC0]);
     let (c, w) = scan(r, None);
     assert_eq!(titles(&c), ["Golden Sun"]);

@@ -12,7 +12,7 @@
 //! - DS: header (0x160) + ARM9 code + ARM7 code + icon/title block (0xA00).
 //! - GameCube / Wii: partition headers + apploader + main.dol segments
 //!   (Wii: title metadata and the first 1024 encrypted clusters).
-//! - Sega CD: first 512 bytes of track 1.
+//! - Sega CD, Saturn: first 512 bytes of track 1.
 //! - PS1 / PS2: boot executable's name + contents (from SYSTEM.CNF).
 //! - PSP: PSP_GAME/PARAM.SFO + PSP_GAME/SYSDIR/EBOOT.BIN.
 //! - PS3 (game folders): PARAM.SFO + USRDIR/EBOOT.BIN.
@@ -38,6 +38,7 @@ pub mod console {
     pub const SNES: u32 = 3;
     pub const GBA: u32 = 5;
     pub const SEGA_CD: u32 = 9;
+    pub const SATURN: u32 = 39;
     pub const PS1: u32 = 12;
     pub const GAMECUBE: u32 = 16;
     pub const NDS: u32 = 18;
@@ -112,7 +113,8 @@ pub fn hash_file(console: u32, path: &Path) -> Result<Option<String>> {
             "rvz" | "wia" | "gcz" | "ciso" => wii(&mut dolphin_disc(path)?)?,
             _ => None,
         },
-        console::SEGA_CD => sega_cd(disc::open(path)?.as_mut())?,
+        // rcheevos hashes Saturn discs like Sega CD ones (rc_hash_sega_cd).
+        console::SEGA_CD | console::SATURN => sega_cd(disc::open(path)?.as_mut())?,
         console::PS1 => psx(disc::open(path)?.as_mut())?,
         console::PS2 => ps2(disc::open(path)?.as_mut())?,
         console::PSP => psp(disc::open(path)?.as_mut())?,
@@ -644,6 +646,11 @@ mod tests {
         assert_eq!(hash_file(console::SEGA_CD, &bin).unwrap(), Some(md5hex(&sector0[16..16 + 512])));
         let not = write(t.path(), "other.bin", &vec![0u8; 4096]);
         assert_eq!(hash_file(console::SEGA_CD, &not).unwrap(), None);
+        // Saturn discs hash the same way.
+        let mut saturn = sector0.clone();
+        saturn[16..32].copy_from_slice(b"SEGA SEGASATURN ");
+        let bin = write(t.path(), "saturn.bin", &saturn);
+        assert_eq!(hash_file(console::SATURN, &bin).unwrap(), Some(md5hex(&saturn[16..16 + 512])));
     }
 
     #[test]

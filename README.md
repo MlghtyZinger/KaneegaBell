@@ -140,8 +140,8 @@ before it expires (GitHub emails you a reminder).
 2. **Settings → Library → ROM folders**: add each ROM folder. The platform is preselected
    from the folder name ("PS2", "GBA", "GameCube"...); change it if needed.
    - **Auto** works out each file's platform from its type and contents: GameCube vs Wii from
-     the disc header, PS1 vs PS2 from the disc's `SYSTEM.CNF`, PSP and Sega CD from their disc
-     signatures. When the contents can't decide, folder names along the path ("PS2", "PSX")
+     the disc header, PS1 vs PS2 from the disc's `SYSTEM.CNF`, PSP, Sega CD and Saturn from their
+     disc signatures. When the contents can't decide, folder names along the path ("PS2", "PSX")
      break the tie. Anything still ambiguous is listed under the scan's warnings.
    - A folder assigned to GameCube or Wii accepts both; each disc is placed by its header.
    - **PS3**: assign disc-dump folders (containing `PS3_GAME`) to PlayStation 3, and use
@@ -261,7 +261,8 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - RetroArch cores that need the console's BIOS look for it in **RetroArch's own system folder**
   (its `system` folder, or `system_directory` in retroarch.cfg), not the standalone emulator's:
   `system\pcsx2\bios\` for the PS2 core, `scph….bin` in `system` for the PS1 cores (SwanStation,
-  Beetle PSX), `bios_CD_U.bin` for Sega CD. Settings → Platforms, the sidebar and the pickers warn
+  Beetle PSX), `bios_CD_U.bin` for Sega CD, `mpr-17933.bin` (US/EU) or `sega_101.bin` (Japan) for
+  Saturn (Beetle Saturn; the names are case-sensitive). Settings → Platforms, the sidebar and the pickers warn
   when it looks missing (a warning only: KB still lets you try). If an emulator closes within a few
   seconds anyway, KB says so instead of quietly coming back, and doesn't count it as played.
 - The pickers mark emulators **Achievements** / **No achievements** from RetroAchievements' list
@@ -277,7 +278,7 @@ Everything works without accounts or API keys:
 
 - **[LaunchBox Games Database](https://gamesdb.launchbox-app.com)** (keyless, used first): box
   art for your copy's region, clear logos and backgrounds (TV Mode), descriptions, release
-  dates, developers, publishers, genres and player counts, for 12 platforms (~30,000 games).
+  dates, developers, publishers, genres and player counts, for KB's platforms (~30,000 games for the first 12).
   - LaunchBox publishes everything as one daily `Metadata.zip` (~100 MB, no per-game access).
     KB downloads it only when there's something to gain (no data yet, games whose details aren't
     stored, or LaunchBox changed while some games still have no match, checked at most weekly
@@ -436,7 +437,7 @@ method its emulators use (the rcheevos hashing rules, reimplemented in
 `src-tauri/src/achievements/hash.rs`), so file names don't matter. That's whole-ROM MD5 for
 GBA, the header-stripped ROM for SNES, byte-order-normalized ROM for N64, header + code + icon
 for DS, the boot executable for PS1/PS2/PSP (read from the disc's file system, `.cue`/`.bin` or
-`.iso`), the first sector for Sega CD, apploader + main executable for GameCube and Wii
+`.iso`), the first sector for Sega CD and Saturn, apploader + main executable for GameCube and Wii
 (`.iso`, and Wii `.wbfs` read through its block table), and `PARAM.SFO` + `EBOOT.BIN` for PS3
 folders. Compressed images hash exactly like the dumps they were made from (see
 [Compressing your games](#compressing-your-games)). 3DS shows no achievements (hashing needs
@@ -464,7 +465,7 @@ them for RetroAchievements too, and they get the same match as the original dump
 
 | Platform | Format | Make it with | Plays in |
 |---|---|---|---|
-| PS1, Sega CD | CHD | `chdman createcd -i "Game.cue" -o "Game.chd"` | DuckStation, RetroArch |
+| PS1, Sega CD, Saturn | CHD | `chdman createcd -i "Game.cue" -o "Game.chd"` | DuckStation, RetroArch |
 | PS2 (DVD games, `.iso`) | CHD | `chdman createdvd -i "Game.iso" -o "Game.chd"` | PCSX2 |
 | PS2 (CD games, `.cue`) | CHD | `chdman createcd -i "Game.cue" -o "Game.chd"` | PCSX2 |
 | PSP | CSO (or CHD) | `maxcso "Game.iso"` (or `chdman createdvd`) | PPSSPP |
@@ -615,6 +616,8 @@ DolphinTool won't convert. After the review fixes (same-folder history, cue `IND
 0.3.1 (several emulators per platform, core/BIOS warnings): cold start 456 ms, 240 fps (max frame 5.7 ms), 205 MB in
 Task Manager after scrolling, 102–109 MB while a game runs; passed (with a game launcher downloading in the
 background). A first run failed while a game used ~3.4 cores (cold start 561 ms, two 20–33 ms frames).
+0.3.2 (Sega Saturn): cold start 437 ms, 240 fps (max frame 4.3 ms), 203 MB in Task Manager after scrolling,
+104–110 MB while a game runs; passed on the first run.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -669,6 +672,13 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.2
+- New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).
+- New: Saturn games show their RetroAchievements.
+- New: Saturn discs in mixed folders are recognized by their disc header, with the game's product number.
+- New: KB warns when the Saturn BIOS (mpr-17933.bin or sega_101.bin) is missing from RetroArch's system folder.
+- Fixed: a cue sheet whose disc images aren't there (e.g. a translation patch not applied yet) is no longer listed as a game; the scan report says why.
 
 ### 0.3.1 (2026-10-16)
 - New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.
