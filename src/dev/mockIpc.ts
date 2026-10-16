@@ -93,8 +93,9 @@ function makeLibrary(n: number): Library {
 function makeSettings(lib: Library): Settings {
   return {
     emulators: [
-      { id: "retroarch", name: "RetroArch", exePath: "E:\\Emulators\\RetroArch\\retroarch.exe", exeExists: true, defaultTemplate: '"{emulator}" -L "{core}" -f "{rom}"', templateOverride: null, supportsM3u: true },
-      { id: "dolphin", name: "Dolphin", exePath: null, exeExists: false, defaultTemplate: '"{emulator}" -b -e "{rom}"', templateOverride: null, supportsM3u: true },
+      { id: "dolphin", name: "Dolphin", exePath: null, exeExists: false, defaultTemplate: '"{emulator}" -b -e "{rom}"', templateOverride: null, supportsM3u: true, custom: false, achievements: true },
+      { id: "retroarch", name: "RetroArch", exePath: "E:\\Emulators\\RetroArch\\retroarch.exe", exeExists: true, defaultTemplate: '"{emulator}" -L "{core}" -f "{rom}"', templateOverride: null, supportsM3u: true, custom: false, achievements: true },
+      { id: "custom-ppsspp", name: "PPSSPP", exePath: "E:\\Emulators\\PPSSPP\\PPSSPPWindows64.exe", exeExists: true, defaultTemplate: '"{emulator}" --fullscreen "{rom}"', templateOverride: null, supportsM3u: false, custom: true, achievements: null },
     ],
     platforms: PLATFORMS.map(([id, name, shortName]) => ({
       id,
@@ -108,6 +109,9 @@ function makeSettings(lib: Library): Settings {
       extensionsOverride: null,
       enabled: true,
       gameCount: lib.platforms.find((p) => p.id === id)?.count ?? 0,
+      emulatorChoice: null,
+      extraEmulators: id === "psp" ? [{ emulatorId: "custom-ppsspp", core: null, templateOverride: null }] : [],
+      addableEmulators: id === "psp" ? [] : ["custom-ppsspp"],
     })),
     sources: [
       { id: 1, path: "E:\\Emulator Games\\PS2", platformId: "ps2", recursive: true, kind: "files", exists: true },
@@ -328,7 +332,29 @@ export function installMockIpc() {
       case "has_update_code":
         return false;
       case "preview_launch":
-        return ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"];
+        return {
+          argv: ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"],
+          emulator: "RetroArch",
+          notice: null,
+        };
+      case "game_emulators":
+        return {
+          defaultId: "retroarch",
+          chosen: null,
+          options: [
+            { id: "retroarch", name: "RetroArch", ready: true, achievements: true },
+            { id: "custom-ppsspp", name: "PPSSPP", ready: true, achievements: null },
+          ],
+        };
+      case "set_game_emulator":
+      case "add_custom_emulator":
+      case "update_custom_emulator":
+      case "remove_custom_emulator":
+      case "set_platform_default":
+      case "add_platform_emulator":
+      case "update_platform_emulator":
+      case "remove_platform_emulator":
+        return null;
       case "list_dir": {
         const p = (args as { path: string | null }).path;
         if (!p) return { path: null, parent: null, truncated: false, entries: [{ name: "C:\\", path: "C:\\", isDir: true }, { name: "E:\\", path: "E:\\", isDir: true }] };

@@ -378,7 +378,16 @@ Each milestone is runnable and tested, and passes the perf gate.
       layout mockups first, like the sidebar, before building. Code-split TV Mode here.
       Owner wants this looked at next session ("look into this tomorrow").
 - [ ] q. Multiple emulators per platform + per-game override (10a), then Switch (Eden default,
-      Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time)
+      Ryujinx, Yuzu), Xbox, Xbox 360 (one platform at a time). **Part 1 built 2026-10-16 (0.3.1, owner's
+      OK; owner named no extra emulators yet, so recommended defaults):** migration 015
+      (`platform_emulators`, `platforms.emulator_choice`, `games.emulator_choice`, `emulators.custom`);
+      built-in emulator always usable, RetroArch addable to standalone platforms (suggested cores
+      swanstation/pcsx2/dolphin/citra), the user's own emulators ("Add emulator…") addable anywhere;
+      `launcher::choose`: once > game pick > platform default; a game pick that can't run falls back
+      with a notice (Now Playing), a once-pick errors. "Play with…" is a picker on the details screen and
+      in the sidebar (no long-press: every button is taken). Achievements labels from RA's supported-
+      emulator list (docs checked 2026-10: RetroArch, DuckStation, PCSX2, Dolphin, PPSSPP, melonDS;
+      not RPCS3/Azahar). Part 2 (0.3.2+): new platforms + the owner's extra emulators.
 - [ ] r. CHD/RVZ/CSO hashing for RetroAchievements (needed **before** the owner compresses any games;
       until then compressed games launch fine but show no achievements). **Built 2026-10-16 (0.3.0,
       owner's OK):** `src-tauri/src/disc/` reads CHD (`chd` crate) and CSO v1/v2/ZSO (own reader, own

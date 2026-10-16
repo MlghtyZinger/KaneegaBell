@@ -1890,6 +1890,36 @@ html.nav-mode .tv-menu-item:focus {
   width: min(720px, 94vw);
 }
 
+/* A platform's emulators (Settings → Platforms → Emulator column). */
+.platform-emus-panel {
+  width: min(760px, 94vw);
+}
+
+.platform-emu .input {
+  width: 100%;
+}
+
+.platform-emu h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 6px;
+}
+
+/* "Launch with" / "Play with…" on the details screen and in the sidebar. */
+.launch-with {
+  align-items: center;
+}
+
+.side-play-with {
+  margin-top: 8px;
+}
+
+.side-play-with .picker {
+  width: 100%;
+}
+
 .update-notes {
   white-space: pre-wrap;
   max-height: 40vh;

@@ -405,6 +405,33 @@ export function raMediaUrl(name: string, kind: "ra" | "rai" = "ra"): string {
 export interface RunningGame {
   gameId: number;
   title: string;
+  /** The emulator running it. */
+  emulator: string;
+  /** Why it isn't the emulator picked for the game (it wasn't set up). */
+  notice: string | null;
+}
+
+export interface LaunchPreview {
+  argv: string[];
+  emulator: string;
+  notice: string | null;
+}
+
+/** An emulator a game can be played with. */
+export interface EmulatorOption {
+  id: string;
+  name: string;
+  /** Its exe (and RetroArch core) is there. */
+  ready: boolean;
+  /** On RetroAchievements' list (null: unknown or the console has none). */
+  achievements: boolean | null;
+}
+
+export interface GameEmulators {
+  defaultId: string;
+  /** The game's own pick (null: the platform's default). */
+  chosen: string | null;
+  options: EmulatorOption[];
 }
 
 export interface GameExited {
@@ -443,6 +470,16 @@ export interface EmulatorRow {
   defaultTemplate: string;
   templateOverride: string | null;
   supportsM3u: boolean;
+  /** Added by the user ("Add emulator…"). */
+  custom: boolean;
+  /** On RetroAchievements' list of supported emulators (null: unknown). */
+  achievements: boolean | null;
+}
+
+export interface PlatformEmulator {
+  emulatorId: string;
+  core: string | null;
+  templateOverride: string | null;
 }
 
 export interface PlatformRow {
@@ -457,6 +494,12 @@ export interface PlatformRow {
   extensionsOverride: string[] | null;
   enabled: boolean;
   gameCount: number;
+  /** The default emulator when it isn't the built-in one (emulatorId). */
+  emulatorChoice: string | null;
+  /** Emulators added for this platform besides the built-in one. */
+  extraEmulators: PlatformEmulator[];
+  /** Emulators that could still be added. */
+  addableEmulators: string[];
 }
 
 export interface SourceRow {
@@ -523,8 +566,12 @@ export const api = {
   getLibrary: () => invoke<Library>("get_library"),
   getGame: (id: number) => invoke<GameDetail>("get_game", { id }),
   setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),
-  previewLaunch: (id: number) => invoke<string[]>("preview_launch", { id }),
-  launchGame: (id: number) => invoke<RunningGame>("launch_game", { id }),
+  previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
+  /** `emulator`: this launch only (else the game's pick or the platform's default). */
+  launchGame: (id: number, emulator: string | null = null) => invoke<RunningGame>("launch_game", { id, emulator }),
+  gameEmulators: (id: number) => invoke<GameEmulators>("game_emulators", { id }),
+  /** null: follow the platform's default. */
+  setGameEmulator: (id: number, emulator: string | null) => invoke<void>("set_game_emulator", { id, emulator }),
   exitGame: () => invoke<void>("exit_game"),
   getRunning: () => invoke<RunningGame | null>("get_running"),
 
@@ -533,6 +580,17 @@ export const api = {
     invoke<void>("update_emulator", { id, exePath, templateOverride }),
   detectEmulators: (folder: string) => invoke<string[]>("detect_emulators", { folder }),
   updatePlatform: (update: PlatformUpdate) => invoke<void>("update_platform", { update }),
+  addCustomEmulator: (name: string, exePath: string | null, template: string, supportsM3u: boolean) =>
+    invoke<string>("add_custom_emulator", { name, exePath, template, supportsM3u }),
+  updateCustomEmulator: (id: string, name: string, template: string, supportsM3u: boolean) =>
+    invoke<void>("update_custom_emulator", { id, name, template, supportsM3u }),
+  removeCustomEmulator: (id: string) => invoke<void>("remove_custom_emulator", { id }),
+  setPlatformDefault: (platform: string, emulator: string) => invoke<void>("set_platform_default", { platform, emulator }),
+  addPlatformEmulator: (platform: string, emulator: string) => invoke<void>("add_platform_emulator", { platform, emulator }),
+  updatePlatformEmulator: (platform: string, emulator: string, core: string | null, templateOverride: string | null) =>
+    invoke<void>("update_platform_emulator", { platform, emulator, core, templateOverride }),
+  removePlatformEmulator: (platform: string, emulator: string) =>
+    invoke<void>("remove_platform_emulator", { platform, emulator }),
   validateTemplate: (template: string, needsCore: boolean) =>
     invoke<void>("validate_template", { template, needsCore }),
   addSource: (path: string, platformId: string | null) =>

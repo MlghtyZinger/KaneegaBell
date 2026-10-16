@@ -166,20 +166,89 @@ pub fn set_favorite(state: State<'_, AppState>, id: i64, favorite: bool) -> Resu
     queries::set_favorite(&state.db(), id, favorite)
 }
 
-/// The exact argv a launch would run, for the details panel.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchPreview {
+    argv: Vec<String>,
+    emulator: String,
+    /// Why it isn't the emulator picked for the game (see `launcher::choose`).
+    notice: Option<String>,
+}
+
+/// The exact argv a launch would run and with which emulator, for the details panel.
 #[tauri::command]
-pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<Vec<String>> {
+pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPreview> {
     let conn = state.db();
     let game = queries::game_detail(&conn, id)?;
-    let cfg = queries::launch_config(&conn, &game.platform_id)?;
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
+    let cores_dir = cores_dir.as_deref().map(Path::new);
+    let choice = launcher::choose(&conn, &game, None, cores_dir)?;
     let playlists = state.data_dir().join("playlists");
-    Ok(launcher::prepare(&game, &cfg, cores_dir.as_deref().map(Path::new), &playlists)?.argv)
+    Ok(LaunchPreview {
+        argv: launcher::prepare(&game, &choice.cfg, cores_dir, &playlists)?.argv,
+        emulator: choice.cfg.emulator_name,
+        notice: choice.notice,
+    })
+}
+
+/// `emulator`: run with this one, this time only (else the game's pick or
+/// the platform's default).
+#[tauri::command]
+pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64, emulator: Option<String>) -> Result<launcher::Started> {
+    state.launcher.launch(&app, id, emulator.as_deref())
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmulatorOption {
+    id: String,
+    name: String,
+    /// Its exe (and RetroArch core) is there.
+    ready: bool,
+    /// On RetroAchievements' list (None: unknown); only given for consoles RA covers.
+    achievements: Option<bool>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameEmulators {
+    /// The platform's default.
+    default_id: String,
+    /// The game's own pick, if any.
+    chosen: Option<String>,
+    options: Vec<EmulatorOption>,
+}
+
+/// The emulators a game can be played with ("Launch with…", "Play with…").
+#[tauri::command]
+pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulators> {
+    let conn = state.db();
+    let game = queries::game_detail(&conn, id)?;
+    let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
+    let ra_console: Option<i64> =
+        conn.query_row("SELECT ra_console_id FROM platforms WHERE id = ?1", [&game.platform_id], |r| r.get(0))?;
+    let emulators = queries::emulators(&conn)?;
+    let mut options = Vec::new();
+    for e in queries::platform_emulator_ids(&conn, &game.platform_id)? {
+        let cfg = queries::launch_config(&conn, &game.platform_id, &e)?;
+        let info = emulators.iter().find(|x| x.id == e);
+        options.push(EmulatorOption {
+            ready: launcher::choose(&conn, &game, Some(&e), cores.as_deref().map(Path::new)).is_ok(),
+            achievements: ra_console.and(info.and_then(|x| x.achievements)),
+            name: cfg.emulator_name,
+            id: e,
+        });
+    }
+    Ok(GameEmulators {
+        default_id: queries::platform_default(&conn, &game.platform_id)?,
+        chosen: queries::game_emulator_choice(&conn, id)?,
+        options,
+    })
 }
 
 #[tauri::command]
-pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<launcher::Started> {
-    state.launcher.launch(&app, id)
+pub fn set_game_emulator(state: State<'_, AppState>, id: i64, emulator: Option<String>) -> Result<()> {
+    queries::set_game_emulator(&state.db(), id, emulator.as_deref())
 }
 
 /// Same as the controller exit combo: close politely, then force after a grace period.
@@ -255,10 +324,64 @@ pub fn detect_emulators(state: State<'_, AppState>, folder: String) -> Result<Ve
 pub fn update_platform(state: State<'_, AppState>, update: queries::PlatformUpdate) -> Result<()> {
     let conn = state.db();
     if let Some(t) = update.template_override.as_deref().filter(|t| !t.trim().is_empty()) {
-        let cfg = queries::launch_config(&conn, &update.id)?;
-        template::validate(t, cfg.emulator_id == "retroarch")?;
+        // The platform's own core/template are the built-in emulator's.
+        template::validate(t, queries::platform_builtin(&conn, &update.id)? == "retroarch")?;
     }
     queries::update_platform(&conn, update)
+}
+
+/// "Add emulator…": returns the new emulator's id.
+#[tauri::command]
+pub fn add_custom_emulator(
+    state: State<'_, AppState>,
+    name: String,
+    exe_path: Option<String>,
+    template: String,
+    supports_m3u: bool,
+) -> Result<String> {
+    template::validate(&template, false)?;
+    let exe_path = exe_path.filter(|p| !p.trim().is_empty()).map(|p| clean_path(Path::new(p.trim())));
+    queries::add_custom_emulator(&state.db(), &name, exe_path.map(|p| p.to_string_lossy().into_owned()), &template, supports_m3u)
+}
+
+#[tauri::command]
+pub fn update_custom_emulator(state: State<'_, AppState>, id: String, name: String, template: String, supports_m3u: bool) -> Result<()> {
+    template::validate(&template, false)?;
+    queries::update_custom_emulator(&state.db(), &id, &name, &template, supports_m3u)
+}
+
+#[tauri::command]
+pub fn remove_custom_emulator(state: State<'_, AppState>, id: String) -> Result<()> {
+    queries::remove_custom_emulator(&state.db(), &id)
+}
+
+#[tauri::command]
+pub fn set_platform_default(state: State<'_, AppState>, platform: String, emulator: String) -> Result<()> {
+    queries::set_platform_default(&state.db(), &platform, &emulator)
+}
+
+#[tauri::command]
+pub fn add_platform_emulator(state: State<'_, AppState>, platform: String, emulator: String) -> Result<()> {
+    queries::add_platform_emulator(&state.db(), &platform, &emulator)
+}
+
+#[tauri::command]
+pub fn update_platform_emulator(
+    state: State<'_, AppState>,
+    platform: String,
+    emulator: String,
+    core: Option<String>,
+    template_override: Option<String>,
+) -> Result<()> {
+    if let Some(t) = template_override.as_deref().filter(|t| !t.trim().is_empty()) {
+        template::validate(t, emulator == "retroarch")?;
+    }
+    queries::update_platform_emulator(&state.db(), &platform, &emulator, core, template_override)
+}
+
+#[tauri::command]
+pub fn remove_platform_emulator(state: State<'_, AppState>, platform: String, emulator: String) -> Result<()> {
+    queries::remove_platform_emulator(&state.db(), &platform, &emulator)
 }
 
 #[tauri::command]

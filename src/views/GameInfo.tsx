@@ -10,6 +10,7 @@ import { Achievements } from "../components/Achievements";
 import { CollectionPicker } from "../components/Collections";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
+import { LaunchWith, PlayWith } from "../components/EmulatorChoice";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -155,10 +156,24 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     void refetch();
   });
   onCleanup(() => void unlisten.then((f) => f()));
-  const [argv] = createResource(
+  const [argv, { refetch: refetchArgv }] = createResource(
     () => id(),
     (id) => api.previewLaunch(id).then((a) => ({ ok: true as const, a }), (e) => ({ ok: false as const, e: errorText(e) })),
   );
+  // The emulators this game can use (shown when there's more than one).
+  const [emus, { refetch: refetchEmus }] = createResource(
+    () => id(),
+    (id) => api.gameEmulators(id).catch(() => null),
+  );
+  async function setEmulator(emulator: string | null) {
+    try {
+      await api.setGameEmulator(id(), emulator);
+    } catch (e) {
+      setLaunchError(errorText(e));
+    }
+    void refetchEmus();
+    void refetchArgv();
+  }
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   const [favorite, setFavorite] = createSignal<boolean | null>(null);
@@ -193,12 +208,12 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     await library.reload();
   }
 
-  async function play() {
+  async function play(emulator: string | null = null) {
     if (launching()) return;
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(id());
+      await api.launchGame(id(), emulator);
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
       setLaunchError(errorText(e));
@@ -312,6 +327,15 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     : "Never played"}
                 </span>
               </div>
+              <Show when={emus() && emus()!.options.length > 1 ? emus() : null}>
+                {(e) => (
+                  <div class="row tight launch-with">
+                    <span class="dim">Launch with</span>
+                    <LaunchWith emus={e()} onChange={(v) => void setEmulator(v)} />
+                    <PlayWith emus={e()} onPick={(v) => void play(v)} />
+                  </div>
+                )}
+              </Show>
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
               </Show>
@@ -364,7 +388,17 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
               <Show when={argv()}>
                 {(r) => {
                   const res = r();
-                  return res.ok ? <pre class="cmd">{res.a.map(showArg).join(" ")}</pre> : <p class="warn">{res.e}</p>;
+                  return res.ok ? (
+                    <>
+                      <p class="dim small">Runs with {res.a.emulator}</p>
+                      <Show when={res.a.notice}>
+                        <p class="warn">{res.a.notice}</p>
+                      </Show>
+                      <pre class="cmd">{res.a.argv.map(showArg).join(" ")}</pre>
+                    </>
+                  ) : (
+                    <p class="warn">{res.e}</p>
+                  );
                 }}
               </Show>
               </div>

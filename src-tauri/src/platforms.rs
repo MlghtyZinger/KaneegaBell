@@ -246,6 +246,38 @@ pub const PLATFORMS: &[PlatformDef] = &[
     },
 ];
 
+/// Whether an emulator is on RetroAchievements' list of supported emulators
+/// (docs.retroachievements.org, "Emulator Support and Issues", checked
+/// 2026-10): `Some(true)` listed, `Some(false)` not listed, `None` unknown
+/// (an emulator the user added). Dolphin needs 2407-68+ for GameCube and
+/// 2603+ for Wii there.
+pub fn achievements(emulator_id: &str) -> Option<bool> {
+    match emulator_id {
+        "retroarch" | "duckstation" | "pcsx2" | "dolphin" => Some(true),
+        "rpcs3" | "azahar" => Some(false),
+        _ => None,
+    }
+}
+
+/// The libretro core suggested when RetroArch is added to a platform whose
+/// built-in emulator is a standalone one (the user can change it).
+pub fn retroarch_core_for(platform_id: &str) -> Option<&'static str> {
+    match platform_id {
+        "ps1" => Some("swanstation"),
+        "ps2" => Some("pcsx2"),
+        "gc" | "wii" => Some("dolphin"),
+        "3ds" => Some("citra"),
+        _ => None,
+    }
+}
+
+/// Built-in emulators that can be added to a platform besides its own: only
+/// RetroArch (through a core), and not for PS3, whose games are folders.
+/// The user's own emulators can be added to any platform.
+pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &str) -> bool {
+    emulator_id == "retroarch" && platform_builtin != "retroarch" && platform_id != "ps3"
+}
+
 /// Executable file names each emulator ships with (lowercase; `*` = any run of chars).
 pub fn exe_patterns(emulator_id: &str) -> &'static [&'static str] {
     match emulator_id {

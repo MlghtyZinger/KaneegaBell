@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, onCleanup } from "solid-js";
+import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import { api, type ExitCombo, type RunningGame } from "../api";
 import { pushHandler } from "../input/actions";
 import { buttonLabel, session } from "../state/session";
@@ -26,6 +26,12 @@ export function NowPlaying(props: { game: RunningGame }) {
     <div class="now-playing">
       <p class="dim">Now playing</p>
       <h1>{props.game.title}</h1>
+      <Show when={props.game.emulator}>
+        <p class="dim">with {props.game.emulator}</p>
+      </Show>
+      <Show when={props.game.notice}>
+        <p class="warn">{props.game.notice}</p>
+      </Show>
       <p class="dim">
         To quit, hold{" "}
         <For each={combo()?.buttons ?? []}>

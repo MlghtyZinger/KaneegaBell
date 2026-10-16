@@ -5,6 +5,7 @@ import { mainSeries } from "../state/series";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
+import { PlayWith } from "./EmulatorChoice";
 
 /** How long the selection must rest before the panel loads another game. */
 const SETTLE_MS = 100;
@@ -34,6 +35,12 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
   const row = () => library.games().find((g) => g.id === id());
   const [detail] = createResource(id, (gid) => api.getGame(gid).catch(() => null));
   const [glance] = createResource(id, (gid) => api.achievementGlance(gid).catch(() => null));
+  // "Play with…" only for platforms with more than one emulator.
+  const [emus] = createResource(id, (gid) => api.gameEmulators(gid).catch(() => null));
+  const otherEmulators = () => {
+    const e = emus();
+    return e && e.options.length > 1 ? e : null;
+  };
   const platform = () => {
     const pid = row()?.platformId;
     return library.platforms().find((p) => p.id === pid)?.name ?? pid?.toUpperCase() ?? "";
@@ -52,12 +59,12 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   createEffect(on(id, () => setLaunchError(null), { defer: true }));
 
-  async function play() {
+  async function play(emulator: string | null = null) {
     if (launching()) return;
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(id());
+      await api.launchGame(id(), emulator);
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
       setLaunchError(errorText(e));
@@ -117,6 +124,13 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
                   More…
                 </button>
               </div>
+              <Show when={otherEmulators()}>
+                {(e) => (
+                  <div class="side-play-with">
+                    <PlayWith emus={e()} onPick={(v) => void play(v)} />
+                  </div>
+                )}
+              </Show>
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
               </Show>

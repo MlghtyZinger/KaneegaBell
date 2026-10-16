@@ -24,6 +24,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/012_collections.sql"),
     include_str!("migrations/013_sgdb_names.sql"),
     include_str!("migrations/014_compressed_discs.sql"),
+    include_str!("migrations/015_emulator_choice.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

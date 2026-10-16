@@ -439,9 +439,17 @@ function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
 
 // ------------------------------------------------------------------ emulators
 
+/** Whether an emulator earns RetroAchievements (from RA's list of supported emulators). */
+function achievementsNote(a: boolean | null): string {
+  return a === true ? "Achievements" : a === false ? "No achievements" : "";
+}
+
 function EmulatorsSection(props: { s: Settings; run: Run }) {
   const [browsing, setBrowsing] = createSignal(false);
+  const [adding, setAdding] = createSignal(false);
   const coresDir = () => (props.s.values.retroarchCoresDir as string | undefined) ?? "";
+  const builtIn = () => props.s.emulators.filter((e) => !e.custom);
+  const own = () => props.s.emulators.filter((e) => e.custom);
 
   const detect = (folder: string) =>
     props.run(
@@ -460,7 +468,21 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
         </button>
         <span class="dim">Looks for the six supported emulators up to two folders deep.</span>
       </div>
-      <For each={props.s.emulators}>{(emu) => <EmulatorEditor emu={emu} run={props.run} />}</For>
+      <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} />}</For>
+      <h2>Your emulators</h2>
+      <p class="dim small">
+        Any other emulator: its .exe and launch template. Then add it to a platform in Settings → Platforms (Emulator
+        column), and pick it per game on the game's details screen.
+      </p>
+      <For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>
+      <div class="row">
+        <button class="btn" onClick={() => setAdding(true)}>
+          Add emulator…
+        </button>
+      </div>
+      <Show when={adding()}>
+        <AddEmulatorPanel run={props.run} onClose={() => setAdding(false)} />
+      </Show>
       <h2>RetroArch cores folder</h2>
       <PathField
         label="RetroArch cores folder"
@@ -494,6 +516,9 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
         <span class="status" classList={{ ok: props.emu.exeExists }}>
           {props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}
         </span>
+        <Show when={achievementsNote(props.emu.achievements)}>
+          <span class="dim small"> · {achievementsNote(props.emu.achievements)}</span>
+        </Show>
       </h2>
       <label class="field-label">Executable</label>
       <PathField
@@ -515,6 +540,137 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
         Leave empty for the default. Placeholders: <code>{"{emulator}"}</code> <code>{"{core}"}</code>{" "}
         <code>{"{rom}"}</code> <code>{"{rom_dir}"}</code> <code>{"{rom_name}"}</code>
       </p>
+    </div>
+  );
+}
+
+const TEMPLATE_HELP = (
+  <>
+    Placeholders: <code>{"{emulator}"}</code> <code>{"{rom}"}</code> <code>{"{rom_dir}"}</code> <code>{"{rom_name}"}</code>.
+    Check the emulator's own documentation for its command-line options (e.g. a fullscreen flag).
+  </>
+);
+
+/** One of the user's own emulators: name, exe, template, playlist support, remove. */
+function CustomEmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
+  const [confirming, setConfirming] = createSignal(false);
+  const saveInfo = (patch: { name?: string; template?: string; m3u?: boolean }) =>
+    props.run(() =>
+      api.updateCustomEmulator(
+        props.emu.id,
+        patch.name ?? props.emu.name,
+        patch.template ?? props.emu.defaultTemplate,
+        patch.m3u ?? props.emu.supportsM3u,
+      ),
+    );
+  return (
+    <div class="emu">
+      <h2>
+        {props.emu.name}
+        <span class="status" classList={{ ok: props.emu.exeExists }}>
+          {props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}
+        </span>
+      </h2>
+      <label class="field-label">Name</label>
+      <input
+        class="input"
+        aria-label="Emulator name"
+        value={props.emu.name}
+        onChange={(e) => void saveInfo({ name: e.currentTarget.value })}
+      />
+      <label class="field-label">Executable</label>
+      <PathField
+        label={`${props.emu.name} executable`}
+        value={props.emu.exePath ?? ""}
+        placeholder="Path to the emulator .exe"
+        mode="file"
+        onCommit={(v) => props.run(() => api.updateEmulator(props.emu.id, v || null, null))}
+      />
+      <label class="field-label">Launch template</label>
+      <input
+        class="input mono"
+        aria-label={`${props.emu.name} launch template`}
+        value={props.emu.defaultTemplate}
+        onChange={(e) => void saveInfo({ template: e.currentTarget.value })}
+      />
+      <p class="dim small">{TEMPLATE_HELP}</p>
+      <label class="check">
+        <input type="checkbox" checked={props.emu.supportsM3u} onChange={(e) => void saveInfo({ m3u: e.currentTarget.checked })} />
+        Opens .m3u playlists (multi-disc games)
+      </label>
+      <div class="row">
+        <Show
+          when={confirming()}
+          fallback={
+            <button class="btn" onClick={() => setConfirming(true)}>
+              Remove…
+            </button>
+          }
+        >
+          <span class="dim">Remove {props.emu.name}? Its platforms and games go back to their default emulators.</span>
+          <button class="btn danger" onClick={() => void props.run(() => api.removeCustomEmulator(props.emu.id))}>
+            Remove
+          </button>
+          <button class="btn" onClick={() => setConfirming(false)}>
+            Cancel
+          </button>
+        </Show>
+      </div>
+    </div>
+  );
+}
+
+/** "Add emulator…": name, exe and launch template of an emulator KB doesn't know. */
+function AddEmulatorPanel(props: { run: Run; onClose: () => void }) {
+  const [name, setName] = createSignal("");
+  const [exe, setExe] = createSignal("");
+  const [template, setTemplate] = createSignal('"{emulator}" "{rom}"');
+  const [m3u, setM3u] = createSignal(false);
+  const [failed, setFailed] = createSignal<string | null>(null);
+  async function add() {
+    setFailed(null);
+    try {
+      await api.addCustomEmulator(name(), exe() || null, template(), m3u());
+    } catch (e) {
+      setFailed(errorText(e));
+      return;
+    }
+    props.onClose();
+    await props.run(async () => {}, { notice: `${name().trim()} added. Add it to a platform in Settings → Platforms.` });
+  }
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <NavScope class="panel confirm-panel" modal onBack={props.onClose}>
+        <h2>Add emulator</h2>
+        <label class="field-label">Name</label>
+        <input class="input" data-autofocus aria-label="Emulator name" placeholder="e.g. PPSSPP" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
+        <label class="field-label">Executable</label>
+        <PathField label="Emulator executable" value={exe()} placeholder="Path to the emulator .exe" mode="file" onCommit={setExe} />
+        <label class="field-label">Launch template</label>
+        <input class="input mono" aria-label="Launch template" value={template()} onInput={(e) => setTemplate(e.currentTarget.value)} />
+        <p class="dim small">{TEMPLATE_HELP}</p>
+        <label class="check">
+          <input type="checkbox" checked={m3u()} onChange={(e) => setM3u(e.currentTarget.checked)} />
+          Opens .m3u playlists (multi-disc games)
+        </label>
+        <Show when={failed()}>
+          <p class="warn">{failed()}</p>
+        </Show>
+        <div class="row">
+          <button class="btn" onClick={props.onClose}>
+            Cancel
+          </button>
+          <button class="btn primary" disabled={!name().trim()} onClick={() => void add()}>
+            Add
+          </button>
+        </div>
+        <div class="panel-actions">
+          <div class="hints-row">
+            <Hint action="select" label="Choose" />
+            <Hint action="back" label="Cancel" />
+          </div>
+        </div>
+      </NavScope>
     </div>
   );
 }
@@ -560,6 +716,9 @@ function PathField(props: {
 
 function PlatformsSection(props: { s: Settings; run: Run }) {
   const emuName = (id: string) => props.s.emulators.find((e) => e.id === id)?.name ?? id;
+  // The platform whose emulators panel is open.
+  const [emusOf, setEmusOf] = createSignal<string | null>(null);
+  const defaultOf = (p: PlatformRow) => p.emulatorChoice ?? p.emulatorId;
   const emuTemplate = (id: string) => {
     const e = props.s.emulators.find((x) => x.id === id);
     return e?.templateOverride ?? e?.defaultTemplate ?? "";
@@ -615,7 +774,12 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                   />
                 </td>
                 <td>{p.name}</td>
-                <td>{emuName(p.emulatorId)}</td>
+                <td>
+                  <button class="btn small" aria-label={`${p.name} emulators`} onClick={() => setEmusOf(p.id)}>
+                    {emuName(defaultOf(p))}
+                    {p.extraEmulators.length > 0 ? ` +${p.extraEmulators.length}` : ""} ▾
+                  </button>
+                </td>
                 <td>
                   <Show when={p.emulatorId === "retroarch"} fallback={<span class="dim">—</span>}>
                     <input
@@ -653,7 +817,131 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
           </For>
         </tbody>
       </table>
+      <p class="dim small">
+        Core and launch template above are for each platform's built-in emulator; emulators you add (Emulator column)
+        have their own.
+      </p>
+      <Show when={props.s.platforms.find((p) => p.id === emusOf())}>
+        {(p) => <PlatformEmulatorsPanel p={p()} s={props.s} run={props.run} onClose={() => setEmusOf(null)} />}
+      </Show>
     </section>
+  );
+}
+
+/**
+ * A platform's emulators: the built-in one and those added, which one is the
+ * default, each added one's core and template, and adding or removing them.
+ */
+function PlatformEmulatorsPanel(props: { p: PlatformRow; s: Settings; run: Run; onClose: () => void }) {
+  const emu = (id: string) => props.s.emulators.find((e) => e.id === id);
+  const defaultId = () => props.p.emulatorChoice ?? props.p.emulatorId;
+  const rows = () => [
+    { emulatorId: props.p.emulatorId, core: null as string | null, templateOverride: null as string | null, builtIn: true },
+    ...props.p.extraEmulators.map((e) => ({ ...e, builtIn: false })),
+  ];
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <NavScope class="panel platform-emus-panel" modal onBack={props.onClose}>
+        <h2>{props.p.name}: emulators</h2>
+        <p class="dim small">
+          Games use the default unless you pick another on a game's details screen ("Launch with"), or choose one for a
+          single launch ("Play with…").
+        </p>
+        <For each={rows()}>
+          {(r) => {
+            const e = () => emu(r.emulatorId);
+            const isDefault = () => r.emulatorId === defaultId();
+            return (
+              <div class="emu platform-emu">
+                <h3>
+                  {e()?.name ?? r.emulatorId}
+                  <span class="status" classList={{ ok: !!e()?.exeExists }}>
+                    {e()?.exeExists ? "found" : e()?.exePath ? "file missing" : "not set"}
+                  </span>
+                  <Show when={achievementsNote(e()?.achievements ?? null)}>
+                    <span class="dim small"> · {achievementsNote(e()?.achievements ?? null)}</span>
+                  </Show>
+                  <Show when={r.builtIn}>
+                    <span class="dim small"> · built-in</span>
+                  </Show>
+                </h3>
+                <div class="row">
+                  <Show
+                    when={isDefault()}
+                    fallback={
+                      <button class="btn small" onClick={() => void props.run(() => api.setPlatformDefault(props.p.id, r.emulatorId))}>
+                        Make default
+                      </button>
+                    }
+                  >
+                    <span class="badge">Default</span>
+                  </Show>
+                  <Show when={!r.builtIn}>
+                    <button
+                      class="btn small"
+                      onClick={() => void props.run(() => api.removePlatformEmulator(props.p.id, r.emulatorId))}
+                    >
+                      Remove from {props.p.shortName}
+                    </button>
+                  </Show>
+                </div>
+                <Show when={!r.builtIn}>
+                  <Show when={r.emulatorId === "retroarch"}>
+                    <label class="field-label">Core</label>
+                    <input
+                      class="input mono"
+                      aria-label={`RetroArch core for ${props.p.name}`}
+                      value={r.core ?? ""}
+                      placeholder="core name, e.g. swanstation"
+                      onChange={(ev) =>
+                        void props.run(() =>
+                          api.updatePlatformEmulator(props.p.id, r.emulatorId, ev.currentTarget.value.trim() || null, r.templateOverride),
+                        )
+                      }
+                    />
+                  </Show>
+                  <label class="field-label">Launch template</label>
+                  <input
+                    class="input mono"
+                    aria-label={`${e()?.name ?? r.emulatorId} launch template for ${props.p.name}`}
+                    value={r.templateOverride ?? ""}
+                    placeholder={e()?.templateOverride ?? e()?.defaultTemplate ?? ""}
+                    onChange={(ev) =>
+                      void props.run(() =>
+                        api.updatePlatformEmulator(props.p.id, r.emulatorId, r.core, ev.currentTarget.value.trim() || null),
+                      )
+                    }
+                  />
+                </Show>
+              </div>
+            );
+          }}
+        </For>
+        <Show
+          when={props.p.addableEmulators.length > 0}
+          fallback={<p class="dim small">To add another emulator, first add it under Settings → Emulators → Add emulator….</p>}
+        >
+          <div class="row">
+            <Picker
+              title={`Add an emulator to ${props.p.name}`}
+              label="Add an emulator…"
+              value=""
+              options={props.p.addableEmulators.map((id) => ({ value: id, label: emu(id)?.name ?? id }))}
+              onChange={(id) => void props.run(() => api.addPlatformEmulator(props.p.id, id))}
+            />
+          </div>
+        </Show>
+        <div class="panel-actions">
+          <div class="hints-row">
+            <Hint action="select" label="Choose" />
+            <Hint action="back" label="Close" />
+          </div>
+          <button class="btn" data-autofocus onClick={props.onClose}>
+            Close
+          </button>
+        </div>
+      </NavScope>
+    </div>
   );
 }
 

@@ -914,25 +914,96 @@ pub struct EmulatorRow {
     pub default_template: String,
     pub template_override: Option<String>,
     pub supports_m3u: bool,
+    /// Added by the user ("Add emulator…"): its name and template are its own.
+    pub custom: bool,
+    /// On RetroAchievements' list of supported emulators (None: unknown).
+    pub achievements: Option<bool>,
 }
 
 pub fn emulators(conn: &Connection) -> Result<Vec<EmulatorRow>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, exe_path, default_template, template_override, supports_m3u FROM emulators ORDER BY name",
+        "SELECT id, name, exe_path, default_template, template_override, supports_m3u, custom
+         FROM emulators ORDER BY custom, name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
+        let id: String = r.get(0)?;
         let exe_path: Option<String> = r.get(2)?;
+        let custom: bool = r.get(6)?;
         Ok(EmulatorRow {
-            id: r.get(0)?,
+            achievements: if custom { None } else { crate::platforms::achievements(&id) },
+            id,
             name: r.get(1)?,
             exe_exists: exe_path.as_deref().is_some_and(|p| std::path::Path::new(p).is_file()),
             exe_path,
             default_template: r.get(3)?,
             template_override: r.get(4)?,
             supports_m3u: r.get(5)?,
+            custom,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// "Add emulator…": the user's own emulator, usable on any platform they add
+/// it to. Its template is its default (there's no built-in one to override).
+pub fn add_custom_emulator(
+    conn: &Connection,
+    name: &str,
+    exe_path: Option<String>,
+    template: &str,
+    supports_m3u: bool,
+) -> Result<String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(Error::msg("Give the emulator a name."));
+    }
+    let slug: String = name
+        .to_ascii_lowercase()
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    let base = format!("custom-{}", if slug.is_empty() { "emulator" } else { &slug });
+    let mut id = base.clone();
+    let mut n = 2;
+    while conn.query_row("SELECT 1 FROM emulators WHERE id = ?1", [&id], |_| Ok(())).optional()?.is_some() {
+        id = format!("{base}-{n}");
+        n += 1;
+    }
+    conn.execute(
+        "INSERT INTO emulators (id, name, exe_path, default_template, supports_m3u, custom) VALUES (?1, ?2, ?3, ?4, ?5, 1)",
+        params![id, name, empty_to_none(exe_path), template.trim(), supports_m3u],
+    )?;
+    Ok(id)
+}
+
+pub fn update_custom_emulator(conn: &Connection, id: &str, name: &str, template: &str, supports_m3u: bool) -> Result<()> {
+    if name.trim().is_empty() {
+        return Err(Error::msg("Give the emulator a name."));
+    }
+    let n = conn.execute(
+        "UPDATE emulators SET name = ?2, default_template = ?3, supports_m3u = ?4 WHERE id = ?1 AND custom = 1",
+        params![id, name.trim(), template.trim(), supports_m3u],
+    )?;
+    if n == 0 {
+        return Err(Error::msg(format!("unknown emulator {id}")));
+    }
+    Ok(())
+}
+
+/// Removes one of the user's emulators: platforms and games that used it go
+/// back to their defaults.
+pub fn remove_custom_emulator(conn: &Connection, id: &str) -> Result<()> {
+    conn.execute("UPDATE games SET emulator_choice = NULL WHERE emulator_choice = ?1", [id])?;
+    conn.execute("UPDATE platforms SET emulator_choice = NULL WHERE emulator_choice = ?1", [id])?;
+    let n = conn.execute("DELETE FROM emulators WHERE id = ?1 AND custom = 1", [id])?;
+    if n == 0 {
+        return Err(Error::msg(format!("unknown emulator {id}")));
+    }
+    Ok(())
 }
 
 pub fn emulator_exe(conn: &Connection, id: &str) -> Result<Option<String>> {
@@ -971,13 +1042,49 @@ pub struct PlatformRow {
     pub extensions_override: Option<Vec<String>>,
     pub enabled: bool,
     pub game_count: i64,
+    /// The default emulator when the user picked another than the built-in one.
+    pub emulator_choice: Option<String>,
+    /// Emulators the user added for this platform besides the built-in one.
+    pub extra_emulators: Vec<PlatformEmulator>,
+    /// Emulators that could still be added.
+    pub addable_emulators: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlatformEmulator {
+    pub emulator_id: String,
+    pub core: Option<String>,
+    pub template_override: Option<String>,
+}
+
+fn platform_extras(conn: &Connection) -> Result<HashMap<String, Vec<PlatformEmulator>>> {
+    let mut stmt = conn.prepare(
+        "SELECT pe.platform_id, pe.emulator_id, pe.core, pe.template_override
+         FROM platform_emulators pe JOIN emulators e ON e.id = pe.emulator_id
+         ORDER BY e.name COLLATE NOCASE",
+    )?;
+    let mut out: HashMap<String, Vec<PlatformEmulator>> = HashMap::new();
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, String>(0)?, PlatformEmulator { emulator_id: r.get(1)?, core: r.get(2)?, template_override: r.get(3)? }))
+    })?;
+    for row in rows {
+        let (platform, e) = row?;
+        out.entry(platform).or_default().push(e);
+    }
+    Ok(out)
 }
 
 pub fn platforms(conn: &Connection) -> Result<Vec<PlatformRow>> {
+    let mut extras = platform_extras(conn)?;
+    let all_emulators: Vec<(String, bool)> = conn
+        .prepare("SELECT id, custom FROM emulators ORDER BY custom, name COLLATE NOCASE")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
     let mut stmt = conn.prepare(
         "SELECT p.id, p.name, p.short_name, p.emulator_id, p.default_core, p.core_override, p.template_override,
                 p.extensions, p.extensions_override, p.enabled,
-                (SELECT COUNT(*) FROM games g WHERE g.platform_id = p.id AND g.missing = 0)
+                (SELECT COUNT(*) FROM games g WHERE g.platform_id = p.id AND g.missing = 0), p.emulator_choice
          FROM platforms p ORDER BY p.sort_order",
     )?;
     let rows = stmt.query_map([], |r| {
@@ -994,6 +1101,9 @@ pub fn platforms(conn: &Connection) -> Result<Vec<PlatformRow>> {
                 extensions_override: None,
                 enabled: r.get(9)?,
                 game_count: r.get(10)?,
+                emulator_choice: r.get(11)?,
+                extra_emulators: Vec::new(),
+                addable_emulators: Vec::new(),
             },
             r.get::<_, String>(7)?,
             r.get::<_, Option<String>>(8)?,
@@ -1004,9 +1114,145 @@ pub fn platforms(conn: &Connection) -> Result<Vec<PlatformRow>> {
         let (mut p, exts, over) = row?;
         p.default_extensions = serde_json::from_str(&exts)?;
         p.extensions_override = over.map(|o| serde_json::from_str(&o)).transpose()?;
+        p.extra_emulators = extras.remove(&p.id).unwrap_or_default();
+        p.addable_emulators = all_emulators
+            .iter()
+            .filter(|(id, custom)| {
+                *id != p.emulator_id
+                    && !p.extra_emulators.iter().any(|e| e.emulator_id == *id)
+                    && (*custom || crate::platforms::can_add_builtin(id, &p.id, &p.emulator_id))
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        // A default that was removed falls back to the built-in emulator.
+        if p.emulator_choice.as_ref().is_some_and(|c| !p.extra_emulators.iter().any(|e| e.emulator_id == *c)) {
+            p.emulator_choice = None;
+        }
         out.push(p);
     }
     Ok(out)
+}
+
+/// The platform's built-in emulator (always usable).
+pub fn platform_builtin(conn: &Connection, platform_id: &str) -> Result<String> {
+    conn.query_row("SELECT emulator_id FROM platforms WHERE id = ?1", [platform_id], |r| r.get(0))
+        .optional()?
+        .ok_or_else(|| Error::msg(format!("unknown platform {platform_id}")))
+}
+
+/// The platform's default emulator: the user's pick if it's still one of its
+/// emulators, else the built-in one.
+pub fn platform_default(conn: &Connection, platform_id: &str) -> Result<String> {
+    conn.query_row(
+        "SELECT COALESCE(
+                    (SELECT pe.emulator_id FROM platform_emulators pe
+                     WHERE pe.platform_id = p.id AND pe.emulator_id = p.emulator_choice),
+                    p.emulator_id)
+         FROM platforms p WHERE p.id = ?1",
+        [platform_id],
+        |r| r.get(0),
+    )
+    .optional()?
+    .ok_or_else(|| Error::msg(format!("unknown platform {platform_id}")))
+}
+
+/// Every emulator a platform can use: the built-in one, then those added.
+pub fn platform_emulator_ids(conn: &Connection, platform_id: &str) -> Result<Vec<String>> {
+    let mut ids = vec![platform_builtin(conn, platform_id)?];
+    let mut stmt = conn.prepare(
+        "SELECT pe.emulator_id FROM platform_emulators pe JOIN emulators e ON e.id = pe.emulator_id
+         WHERE pe.platform_id = ?1 ORDER BY e.name COLLATE NOCASE",
+    )?;
+    for id in stmt.query_map([platform_id], |r| r.get::<_, String>(0))? {
+        ids.push(id?);
+    }
+    Ok(ids)
+}
+
+pub fn set_platform_default(conn: &Connection, platform_id: &str, emulator_id: &str) -> Result<()> {
+    let choice = if emulator_id == platform_builtin(conn, platform_id)? {
+        None
+    } else if platform_emulator_ids(conn, platform_id)?.iter().any(|e| e == emulator_id) {
+        Some(emulator_id)
+    } else {
+        return Err(Error::msg(format!("{emulator_id} isn't one of this platform's emulators")));
+    };
+    conn.execute("UPDATE platforms SET emulator_choice = ?2 WHERE id = ?1", params![platform_id, choice])?;
+    Ok(())
+}
+
+/// Adds an emulator to a platform (RetroArch gets the suggested core).
+pub fn add_platform_emulator(conn: &Connection, platform_id: &str, emulator_id: &str) -> Result<()> {
+    let addable = platforms(conn)?
+        .into_iter()
+        .find(|p| p.id == platform_id)
+        .is_some_and(|p| p.addable_emulators.iter().any(|e| e == emulator_id));
+    if !addable {
+        return Err(Error::msg(format!("{emulator_id} can't be added to this platform")));
+    }
+    let core = (emulator_id == "retroarch").then(|| crate::platforms::retroarch_core_for(platform_id)).flatten();
+    conn.execute(
+        "INSERT INTO platform_emulators (platform_id, emulator_id, core) VALUES (?1, ?2, ?3)",
+        params![platform_id, emulator_id, core],
+    )?;
+    Ok(())
+}
+
+pub fn update_platform_emulator(
+    conn: &Connection,
+    platform_id: &str,
+    emulator_id: &str,
+    core: Option<String>,
+    template_override: Option<String>,
+) -> Result<()> {
+    let n = conn.execute(
+        "UPDATE platform_emulators SET core = ?3, template_override = ?4 WHERE platform_id = ?1 AND emulator_id = ?2",
+        params![platform_id, emulator_id, empty_to_none(core), empty_to_none(template_override)],
+    )?;
+    if n == 0 {
+        return Err(Error::msg(format!("{emulator_id} isn't added to this platform")));
+    }
+    Ok(())
+}
+
+/// Takes an added emulator off a platform: it stops being its default, and
+/// its games that picked it go back to the default.
+pub fn remove_platform_emulator(conn: &Connection, platform_id: &str, emulator_id: &str) -> Result<()> {
+    conn.execute(
+        "DELETE FROM platform_emulators WHERE platform_id = ?1 AND emulator_id = ?2",
+        params![platform_id, emulator_id],
+    )?;
+    conn.execute(
+        "UPDATE platforms SET emulator_choice = NULL WHERE id = ?1 AND emulator_choice = ?2",
+        params![platform_id, emulator_id],
+    )?;
+    conn.execute(
+        "UPDATE games SET emulator_choice = NULL WHERE platform_id = ?1 AND emulator_choice = ?2",
+        params![platform_id, emulator_id],
+    )?;
+    Ok(())
+}
+
+/// A game's own emulator pick (None: the platform's default).
+pub fn game_emulator_choice(conn: &Connection, game_id: i64) -> Result<Option<String>> {
+    Ok(conn
+        .query_row("SELECT emulator_choice FROM games WHERE id = ?1", [game_id], |r| r.get(0))
+        .optional()?
+        .flatten())
+}
+
+pub fn set_game_emulator(conn: &Connection, game_id: i64, emulator_id: Option<&str>) -> Result<()> {
+    if let Some(e) = emulator_id {
+        let platform: String = conn
+            .query_row("SELECT platform_id FROM games WHERE id = ?1", [game_id], |r| r.get(0))
+            .optional()?
+            .ok_or_else(|| Error::msg(format!("unknown game {game_id}")))?;
+        if !platform_emulator_ids(conn, &platform)?.iter().any(|x| x == e) {
+            return Err(Error::msg(format!("{e} isn't one of this platform's emulators")));
+        }
+    }
+    conn.execute("UPDATE games SET emulator_choice = ?2 WHERE id = ?1", params![game_id, emulator_id])?;
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -1042,7 +1288,8 @@ pub fn update_platform(conn: &Connection, u: PlatformUpdate) -> Result<()> {
     Ok(())
 }
 
-/// Everything needed to render a launch for a platform.
+/// Everything needed to render a launch with one emulator on a platform.
+#[derive(Debug, Clone)]
 pub struct LaunchConfig {
     pub emulator_id: String,
     pub emulator_name: String,
@@ -1052,13 +1299,21 @@ pub struct LaunchConfig {
     pub supports_m3u: bool,
 }
 
-pub fn launch_config(conn: &Connection, platform_id: &str) -> Result<LaunchConfig> {
-    Ok(conn.query_row(
+/// The launch settings of `emulator_id` on a platform: the built-in emulator
+/// takes the platform's core and template overrides, an added one its own.
+pub fn launch_config(conn: &Connection, platform_id: &str, emulator_id: &str) -> Result<LaunchConfig> {
+    conn.query_row(
         "SELECT e.id, e.name, e.exe_path,
-                COALESCE(p.template_override, e.template_override, e.default_template),
-                COALESCE(p.core_override, p.default_core), e.supports_m3u
-         FROM platforms p JOIN emulators e ON e.id = p.emulator_id WHERE p.id = ?1",
-        [platform_id],
+                CASE WHEN e.id = p.emulator_id
+                     THEN COALESCE(p.template_override, e.template_override, e.default_template)
+                     ELSE COALESCE(pe.template_override, e.template_override, e.default_template) END,
+                CASE WHEN e.id = p.emulator_id THEN COALESCE(p.core_override, p.default_core) ELSE pe.core END,
+                e.supports_m3u
+         FROM platforms p
+         JOIN emulators e ON e.id = ?2
+         LEFT JOIN platform_emulators pe ON pe.platform_id = p.id AND pe.emulator_id = e.id
+         WHERE p.id = ?1 AND (e.id = p.emulator_id OR pe.emulator_id IS NOT NULL)",
+        params![platform_id, emulator_id],
         |r| {
             Ok(LaunchConfig {
                 emulator_id: r.get(0)?,
@@ -1069,7 +1324,9 @@ pub fn launch_config(conn: &Connection, platform_id: &str) -> Result<LaunchConfi
                 supports_m3u: r.get(5)?,
             })
         },
-    )?)
+    )
+    .optional()?
+    .ok_or_else(|| Error::msg(format!("{emulator_id} isn't one of this platform's emulators")))
 }
 
 #[derive(Debug, Serialize)]

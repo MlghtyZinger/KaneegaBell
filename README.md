@@ -243,6 +243,28 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - Play time is the session's wall-clock duration, added when the game exits. If the frontend
   crashes mid-session, "last played" is kept but that session's duration isn't guessed.
 
+### More than one emulator per platform
+
+- **Per platform:** Settings → Platforms → the Emulator column opens a platform's emulators. Its
+  built-in one is always there; add RetroArch (with a core, e.g. `swanstation` for PS1) or any
+  emulator of your own, and pick which is the **default**. Each added emulator has its own core
+  and launch template for that platform.
+- **Your own emulators:** Settings → Emulators → **Add emulator…**: a name, its `.exe` and a
+  launch template (`"{emulator}" "{rom}"` plus whatever options the emulator's documentation
+  gives, e.g. a fullscreen flag). KB doesn't configure emulators, it only starts them.
+- **Per game:** the details screen's **Launch with** sets the emulator a game always uses (or the
+  platform's default); **Play with…** (details screen and sidebar) starts it with another one
+  just this once. They appear when a platform has more than one emulator.
+- If a game's emulator isn't set up (exe or RetroArch core missing, or removed), KB plays it with
+  the platform's default and says so on the Now Playing screen. A "Play with…" pick that isn't set
+  up is reported instead.
+- The pickers mark emulators **Achievements** / **No achievements** from RetroAchievements' list
+  of supported emulators (RetroArch, DuckStation, PCSX2, Dolphin; not RPCS3 or Azahar; your own
+  emulators aren't marked). Unlocks belong to your RA account, so they count in any supported
+  emulator you're signed in to; saves and save states usually don't carry over between
+  emulators.
+- Play time, last played, favorites and achievements stay with the game, whichever emulator ran it.
+
 ## Covers and metadata
 
 Everything works without accounts or API keys:
@@ -638,6 +660,14 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.1
+- New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.
+- New: Settings → Emulators → "Add emulator…" adds any emulator by its .exe and launch template.
+- New: "Launch with" on a game's details screen sets the emulator that game always uses.
+- New: "Play with…" (details screen and sidebar) starts a game with another emulator just this once.
+- New: emulator pickers say which emulators earn RetroAchievements.
+- New: if a game's emulator isn't set up, KB plays it with the platform's default and says so on the Now Playing screen.
 
 ### 0.3.0 (2026-10-16)
 - New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.
