@@ -613,6 +613,16 @@ mod tests {
         want.extend_from_slice(&exe[..5048]);
         assert_eq!(hash_file(console::PS1, &t.path().join("ff7.cue")).unwrap(), Some(md5hex(&want)));
         assert_eq!(hash_file(console::PS1, &bin).unwrap(), Some(md5hex(&want)), "bin without cue: sync detection");
+        // The same disc with a 2-second pregap stored ahead of track 1 hashes the same.
+        let mut with_pregap = vec![0u8; 150 * 2352];
+        with_pregap.extend_from_slice(&img);
+        write(t.path(), "pregap.bin", &with_pregap);
+        let cue = write(
+            t.path(),
+            "pregap.cue",
+            b"FILE \"pregap.bin\" BINARY\r\n  TRACK 01 MODE2/2352\r\n    INDEX 00 00:00:00\r\n    INDEX 01 00:02:00\r\n",
+        );
+        assert_eq!(hash_file(console::PS1, &cue).unwrap(), Some(md5hex(&want)), "stored pregap skipped");
 
         // PS2: BOOT2 (cdrom0:), size from the directory record.
         let elf = [&b"\x7fELF"[..], &[7u8; 3000]].concat();

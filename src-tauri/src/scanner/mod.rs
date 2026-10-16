@@ -287,21 +287,30 @@ impl Resolver<'_> {
             ("m3u" | "cue", Some(first)) => (first.clone(), ext_of(first)),
             _ => (l.path.clone(), l.ext.clone()),
         };
+        // The cue sheet behind the probed track, if any (a .cue, or an .m3u of them).
+        let mut cue = (l.ext == "cue").then(|| l.path.clone());
         if probe_ext == "cue" {
             if let Some(track) = fs::read_to_string(&probe)
                 .ok()
                 .and_then(|c| cue_m3u::cue_files(&c, probe.parent()?).into_iter().next())
             {
-                probe_ext = ext_of(&track);
-                probe = track;
+                cue = Some(std::mem::replace(&mut probe, track));
+                probe_ext = ext_of(&probe);
             }
         }
         let mut sniff = detect::sniff(&probe, &probe_ext);
         // Optical discs: Sega CD / PSP / PS1 vs PS2 (via SYSTEM.CNF) + serial.
         if sniff.platform.is_none() && matches!(probe_ext.as_str(), "bin" | "img" | "iso") {
             sniff = detect::sniff_disc(&probe);
+            // A pregap stored ahead of track 1 moves the file system: read it
+            // where the cue's INDEX 01 says the track starts.
+            if sniff.platform.is_none() {
+                if let Some(cue) = &cue {
+                    sniff = detect::sniff_sectors(cue);
+                }
+            }
         } else if sniff.platform.is_none() && crate::disc::is_compressed(&probe_ext) {
-            sniff = detect::sniff_compressed_disc(&probe);
+            sniff = detect::sniff_sectors(&probe);
         }
 
         let platform = match (self.source_platform, sniff.platform) {

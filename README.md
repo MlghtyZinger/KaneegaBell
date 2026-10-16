@@ -447,9 +447,12 @@ chdman comes with [MAME](https://www.mamedev.org/release.html), maxcso from its
 run either. Good to know:
 
 - **KB keeps your history.** When a game's file is replaced by a compressed one with the same
-  name (e.g. `Game (USA).cue` → `Game (USA).chd`), the next scan moves its play time, favorite,
-  collections and picked art over to the new file. (If two games could match, it leaves them
-  separate rather than guess.)
+  name **in the same folder** (e.g. `Game (USA).cue` → `Game (USA).chd`), the next scan moves its
+  play time, favorite, collections and picked art over to the new file. A copy that turns up in
+  another folder while the original is missing (say, its drive is unplugged) stays a separate
+  entry, so the history waits for the original; and if two games could match, KB doesn't guess.
+- Discs whose cue sheet stores a pregap ahead of track 1 (`INDEX 00` / `INDEX 01 00:02:00`) are
+  read from where the track starts, like emulators do, so the `.cue` and its `.chd` hash the same.
 - Patch a disc image (translations, `.xdelta` romhacks) **before** compressing it; patching tools
   need the uncompressed file. Emulator-side patches and cheats don't care.
 - Keep a PS1 game's `.sbi` file (LibCrypt protection, some PAL games) next to the `.chd`, named
@@ -637,7 +640,8 @@ window, so they're written for players.
 
 ### 0.3.0
 - New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.
-- New: when you replace a game's file with a compressed one of the same name, KB keeps its play time, favorite, collections and picked art.
+- New: when you replace a game's file with a compressed one of the same name in the same folder, KB keeps its play time, favorite, collections and picked art.
+- Fixed: discs whose cue sheet stores a pregap before track 1 are read from where the track starts, so they're recognized for achievements and sorted to the right platform.
 - Improved: compressed PS1, PS2, PSP and Sega CD discs in mixed folders are sorted to the right platform by looking inside them, not just by folder name.
 - New: the README explains which format to use per platform and how to make it.
 

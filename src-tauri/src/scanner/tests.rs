@@ -241,6 +241,27 @@ fn auto_folder_of_ps2_isos_is_ps2_not_ps1() {
 }
 
 #[test]
+fn a_cue_with_a_stored_pregap_is_still_sniffed() {
+    // PS1 disc whose .bin has 150 frames of pregap ahead of track 1, in a
+    // folder whose name says nothing: only the disc itself can tell it from
+    // a Sega CD.
+    let t = tempfile::tempdir().unwrap();
+    let cnf = "BOOT = cdrom:\\SLUS_007.08;1\r\nTCB = 4\r\n";
+    let disc = detect::tests::build_disc(detect::SectorLayout { size: 2352, data: 24 }, "PLAYSTATION", Some(cnf));
+    let mut bin = vec![0u8; 150 * 2352];
+    bin.extend(disc);
+    write(&t.path().join("Unsorted").join("Game.bin"), &big(bin));
+    write(
+        &t.path().join("Unsorted").join("Game.cue"),
+        b"FILE \"Game.bin\" BINARY\n  TRACK 01 MODE2/2352\n    INDEX 00 00:00:00\n    INDEX 01 00:02:00\n",
+    );
+    let (c, w) = scan(t.path(), None);
+    assert!(w.is_empty(), "{w:?}");
+    let got: Vec<_> = c.iter().map(|c| (c.platform.as_str(), c.serial.as_deref())).collect();
+    assert_eq!(got, [("ps1", Some("SLUS-00708"))]);
+}
+
+#[test]
 fn folder_name_breaks_ties_when_headers_cant() {
     let t = tempfile::tempdir().unwrap();
     // A PlayStation disc with no SYSTEM.CNF, and an unreadable CHD: only the
@@ -509,6 +530,44 @@ fn a_converted_game_keeps_its_play_time_and_favorite() {
     fs::copy(&rvz, dir.join("Luigi's Mansion (USA).iso")).unwrap();
     let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
     assert_eq!((s.added, s.games_total), (1, 5));
+}
+
+#[test]
+fn a_copy_elsewhere_never_takes_a_missing_games_history() {
+    // The played copy's drive is unplugged (its whole folder is gone), and the
+    // same game turns up in another folder: that's another copy, not a conversion.
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let dir = t.path().join("Luigi's Mansion (USA)");
+    let iso = dir.join("Luigi's Mansion (USA).iso");
+    let id: i64 = conn
+        .query_row("SELECT id FROM games WHERE launch_path = ?1", [iso.to_string_lossy()], |r| r.get(0))
+        .unwrap();
+    conn.execute("UPDATE games SET play_seconds = 72000 WHERE id = ?1", [id]).unwrap();
+    let bytes = fs::read(&iso).unwrap();
+    fs::remove_dir_all(&dir).unwrap();
+    let elsewhere = t.path().join("Other copies").join("Luigi's Mansion (USA).rvz");
+    write(&elsewhere, &bytes);
+
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let mut report: Vec<_> = s.changes.iter().map(|c| c.kind).collect();
+    report.sort();
+    assert_eq!(report, ["added", "hidden"], "a new entry; the played one stays hidden");
+    let (path, played, missing): (String, i64, bool) = conn
+        .query_row("SELECT launch_path, play_seconds, missing FROM games WHERE id = ?1", [id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .unwrap();
+    assert_eq!((path.as_str(), played, missing), (iso.to_string_lossy().as_ref(), 72000, true));
+
+    // The drive comes back: the history is still on the original file.
+    write(&iso, &bytes);
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    assert_eq!(s.games_total, 5);
+    let back: (i64, bool) =
+        conn.query_row("SELECT play_seconds, missing FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!(back, (72000, false));
 }
 
 #[test]

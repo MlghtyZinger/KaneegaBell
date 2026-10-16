@@ -385,7 +385,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       LZ4) as 2048-byte sectors for the PS1/PS2/PSP/Sega CD hashes and scanner sniffing; RVZ/WIA/GCZ/
       CISO/TGC through `nod` (Wii re-encrypted, `rebuild_encryption`). Migration 014 re-hashes compressed
       files marked "no hash". Converted files keep their game row (same platform + title + variant,
-      old file gone, exactly one candidate; report kind "replaced"). Test tools (owner's OK): chdman
+      old file gone **from the same folder**, exactly one candidate; report kind "replaced"; review fix:
+      a copy elsewhere while a drive is unplugged must not take the history). Review fix 2: sector 0
+      is track 1's `INDEX 01` for cue/bin too (stored pregap skipped, as DuckStation/PCSX2/RetroArch
+      address discs and as chdman stores `PGTYPE:V…`); verified with a pregap copy: cue = chd = RA hash.
+      rcheevos' own cue reader can't read raw bins with a stored track-1 pregap at all. Test tools (owner's OK): chdman
       from MAME 0.289 (SHA-256 checked), maxcso 1.13.0, the owner's DolphinTool; scratchpad only.
 - [ ] t. Settings touch-up (owner, 2026-10-15): make Settings compact and more readable without costing
       performance (performance stays the top priority: no heavier rendering, settings screens stay

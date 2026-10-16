@@ -212,9 +212,10 @@ pub fn sniff_disc(path: &Path) -> Sniff {
     run().unwrap_or_default()
 }
 
-/// Compressed disc images (.chd, .cso/.zso): the same checks as `sniff_disc`,
-/// reading the original sectors through `crate::disc`.
-pub fn sniff_compressed_disc(path: &Path) -> Sniff {
+/// The same checks as `sniff_disc`, reading sectors through `crate::disc`:
+/// compressed images (.chd, .cso/.zso), and cue sheets whose track 1 starts
+/// after a stored pregap.
+pub fn sniff_sectors(path: &Path) -> Sniff {
     let run = || -> crate::error::Result<Sniff> {
         let mut disc = crate::disc::open(path)?;
         let mut read = |lba: u32, bytes: u32| -> crate::error::Result<Vec<u8>> {

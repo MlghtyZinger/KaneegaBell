@@ -753,6 +753,14 @@ pub struct GameChange {
     pub variant: Option<String>,
 }
 
+/// Whether two files sit in the same folder (case-insensitive on Windows).
+fn same_folder(a: &std::path::Path, b: &std::path::Path) -> bool {
+    match (a.parent(), b.parent()) {
+        (Some(x), Some(y)) => path_key(x).trim_end_matches('\\') == path_key(y).trim_end_matches('\\'),
+        _ => false,
+    }
+}
+
 /// Writes one source's scan results.
 pub fn apply_scan(
     tx: &Transaction,
@@ -779,8 +787,10 @@ pub fn apply_scan(
          RETURNING id",
     )?;
     let mut seen = tx.prepare_cached("INSERT OR IGNORE INTO scan_seen (id) VALUES (?1)")?;
-    // A new file whose game is already listed under a file that's gone, e.g.
-    // a .cue converted to .chd: same platform, title and variant.
+    // A new file whose game is already listed under a file that's gone from
+    // the same folder, e.g. a .cue converted to .chd next to it: same
+    // platform, title and variant. A file missing elsewhere (an unplugged
+    // drive, another copy) is never taken for a conversion.
     let mut predecessors = tx.prepare_cached(
         "SELECT id, launch_path FROM games
          WHERE platform_id = ?1 AND title = ?2 AND variant IS ?3 AND id NOT IN (SELECT id FROM scan_seen)",
@@ -809,7 +819,10 @@ pub fn apply_scan(
                 let gone: Vec<(i64, String)> = predecessors
                     .query_map(params![c.platform, c.name.title, c.name.variant], |r| Ok((r.get(0)?, r.get(1)?)))?
                     .filter_map(|r| r.ok())
-                    .filter(|(_, path)| !std::path::Path::new(path).exists())
+                    .filter(|(_, path)| {
+                        let old = std::path::Path::new(path);
+                        same_folder(old, &c.launch_path) && !old.exists()
+                    })
                     .collect();
                 if let [(id, _)] = gone.as_slice() {
                     // It keeps its play time, favorite, collections and picks; the
