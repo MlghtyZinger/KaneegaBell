@@ -612,6 +612,9 @@ as CD and DVD, zstd and default codecs), CSO v1/v2 and ZSO (PS2, PSP) and RVZ (G
 the original dumps. Wii RVZ uses the same reader but couldn't be tested: the owner's Wii games are `.wbfs`, which
 DolphinTool won't convert. After the review fixes (same-folder history, cue `INDEX 01`): cold start 461 ms, 240 fps,
 205 MB in Task Manager after scrolling, 104–111 MB while a game runs; passed.
+0.3.1 (several emulators per platform, core/BIOS warnings): cold start 456 ms, 240 fps (max frame 5.7 ms), 205 MB in
+Task Manager after scrolling, 102–109 MB while a game runs; passed (with a game launcher downloading in the
+background). A first run failed while a game used ~3.4 cores (cold start 561 ms, two 20–33 ms frames).
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -667,7 +670,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.1
+### 0.3.1 (2026-10-16)
 - New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.
 - New: Settings → Emulators → "Add emulator…" adds any emulator by its .exe and launch template.
 - New: "Launch with" on a game's details screen sets the emulator that game always uses.
