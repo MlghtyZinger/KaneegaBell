@@ -1,11 +1,11 @@
 {
-  "version": "0.3.0",
-  "notes": "- New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.\n- New: when you replace a game's file with a compressed one of the same name in the same folder, KB keeps its play time, favorite, collections and picked art.\n- Fixed: discs whose cue sheet stores a pregap before track 1 are read from where the track starts, so they're recognized for achievements and sorted to the right platform.\n- Improved: compressed PS1, PS2, PSP and Sega CD discs in mixed folders are sorted to the right platform by looking inside them, not just by folder name.\n- New: the README explains which format to use per platform and how to make it.",
-  "pub_date": "2026-10-16T13:09:43Z",
+  "version": "0.3.1",
+  "notes": "- New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.\n- New: Settings → Emulators → \"Add emulator…\" adds any emulator by its .exe and launch template.\n- New: \"Launch with\" on a game's details screen sets the emulator that game always uses.\n- New: \"Play with…\" (details screen and sidebar) starts a game with another emulator just this once.\n- New: emulator pickers say which emulators earn RetroAchievements.\n- New: if a game's emulator isn't set up, KB plays it with the platform's default and says so on the Now Playing screen.\n- New: Settings → Platforms says when a RetroArch core isn't installed or its BIOS seems to be missing (e.g. RetroArch's PS2 core needs a PS2 BIOS in RetroArch's own system folder); the game's sidebar and pickers warn too.\n- New: when an emulator closes within a few seconds without running the game, KB says so (with the likely reason) and doesn't count it as played.",
+  "pub_date": "2026-10-16T15:01:01Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWZ0eGpwbmVVTUZHTEU0U2tmZUhhTVl0bUtxYk1QY3k0YUpGT29WbU9iQUx6TTlrVXJlS09vZ0h0ZWlTN2ZTdG40ZWgxeHFkM0Q4SlRmc0o1MFBzOGdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTU2MTY0CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4wCjFzdE1ZQnhBMkNRTGVoQVVROFdZTkVkS2p1UkxLVlpvMFUyQVpzbmNaTjNLUGZKZmg2c0ZMV1VNVmpJU1NGekY2MWZ3YVdyemx6RzdmUUtkREhNbEF3PT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.0_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVI4N0dvRG1YZ09KOVJKYnhtcDBLNEFEbDBvUWs2SjlIb1hlTmZrKzk3WXVqZ004MDE3UlEzT3NXdnMwYnp3TW9UN2lHV0NMMjMyNjhYdndRVWpoSUF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTYyODQ3CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4xClpUZzRJYTI5VitVMThCSFIvSEhzVkFsM0toR2RLdkhTbGdHaVd0SW81eW50Ni9BRVIyT0dMV3dXeStkTzR0MHlJRTlEOXplZ0VBdFc4ZjVXdWp6eEFRPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.1_x64-setup.exe?ref=updates"
     }
   }
 }
