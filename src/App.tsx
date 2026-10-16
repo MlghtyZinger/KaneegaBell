@@ -1,4 +1,4 @@
-import { createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createEffect, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, events } from "./api";
 import { library } from "./state/library";
@@ -59,6 +59,14 @@ export default function App() {
     .getStartupNotice()
     .then((n) => n && showNotice(n))
     .catch(() => {});
+  // A launch whose emulator closed right away: say why, once.
+  createEffect(() => {
+    const f = session.failure();
+    if (f) {
+      showNotice(f, 60_000);
+      session.clearFailure();
+    }
+  });
 
   // L3 / F10 anywhere (views handle it first when they want to); B dismisses the notice.
   onCleanup(

@@ -159,6 +159,13 @@ pub fn end_session(conn: &Connection, game_id: i64, seconds: i64, now: i64) -> R
     Ok(())
 }
 
+/// A launch whose emulator closed right away: not played, so neither play
+/// time nor last-played changes.
+pub fn cancel_session(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET running_since = NULL WHERE id = ?1", [game_id])?;
+    Ok(())
+}
+
 /// A session that never recorded its end (app crash/power loss): keep the
 /// last-played time but don't guess the duration.
 pub fn reconcile_interrupted_sessions(conn: &Connection) -> Result<()> {
@@ -1048,6 +1055,9 @@ pub struct PlatformRow {
     pub extra_emulators: Vec<PlatformEmulator>,
     /// Emulators that could still be added.
     pub addable_emulators: Vec<String>,
+    /// The built-in RetroArch core's problem (not installed, BIOS missing);
+    /// filled in by the settings command.
+    pub core_problem: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1056,6 +1066,8 @@ pub struct PlatformEmulator {
     pub emulator_id: String,
     pub core: Option<String>,
     pub template_override: Option<String>,
+    /// As `PlatformRow::core_problem`, for RetroArch added to the platform.
+    pub core_problem: Option<String>,
 }
 
 fn platform_extras(conn: &Connection) -> Result<HashMap<String, Vec<PlatformEmulator>>> {
@@ -1066,7 +1078,10 @@ fn platform_extras(conn: &Connection) -> Result<HashMap<String, Vec<PlatformEmul
     )?;
     let mut out: HashMap<String, Vec<PlatformEmulator>> = HashMap::new();
     let rows = stmt.query_map([], |r| {
-        Ok((r.get::<_, String>(0)?, PlatformEmulator { emulator_id: r.get(1)?, core: r.get(2)?, template_override: r.get(3)? }))
+        Ok((
+            r.get::<_, String>(0)?,
+            PlatformEmulator { emulator_id: r.get(1)?, core: r.get(2)?, template_override: r.get(3)?, core_problem: None },
+        ))
     })?;
     for row in rows {
         let (platform, e) = row?;
@@ -1104,6 +1119,7 @@ pub fn platforms(conn: &Connection) -> Result<Vec<PlatformRow>> {
                 emulator_choice: r.get(11)?,
                 extra_emulators: Vec::new(),
                 addable_emulators: Vec::new(),
+                core_problem: None,
             },
             r.get::<_, String>(7)?,
             r.get::<_, Option<String>>(8)?,

@@ -83,6 +83,44 @@ fn not_ready(cfg: &LaunchConfig, cores_dir: Option<&Path>) -> Option<String> {
     None
 }
 
+/// What KB can see may stop a RetroArch launch but can't be sure of: a core
+/// that needs a BIOS RetroArch's system folder doesn't seem to have.
+pub fn bios_warning(cfg: &LaunchConfig, platform_id: &str) -> Option<String> {
+    if cfg.emulator_id != "retroarch" {
+        return None;
+    }
+    let exe = cfg.exe_path.as_deref()?;
+    let core = cfg.core.as_deref()?;
+    crate::platforms::retroarch_bios_problem(core, platform_id, &crate::platforms::retroarch_system_dir(Path::new(exe)))
+}
+
+/// For Settings: what's wrong with a RetroArch core on a platform (not set,
+/// not installed, BIOS missing), or None.
+pub fn core_problem(core: Option<&str>, platform_id: &str, retroarch_exe: Option<&str>, cores_dir: Option<&Path>) -> Option<String> {
+    let Some(core) = core else { return Some("No core set.".into()) };
+    match template::resolve_core(cores_dir, core) {
+        Ok(path) if path.is_file() => {}
+        Ok(path) => return Some(format!("Not installed ({} not found).", path.display())),
+        Err(e) => return Some(e.to_string()),
+    }
+    let exe = retroarch_exe?;
+    crate::platforms::retroarch_bios_problem(core, platform_id, &crate::platforms::retroarch_system_dir(Path::new(exe)))
+}
+
+/// An emulator that exits this soon (without KB asking it to) didn't start
+/// the game: KB says so and doesn't count it as played.
+const QUICK_EXIT: Duration = Duration::from_secs(5);
+
+fn quick_exit_message(title: &str, emulator: &str, secs: u64, bios: Option<&str>) -> String {
+    let hint = match bios {
+        Some(b) => format!(" {b}"),
+        None if emulator == "RetroArch" => " Check the core in RetroArch (some need BIOS files in RetroArch's system folder).".into(),
+        None => format!(" Try starting the game in {emulator} itself to see why."),
+    };
+    let after = if secs == 0 { "right away".to_string() } else { format!("after {secs} s") };
+    format!("{emulator} closed {after} without running {title}.{hint}")
+}
+
 /// Picks the emulator for a launch: `once` (chosen for this launch only),
 /// else the game's own pick, else the platform's default. A game's pick that
 /// can't run (not set up, removed) falls back to the default with a notice
@@ -137,6 +175,8 @@ pub struct Session {
     pub title: String,
     emulator: String,
     notice: Option<String>,
+    /// See `bios_warning`; said if the emulator closes right away.
+    bios: Option<String>,
     tracker: Tracker,
     exiting: AtomicBool,
     /// Restored when the game exits (minimize/restore drops fullscreen).
@@ -164,6 +204,8 @@ pub struct Started {
 pub struct Exited {
     pub game_id: i64,
     pub session_seconds: i64,
+    /// Set when the emulator closed right away without running the game.
+    pub failed: Option<String>,
 }
 
 /// Grace period between asking the emulator to close and force-killing it.
@@ -228,6 +270,7 @@ impl Launcher {
             title: game.title.clone(),
             emulator: cfg.emulator_name.clone(),
             notice: notice.clone(),
+            bios: bios_warning(&cfg, &game.platform_id),
             tracker,
             exiting: AtomicBool::new(false),
             was_fullscreen,
@@ -277,10 +320,20 @@ impl Launcher {
         let state = app.state::<crate::commands::AppState>();
         state.input.game_running.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
-        if let Err(e) = queries::end_session(&state.db(), session.game_id, secs, queries::now()) {
+        // Closed on its own within seconds: the game never ran.
+        let failed = (played < QUICK_EXIT && !session.exiting.load(Ordering::Acquire))
+            .then(|| quick_exit_message(&session.title, &session.emulator, played.as_secs(), session.bios.as_deref()));
+        let recorded = match &failed {
+            Some(_) => queries::cancel_session(&state.db(), session.game_id),
+            None => queries::end_session(&state.db(), session.game_id, secs, queries::now()),
+        };
+        if let Err(e) = recorded {
             log::error!("couldn't record play time: {e}");
         }
-        log::info!("{} exited after {secs} s", session.title);
+        match &failed {
+            Some(m) => log::warn!("{m}"),
+            None => log::info!("{} exited after {secs} s", session.title),
+        }
         if let Some(w) = app.get_webview_window("main") {
             #[cfg(windows)]
             {
@@ -303,7 +356,7 @@ impl Launcher {
             #[cfg(not(windows))]
             let _ = w.set_focus();
         }
-        let _ = app.emit("game-exited", &Exited { game_id: session.game_id, session_seconds: secs });
+        let _ = app.emit("game-exited", &Exited { game_id: session.game_id, session_seconds: secs, failed });
     }
 
     /// Closes the running game: politely first, forcefully after a grace period.
@@ -508,6 +561,26 @@ mod tests {
         assert_eq!(queries::platform_emulator_ids(&conn, "ps1").unwrap(), ["duckstation", "retroarch"]);
         // Built-in emulators can't be removed.
         assert!(queries::remove_custom_emulator(&conn, "duckstation").is_err());
+    }
+
+    #[test]
+    fn an_emulator_closing_right_away_is_explained() {
+        let bios = "RetroArch's pcsx2 core needs a PS2 BIOS file in E:\\RA\\system\\pcsx2\\bios, which is empty.";
+        assert_eq!(
+            quick_exit_message("Darkwatch", "RetroArch", 1, Some(bios)),
+            format!("RetroArch closed after 1 s without running Darkwatch. {bios}")
+        );
+        assert!(quick_exit_message("Darkwatch", "RetroArch", 0, None).contains("right away"));
+        assert!(quick_exit_message("Jak 3", "PCSX2", 2, None).ends_with("Try starting the game in PCSX2 itself to see why."));
+
+        // Settings: a core that isn't installed, and the PS2 core without a BIOS.
+        let (t, _conn, _game) = ps1_setup();
+        let cores = t.path().join("cores");
+        let ra = t.path().join("retroarch.exe").to_string_lossy().into_owned();
+        assert!(core_problem(Some("pcsx2"), "ps2", Some(&ra), Some(&cores)).unwrap().starts_with("Not installed"));
+        std::fs::write(cores.join("pcsx2_libretro.dll"), b"MZ").unwrap();
+        assert!(core_problem(Some("pcsx2"), "ps2", Some(&ra), Some(&cores)).unwrap().contains("PS2 BIOS"));
+        assert_eq!(core_problem(None, "ps2", Some(&ra), Some(&cores)).as_deref(), Some("No core set."));
     }
 
     #[test]

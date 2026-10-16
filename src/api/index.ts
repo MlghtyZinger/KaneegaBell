@@ -425,6 +425,8 @@ export interface EmulatorOption {
   ready: boolean;
   /** On RetroAchievements' list (null: unknown or the console has none). */
   achievements: boolean | null;
+  /** Something that will probably stop it (a RetroArch core's BIOS missing). */
+  warning: string | null;
 }
 
 export interface GameEmulators {
@@ -437,6 +439,8 @@ export interface GameEmulators {
 export interface GameExited {
   gameId: number;
   sessionSeconds: number;
+  /** The emulator closed right away without running the game: why, as far as KB can tell. */
+  failed: string | null;
 }
 
 export interface ExitCombo {
@@ -480,6 +484,8 @@ export interface PlatformEmulator {
   emulatorId: string;
   core: string | null;
   templateOverride: string | null;
+  /** RetroArch only: core not installed, BIOS missing… */
+  coreProblem: string | null;
 }
 
 export interface PlatformRow {
@@ -500,6 +506,8 @@ export interface PlatformRow {
   extraEmulators: PlatformEmulator[];
   /** Emulators that could still be added. */
   addableEmulators: string[];
+  /** The built-in RetroArch core's problem (not installed, BIOS missing…). */
+  coreProblem: string | null;
 }
 
 export interface SourceRow {

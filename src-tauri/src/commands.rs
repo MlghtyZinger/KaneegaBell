@@ -184,10 +184,14 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
     let cores_dir = cores_dir.as_deref().map(Path::new);
     let choice = launcher::choose(&conn, &game, None, cores_dir)?;
     let playlists = state.data_dir().join("playlists");
+    let bios = launcher::bios_warning(&choice.cfg, &game.platform_id);
     Ok(LaunchPreview {
         argv: launcher::prepare(&game, &choice.cfg, cores_dir, &playlists)?.argv,
         emulator: choice.cfg.emulator_name,
-        notice: choice.notice,
+        notice: match (choice.notice, bios) {
+            (Some(n), Some(b)) => Some(format!("{n} {b}")),
+            (n, b) => n.or(b),
+        },
     })
 }
 
@@ -207,6 +211,8 @@ pub struct EmulatorOption {
     ready: bool,
     /// On RetroAchievements' list (None: unknown); only given for consoles RA covers.
     achievements: Option<bool>,
+    /// Something that will probably stop it (a RetroArch core's BIOS missing).
+    warning: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -235,6 +241,7 @@ pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulato
         options.push(EmulatorOption {
             ready: launcher::choose(&conn, &game, Some(&e), cores.as_deref().map(Path::new)).is_ok(),
             achievements: ra_console.and(info.and_then(|x| x.achievements)),
+            warning: launcher::bios_warning(&cfg, &game.platform_id),
             name: cfg.emulator_name,
             id: e,
         });
@@ -277,9 +284,24 @@ pub struct Settings {
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Result<Settings> {
     let conn = state.db();
+    let emulators = queries::emulators(&conn)?;
+    let mut platforms = queries::platforms(&conn)?;
+    // RetroArch cores: installed? BIOS there? Said before anyone presses Play.
+    let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
+    let cores = cores.as_deref().map(Path::new);
+    let ra_exe = emulators.iter().find(|e| e.id == "retroarch").and_then(|e| e.exe_path.as_deref());
+    for p in &mut platforms {
+        if p.emulator_id == "retroarch" {
+            let core = p.core_override.as_deref().or(p.default_core.as_deref());
+            p.core_problem = launcher::core_problem(core, &p.id, ra_exe, cores);
+        }
+        for e in p.extra_emulators.iter_mut().filter(|e| e.emulator_id == "retroarch") {
+            e.core_problem = launcher::core_problem(e.core.as_deref(), &p.id, ra_exe, cores);
+        }
+    }
     Ok(Settings {
-        emulators: queries::emulators(&conn)?,
-        platforms: queries::platforms(&conn)?,
+        emulators,
+        platforms,
         sources: queries::source_rows(&conn)?,
         values: queries::all_settings(&conn)?,
         scanning: state.scanning.load(Ordering::Relaxed),

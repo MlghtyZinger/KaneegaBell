@@ -5,6 +5,8 @@ import { library } from "./library";
 function createSessionStore() {
   const [running, setRunning] = createSignal<RunningGame | null>(null);
   const [lastPad, setLastPad] = createSignal<PadInfo | null>(null);
+  // Why the last launch didn't run (the emulator closed right away), until shown.
+  const [failure, setFailure] = createSignal<string | null>(null);
 
   function setPaused(paused: boolean) {
     // Stops CSS animations/transitions app-wide while a game runs.
@@ -17,9 +19,10 @@ function createSessionStore() {
       setRunning(g);
       setPaused(true);
     });
-    void events.onGameExited(() => {
+    void events.onGameExited((e) => {
       setRunning(null);
       setPaused(false);
+      if (e.failed) setFailure(e.failed);
       void library.reload(); // play time / last played changed
     });
     void events.onGamepadConnected(setLastPad);
@@ -32,7 +35,7 @@ function createSessionStore() {
     });
   }
 
-  return { running, lastPad, listen };
+  return { running, lastPad, failure, clearFailure: () => setFailure(null), listen };
 }
 
 export const session = createRoot(createSessionStore);

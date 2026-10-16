@@ -110,8 +110,9 @@ function makeSettings(lib: Library): Settings {
       enabled: true,
       gameCount: lib.platforms.find((p) => p.id === id)?.count ?? 0,
       emulatorChoice: null,
-      extraEmulators: id === "psp" ? [{ emulatorId: "custom-ppsspp", core: null, templateOverride: null }] : [],
+      extraEmulators: id === "psp" ? [{ emulatorId: "custom-ppsspp", core: null, templateOverride: null, coreProblem: null }] : [],
       addableEmulators: id === "psp" ? [] : ["custom-ppsspp"],
+      coreProblem: id === "ps2" ? "RetroArch's pcsx2 core needs a PS2 BIOS file in E:\\Emulators\\RetroArch\\system\\pcsx2\\bios, which is empty." : null,
     })),
     sources: [
       { id: 1, path: "E:\\Emulator Games\\PS2", platformId: "ps2", recursive: true, kind: "files", exists: true },
@@ -342,8 +343,8 @@ export function installMockIpc() {
           defaultId: "retroarch",
           chosen: null,
           options: [
-            { id: "retroarch", name: "RetroArch", ready: true, achievements: true },
-            { id: "custom-ppsspp", name: "PPSSPP", ready: true, achievements: null },
+            { id: "retroarch", name: "RetroArch", ready: true, achievements: true, warning: "RetroArch's pcsx2 core needs a PS2 BIOS file in E:\\Emulators\\RetroArch\\system\\pcsx2\\bios, which is empty." },
+            { id: "custom-ppsspp", name: "PPSSPP", ready: true, achievements: null, warning: null },
           ],
         };
       case "set_game_emulator":

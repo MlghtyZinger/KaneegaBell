@@ -258,6 +258,12 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - If a game's emulator isn't set up (exe or RetroArch core missing, or removed), KB plays it with
   the platform's default and says so on the Now Playing screen. A "Play with…" pick that isn't set
   up is reported instead.
+- RetroArch cores that need the console's BIOS look for it in **RetroArch's own system folder**
+  (its `system` folder, or `system_directory` in retroarch.cfg), not the standalone emulator's:
+  `system\pcsx2\bios\` for the PS2 core, `scph….bin` in `system` for the PS1 cores (SwanStation,
+  Beetle PSX), `bios_CD_U.bin` for Sega CD. Settings → Platforms, the sidebar and the pickers warn
+  when it looks missing (a warning only: KB still lets you try). If an emulator closes within a few
+  seconds anyway, KB says so instead of quietly coming back, and doesn't count it as played.
 - The pickers mark emulators **Achievements** / **No achievements** from RetroAchievements' list
   of supported emulators (RetroArch, DuckStation, PCSX2, Dolphin; not RPCS3 or Azahar; your own
   emulators aren't marked). Unlocks belong to your RA account, so they count in any supported
@@ -668,6 +674,8 @@ window, so they're written for players.
 - New: "Play with…" (details screen and sidebar) starts a game with another emulator just this once.
 - New: emulator pickers say which emulators earn RetroAchievements.
 - New: if a game's emulator isn't set up, KB plays it with the platform's default and says so on the Now Playing screen.
+- New: Settings → Platforms says when a RetroArch core isn't installed or its BIOS seems to be missing (e.g. RetroArch's PS2 core needs a PS2 BIOS in RetroArch's own system folder); the game's sidebar and pickers warn too.
+- New: when an emulator closes within a few seconds without running the game, KB says so (with the likely reason) and doesn't count it as played.
 
 ### 0.3.0 (2026-10-16)
 - New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.

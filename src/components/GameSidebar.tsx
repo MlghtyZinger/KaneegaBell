@@ -5,7 +5,7 @@ import { mainSeries } from "../state/series";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
-import { PlayWith } from "./EmulatorChoice";
+import { PlayWith, playWarning } from "./EmulatorChoice";
 
 /** How long the selection must rest before the panel loads another game. */
 const SETTLE_MS = 100;
@@ -133,6 +133,9 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
               </Show>
               <Show when={launchError()}>
                 <p class="warn">{launchError()}</p>
+              </Show>
+              <Show when={!launchError() && playWarning(emus())}>
+                <p class="warn small">{playWarning(emus())}</p>
               </Show>
               <p class="dim side-played">
                 {g().playSeconds > 0

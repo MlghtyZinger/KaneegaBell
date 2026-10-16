@@ -13,6 +13,8 @@
 //! Defaults are re-applied on every start; user changes live in the `*_override`
 //! columns and `exe_path`, which seeding never touches.
 
+use std::path::{Path, PathBuf};
+
 use rusqlite::{params, Connection};
 
 use crate::error::Result;
@@ -271,6 +273,54 @@ pub fn retroarch_core_for(platform_id: &str) -> Option<&'static str> {
     }
 }
 
+/// RetroArch's system (BIOS) folder: `system_directory` in the retroarch.cfg
+/// next to its exe (`:\…` is relative to RetroArch's folder), else its
+/// `system` folder.
+pub fn retroarch_system_dir(retroarch_exe: &Path) -> PathBuf {
+    let dir = retroarch_exe.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let configured = std::fs::read_to_string(dir.join("retroarch.cfg")).ok().and_then(|cfg| {
+        cfg.lines().find_map(|l| {
+            let (k, v) = l.split_once('=')?;
+            (k.trim() == "system_directory").then(|| v.trim().trim_matches('"').to_string())
+        })
+    });
+    match configured.as_deref() {
+        None | Some("") | Some("default") => dir.join("system"),
+        Some(v) => match v.strip_prefix(":\\").or_else(|| v.strip_prefix(":/")) {
+            Some(rel) => dir.join(rel),
+            None => PathBuf::from(v),
+        },
+    }
+}
+
+/// Libretro cores that won't start a game without the console's BIOS: what's
+/// missing from RetroArch's system folder, if it looks missing. Only a
+/// warning (BIOS file names vary), never a reason to refuse a launch.
+pub fn retroarch_bios_problem(core: &str, platform_id: &str, system_dir: &Path) -> Option<String> {
+    let name = Path::new(core).file_stem().map(|s| s.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
+    let name = name.trim_end_matches("_libretro");
+    let files = |dir: &Path| -> Vec<String> {
+        std::fs::read_dir(dir)
+            .map(|rd| rd.flatten().filter(|e| e.path().is_file()).map(|e| e.file_name().to_string_lossy().to_ascii_lowercase()).collect())
+            .unwrap_or_default()
+    };
+    match name {
+        "pcsx2" => {
+            let bios = system_dir.join("pcsx2").join("bios");
+            files(&bios).is_empty().then(|| format!("RetroArch's pcsx2 core needs a PS2 BIOS file in {}, which is empty.", bios.display()))
+        }
+        "swanstation" | "mednafen_psx" | "mednafen_psx_hw" => {
+            let found = files(system_dir).iter().any(|f| (f.starts_with("scph") || f.starts_with("psxonpsp")) && f.ends_with(".bin"));
+            (!found).then(|| format!("RetroArch's {name} core needs a PS1 BIOS (e.g. scph5501.bin) in {}.", system_dir.display()))
+        }
+        "genesis_plus_gx" if platform_id == "segacd" => {
+            let found = files(system_dir).iter().any(|f| f.starts_with("bios_cd_") && f.ends_with(".bin"));
+            (!found).then(|| format!("RetroArch's genesis_plus_gx core needs a Sega CD BIOS (bios_CD_U.bin) in {}.", system_dir.display()))
+        }
+        _ => None,
+    }
+}
+
 /// Built-in emulators that can be added to a platform besides its own: only
 /// RetroArch (through a core), and not for PS3, whose games are folders.
 /// The user's own emulators can be added to any platform.
@@ -409,6 +459,32 @@ mod tests {
         assert_eq!(found["azahar"], r.join(r"Azahar\azahar.exe"));
         assert_eq!(found["rpcs3"], r.join(r"RPCS3\rpcs3.exe"));
         assert_eq!(found["duckstation"], r.join(r"Duckstation\duckstation-qt-x64-ReleaseLTCG.exe"));
+    }
+
+    #[test]
+    fn retroarch_system_folder_and_missing_bios() {
+        let t = tempfile::tempdir().unwrap();
+        let exe = t.path().join("retroarch.exe");
+        // Default: RetroArch's own system folder.
+        assert_eq!(retroarch_system_dir(&exe), t.path().join("system"));
+        std::fs::write(t.path().join("retroarch.cfg"), "video_driver = \"vulkan\"\nsystem_directory = \":\\bios\"\n").unwrap();
+        assert_eq!(retroarch_system_dir(&exe), t.path().join("bios"));
+        std::fs::write(t.path().join("retroarch.cfg"), "system_directory = \"D:\\RA System\"\n").unwrap();
+        assert_eq!(retroarch_system_dir(&exe), Path::new(r"D:\RA System"));
+
+        let sys = t.path().join("system");
+        std::fs::create_dir_all(sys.join("pcsx2").join("bios")).unwrap();
+        // The owner's case: the PS2 BIOS folder exists but is empty.
+        let ps2 = retroarch_bios_problem("pcsx2", "ps2", &sys).unwrap();
+        assert!(ps2.contains("PS2 BIOS") && ps2.contains("empty"), "{ps2}");
+        std::fs::write(sys.join("pcsx2").join("bios").join("SCPH-70012.bin"), b"x").unwrap();
+        assert_eq!(retroarch_bios_problem(r"E:\RA\cores\pcsx2_libretro.dll", "ps2", &sys), None, "a core given as a path");
+        assert!(retroarch_bios_problem("swanstation", "ps1", &sys).is_some());
+        std::fs::write(sys.join("SCPH5501.BIN"), b"x").unwrap();
+        assert_eq!(retroarch_bios_problem("swanstation", "ps1", &sys), None);
+        assert!(retroarch_bios_problem("genesis_plus_gx", "segacd", &sys).is_some());
+        assert_eq!(retroarch_bios_problem("genesis_plus_gx", "snes", &sys), None, "Genesis games need no BIOS");
+        assert_eq!(retroarch_bios_problem("dolphin", "gc", &sys), None);
     }
 
     #[test]

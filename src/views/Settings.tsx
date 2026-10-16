@@ -789,6 +789,9 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                       placeholder={p.defaultCore ?? ""}
                       onChange={(e) => save(p, { coreOverride: e.currentTarget.value.trim() || null })}
                     />
+                    <Show when={p.coreProblem}>
+                      <div class="warn small">{p.coreProblem}</div>
+                    </Show>
                   </Show>
                 </td>
                 <td>
@@ -836,7 +839,13 @@ function PlatformEmulatorsPanel(props: { p: PlatformRow; s: Settings; run: Run; 
   const emu = (id: string) => props.s.emulators.find((e) => e.id === id);
   const defaultId = () => props.p.emulatorChoice ?? props.p.emulatorId;
   const rows = () => [
-    { emulatorId: props.p.emulatorId, core: null as string | null, templateOverride: null as string | null, builtIn: true },
+    {
+      emulatorId: props.p.emulatorId,
+      core: null as string | null,
+      templateOverride: null as string | null,
+      coreProblem: props.p.coreProblem,
+      builtIn: true,
+    },
     ...props.p.extraEmulators.map((e) => ({ ...e, builtIn: false })),
   ];
   return (
@@ -865,6 +874,9 @@ function PlatformEmulatorsPanel(props: { p: PlatformRow; s: Settings; run: Run; 
                     <span class="dim small"> · built-in</span>
                   </Show>
                 </h3>
+                <Show when={r.coreProblem}>
+                  <p class="warn small">{r.coreProblem}</p>
+                </Show>
                 <div class="row">
                   <Show
                     when={isDefault()}
