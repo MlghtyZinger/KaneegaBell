@@ -343,7 +343,9 @@ Each milestone is runnable and tested, and passes the perf gate.
       sidebar and details). Options/Start stays Settings; Esc opens Settings when there's nothing to
       close (back first). TV Mode unchanged. After this milestone: answer the owner's question about
       a Steam integration "like RetroArch does it".
-- **Release order (owner, 2026-10-16), one milestone per release:** ~~0.2.9 storage audit fixes~~ →
+- **Release order (owner, 2026-10-16), one milestone per release. LOCKED by the owner ("remind me to
+      not change them later on"): if they ask to reorder, remind them first and park the idea as a note
+      under its milestone; change only if they confirm.** ~~0.2.9 storage audit fixes~~ →
       ~~r (0.3.0, compressed-disc hashing)~~ → q part 1 (0.3.1, several emulators per platform) → q part 2
       (0.3.2 Saturn, 0.3.3 Switch, 0.3.4 Xbox, 0.3.5 Xbox 360 optional) → t (Settings
       touch-up, includes code-splitting Settings) → m (icons) → Steam-style list view → n rest, o, p,
