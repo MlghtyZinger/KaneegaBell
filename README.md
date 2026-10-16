@@ -582,7 +582,8 @@ Manager figures; private memory only warns. On a copy of the installed library, 
 compressed image takes 3–120 ms (background only). Verified on the owner's games: CHD (PS1, Sega CD, PS2 DVD, PSP
 as CD and DVD, zstd and default codecs), CSO v1/v2 and ZSO (PS2, PSP) and RVZ (GameCube) all hash exactly like
 the original dumps. Wii RVZ uses the same reader but couldn't be tested: the owner's Wii games are `.wbfs`, which
-DolphinTool won't convert.
+DolphinTool won't convert. After the review fixes (same-folder history, cue `INDEX 01`): cold start 461 ms, 240 fps,
+205 MB in Task Manager after scrolling, 104–111 MB while a game runs; passed.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
@@ -638,7 +639,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.0
+### 0.3.0 (2026-10-16)
 - New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.
 - New: when you replace a game's file with a compressed one of the same name in the same folder, KB keeps its play time, favorite, collections and picked art.
 - Fixed: discs whose cue sheet stores a pregap before track 1 are read from where the track starts, so they're recognized for achievements and sorted to the right platform.
