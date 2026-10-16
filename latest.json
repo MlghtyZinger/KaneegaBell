@@ -1,11 +1,11 @@
 {
-  "version": "0.2.9",
-  "notes": "- Improved: when a game leaves your library, its achievement badges and cached achievement lists go too (badges another game still uses stay).\n- Improved: pictures and badges that removed games left behind in earlier versions are cleaned up once on the first start.\n- Improved: KB no longer lets WebView2 download add-ons it never uses (ad-filter lists, a speech model, hyphenation data); the ones already downloaded (~20 MB) are removed on the first start.\n- New: Settings → General → Storage and reset shows the library copy a reset keeps, with a \"Delete reset backup\" button.\n- Changed: \"Clear downloaded data\" also empties the web cache (on the next start).",
-  "pub_date": "2026-10-15T21:12:42Z",
+  "version": "0.3.0",
+  "notes": "- New: compressed games show their achievements: CHD (PS1, PS2, Sega CD, PSP), CSO (PSP, PS2), ZSO (PS2) and RVZ (GameCube, Wii; also WIA, GCZ, CISO) get the same RetroAchievements match as the original dump.\n- New: when you replace a game's file with a compressed one of the same name in the same folder, KB keeps its play time, favorite, collections and picked art.\n- Fixed: discs whose cue sheet stores a pregap before track 1 are read from where the track starts, so they're recognized for achievements and sorted to the right platform.\n- Improved: compressed PS1, PS2, PSP and Sega CD discs in mixed folders are sorted to the right platform by looking inside them, not just by folder name.\n- New: the README explains which format to use per platform and how to make it.",
+  "pub_date": "2026-10-16T13:09:43Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWNJaUVtbkRzbnFBRW9uNzFXaE5TbUp6ZnZGUzZ1N2lBOUJvVUZBTkx2VUsvUkMycFVaQlZ4aFhVVjZNdUVsN0lqWjQrK3hQdng4WHU3ck8xZmtGZ2dVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDk4NzUwCWZpbGU6S2FuZWVnYUJlbGxfMC4yLjlfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMi45CjA3K1ZYWTBqYmI1bkpxREFSRXUvdGFXSVB0UncxV2dmcXRxUGlPd2VGSFNtRlp3T05ZZk1Dd0QxR0ZiRGdHdHVYcC9GME9teDNuM0NEbmdaMUNzNkF3PT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.2.9_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWZ0eGpwbmVVTUZHTEU0U2tmZUhhTVl0bUtxYk1QY3k0YUpGT29WbU9iQUx6TTlrVXJlS09vZ0h0ZWlTN2ZTdG40ZWgxeHFkM0Q4SlRmc0o1MFBzOGdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTU2MTY0CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjBfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4wCjFzdE1ZQnhBMkNRTGVoQVVROFdZTkVkS2p1UkxLVlpvMFUyQVpzbmNaTjNLUGZKZmg2c0ZMV1VNVmpJU1NGekY2MWZ3YVdyemx6RzdmUUtkREhNbEF3PT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.0_x64-setup.exe?ref=updates"
     }
   }
 }
