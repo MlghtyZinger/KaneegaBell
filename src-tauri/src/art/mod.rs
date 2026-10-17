@@ -44,7 +44,8 @@ const WORKERS: usize = 4;
 pub struct Target {
     pub id: i64,
     pub platform_id: String,
-    pub libretro_system: String,
+    /// None for platforms libretro-thumbnails has no set for (e.g. Switch).
+    pub libretro_system: Option<String>,
     pub launch_path: String,
     pub title: String,
     pub search_key: String,
@@ -203,17 +204,20 @@ pub fn run(
     log::info!("fetching box art for {total} games");
 
     // Match everything first (fast, local), then download in parallel.
-    let mut by_system: HashMap<String, Vec<Target>> = HashMap::new();
+    let mut by_system: HashMap<Option<String>, Vec<Target>> = HashMap::new();
     for t in targets {
         by_system.entry(t.libretro_system.clone()).or_default().push(t);
     }
     let mut jobs: Vec<Job> = Vec::new();
     let mut outcomes: Vec<Outcome> = Vec::new();
     for (system, games) in &by_system {
-        let index = load_index(conn, fetch, system);
+        let index = match system {
+            Some(system) => load_index(conn, fetch, system),
+            None => Ok(None),
+        };
         for g in games {
-            let libretro = match &index {
-                Ok(Some(index)) => {
+            let libretro = match (&index, system) {
+                (Ok(Some(index)), Some(system)) => {
                     let q = matcher::Query {
                         names: candidate_names(&g.launch_path),
                         search_key: &g.search_key,
@@ -699,6 +703,24 @@ mod tests {
         let c = candidates(&conn, &http, None, id, None).unwrap();
         assert_eq!(c[0].url, "https://art.gametdb.com/ps3/coverM/US/BLUS30383.jpg");
         assert_eq!(c.last().unwrap().source, "local");
+    }
+
+    #[test]
+    fn a_platform_without_a_libretro_set_still_gets_launchbox_covers() {
+        let mut conn = crate::db::test_db();
+        conn.execute(
+            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at, lb_status, lb_id)
+             VALUES ('switch', 'Bayonetta 2', 'bayonetta 00002', 'bayonetta 2', 'E:\\Switch\\Bayonetta 2.xci', 0, 'ok', 5)",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO lb_images (db_id, kind, region, file) VALUES (5, 'Box - Front', 'North America', 'box.jpg')", []).unwrap();
+        let mut http = FakeHttp::default();
+        http.pages.insert(crate::launchbox::image_url("box.jpg"), images::test_png(300, 480));
+        let data = tempfile::tempdir().unwrap();
+        let s = run(&mut conn, data.path(), &http, &|_| {}, &AtomicBool::new(false)).unwrap();
+        assert_eq!((s.found, s.failed), (1, 0));
+        assert_eq!(status(&conn, "Bayonetta 2").0, "ok");
     }
 
     #[test]

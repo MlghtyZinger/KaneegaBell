@@ -719,9 +719,10 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         .spawn(move || loop {
             cancel.store(false, Ordering::Release);
             // Order: scan, LaunchBox (it decides covers, so before them),
-            // Wikidata (LaunchBox's titles help it match), covers, details,
-            // SteamGridDB extras (after covers, so it knows which games still
-            // lack one), achievements.
+            // covers (what people wait to see), Wikidata (after LaunchBox,
+            // whose titles help it match; a platform's list takes ~20 s),
+            // details, SteamGridDB extras (after covers, so it knows which
+            // games still lack one), achievements.
             if scan_pending.swap(false, Ordering::AcqRel) {
                 let next = run_scan(&app, &db_path, &cancel);
                 lb_pending.fetch_or(next.lb, Ordering::AcqRel);
@@ -736,10 +737,10 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 // New LaunchBox matches give Wikidata better titles.
                 let wd = db::open(&db_path).and_then(|c| crate::wikidata::wanted(&c)).unwrap_or(false);
                 wd_pending.fetch_or(wd, Ordering::AcqRel);
-            } else if wd_pending.swap(false, Ordering::AcqRel) {
-                run_wd(&app, &db_path, wd_force.swap(false, Ordering::AcqRel), &cancel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
+            } else if wd_pending.swap(false, Ordering::AcqRel) {
+                run_wd(&app, &db_path, wd_force.swap(false, Ordering::AcqRel), &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
                 // Matches can bring covers (IGDB) for games that had none.
                 art_pending.fetch_or(run_meta(&app, &db_path, &cancel), Ordering::AcqRel);
@@ -1251,7 +1252,6 @@ pub fn set_collection_logo_file(state: State<'_, AppState>, key: String, path: S
 
 /// One Wikidata pass. Emits `wd-progress`, then `wd-finished` / `wd-failed`.
 fn run_wd(app: &AppHandle, db_path: &Path, force: bool, cancel: &AtomicBool) {
-    let due = throttled(250);
     let result = (|| {
         let mut conn = db::open(db_path)?;
         if !crate::wikidata::enabled(&conn)? {
@@ -1262,10 +1262,9 @@ fn run_wd(app: &AppHandle, db_path: &Path, force: bool, cancel: &AtomicBool) {
             &mut conn,
             &web,
             force,
+            // A few events per platform, seconds apart: each one is worth showing.
             &|p| {
-                if due(p.done == p.total) {
-                    let _ = app.emit("wd-progress", &p);
-                }
+                let _ = app.emit("wd-progress", &p);
             },
             cancel,
         )

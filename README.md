@@ -693,6 +693,8 @@ window, so they're written for players.
 - New: a Switch game's title ID in its file name is kept as the game's ID.
 - Improved: a version number in a file name (like "v1.0.0") no longer shows in the game's title.
 - Fixed: games on a newly added platform get covers and info from the LaunchBox database right away, not a week later.
+- Improved: new covers appear before series are looked up on Wikidata, instead of waiting for it.
+- Improved: the footer says what's happening in the background (e.g. "Series (Wikidata): Switch, downloading its game list") and counts the seconds when a step takes a while.
 
 ### 0.3.2 (2026-10-18)
 - New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).

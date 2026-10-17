@@ -333,8 +333,13 @@ fn match_game(g: &Game, cands: &Candidates, list: &Listing) -> Outcome {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
+    /// Platforms done / to ask about.
     pub done: u64,
     pub total: u64,
+    /// The platform being asked about ("Switch") and the step: "games" (its
+    /// game list, the slow part), "series", or "" when done.
+    pub platform: &'static str,
+    pub step: &'static str,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -362,7 +367,9 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
             s.cancelled = true;
             break;
         }
-        progress(Progress { done: i as u64, total });
+        let name = PLATFORMS.iter().find(|p| p.id == platform).map_or("", |p| p.short_name);
+        let step = |step| progress(Progress { done: i as u64, total, platform: name, step });
+        step("games");
         let Some(item) = platform_item(platform) else { continue };
         let list = listing(source.select(&names_query(item))?, source.select(&info_query(item))?);
         let cands = Candidates::new(list.names.clone());
@@ -375,6 +382,9 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
             .into_iter()
             .collect();
         let mut series: Vec<Row> = Vec::new();
+        if !matched.is_empty() {
+            step("series");
+        }
         for chunk in matched.chunks(BATCH) {
             if cancel.load(Ordering::Relaxed) {
                 s.cancelled = true;
@@ -398,7 +408,7 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
         s.platforms += 1;
     }
     prune(conn)?;
-    progress(Progress { done: total, total });
+    progress(Progress { done: total, total, platform: "", step: "" });
     let st = status(conn)?;
     (s.matched, s.not_found, s.ambiguous, s.with_series) = (st.matched as usize, st.not_found as usize, st.ambiguous as usize, st.with_series as usize);
     log::info!("Wikidata: {s:?}");

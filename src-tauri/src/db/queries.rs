@@ -186,7 +186,7 @@ pub fn games_needing_art(conn: &Connection, now: i64) -> Result<Vec<crate::art::
                 (SELECT a.url FROM artwork a WHERE a.game_id = g.id AND a.kind = 'boxart' AND a.source = 'igdb' LIMIT 1),
                 CASE WHEN g.lb_status IN ('ok', 'manual') THEN g.lb_id END
          FROM games g JOIN platforms p ON p.id = g.platform_id
-         WHERE g.missing = 0 AND p.enabled = 1 AND p.libretro_system IS NOT NULL
+         WHERE g.missing = 0 AND p.enabled = 1
            AND (g.art_status IN ('none', 'error')
                 OR (g.art_status = 'notfound' AND COALESCE(g.art_checked_at, 0) < ?1))
          ORDER BY p.sort_order, g.sort_title",

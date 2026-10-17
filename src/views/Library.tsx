@@ -25,7 +25,7 @@ import { api, type GameRow } from "../api";
 
 /** What the background worker is doing (one job at a time). */
 function JobPill() {
-  const text = () => {
+  const text = createMemo(() => {
     const scan = library.scanProgress();
     if (scan) return `Scanning ${scan.total > 0 ? `${scan.done + 1}/${scan.total}` : "…"}`;
     const lb = library.lbProgress();
@@ -35,11 +35,16 @@ function JobPill() {
         checking: "LaunchBox: checking for updates",
         downloading: lb.total > 0 ? `LaunchBox data ${mb(lb.done)}/${mb(lb.total)} MB` : "LaunchBox data…",
         matching: "LaunchBox: matching games",
-        images: `LaunchBox ${lb.done}/${lb.total}`,
+        images: `LaunchBox pictures ${lb.done}/${lb.total}`,
       }[lb.phase];
     }
+    const wd = library.wdProgress();
+    if (wd?.platform) {
+      const step = wd.step === "games" ? "downloading its game list" : "looking up series";
+      return `Series (Wikidata): ${wd.platform}, ${step} (${wd.done + 1}/${wd.total})`;
+    }
     const jobs: [string, { done: number; total: number } | null][] = [
-      ["Series (Wikidata)", library.wdProgress()],
+      ["Series (Wikidata)", wd],
       ["Covers", library.artProgress()],
       ["Game info", library.metaProgress()],
       ["Artwork", library.sgdbProgress()],
@@ -47,8 +52,28 @@ function JobPill() {
     ];
     const active = jobs.find(([, p]) => p);
     return active ? `${active[0]} ${active[1]!.done}/${active[1]!.total}` : null;
+  });
+  // A step that takes a while (a big download, a slow server) shows its
+  // seconds, so a slow step doesn't look stuck. Ticks only while a job runs.
+  const [now, setNow] = createSignal(Date.now());
+  let changedAt = Date.now();
+  createEffect(on(text, () => (changedAt = Date.now())));
+  createEffect(
+    on(
+      () => !!text(),
+      (busy) => {
+        if (!busy) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        onCleanup(() => clearInterval(id));
+      },
+    ),
+  );
+  const shown = () => {
+    const t = text();
+    const secs = Math.floor((now() - changedAt) / 1000);
+    return t && secs >= 3 ? `${t} · ${secs} s` : t;
   };
-  return <Show when={text()}>{(t) => <span class="scan-pill">{t()}</span>}</Show>;
+  return <Show when={shown()}>{(t) => <span class="scan-pill">{t()}</span>}</Show>;
 }
 
 function initial(title: string): string {

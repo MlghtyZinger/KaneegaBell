@@ -137,6 +137,9 @@ export interface WdProgress {
   /** Platforms asked so far, of `total`. */
   done: number;
   total: number;
+  /** The platform being asked about ("Switch") and its step; empty when done. */
+  platform: string;
+  step: "games" | "series" | "";
 }
 
 export interface WdSummary {
