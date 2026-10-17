@@ -483,3 +483,7 @@ Each milestone is runnable and tested, and passes the perf gate.
    - Code-split TV Mode and Settings (load when opened) before m/o/t add more screens.
    - Release once, from a clean committed tree (`release.ps1` builds whatever HEAD is when it runs).
    - Don't run builds, perf runs or scans while the owner is playing; stop at once if asked.
+   - **(2026-10-18) Perf gate only when needed:** major updates (new screens, icons, list view, themes,
+     animations, TV Mode) or changes that touch startup, the grid, idle CPU or game-running mode. Small fix
+     releases skip it (say why in one line). This overrides "after every milestone" in section 11.
+   - Never change anything in the owner's installed copy (`C:\Games\KaneegaBell`); only the developer copy.
