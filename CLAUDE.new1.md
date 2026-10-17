@@ -403,7 +403,14 @@ Each milestone is runnable and tested, and passes the perf gate.
       flags checked in their argument parsers; Yuzu is the owner's AppData copy and crashes on its own;
       add-ons hidden by title ID low 13 bits ≠ 0, [UPD]/[DLC] tags or a version ≥ v65536; libretro has no Switch set,
       so the cover pass no longer requires a libretro system; a Switch emulator joins Switch when its exe is set
-      (migration 017 for ones set earlier); "Play with…" now saves the pick as the game's emulator, owner's request)
+      (migration 017 for ones set earlier); "Play with…" now saves the pick as the game's emulator, owner's request;
+      Ryubing added (exe also Ryujinx.exe, detected by folder))
+      **Parked idea (owner, 2026-10-18, research only, not scheduled): suggest the best emulator per game.**
+      Data: Ryubing/Compatibility `compatibility.csv` (title_id, game_name, labels, status playable/ingame/menus/
+      boots/nothing, last_updated; keyless on GitHub, ~270 KB); Yuzu's frozen `compatibility_list.json` (Flathub,
+      0 Perfect … 5 Won't boot, 99 untested; mostly 99) as a weak hint for the Eden family; no Eden list; EmuReady has
+      no public API/data terms (ask its maintainers). Shape: keep only owned games' rows, match by title ID then name,
+      label options in "Play with…", suggest only when clearly better, never switch on its own.
       (planned: Eden default,
       eden-emu.dev; Ryujinx = Ryubing, ryujinx.app, `--fullscreen <game>`; Yuzu legacy, `-f -g <game>`;
       .nsp/.xci; titles from file names + `[0100…]` title IDs, never decrypt; hide update/DLC files; no RA)

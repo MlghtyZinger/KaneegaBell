@@ -278,9 +278,11 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - Games are `.nsp` and `.xci` files. Titles come from the file names, and a `[0100…]` title ID in
   the name is kept as the game's ID. Update and DLC files are hidden (by their title ID, or an
   `[UPD]`/`[DLC]` tag); install them in the emulator itself. KB never decrypts files.
-- **Eden** is the default. **Ryujinx**, **Citron**, **Sudachi** and **Yuzu** (discontinued) can be
-  added in Settings → Platforms → Switch's Emulator column, then picked as the default or per game.
-  Launch commands: `-f -g "{rom}"` (Eden, Citron, Sudachi, Yuzu), `--fullscreen "{rom}"` (Ryujinx).
+- **Eden** is the default. **Ryubing** (the maintained Ryujinx fork), **Ryujinx**, **Citron**,
+  **Sudachi** and **Yuzu** (discontinued) join Switch as soon as their exe is set (Settings →
+  Emulators, or Find emulators), then can be picked as the default or per game. Ryubing's exe is
+  also called `Ryujinx.exe`: Find emulators tells them apart by folder (`Ryubing\…`).
+  Launch commands: `-f -g "{rom}"` (Eden, Citron, Sudachi, Yuzu), `--fullscreen "{rom}"` (Ryubing, Ryujinx).
 - Keys and firmware are your own and stay in each emulator's own folders; KB doesn't touch them.
 - Get emulators only from their official sites: these projects move after takedowns, and fake
   installers circulate. KB never downloads emulators.
@@ -689,7 +691,7 @@ window, so they're written for players.
 
 ### 0.3.3 (2026-10-18)
 - New: Nintendo Switch, played with Eden (.nsp and .xci games).
-- New: Ryujinx, Citron, Sudachi and Yuzu can be added as Switch emulators in Settings → Platforms, then picked as the default or per game.
+- New: Ryubing, Ryujinx, Citron, Sudachi and Yuzu can be used as Switch emulators, picked as the default or per game.
 - New: Switch update and DLC files are hidden, so only the games themselves are listed.
 - New: a Switch game's title ID in its file name is kept as the game's ID.
 - Improved: a version number in a file name (like "v1.0.0") no longer shows in the game's title.

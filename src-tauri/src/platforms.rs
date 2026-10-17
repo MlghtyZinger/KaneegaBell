@@ -11,7 +11,7 @@
 //! - Azahar:    `-f <file>` (game path must be last)
 //! - Eden, Citron, Sudachi, Yuzu: `-f -g <file>` (Yuzu's Qt front end; no `--help`
 //!   output, so checked in the owner's builds' argument parsers)
-//! - Ryujinx:   `--fullscreen <file>` (1.1.1403; a bare path launches the game)
+//! - Ryujinx, Ryubing: `--fullscreen <file>` (1.1.1403 and the owner's Ryubing; a bare path launches the game)
 //!
 //! Defaults are re-applied on every start; user changes live in the `*_override`
 //! columns and `exe_path`, which seeding never touches.
@@ -95,6 +95,13 @@ pub const EMULATORS: &[EmulatorDef] = &[
         template: r#""{emulator}" -f -g "{rom}""#,
         supports_m3u: false,
     },
+    // Ryubing is the maintained Ryujinx fork; its exe is also Ryujinx.exe (told apart by folder).
+    EmulatorDef {
+        id: "ryubing",
+        name: "Ryubing",
+        template: r#""{emulator}" --fullscreen "{rom}""#,
+        supports_m3u: false,
+    },
     EmulatorDef {
         id: "ryujinx",
         name: "Ryujinx",
@@ -122,7 +129,7 @@ pub const EMULATORS: &[EmulatorDef] = &[
 ];
 
 /// Switch emulators besides the built-in Eden, addable to the Switch platform.
-pub const SWITCH_ALTERNATIVES: &[&str] = &["ryujinx", "citron", "sudachi", "yuzu"];
+pub const SWITCH_ALTERNATIVES: &[&str] = &["ryubing", "ryujinx", "citron", "sudachi", "yuzu"];
 
 /// Listed in display order.
 pub const PLATFORMS: &[PlatformDef] = &[
@@ -321,7 +328,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
 pub fn achievements(emulator_id: &str) -> Option<bool> {
     match emulator_id {
         "retroarch" | "duckstation" | "pcsx2" | "dolphin" => Some(true),
-        "rpcs3" | "azahar" | "eden" | "ryujinx" | "citron" | "sudachi" | "yuzu" => Some(false),
+        "rpcs3" | "azahar" | "eden" | "ryubing" | "ryujinx" | "citron" | "sudachi" | "yuzu" => Some(false),
         _ => None,
     }
 }
@@ -406,7 +413,8 @@ pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &
     }
 }
 
-/// Executable file names each emulator ships with (lowercase; `*` = any run of chars).
+/// Executable file names each emulator ships with (lowercase; `*` = any run of
+/// chars; `folder\file` also requires the file's folder name).
 pub fn exe_patterns(emulator_id: &str) -> &'static [&'static str] {
     match emulator_id {
         "retroarch" => &["retroarch.exe"],
@@ -416,7 +424,10 @@ pub fn exe_patterns(emulator_id: &str) -> &'static [&'static str] {
         "rpcs3" => &["rpcs3.exe"],
         "azahar" => &["azahar.exe"],
         "eden" => &["eden.exe"],
-        "ryujinx" => &["ryujinx.exe"],
+        // Both ship Ryujinx.exe: Ryubing's folder decides, and a file one
+        // emulator claimed isn't given to the next (see detect_emulators).
+        "ryubing" => &[r"ryubing*\ryujinx.exe", "ryubing*.exe"],
+        "ryujinx" => &[r"ryujinx*\ryujinx.exe", "ryujinx.exe"],
         "citron" => &["citron.exe"],
         "sudachi" => &["sudachi.exe"],
         "yuzu" => &["yuzu.exe"],
@@ -448,21 +459,24 @@ pub fn detect_emulators(root: &std::path::Path) -> Vec<(&'static str, std::path:
         }
     }
     files.sort();
-    EMULATORS
-        .iter()
-        .filter_map(|emu| {
-            exe_patterns(emu.id).iter().find_map(|pat| {
-                files
-                    .iter()
-                    .find(|(_, p)| {
-                        p.file_name()
-                            .map(|n| n.to_string_lossy().to_lowercase())
-                            .is_some_and(|n| glob_match(pat, &n))
-                    })
-                    .map(|(_, p)| (emu.id, p.clone()))
-            })
-        })
-        .collect()
+    let name_of = |p: &std::path::Path| p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let mut found: Vec<(&'static str, std::path::PathBuf)> = Vec::new();
+    for emu in EMULATORS {
+        let hit = exe_patterns(emu.id).iter().find_map(|pat| {
+            files
+                .iter()
+                .filter(|(_, p)| !found.iter().any(|(_, f)| f == p))
+                .find(|(_, p)| match pat.split_once('\\') {
+                    Some((folder, file)) => glob_match(folder, &name_of(p.parent().unwrap_or(p))) && glob_match(file, &name_of(p)),
+                    None => glob_match(pat, &name_of(p)),
+                })
+                .map(|(_, p)| p.clone())
+        });
+        if let Some(p) = hit {
+            found.push((emu.id, p));
+        }
+    }
+    found
 }
 
 pub fn seed(conn: &Connection) -> Result<()> {
@@ -533,6 +547,7 @@ mod tests {
             r"RPCS3\rpcs3_old\rpcs3.exe",
             r"RPCS3\rpcs3.exe",
             r"Eden\eden.exe",
+            r"Ryubing\Ryujinx.exe",
             r"Ryujinx\Ryujinx.exe",
             r"Citron\citron.exe",
             r"Citron\citron-cmd.exe",
@@ -542,10 +557,19 @@ mod tests {
             std::fs::write(p, b"MZ").unwrap();
         }
         let found: std::collections::HashMap<_, _> = detect_emulators(r).into_iter().collect();
-        assert_eq!(found.len(), 9);
+        assert_eq!(found.len(), 10);
         assert_eq!(found["azahar"], r.join(r"Azahar\azahar.exe"));
         assert_eq!(found["citron"], r.join(r"Citron\citron.exe"), "not the -cmd variant");
+        // Both are Ryujinx.exe: each goes by its folder.
         assert_eq!(found["ryujinx"], r.join(r"Ryujinx\Ryujinx.exe"));
+        assert_eq!(found["ryubing"], r.join(r"Ryubing\Ryujinx.exe"));
+
+        // Only Ryubing installed: it isn't also taken for the original Ryujinx.
+        let t2 = tempfile::tempdir().unwrap();
+        let p = t2.path().join(r"Ryubing\Ryujinx.exe");
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(&p, b"MZ").unwrap();
+        assert_eq!(detect_emulators(t2.path()), [("ryubing", p)]);
         assert_eq!(found["rpcs3"], r.join(r"RPCS3\rpcs3.exe"));
         assert_eq!(found["duckstation"], r.join(r"Duckstation\duckstation-qt-x64-ReleaseLTCG.exe"));
     }

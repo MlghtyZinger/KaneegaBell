@@ -27,7 +27,7 @@ const NAMES: &[(&str, &[&str])] = &[
     ("gc", &["gamecube", "game cube", "gc", "ngc"]),
     ("wiiu", &["wii u", "wiiu", "cemu"]),
     ("wii", &["wii"]),
-    ("switch", &["switch", "nintendo switch", "yuzu", "ryujinx", "suyu", "citron", "eden", "sudachi"]),
+    ("switch", &["switch", "nintendo switch", "yuzu", "ryujinx", "suyu", "citron", "eden", "sudachi", "ryubing"]),
     ("segacd", &["sega cd", "segacd", "mega cd", "megacd"]),
     ("saturn", &["saturn", "sega saturn"]),
     ("dreamcast", &["dreamcast"]),
