@@ -107,6 +107,11 @@ fn switch_games_without_their_updates_and_dlc() {
     write(&r.join("Xenoblade Chronicles 2 - Torna [0100E95004039001][v0].nsp"), b"x"); // DLC
     write(&r.join("Xenoblade Chronicles 2 (Update 2.1.0) [UPD].nsp"), b"x"); // tagged, no ID
     write(&r.join("DLC Quest.nsp"), b"x"); // "DLC" in a title isn't a tag
+    // The owner's folder: a scene update (version number only) and eShop dumps.
+    write(&r.join("Bayonetta_2_Update_v1.2_NSW-SUXXORS").join("sxs-bayonetta_2_v131072.nsp"), b"x");
+    write(&r.join("Bayonetta 2.xci"), b"x");
+    write(&r.join("Super Mario Galaxy v1.0.0[010099C022B96000][v0][APP].nsp"), b"x");
+    write(&r.join("Super Mario Galaxy (NSP)(Update 1.3.1)").join("Super Mario Galaxy v1.3.1[010099C022B96800][v327680][UPD].nsp"), b"x");
 
     let (c, w) = scan(t.path(), None);
     assert!(w.is_empty(), "{w:?}");
@@ -114,7 +119,9 @@ fn switch_games_without_their_updates_and_dlc() {
     assert_eq!(
         got,
         [
+            ("Bayonetta 2", "switch", None),
             ("DLC Quest", "switch", None),
+            ("Super Mario Galaxy", "switch", Some("010099C022B96000")),
             ("Super Mario Odyssey", "switch", Some("0100000000010000")),
             ("Xenoblade Chronicles 2", "switch", Some("0100E95004038000")),
         ]

@@ -55,6 +55,9 @@ re!(SERIAL_DOLPHIN, r"^[A-Z][A-Z0-9]{2}[A-Z][A-Z0-9]{2}$");
 re!(SERIAL_3DS, r"^CTR-[A-Z]-[A-Z0-9]{4}$");
 re!(SERIAL_PS, r"^S[CL][EKPU][MS][-_ ]?\d{3}\.?\d{2}$");
 re!(SERIAL_SWITCH, r"^01[0-9A-Fa-f]{14}$");
+// "Super Mario Galaxy v1.0.0": a version outside brackets, dropped like a bracketed one.
+re!(TRAILING_VERSION, r"(?i)\s+v\d+(?:\.\d+)+$");
+re!(ANY_VERSION, r"(?i)\bv\d+(?:\.\d+)+");
 re!(ARTICLE_SUFFIX, r"^(.+?), (The|A|An)((?:\s+-\s+|:\s*).*)?$");
 re!(LEADING_ARTICLE, r"^(?:the|a|an)\s+");
 re!(DIGITS, r"\d+");
@@ -132,7 +135,8 @@ fn classify(tag: &str) -> Tag {
     if let Some(c) = DISC.captures(t) {
         return Tag::Disc(c[1].parse().unwrap_or(1));
     }
-    if TRACK.is_match(t) || VERSION.is_match(t) || MULTI_LANG.is_match(t) || GOODTOOLS_FLAG.is_match(t) || t.eq_ignore_ascii_case("base") {
+    // "BASE" / "APP": Switch release tags for the game itself.
+    if TRACK.is_match(t) || VERSION.is_match(t) || MULTI_LANG.is_match(t) || GOODTOOLS_FLAG.is_match(t) || t.eq_ignore_ascii_case("base") || t.eq_ignore_ascii_case("app") {
         return Tag::Drop;
     }
     if SERIAL_SWITCH.is_match(t) {
@@ -266,6 +270,10 @@ pub fn parse(stem: &str) -> ParsedName {
     let mut title = TAG.replace_all(&s, "").into_owned();
     title = SPACES.replace_all(title.trim(), " ").into_owned();
     title = title.trim_end_matches([' ', '-', ':', ',']).to_string();
+    // Only a lone version: "ENG Fix v2.1.5 + Recolor v2.0" names a hack's parts.
+    if ANY_VERSION.find_iter(&title).count() == 1 {
+        title = TRAILING_VERSION.replace(&title, "").into_owned();
+    }
 
     if let Some(c) = ARTICLE_SUFFIX.captures(&title) {
         let rest = c.get(3).map_or("", |m| m.as_str());
@@ -377,6 +385,10 @@ mod tests {
         assert_eq!(p.serial.as_deref(), Some("0100F2C0115B6000"));
         assert_eq!(p.variant, None, "[v0] and [BASE] aren't variants");
         assert_eq!(t("Super Mario Odyssey (USA) [01000000000100000]").serial, None, "17 digits is no title ID");
+        // The owner's eShop dump: no version and no "APP" in the title.
+        let p = t("Super Mario Galaxy 2 v1.0.0[0100FD8022DAA000][v0][APP]");
+        assert_eq!((p.title.as_str(), p.variant.as_deref()), ("Super Mario Galaxy 2", None));
+        title("Pokemon Radical Red v4.1", "Pokemon Radical Red");
     }
 
     #[test]

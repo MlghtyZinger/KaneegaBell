@@ -691,6 +691,8 @@ window, so they're written for players.
 - New: Ryujinx, Citron, Sudachi and Yuzu can be added as Switch emulators in Settings → Platforms, then picked as the default or per game.
 - New: Switch update and DLC files are hidden, so only the games themselves are listed.
 - New: a Switch game's title ID in its file name is kept as the game's ID.
+- Improved: a version number in a file name (like "v1.0.0") no longer shows in the game's title.
+- Fixed: games on a newly added platform get covers and info from the LaunchBox database right away, not a week later.
 
 ### 0.3.2 (2026-10-18)
 - New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).

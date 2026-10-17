@@ -53,6 +53,11 @@ pub struct Stamp {
     pub imported_at: Option<i64>,
     /// Last time the file was checked for changes.
     pub checked_at: Option<i64>,
+    /// KB platforms the last download looked for, so a platform added later
+    /// (e.g. Switch in 0.3.3) gets its names without waiting for LaunchBox's
+    /// file to change, and one LaunchBox doesn't list isn't downloaded again.
+    #[serde(default)]
+    pub platforms: Vec<String>,
 }
 
 /// Where the zip comes from (the network, or a test).
@@ -174,9 +179,24 @@ fn has_details(conn: &Connection, db_id: i64) -> Result<bool> {
 
 /// Whether a LaunchBox pass has work: games never tried, or matched games
 /// whose details aren't stored yet. (The weekly change check is separate.)
+/// Platforms of library games that neither the stored name list nor the last
+/// download covered.
+fn uncovered_platforms(conn: &Connection, st: &Stamp) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT g.platform_id FROM games g JOIN platforms p ON p.id = g.platform_id
+         WHERE g.missing = 0 AND p.enabled = 1 AND p.launchbox_platform IS NOT NULL AND g.lb_status != 'manual'
+           AND NOT EXISTS (SELECT 1 FROM lb_names n WHERE n.platform_id = g.platform_id)",
+    )?;
+    let ids = stmt.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(ids.into_iter().filter(|p| !st.platforms.contains(p)).collect())
+}
+
 pub fn wanted(conn: &Connection) -> Result<bool> {
     if !enabled(conn)? {
         return Ok(false);
+    }
+    if !uncovered_platforms(conn, &stamp(conn)?)?.is_empty() {
+        return Ok(true);
     }
     Ok(conn
         .query_row(
@@ -548,7 +568,7 @@ pub fn run(
     let missing_details = games.iter().filter(|g| matched(g)).try_fold(false, |acc, g| -> Result<bool> {
         Ok(acc || !has_details(conn, g.lb_id.unwrap_or_default())?)
     })?;
-    let mut need = force || !have_names || missing_details;
+    let mut need = force || !have_names || missing_details || !uncovered_platforms(conn, &st)?.is_empty();
     if !need && check_due(conn)? {
         progress(Progress { phase: "checking", done: 0, total: 1 });
         let (lm, etag, _) = source.head()?;
@@ -569,7 +589,8 @@ pub fn run(
         progress(Progress { phase: "matching", done: 0, total: games.len() as u64 });
         store(conn, &imp)?;
         let now = queries::now();
-        st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now) };
+        let platforms = platform_map(conn)?.into_values().collect();
+        st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now), platforms };
         save_stamp(conn, &st)?;
         s.downloaded = true;
         games = library_games(conn)?;

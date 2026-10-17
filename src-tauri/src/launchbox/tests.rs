@@ -143,6 +143,36 @@ fn the_weekly_check_downloads_only_when_launchbox_changed() {
 }
 
 #[test]
+fn a_platform_added_after_the_last_download_gets_one_more() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::test_db();
+    add_game(&conn, "Okami (USA)");
+    let source = FakeSource::new(SAMPLE);
+    let http = FakeHttp::default();
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), 1);
+
+    // A download from before Switch existed, and a Switch game it couldn't find.
+    let mut st = stamp(&conn).unwrap();
+    st.platforms.retain(|p| p != "switch");
+    save_stamp(&conn, &st).unwrap();
+    conn.execute(
+        "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at, lb_status)
+         VALUES ('switch', 'Bayonetta 2', 'bayonetta 00002', 'bayonetta 2', 'E:\\Switch\\Bayonetta 2.xci', 0, 'notfound')",
+        [],
+    )
+    .unwrap();
+    assert!(wanted(&conn).unwrap());
+    assert!(run_pass(&mut conn, dir.path(), &source, &http, false).downloaded);
+    assert_eq!(source.opens(), 2);
+
+    // This LaunchBox file lists no Switch games: that's remembered, not downloaded every pass.
+    assert!(!wanted(&conn).unwrap());
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), 2);
+}
+
+#[test]
 fn fix_match_searches_offline_and_a_pick_sticks() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();
