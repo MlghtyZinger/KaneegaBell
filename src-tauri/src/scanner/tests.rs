@@ -574,6 +574,29 @@ fn rescan_is_incremental_and_flags_missing_games() {
 }
 
 #[test]
+fn a_renamed_game_is_matched_against_launchbox_again() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let key = |title: &str| -> i64 {
+        conn.query_row("SELECT id FROM games WHERE title = ?1", [title], |r| r.get(0)).unwrap()
+    };
+    let (luigi, galaxy, zelda) = (key("Luigi's Mansion"), key("Super Mario Galaxy"), key("The Legend of Zelda: The Wind Waker"));
+    // As after the owner's first Switch scan: matched under an older name ("… v1.0.0").
+    conn.execute("UPDATE games SET lb_status = 'notfound', search_key = search_key || ' v1 0 0' WHERE id = ?1", [luigi]).unwrap();
+    conn.execute("UPDATE games SET lb_status = 'manual', lb_id = 7, search_key = 'old' WHERE id = ?1", [galaxy]).unwrap();
+    conn.execute("UPDATE games SET lb_status = 'ok', lb_id = 9 WHERE id = ?1", [zelda]).unwrap();
+
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let lb = |id: i64| -> (String, Option<i64>) {
+        conn.query_row("SELECT lb_status, lb_id FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+    };
+    assert_eq!(lb(luigi), ("none".into(), None), "renamed: looked up again");
+    assert_eq!(lb(galaxy), ("manual".into(), Some(7)), "the user's own pick stays");
+    assert_eq!(lb(zelda), ("ok".into(), Some(9)), "same name: match kept");
+}
+
+#[test]
 fn a_converted_game_keeps_its_play_time_and_favorite() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));

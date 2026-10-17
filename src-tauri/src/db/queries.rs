@@ -786,6 +786,11 @@ pub fn apply_scan(
              sort_title = excluded.sort_title, search_key = excluded.search_key, region = excluded.region,
              serial = excluded.serial, source_id = excluded.source_id, total_size = excluded.total_size,
              mtime = excluded.mtime, is_multidisc = excluded.is_multidisc, missing = 0,
+             -- A renamed or moved game is matched against LaunchBox again (the user's own pick stays).
+             lb_status = CASE WHEN (games.search_key = excluded.search_key AND games.platform_id = excluded.platform_id)
+                                   OR games.lb_status = 'manual' THEN games.lb_status ELSE 'none' END,
+             lb_id = CASE WHEN (games.search_key = excluded.search_key AND games.platform_id = excluded.platform_id)
+                               OR games.lb_status = 'manual' THEN games.lb_id END,
              -- A game moved to another platform loses its emulator pick (it was the old platform's).
              emulator_choice = CASE WHEN games.platform_id = excluded.platform_id THEN games.emulator_choice END,
              -- Changed files get hashed again for RetroAchievements.
