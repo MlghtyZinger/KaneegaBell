@@ -54,6 +54,7 @@ re!(GOODTOOLS_FLAG, r"^(?:!|a\d*|b\d*|o\d*|f\d*|p\d*)$");
 re!(SERIAL_DOLPHIN, r"^[A-Z][A-Z0-9]{2}[A-Z][A-Z0-9]{2}$");
 re!(SERIAL_3DS, r"^CTR-[A-Z]-[A-Z0-9]{4}$");
 re!(SERIAL_PS, r"^S[CL][EKPU][MS][-_ ]?\d{3}\.?\d{2}$");
+re!(SERIAL_SWITCH, r"^01[0-9A-Fa-f]{14}$");
 re!(ARTICLE_SUFFIX, r"^(.+?), (The|A|An)((?:\s+-\s+|:\s*).*)?$");
 re!(LEADING_ARTICLE, r"^(?:the|a|an)\s+");
 re!(DIGITS, r"\d+");
@@ -131,8 +132,11 @@ fn classify(tag: &str) -> Tag {
     if let Some(c) = DISC.captures(t) {
         return Tag::Disc(c[1].parse().unwrap_or(1));
     }
-    if TRACK.is_match(t) || VERSION.is_match(t) || MULTI_LANG.is_match(t) || GOODTOOLS_FLAG.is_match(t) {
+    if TRACK.is_match(t) || VERSION.is_match(t) || MULTI_LANG.is_match(t) || GOODTOOLS_FLAG.is_match(t) || t.eq_ignore_ascii_case("base") {
         return Tag::Drop;
+    }
+    if SERIAL_SWITCH.is_match(t) {
+        return Tag::Serial(t.to_ascii_uppercase());
     }
     if SERIAL_3DS.is_match(t) || SERIAL_DOLPHIN.is_match(t) || SERIAL_PS.is_match(t) {
         // A 6-char all-caps word like "UNDUB" or "HACKED" isn't a serial: Dolphin
@@ -364,6 +368,15 @@ mod tests {
         assert_eq!(t("Super Mario Galaxy 2 [SB4E01]").serial.as_deref(), Some("SB4E01"));
         // All-caps words are not serials.
         assert_eq!(t("Final Fantasy X International (Japan) [UNDUBS]").serial, None);
+    }
+
+    #[test]
+    fn switch_title_ids_and_tags() {
+        let p = t("The Legend of Zelda - Tears of the Kingdom [0100f2c0115b6000][v0] [BASE]");
+        assert_eq!(p.title, "The Legend of Zelda: Tears of the Kingdom");
+        assert_eq!(p.serial.as_deref(), Some("0100F2C0115B6000"));
+        assert_eq!(p.variant, None, "[v0] and [BASE] aren't variants");
+        assert_eq!(t("Super Mario Odyssey (USA) [01000000000100000]").serial, None, "17 digits is no title ID");
     }
 
     #[test]

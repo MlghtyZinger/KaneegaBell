@@ -427,6 +427,9 @@ pub fn scan_files_with(
         if hidden.contains(&path_key(&l.path)) {
             continue;
         }
+        if matches!(l.ext.as_str(), "nsp" | "xci") && is_switch_add_on(&l.path.file_stem().unwrap_or_default().to_string_lossy()) {
+            continue;
+        }
         // A cue sheet whose disc images aren't there (e.g. a translation patch
         // that hasn't been applied yet) isn't a game that can start.
         if l.ext == "cue" && !r.is_empty() && r.iter().all(|p| !p.exists()) {
@@ -478,6 +481,16 @@ pub fn scan_files_with(
         .collect();
     out.extend(ps3_found);
     out
+}
+
+/// Switch updates and DLC are .nsp files of their own next to the game: told
+/// apart by the title ID in the name (a game's ends in 13 zero bits; an update
+/// adds 0x800, DLC 0x1000 + n), or without one by an [UPD]/[Update]/[DLC] tag.
+fn is_switch_add_on(stem: &str) -> bool {
+    stem.split(['[', ']', '(', ')']).map(str::trim).any(|t| match u64::from_str_radix(t, 16) {
+        Ok(id) if t.len() == 16 && t.starts_with("01") => id & 0x1FFF != 0,
+        _ => matches!(t.to_ascii_lowercase().as_str(), "upd" | "update" | "dlc"),
+    })
 }
 
 /// PS3 candidates: disc folders (kind "files") or installed games (kind "ps3_hdd0").

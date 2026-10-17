@@ -266,11 +266,24 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
   when it looks missing (a warning only: KB still lets you try). If an emulator closes within a few
   seconds anyway, KB says so instead of quietly coming back, and doesn't count it as played.
 - The pickers mark emulators **Achievements** / **No achievements** from RetroAchievements' list
-  of supported emulators (RetroArch, DuckStation, PCSX2, Dolphin; not RPCS3 or Azahar; your own
+  of supported emulators (RetroArch, DuckStation, PCSX2, Dolphin; not RPCS3, Azahar or the Switch emulators; your own
   emulators aren't marked). Unlocks belong to your RA account, so they count in any supported
   emulator you're signed in to; saves and save states usually don't carry over between
   emulators.
 - Play time, last played, favorites and achievements stay with the game, whichever emulator ran it.
+
+### Nintendo Switch
+
+- Games are `.nsp` and `.xci` files. Titles come from the file names, and a `[0100…]` title ID in
+  the name is kept as the game's ID. Update and DLC files are hidden (by their title ID, or an
+  `[UPD]`/`[DLC]` tag); install them in the emulator itself. KB never decrypts files.
+- **Eden** is the default. **Ryujinx**, **Citron**, **Sudachi** and **Yuzu** (discontinued) can be
+  added in Settings → Platforms → Switch's Emulator column, then picked as the default or per game.
+  Launch commands: `-f -g "{rom}"` (Eden, Citron, Sudachi, Yuzu), `--fullscreen "{rom}"` (Ryujinx).
+- Keys and firmware are your own and stay in each emulator's own folders; KB doesn't touch them.
+- Get emulators only from their official sites: these projects move after takedowns, and fake
+  installers circulate. KB never downloads emulators.
+- Switch has no RetroAchievements.
 
 ## Covers and metadata
 
@@ -672,6 +685,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.3
+- New: Nintendo Switch, played with Eden (.nsp and .xci games).
+- New: Ryujinx, Citron, Sudachi and Yuzu can be added as Switch emulators in Settings → Platforms, then picked as the default or per game.
+- New: Switch update and DLC files are hidden, so only the games themselves are listed.
+- New: a Switch game's title ID in its file name is kept as the game's ID.
 
 ### 0.3.2 (2026-10-18)
 - New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).

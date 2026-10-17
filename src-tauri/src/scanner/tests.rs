@@ -98,6 +98,30 @@ fn gc_wii_folder() -> TempDir {
 }
 
 #[test]
+fn switch_games_without_their_updates_and_dlc() {
+    let t = tempfile::tempdir().unwrap();
+    let r = t.path().join("Unsorted");
+    write(&r.join("Super Mario Odyssey [0100000000010000][v0].nsp"), b"x");
+    write(&r.join("Super Mario Odyssey [0100000000010800][v262144].nsp"), b"x"); // update
+    write(&r.join("Xenoblade Chronicles 2 [0100E95004038000][v0] [BASE].xci"), b"x");
+    write(&r.join("Xenoblade Chronicles 2 - Torna [0100E95004039001][v0].nsp"), b"x"); // DLC
+    write(&r.join("Xenoblade Chronicles 2 (Update 2.1.0) [UPD].nsp"), b"x"); // tagged, no ID
+    write(&r.join("DLC Quest.nsp"), b"x"); // "DLC" in a title isn't a tag
+
+    let (c, w) = scan(t.path(), None);
+    assert!(w.is_empty(), "{w:?}");
+    let got: Vec<_> = c.iter().map(|c| (c.name.title.as_str(), c.platform.as_str(), c.serial.as_deref())).collect();
+    assert_eq!(
+        got,
+        [
+            ("DLC Quest", "switch", None),
+            ("Super Mario Odyssey", "switch", Some("0100000000010000")),
+            ("Xenoblade Chronicles 2", "switch", Some("0100E95004038000")),
+        ]
+    );
+}
+
+#[test]
 fn gamecube_wii_mixed_folder() {
     let t = gc_wii_folder();
     let (c, warnings) = scan(t.path(), Some("gc"));
@@ -357,7 +381,7 @@ fn auto_skips_folders_of_platforms_that_are_not_set_up_yet() {
     let t = tempfile::tempdir().unwrap();
     let r = t.path();
     write(&r.join("Xbox").join("Halo (USA).iso"), &vec![0; DISC]);
-    write(&r.join("Nintendo").join("Switch").join("Game.iso"), &vec![0; DISC]);
+    write(&r.join("Sony").join("PS4").join("Game.iso"), &vec![0; DISC]);
     write(&r.join("Sega").join("Dreamcast").join("Shenmue").join("Track 01.bin"), &vec![0; DISC]);
     write(&r.join("Nintendo").join("GBA").join("Golden Sun (USA, Europe).gba"), &[0; 0xC0]);
     let (c, w) = scan(r, None);

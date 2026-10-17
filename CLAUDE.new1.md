@@ -397,7 +397,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       missing are skipped with a warning (the owner's Policenauts folder has only the patch + cues; the
       owner's RetroArch has all 4 Saturn cores and both BIOS files). RetroArch: Beetle Saturn / Kronos / YabaSanshiro; BIOS `sega_101.bin`,
       `mpr-17933.bin` in RetroArch's system folder; .cue/.chd/.ccd/.m3u; RA yes: the Sega CD hash already
-      accepts "SEGA SEGASATURN "; add the header to Auto-folder sniffing) → 0.3.3 **Switch** (Eden default,
+      accepts "SEGA SEGASATURN "; add the header to Auto-folder sniffing) → 0.3.3 **Switch** (**built
+      2026-10-18**: Eden built-in `-f -g`; Ryujinx 1.1.1403 (original, not Ryubing) `--fullscreen`; Citron,
+      Sudachi, Yuzu `-f -g`, addable to Switch only (`SWITCH_ALTERNATIVES`); GUI exes print no `--help`, so
+      flags checked in their argument parsers; Yuzu is the owner's AppData copy and crashes on its own;
+      add-ons hidden by title ID low 13 bits ≠ 0 or [UPD]/[DLC]; libretro has no Switch set) (planned: Eden default,
       eden-emu.dev; Ryujinx = Ryubing, ryujinx.app, `--fullscreen <game>`; Yuzu legacy, `-f -g <game>`;
       .nsp/.xci; titles from file names + `[0100…]` title IDs, never decrypt; hide update/DLC files; no RA)
       → 0.3.4 **Xbox** (xemu `-full-screen -dvd_path <iso>`; RetroArch xemu core is experimental, as an

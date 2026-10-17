@@ -9,6 +9,9 @@
 //! - PCSX2:     `-batch -nogui -fullscreen -- <file>`
 //! - RPCS3:     `--no-gui --fullscreen <EBOOT.BIN>` (`--fullscreen` only valid with `--no-gui`)
 //! - Azahar:    `-f <file>` (game path must be last)
+//! - Eden, Citron, Sudachi, Yuzu: `-f -g <file>` (Yuzu's Qt front end; no `--help`
+//!   output, so checked in the owner's builds' argument parsers)
+//! - Ryujinx:   `--fullscreen <file>` (1.1.1403; a bare path launches the game)
 //!
 //! Defaults are re-applied on every start; user changes live in the `*_override`
 //! columns and `exe_path`, which seeding never touches.
@@ -85,7 +88,41 @@ pub const EMULATORS: &[EmulatorDef] = &[
         template: r#""{emulator}" -f "{rom}""#,
         supports_m3u: false,
     },
+    // Switch. Eden, Citron, Sudachi and Yuzu share Yuzu's Qt front end: `-f` fullscreen, `-g <file>`.
+    EmulatorDef {
+        id: "eden",
+        name: "Eden",
+        template: r#""{emulator}" -f -g "{rom}""#,
+        supports_m3u: false,
+    },
+    EmulatorDef {
+        id: "ryujinx",
+        name: "Ryujinx",
+        template: r#""{emulator}" --fullscreen "{rom}""#,
+        supports_m3u: false,
+    },
+    EmulatorDef {
+        id: "citron",
+        name: "Citron",
+        template: r#""{emulator}" -f -g "{rom}""#,
+        supports_m3u: false,
+    },
+    EmulatorDef {
+        id: "sudachi",
+        name: "Sudachi",
+        template: r#""{emulator}" -f -g "{rom}""#,
+        supports_m3u: false,
+    },
+    EmulatorDef {
+        id: "yuzu",
+        name: "Yuzu (discontinued)",
+        template: r#""{emulator}" -f -g "{rom}""#,
+        supports_m3u: false,
+    },
 ];
+
+/// Switch emulators besides the built-in Eden, addable to the Switch platform.
+const SWITCH_ALTERNATIVES: &[&str] = &["ryujinx", "citron", "sudachi", "yuzu"];
 
 /// Listed in display order.
 pub const PLATFORMS: &[PlatformDef] = &[
@@ -181,6 +218,20 @@ pub const PLATFORMS: &[PlatformDef] = &[
         ra: None,
     },
     PlatformDef {
+        id: "switch",
+        name: "Nintendo Switch",
+        short_name: "Switch",
+        emulator: "eden",
+        core: None,
+        // Update and DLC files are hidden by the scanner (is_switch_add_on).
+        extensions: &["nsp", "xci"],
+        libretro: None,
+        launchbox: Some("Nintendo Switch"),
+        wikidata: Some("Q19610114"),
+        igdb: Some(130),
+        ra: None,
+    },
+    PlatformDef {
         id: "segacd",
         name: "Sega CD",
         short_name: "Sega CD",
@@ -270,7 +321,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
 pub fn achievements(emulator_id: &str) -> Option<bool> {
     match emulator_id {
         "retroarch" | "duckstation" | "pcsx2" | "dolphin" => Some(true),
-        "rpcs3" | "azahar" => Some(false),
+        "rpcs3" | "azahar" | "eden" | "ryujinx" | "citron" | "sudachi" | "yuzu" => Some(false),
         _ => None,
     }
 }
@@ -343,11 +394,16 @@ pub fn retroarch_bios_problem(core: &str, platform_id: &str, system_dir: &Path) 
     }
 }
 
-/// Built-in emulators that can be added to a platform besides its own: only
-/// RetroArch (through a core), and not for PS3, whose games are folders.
+/// Built-in emulators that can be added to a platform besides its own:
+/// RetroArch (through a core; not for PS3, whose games are folders, or Switch,
+/// which has no usable core), and the other Switch emulators for Switch.
 /// The user's own emulators can be added to any platform.
 pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &str) -> bool {
-    emulator_id == "retroarch" && platform_builtin != "retroarch" && platform_id != "ps3"
+    match platform_id {
+        "switch" => SWITCH_ALTERNATIVES.contains(&emulator_id),
+        "ps3" => false,
+        _ => emulator_id == "retroarch" && platform_builtin != "retroarch",
+    }
 }
 
 /// Executable file names each emulator ships with (lowercase; `*` = any run of chars).
@@ -359,6 +415,11 @@ pub fn exe_patterns(emulator_id: &str) -> &'static [&'static str] {
         "pcsx2" => &["pcsx2-qt.exe", "pcsx2*.exe"],
         "rpcs3" => &["rpcs3.exe"],
         "azahar" => &["azahar.exe"],
+        "eden" => &["eden.exe"],
+        "ryujinx" => &["ryujinx.exe"],
+        "citron" => &["citron.exe"],
+        "sudachi" => &["sudachi.exe"],
+        "yuzu" => &["yuzu.exe"],
         _ => &[],
     }
 }
@@ -471,16 +532,33 @@ mod tests {
             r"RetroArch\retroarch.exe",
             r"RPCS3\rpcs3_old\rpcs3.exe",
             r"RPCS3\rpcs3.exe",
+            r"Eden\eden.exe",
+            r"Ryujinx\Ryujinx.exe",
+            r"Citron\citron.exe",
+            r"Citron\citron-cmd.exe",
         ] {
             let p = r.join(f);
             std::fs::create_dir_all(p.parent().unwrap()).unwrap();
             std::fs::write(p, b"MZ").unwrap();
         }
         let found: std::collections::HashMap<_, _> = detect_emulators(r).into_iter().collect();
-        assert_eq!(found.len(), 6);
+        assert_eq!(found.len(), 9);
         assert_eq!(found["azahar"], r.join(r"Azahar\azahar.exe"));
+        assert_eq!(found["citron"], r.join(r"Citron\citron.exe"), "not the -cmd variant");
+        assert_eq!(found["ryujinx"], r.join(r"Ryujinx\Ryujinx.exe"));
         assert_eq!(found["rpcs3"], r.join(r"RPCS3\rpcs3.exe"));
         assert_eq!(found["duckstation"], r.join(r"Duckstation\duckstation-qt-x64-ReleaseLTCG.exe"));
+    }
+
+    #[test]
+    fn switch_emulators_are_addable_only_to_switch() {
+        assert!(can_add_builtin("ryujinx", "switch", "eden"));
+        assert!(can_add_builtin("yuzu", "switch", "eden"));
+        assert!(!can_add_builtin("retroarch", "switch", "eden"), "no usable Switch core");
+        assert!(!can_add_builtin("ryujinx", "ps1", "duckstation"));
+        assert!(can_add_builtin("retroarch", "ps1", "duckstation"));
+        assert!(!can_add_builtin("retroarch", "ps3", "rpcs3"));
+        assert!(!can_add_builtin("retroarch", "snes", "retroarch"));
     }
 
     #[test]
