@@ -310,7 +310,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
       <h2>ROM folders</h2>
       <p class="dim">
         <b>Auto</b> works out each game's platform from its file type and disc contents (GameCube/Wii, PS1/PS2/PSP,
-        Sega CD), falling back to folder names like "PS2" or "PSX". Files it still can't place are listed under the
+        Sega CD, Saturn), falling back to folder names like "PS2" or "PSX". Files it still can't place are listed under the
         scan's warnings; assigning a platform to the folder always works.
       </p>
       <table class="table">
