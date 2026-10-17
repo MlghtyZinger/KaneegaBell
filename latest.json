@@ -1,11 +1,11 @@
 {
-  "version": "0.3.1",
-  "notes": "- New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.\n- New: Settings → Emulators → \"Add emulator…\" adds any emulator by its .exe and launch template.\n- New: \"Launch with\" on a game's details screen sets the emulator that game always uses.\n- New: \"Play with…\" (details screen and sidebar) starts a game with another emulator just this once.\n- New: emulator pickers say which emulators earn RetroAchievements.\n- New: if a game's emulator isn't set up, KB plays it with the platform's default and says so on the Now Playing screen.\n- New: Settings → Platforms says when a RetroArch core isn't installed or its BIOS seems to be missing (e.g. RetroArch's PS2 core needs a PS2 BIOS in RetroArch's own system folder); the game's sidebar and pickers warn too.\n- New: when an emulator closes within a few seconds without running the game, KB says so (with the likely reason) and doesn't count it as played.",
-  "pub_date": "2026-10-16T15:01:01Z",
+  "version": "0.3.2",
+  "notes": "- New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).\n- New: Saturn games show their RetroAchievements.\n- New: Saturn discs in mixed folders are recognized by their disc header, with the game's product number.\n- New: KB warns when the Saturn BIOS (mpr-17933.bin or sega_101.bin) is missing from RetroArch's system folder.\n- Fixed: a cue sheet whose disc images aren't there (e.g. a translation patch not applied yet) is no longer listed as a game; the scan report says why.\n- Fixed: changing a game's background or logo a second time sometimes kept showing the old picture until a restart.\n- Fixed: a damaged Wii or CSO disc image can no longer make KB close on start.\n- Fixed: a game moved to another platform by a scan no longer keeps the old platform's \"Launch with\" emulator.",
+  "pub_date": "2026-10-17T21:47:23Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVI4N0dvRG1YZ09KOVJKYnhtcDBLNEFEbDBvUWs2SjlIb1hlTmZrKzk3WXVqZ004MDE3UlEzT3NXdnMwYnp3TW9UN2lHV0NMMjMyNjhYdndRVWpoSUF3PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMTYyODQ3CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4xClpUZzRJYTI5VitVMThCSFIvSEhzVkFsM0toR2RLdkhTbGdHaVd0SW81eW50Ni9BRVIyT0dMV3dXeStkTzR0MHlJRTlEOXplZ0VBdFc4ZjVXdWp6eEFRPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.1_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRSdGNjQ092aERYeEJWaTlrUHpxRHFkRWV6TU5jRjdqVEw0R1F4Si9wUG1jczkralJJRFJVa1o4aEY0WjQ2NVg3YXY1QmpuKzRjN2JtZlRvcHlCWFFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMjczNTY4CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjJfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy4yClp1SWZaYmlrQTVSWkZoRXFZUjhRTTVaU1N4ZWxhcmkvWmhuRHI4YjNrU1ZDYWZwMjdGdGJlSStpZU54MjRJWkJmazYxSU5WRkZFNGNmU0tYajZLSERnPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.2_x64-setup.exe?ref=updates"
     }
   }
 }
