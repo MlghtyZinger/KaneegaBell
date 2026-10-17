@@ -25,6 +25,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/013_sgdb_names.sql"),
     include_str!("migrations/014_compressed_discs.sql"),
     include_str!("migrations/015_emulator_choice.sql"),
+    include_str!("migrations/016_artwork_ids.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {
@@ -84,4 +85,28 @@ pub fn test_db() -> Connection {
     migrate(&mut conn).unwrap();
     crate::platforms::seed(&conn).unwrap();
     conn
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_replaced_background_never_gets_the_old_version_back() {
+        let conn = super::test_db();
+        conn.execute(
+            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at) VALUES ('gba', 'A', 'a', 'a', 'a.gba', 0)",
+            [],
+        )
+        .unwrap();
+        let hero = || super::queries::library(&conn).unwrap()[0].hero;
+        let mut seen = Vec::new();
+        // The newest row is replaced each time, and removed once in between.
+        for (i, remove) in [false, false, true, false].into_iter().enumerate() {
+            if remove {
+                super::queries::clear_extra(&conn, 1, "hero").unwrap();
+            }
+            super::queries::set_extra(&conn, 1, "hero", "file", &i.to_string(), "u", 1, 1, 0).unwrap();
+            assert!(!seen.contains(&hero()), "version {} came back: {seen:?}", hero());
+            seen.push(hero());
+        }
+    }
 }
