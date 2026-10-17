@@ -673,7 +673,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.2
+### 0.3.2 (2026-10-18)
 - New: Sega Saturn, played with RetroArch's Beetle Saturn core (Kronos, YabaSanshiro or Yabause can be picked instead in Settings → Platforms).
 - New: Saturn games show their RetroAchievements.
 - New: Saturn discs in mixed folders are recognized by their disc header, with the game's product number.
