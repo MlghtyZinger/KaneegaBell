@@ -122,7 +122,7 @@ pub const EMULATORS: &[EmulatorDef] = &[
 ];
 
 /// Switch emulators besides the built-in Eden, addable to the Switch platform.
-const SWITCH_ALTERNATIVES: &[&str] = &["ryujinx", "citron", "sudachi", "yuzu"];
+pub const SWITCH_ALTERNATIVES: &[&str] = &["ryujinx", "citron", "sudachi", "yuzu"];
 
 /// Listed in display order.
 pub const PLATFORMS: &[PlatformDef] = &[

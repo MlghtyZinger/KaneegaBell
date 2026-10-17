@@ -64,7 +64,9 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(id(), emulator);
+      // A pick becomes the game's own emulator (the platform's default clears it).
+      if (emulator) await api.setGameEmulator(id(), emulator === emus()?.defaultId ? null : emulator);
+      await api.launchGame(id(), null);
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
       setLaunchError(errorText(e));

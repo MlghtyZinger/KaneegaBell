@@ -1032,12 +1032,20 @@ fn empty_to_none(s: Option<String>) -> Option<String> {
 }
 
 pub fn update_emulator(conn: &Connection, id: &str, exe_path: Option<String>, template_override: Option<String>) -> Result<()> {
-    let n = conn.execute(
+    let had_exe: bool = conn
+        .query_row("SELECT exe_path IS NOT NULL FROM emulators WHERE id = ?1", [id], |r| r.get(0))
+        .optional()?
+        .ok_or_else(|| Error::msg(format!("unknown emulator {id}")))?;
+    let exe_path = empty_to_none(exe_path);
+    let set_up_now = !had_exe && exe_path.is_some();
+    conn.execute(
         "UPDATE emulators SET exe_path = ?2, template_override = ?3 WHERE id = ?1",
-        params![id, empty_to_none(exe_path), empty_to_none(template_override)],
+        params![id, exe_path, empty_to_none(template_override)],
     )?;
-    if n == 0 {
-        return Err(Error::msg(format!("unknown emulator {id}")));
+    // A Switch emulator joins the Switch platform as soon as it's set up, so
+    // its games can pick it (removing it there later sticks).
+    if set_up_now && crate::platforms::SWITCH_ALTERNATIVES.contains(&id) {
+        conn.execute("INSERT OR IGNORE INTO platform_emulators (platform_id, emulator_id) VALUES ('switch', ?1)", [id])?;
     }
     Ok(())
 }

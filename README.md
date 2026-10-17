@@ -253,11 +253,12 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
   launch template (`"{emulator}" "{rom}"` plus whatever options the emulator's documentation
   gives, e.g. a fullscreen flag). KB doesn't configure emulators, it only starts them.
 - **Per game:** the details screen's **Launch with** sets the emulator a game always uses (or the
-  platform's default); **Play with…** (details screen and sidebar) starts it with another one
-  just this once. They appear when a platform has more than one emulator.
+  platform's default); **Play with…** (details screen and sidebar) starts it with another one and
+  remembers that for the game (picking the platform's default goes back to following it). They
+  appear when a platform has more than one emulator. A Switch emulator joins the Switch platform as
+  soon as its exe is set (Settings → Emulators, or Find emulators).
 - If a game's emulator isn't set up (exe or RetroArch core missing, or removed), KB plays it with
-  the platform's default and says so on the Now Playing screen. A "Play with…" pick that isn't set
-  up is reported instead.
+  the platform's default and says so on the Now Playing screen.
 - RetroArch cores that need the console's BIOS look for it in **RetroArch's own system folder**
   (its `system` folder, or `system_directory` in retroarch.cfg), not the standalone emulator's:
   `system\pcsx2\bios\` for the PS2 core, `scph….bin` in `system` for the PS1 cores (SwanStation,
@@ -686,13 +687,15 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.3
+### 0.3.3 (2026-10-18)
 - New: Nintendo Switch, played with Eden (.nsp and .xci games).
 - New: Ryujinx, Citron, Sudachi and Yuzu can be added as Switch emulators in Settings → Platforms, then picked as the default or per game.
 - New: Switch update and DLC files are hidden, so only the games themselves are listed.
 - New: a Switch game's title ID in its file name is kept as the game's ID.
 - Improved: a version number in a file name (like "v1.0.0") no longer shows in the game's title.
 - Fixed: games on a newly added platform get covers and info from the LaunchBox database right away, not a week later.
+- Changed: "Play with…" now remembers the emulator you pick for that game, so it starts with it next time too.
+- New: a Switch emulator is offered for Switch games as soon as its .exe is set up, no extra step in Settings → Platforms.
 - Improved: new covers appear before series are looked up on Wikidata, instead of waiting for it.
 - Improved: the footer says what's happening in the background (e.g. "Series (Wikidata): Switch, downloading its game list") and counts the seconds when a step takes a while.
 

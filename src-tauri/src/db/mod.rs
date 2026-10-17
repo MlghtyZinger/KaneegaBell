@@ -26,6 +26,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/014_compressed_discs.sql"),
     include_str!("migrations/015_emulator_choice.sql"),
     include_str!("migrations/016_artwork_ids.sql"),
+    include_str!("migrations/017_switch_emulators.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {
@@ -89,6 +90,25 @@ pub fn test_db() -> Connection {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_switch_emulator_joins_switch_once_set_up() {
+        let conn = super::test_db();
+        let on_switch = |id: &str| -> bool {
+            conn.query_row("SELECT COUNT(*) FROM platform_emulators WHERE platform_id = 'switch' AND emulator_id = ?1", [id], |r| r.get::<_, i64>(0))
+                .unwrap()
+                == 1
+        };
+        super::queries::update_emulator(&conn, "ryujinx", Some(r"E:\Emulators\Ryujinx\Ryujinx.exe".into()), None).unwrap();
+        assert!(on_switch("ryujinx"));
+        // Taken off Switch by the user: editing the emulator later doesn't bring it back.
+        super::queries::remove_platform_emulator(&conn, "switch", "ryujinx").unwrap();
+        super::queries::update_emulator(&conn, "ryujinx", Some(r"E:\Emulators\Ryujinx\Ryujinx.exe".into()), Some("x".into())).unwrap();
+        assert!(!on_switch("ryujinx"));
+        // Not a Switch emulator: stays where it is.
+        super::queries::update_emulator(&conn, "duckstation", Some(r"E:\D\duckstation.exe".into()), None).unwrap();
+        assert!(!on_switch("duckstation"));
+    }
+
     #[test]
     fn a_replaced_background_never_gets_the_old_version_back() {
         let conn = super::test_db();

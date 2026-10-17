@@ -401,7 +401,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       2026-10-18**: Eden built-in `-f -g`; Ryujinx 1.1.1403 (original, not Ryubing) `--fullscreen`; Citron,
       Sudachi, Yuzu `-f -g`, addable to Switch only (`SWITCH_ALTERNATIVES`); GUI exes print no `--help`, so
       flags checked in their argument parsers; Yuzu is the owner's AppData copy and crashes on its own;
-      add-ons hidden by title ID low 13 bits ≠ 0 or [UPD]/[DLC]; libretro has no Switch set) (planned: Eden default,
+      add-ons hidden by title ID low 13 bits ≠ 0, [UPD]/[DLC] tags or a version ≥ v65536; libretro has no Switch set,
+      so the cover pass no longer requires a libretro system; a Switch emulator joins Switch when its exe is set
+      (migration 017 for ones set earlier); "Play with…" now saves the pick as the game's emulator, owner's request)
+      (planned: Eden default,
       eden-emu.dev; Ryujinx = Ryubing, ryujinx.app, `--fullscreen <game>`; Yuzu legacy, `-f -g <game>`;
       .nsp/.xci; titles from file names + `[0100…]` title IDs, never decrypt; hide update/DLC files; no RA)
       → 0.3.4 **Xbox** (xemu `-full-screen -dvd_path <iso>`; RetroArch xemu core is experimental, as an
