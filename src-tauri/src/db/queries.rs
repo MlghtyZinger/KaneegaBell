@@ -786,6 +786,8 @@ pub fn apply_scan(
              sort_title = excluded.sort_title, search_key = excluded.search_key, region = excluded.region,
              serial = excluded.serial, source_id = excluded.source_id, total_size = excluded.total_size,
              mtime = excluded.mtime, is_multidisc = excluded.is_multidisc, missing = 0,
+             -- A game moved to another platform loses its emulator pick (it was the old platform's).
+             emulator_choice = CASE WHEN games.platform_id = excluded.platform_id THEN games.emulator_choice END,
              -- Changed files get hashed again for RetroAchievements.
              ra_hash = CASE WHEN games.total_size = excluded.total_size AND games.mtime = excluded.mtime
                             THEN games.ra_hash END,

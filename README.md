@@ -679,6 +679,8 @@ window, so they're written for players.
 - New: Saturn discs in mixed folders are recognized by their disc header, with the game's product number.
 - New: KB warns when the Saturn BIOS (mpr-17933.bin or sega_101.bin) is missing from RetroArch's system folder.
 - Fixed: a cue sheet whose disc images aren't there (e.g. a translation patch not applied yet) is no longer listed as a game; the scan report says why.
+- Fixed: a damaged Wii or CSO disc image can no longer make KB close on start.
+- Fixed: a game moved to another platform by a scan no longer keeps the old platform's "Launch with" emulator.
 
 ### 0.3.1 (2026-10-16)
 - New: a platform can have more than one emulator: add RetroArch (with a core) or any emulator of your own, and pick the default, in Settings → Platforms → Emulator column.

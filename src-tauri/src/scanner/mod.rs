@@ -302,14 +302,9 @@ impl Resolver<'_> {
         let mut sniff = detect::sniff(&probe, &probe_ext);
         // Optical discs: Sega CD / PSP / PS1 vs PS2 (via SYSTEM.CNF) + serial.
         if sniff.platform.is_none() && matches!(probe_ext.as_str(), "bin" | "img" | "iso") {
-            sniff = detect::sniff_disc(&probe);
-            // A pregap stored ahead of track 1 moves the file system: read it
-            // where the cue's INDEX 01 says the track starts.
-            if sniff.platform.is_none() {
-                if let Some(cue) = &cue {
-                    sniff = detect::sniff_sectors(cue);
-                }
-            }
+            // Through the cue when there is one: a pregap stored ahead of
+            // track 1 moves the file system to where its INDEX 01 points.
+            sniff = detect::sniff_sectors(cue.as_ref().unwrap_or(&probe));
         } else if sniff.platform.is_none() && crate::disc::is_compressed(&probe_ext) {
             sniff = detect::sniff_sectors(&probe);
         }

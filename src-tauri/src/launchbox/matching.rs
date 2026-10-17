@@ -82,6 +82,7 @@ impl Candidates {
     }
 
     /// A LaunchBox game's main name.
+    #[cfg(test)]
     pub fn main_name(&self, db_id: i64) -> Option<&str> {
         self.main_name.get(&db_id).map(|&i| self.names[i].name.as_str())
     }

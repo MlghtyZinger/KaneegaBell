@@ -66,13 +66,17 @@ impl Cso {
         if raw.len() != (blocks as usize + 1) * 4 {
             return Err(Error::msg("CSO/ZSO index is cut short"));
         }
+        let align = u32::from(head[21]);
+        if align > 31 {
+            return Err(Error::msg("CSO/ZSO file with an odd index alignment"));
+        }
         let index = raw.chunks_exact(4).map(|c| u32::from_le_bytes(c.try_into().unwrap())).collect();
         Ok(Self {
             file,
             kind,
             total_bytes,
             block_size,
-            align: u32::from(head[21]),
+            align,
             index,
             block: vec![0; block_size as usize],
             loaded: None,
@@ -87,6 +91,10 @@ impl Cso {
         let (entry, next) = (self.index[n as usize], self.index[n as usize + 1]);
         let start = u64::from(entry & 0x7FFF_FFFF) << self.align;
         let end = u64::from(next & 0x7FFF_FFFF) << self.align;
+        // A block never stores much more than its own size (plus alignment padding).
+        if end.saturating_sub(start) > 2 * self.block_size + (1 << self.align) {
+            return Err(Error::msg("damaged CSO/ZSO index"));
+        }
         let stored = read_at(&mut self.file, start, end.saturating_sub(start) as usize)?;
         let top = entry & 0x8000_0000 != 0;
         let plain = match self.kind {
@@ -226,6 +234,12 @@ mod tests {
         }
         assert_eq!(d.read(1, 10).unwrap(), data[2048..2058]);
         assert!(d.read(5, 2048).unwrap().is_empty(), "past the end");
+
+        // A damaged index claiming a ~2 GB block is refused, not read into memory.
+        let mut bad = cso(&data);
+        bad[24 + 4..24 + 8].copy_from_slice(&0x7FFF_FFF0u32.to_le_bytes());
+        std::fs::write(&p, bad).unwrap();
+        assert!(Cso::open(&p).unwrap().read(0, 2048).is_err());
     }
 
     #[test]

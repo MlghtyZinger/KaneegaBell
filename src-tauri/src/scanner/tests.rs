@@ -35,6 +35,8 @@ fn wbfs(id: &[u8; 6]) -> Vec<u8> {
 
 fn sega_track() -> Vec<u8> {
     let mut b = vec![0u8; 0x100];
+    b[..12].copy_from_slice(&crate::disc::SYNC);
+    b[15] = 1; // raw MODE1 sector
     b[0x10..0x1E].copy_from_slice(b"SEGADISCSYSTEM");
     b
 }
@@ -47,10 +49,16 @@ fn psx_track() -> Vec<u8> {
     b
 }
 
+/// A PlayStation-style cue sheet (MODE2 data track).
 fn cue(bins: &[&str]) -> Vec<u8> {
+    cue_mode(bins, "MODE2/2352")
+}
+
+/// Sega CD and Saturn data tracks are MODE1.
+fn cue_mode(bins: &[&str], mode: &str) -> Vec<u8> {
     bins.iter()
         .enumerate()
-        .map(|(i, b)| format!("FILE \"{b}\" BINARY\r\n  TRACK {:02} MODE2/2352\r\n    INDEX 01 00:00:00\r\n", i + 1))
+        .map(|(i, b)| format!("FILE \"{b}\" BINARY\r\n  TRACK {:02} {mode}\r\n    INDEX 01 00:00:00\r\n", i + 1))
         .collect::<String>()
         .into_bytes()
 }
@@ -172,7 +180,7 @@ fn sega_cd_tracks_are_hidden_and_auto_cue_is_sniffed() {
     write(&s.join(&bins[0]), &sega_track());
     write(&s.join(&bins[1]), &[0; 8]);
     write(&s.join(&bins[2]), &[0; 8]);
-    write(&s.join("Snatcher (USA).cue"), &cue(&bins.iter().map(String::as_str).collect::<Vec<_>>()));
+    write(&s.join("Snatcher (USA).cue"), &cue_mode(&bins.iter().map(String::as_str).collect::<Vec<_>>(), "MODE1/2352"));
 
     let (c, w) = scan(t.path(), Some("segacd"));
     assert!(w.is_empty(), "{w:?}");
@@ -229,7 +237,7 @@ fn auto_folder_of_ps2_isos_is_ps2_not_ps1() {
     // The user's report: an Auto source pointed at the PS2 folder showed PS1.
     let t = tempfile::tempdir().unwrap();
     let ps2 = detect::tests::build_disc(
-        detect::SectorLayout { size: 2048, data: 0 },
+        detect::tests::SectorLayout { size: 2048, data: 0 },
         "PLAYSTATION",
         Some("BOOT2 = cdrom0:\\SCUS_971.24;1\r\n"),
     );
@@ -247,7 +255,7 @@ fn a_cue_with_a_stored_pregap_is_still_sniffed() {
     // a Sega CD.
     let t = tempfile::tempdir().unwrap();
     let cnf = "BOOT = cdrom:\\SLUS_007.08;1\r\nTCB = 4\r\n";
-    let disc = detect::tests::build_disc(detect::SectorLayout { size: 2352, data: 24 }, "PLAYSTATION", Some(cnf));
+    let disc = detect::tests::build_disc(detect::tests::SectorLayout { size: 2352, data: 24 }, "PLAYSTATION", Some(cnf));
     let mut bin = vec![0u8; 150 * 2352];
     bin.extend(disc);
     write(&t.path().join("Unsorted").join("Game.bin"), &big(bin));
@@ -278,7 +286,7 @@ fn saturn_discs_are_told_apart_by_their_header() {
     // and Saturn, so only the disc header can decide.
     let t = tempfile::tempdir().unwrap();
     write(&t.path().join("Unsorted").join("Policenauts (Japan) (Disc 1).bin"), &big(saturn_track()));
-    write(&t.path().join("Unsorted").join("Policenauts (Japan) (Disc 1).cue"), &cue(&["Policenauts (Japan) (Disc 1).bin"]));
+    write(&t.path().join("Unsorted").join("Policenauts (Japan) (Disc 1).cue"), &cue_mode(&["Policenauts (Japan) (Disc 1).bin"], "MODE1/2352"));
     let (c, w) = scan(t.path(), None);
     assert!(w.is_empty(), "{w:?}");
     let got: Vec<_> = c.iter().map(|c| (c.platform.as_str(), c.serial.as_deref())).collect();
@@ -304,7 +312,7 @@ fn folder_name_breaks_ties_when_headers_cant() {
     let t = tempfile::tempdir().unwrap();
     // A PlayStation disc with no SYSTEM.CNF, and an unreadable CHD: only the
     // folder names can tell.
-    let bare = detect::tests::build_disc(detect::SectorLayout { size: 2048, data: 0 }, "PLAYSTATION", None);
+    let bare = detect::tests::build_disc(detect::tests::SectorLayout { size: 2048, data: 0 }, "PLAYSTATION", None);
     write(&t.path().join("PS2").join("Game A.iso"), &big(bare));
     write(&t.path().join("PSX").join("Game B.chd"), &vec![0; DISC]);
     write(&t.path().join("Unsorted").join("Game C.chd"), &vec![0; DISC]);

@@ -45,7 +45,8 @@ fn ext(path: &Path) -> String {
 /// Reads up to `len` bytes at `offset` (fewer at end of file).
 pub(crate) fn read_at<R: Read + Seek>(r: &mut R, offset: u64, len: usize) -> std::io::Result<Vec<u8>> {
     r.seek(SeekFrom::Start(offset))?;
-    let mut buf = Vec::with_capacity(len);
+    // Grows as data arrives: `len` can come from a damaged file's header.
+    let mut buf = Vec::new();
     r.take(len as u64).read_to_end(&mut buf)?;
     Ok(buf)
 }

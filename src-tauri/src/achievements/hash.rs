@@ -28,7 +28,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use super::wbfs::Wbfs;
-use crate::disc::{self, Sectors};
+use crate::disc::{self, read_at, Sectors};
 use crate::error::{Error, Result};
 
 const MAX_BUFFER_SIZE: u64 = 64 * 1024 * 1024;
@@ -50,14 +50,6 @@ pub mod console {
 
 fn hex(digest: md5::Digest) -> String {
     format!("{digest:x}")
-}
-
-/// Reads up to `len` bytes at `offset` (fewer at end of file).
-fn read_at<R: Read + Seek>(r: &mut R, offset: u64, len: usize) -> std::io::Result<Vec<u8>> {
-    r.seek(SeekFrom::Start(offset))?;
-    let mut buf = Vec::with_capacity(len);
-    r.take(len as u64).read_to_end(&mut buf)?;
-    Ok(buf)
 }
 
 /// Like `read_at`, but always `len` bytes (zero-filled past the end), the way
@@ -251,6 +243,10 @@ fn wii<R: Read + Seek>(r: &mut R) -> Result<Option<String>> {
     for group in 0..4 {
         let count = be32(&info, group * 8);
         let table = u64::from(be32(&info, group * 8 + 4)) << 2;
+        // Real discs have a handful; a damaged header can claim billions.
+        if count > 16 {
+            return Err(Error::msg("damaged Wii disc (partition table)"));
+        }
         if count > 0 {
             let entries = read_exact_at(r, table, count as usize * 8)?;
             for e in entries.chunks_exact(8) {

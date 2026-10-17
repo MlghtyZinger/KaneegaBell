@@ -3,8 +3,9 @@
 //! header field. Reads at most a few KB per file, and only for new/changed files.
 
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
+
+use crate::disc::read_at;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Sniff {
@@ -94,29 +95,6 @@ pub fn other_iso(b: &[u8]) -> Option<Sniff> {
     None
 }
 
-/// Sector layout of an optical disc image: bytes per sector and where the 2048
-/// bytes of user data start inside each sector.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SectorLayout {
-    pub size: u64,
-    pub data: u64,
-}
-
-/// Cooked ISO, raw MODE1 (16-byte header), raw MODE2 form 1 (24-byte header).
-const LAYOUTS: [SectorLayout; 3] = [
-    SectorLayout { size: 2048, data: 0 },
-    SectorLayout { size: 2352, data: 16 },
-    SectorLayout { size: 2352, data: 24 },
-];
-
-/// Finds the ISO9660 primary volume descriptor (sector 16) in `head`.
-fn find_pvd(head: &[u8]) -> Option<(SectorLayout, usize)> {
-    LAYOUTS.into_iter().find_map(|l| {
-        let at = (16 * l.size + l.data) as usize;
-        (head.get(at + 1..at + 6) == Some(b"CD001")).then_some((l, at))
-    })
-}
-
 /// PS1 vs PS2 from SYSTEM.CNF (`BOOT2 = cdrom0:\SLUS_203.12;1` is PS2,
 /// `BOOT = cdrom:\SCUS_944.55;1` is PS1), plus the serial from the boot file.
 pub fn parse_system_cnf(text: &str) -> Option<(&'static str, Option<String>)> {
@@ -159,68 +137,10 @@ fn find_dir_entry(dir: &[u8], name: &str) -> Option<(u32, u32)> {
     None
 }
 
-/// Reads `bytes` of user data starting at sector `lba`.
-fn read_sectors(f: &mut File, layout: SectorLayout, lba: u32, bytes: u32) -> std::io::Result<Vec<u8>> {
-    let bytes = bytes.min(64 * 1024); // root dirs and SYSTEM.CNF are tiny
-    if layout.size == 2048 {
-        return read_at(f, u64::from(lba) * 2048, bytes as usize);
-    }
-    let mut out = Vec::with_capacity(bytes as usize);
-    let mut sector = u64::from(lba);
-    while (out.len() as u32) < bytes {
-        let chunk = read_at(f, sector * layout.size + layout.data, 2048)?;
-        if chunk.is_empty() {
-            break;
-        }
-        out.extend_from_slice(&chunk);
-        sector += 1;
-    }
-    out.truncate(bytes as usize);
-    Ok(out)
-}
-
-/// Optical disc images (.iso/.bin/.img, or the first track behind a .cue):
-/// Sega CD ("SEGADISCSYSTEM"), PSP ("PSP GAME"), and PS1 vs PS2 via SYSTEM.CNF,
-/// with the PlayStation serial when present.
-pub fn sniff_disc(path: &Path) -> Sniff {
-    let run = || -> std::io::Result<Sniff> {
-        let mut f = File::open(path)?;
-        let head = read_at(&mut f, 0, 16 * 2352 + 24 + 2048)?;
-        for at in [0usize, 0x10] {
-            if head.get(at..at + 14) == Some(b"SEGADISCSYSTEM") {
-                return Ok(Sniff { platform: Some("segacd"), serial: None });
-            }
-            if head.get(at..at + 15) == Some(b"SEGA SEGASATURN") {
-                return Ok(Sniff { platform: Some("saturn"), serial: saturn_product(&head[at..]) });
-            }
-        }
-        let Some((layout, pvd)) = find_pvd(&head) else { return Ok(Sniff::default()) };
-        match ascii_field(&head, pvd + 8, 32).as_deref() {
-            Some("PSP GAME") => return Ok(Sniff { platform: Some("psp"), serial: None }),
-            Some("PLAYSTATION") => {}
-            _ => return Ok(Sniff::default()),
-        }
-        let root = head.get(pvd + 156..pvd + 190).unwrap_or(&[]);
-        let (Some(root_lba), Some(root_len)) = (
-            root.get(2..6).and_then(|b| b.try_into().ok()).map(u32::from_le_bytes),
-            root.get(10..14).and_then(|b| b.try_into().ok()).map(u32::from_le_bytes),
-        ) else {
-            return Ok(Sniff::default());
-        };
-        let dir = read_sectors(&mut f, layout, root_lba, root_len)?;
-        let Some((cnf_lba, cnf_len)) = find_dir_entry(&dir, "SYSTEM.CNF") else { return Ok(Sniff::default()) };
-        let cnf = read_sectors(&mut f, layout, cnf_lba, cnf_len)?;
-        Ok(match parse_system_cnf(&String::from_utf8_lossy(&cnf)) {
-            Some((platform, serial)) => Sniff { platform: Some(platform), serial },
-            None => Sniff::default(),
-        })
-    };
-    run().unwrap_or_default()
-}
-
-/// The same checks as `sniff_disc`, reading sectors through `crate::disc`:
-/// compressed images (.chd, .cso/.zso), and cue sheets whose track 1 starts
-/// after a stored pregap.
+/// Optical disc images, read as sectors through `crate::disc` (.iso/.bin/.img,
+/// a .cue's first track from its `INDEX 01`, .chd, .cso/.zso): Sega CD
+/// ("SEGADISCSYSTEM"), Saturn, PSP ("PSP GAME"), and PS1 vs PS2 via
+/// SYSTEM.CNF, with the PlayStation serial when present.
 pub fn sniff_sectors(path: &Path) -> Sniff {
     let run = || -> crate::error::Result<Sniff> {
         let mut disc = crate::disc::open(path)?;
@@ -284,13 +204,6 @@ pub fn gba(b: &[u8]) -> Option<String> {
         return None;
     }
     ascii_field(b, 0xAC, 4).filter(|c| c.len() == 4 && c.bytes().all(|x| x.is_ascii_alphanumeric()))
-}
-
-fn read_at(f: &mut File, offset: u64, len: usize) -> std::io::Result<Vec<u8>> {
-    f.seek(SeekFrom::Start(offset))?;
-    let mut buf = Vec::with_capacity(len);
-    f.take(len as u64).read_to_end(&mut buf)?;
-    Ok(buf)
 }
 
 /// 3DS product code ("CTR-P-AMGE") from an NCSD (.3ds/.cci) or NCCH (.cxi) image.
@@ -406,8 +319,24 @@ pub(crate) mod tests {
         assert_eq!(other_iso(&b).unwrap().platform, Some("segacd"));
     }
 
+    /// Sector layout of a disc image: bytes per sector and where the 2048
+    /// bytes of user data start inside each sector.
+    #[derive(Debug, Clone, Copy)]
+    pub struct SectorLayout {
+        pub size: u64,
+        pub data: u64,
+    }
+
+    /// Cooked ISO, raw MODE1 (16-byte header), raw MODE2 form 1 (24-byte header).
+    const LAYOUTS: [SectorLayout; 3] = [
+        SectorLayout { size: 2048, data: 0 },
+        SectorLayout { size: 2352, data: 16 },
+        SectorLayout { size: 2352, data: 24 },
+    ];
+
     /// Builds a minimal ISO9660 image: PVD at sector 16, root directory at 18
-    /// holding SYSTEM.CNF (if given) at sector 19.
+    /// holding SYSTEM.CNF (if given) at sector 19. Raw sectors get a sync
+    /// pattern and mode byte, like real dumps.
     pub fn build_disc(layout: SectorLayout, system_id: &str, cnf: Option<&str>) -> Vec<u8> {
         let mut sectors = vec![vec![0u8; 2048]; 20];
         let pvd = &mut sectors[16];
@@ -439,6 +368,10 @@ pub(crate) mod tests {
         let mut out = Vec::new();
         for s in sectors {
             let mut raw = vec![0u8; layout.size as usize];
+            if layout.size == 2352 {
+                raw[..12].copy_from_slice(&crate::disc::SYNC);
+                raw[15] = if layout.data == 24 { 2 } else { 1 };
+            }
             raw[layout.data as usize..layout.data as usize + 2048].copy_from_slice(&s);
             out.extend_from_slice(&raw);
         }
@@ -449,7 +382,7 @@ pub(crate) mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("disc.iso");
         std::fs::write(&p, bytes).unwrap();
-        sniff_disc(&p)
+        sniff_sectors(&p)
     }
 
     #[test]
@@ -475,7 +408,7 @@ pub(crate) mod tests {
     #[test]
     fn psp_and_sega_cd_discs() {
         assert_eq!(sniff_bytes(&build_disc(LAYOUTS[0], "PSP GAME", None)).platform, Some("psp"));
-        let mut sega = build_disc(LAYOUTS[2], "", None);
+        let mut sega = build_disc(LAYOUTS[1], "", None); // Sega CD data tracks are MODE1
         sega[0x10..0x1E].copy_from_slice(b"SEGADISCSYSTEM");
         assert_eq!(sniff_bytes(&sega).platform, Some("segacd"));
         assert_eq!(sniff_bytes(&[0u8; 64]), Sniff::default());
