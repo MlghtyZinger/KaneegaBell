@@ -213,7 +213,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(id(), null);
+      await api.launchGame(id());
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
       setLaunchError(errorText(e));

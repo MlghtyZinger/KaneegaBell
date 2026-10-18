@@ -107,6 +107,8 @@ fn switch_games_without_their_updates_and_dlc() {
     write(&r.join("Xenoblade Chronicles 2 - Torna [0100E95004039001][v0].nsp"), b"x"); // DLC
     write(&r.join("Xenoblade Chronicles 2 (Update 2.1.0) [UPD].nsp"), b"x"); // tagged, no ID
     write(&r.join("DLC Quest.nsp"), b"x"); // "DLC" in a title isn't a tag
+    // A cartridge revision / update merged in: the game's own ID wins over the big version.
+    write(&r.join("Pokemon Sword [0100ABCD12340000][v131072].xci"), b"x");
     // The owner's folder: a scene update (version number only) and eShop dumps.
     write(&r.join("Bayonetta_2_Update_v1.2_NSW-SUXXORS").join("sxs-bayonetta_2_v131072.nsp"), b"x");
     write(&r.join("Bayonetta 2.xci"), b"x");
@@ -124,6 +126,7 @@ fn switch_games_without_their_updates_and_dlc() {
         [
             ("Bayonetta 2", "switch", None),
             ("DLC Quest", "switch", None),
+            ("Pokemon Sword", "switch", Some("0100ABCD12340000")),
             ("Super Mario Galaxy", "switch", Some("010099C022B96000")),
             ("Super Mario Odyssey", "switch", Some("0100000000010000")),
             ("Xenoblade Chronicles 2", "switch", Some("0100E95004038000")),

@@ -65,7 +65,7 @@ pub struct Choice {
 
 /// Why an emulator can't run a game right now (exe or RetroArch core
 /// missing), or None when it can.
-fn not_ready(cfg: &LaunchConfig, cores_dir: Option<&Path>) -> Option<String> {
+pub fn not_ready(cfg: &LaunchConfig, cores_dir: Option<&Path>) -> Option<String> {
     match cfg.exe_path.as_deref() {
         None => return Some(format!("{} isn't set up yet (Settings → Emulators).", cfg.emulator_name)),
         Some(p) if !Path::new(p).is_file() => return Some(format!("{} wasn't found at {p}.", cfg.emulator_name)),
@@ -131,20 +131,11 @@ fn quick_exit_message(title: &str, emulator: &str, secs: u64, bios: Option<&str>
     format!("{emulator} closed {after} without running {title}.{hint}")
 }
 
-/// Picks the emulator for a launch: `once` (chosen for this launch only),
-/// else the game's own pick, else the platform's default. A game's pick that
-/// can't run (not set up, removed) falls back to the default with a notice
-/// saying so; a pick for this launch only is reported instead, since the
-/// user just chose it.
-pub fn choose(conn: &rusqlite::Connection, game: &GameDetail, once: Option<&str>, cores_dir: Option<&Path>) -> Result<Choice> {
+/// Picks the emulator for a launch: the game's own pick, else the platform's
+/// default. A game's pick that can't run (not set up, removed) falls back to
+/// the default with a notice saying so.
+pub fn choose(conn: &rusqlite::Connection, game: &GameDetail, cores_dir: Option<&Path>) -> Result<Choice> {
     let platform = &game.platform_id;
-    if let Some(e) = once {
-        let cfg = queries::launch_config(conn, platform, e)?;
-        if let Some(why) = not_ready(&cfg, cores_dir) {
-            return Err(Error::msg(why));
-        }
-        return Ok(Choice { cfg, notice: None });
-    }
     let default = queries::platform_default(conn, platform)?;
     let mut notice = None;
     if let Some(pick) = queries::game_emulator_choice(conn, game.id)?.filter(|p| *p != default) {
@@ -232,9 +223,8 @@ impl Launcher {
         })
     }
 
-    /// Starts a game, with `once` as the emulator for this launch only (else
-    /// the game's pick or the platform's default).
-    pub fn launch(self: &Arc<Self>, app: &AppHandle, game_id: i64, once: Option<&str>) -> Result<Started> {
+    /// Starts a game with its own emulator pick, else the platform's default.
+    pub fn launch(self: &Arc<Self>, app: &AppHandle, game_id: i64) -> Result<Started> {
         let state = app.state::<crate::commands::AppState>();
         let mut slot = self.current.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(s) = slot.as_ref() {
@@ -246,7 +236,7 @@ impl Launcher {
             let game = queries::game_detail(&conn, game_id)?;
             let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
             let cores = cores.map(PathBuf::from);
-            let choice = choose(&conn, &game, once, cores.as_deref())?;
+            let choice = choose(&conn, &game, cores.as_deref())?;
             (game, choice, cores)
         };
         if let Some(n) = &notice {
@@ -508,24 +498,18 @@ mod tests {
     fn a_games_pick_wins_and_falls_back_to_the_default_with_a_notice() {
         let (t, conn, game) = ps1_setup();
         let cores = t.path().join("cores");
-        let pick = |once| choose(&conn, &game, once, Some(&cores)).unwrap();
+        let pick = || choose(&conn, &game, Some(&cores)).unwrap();
         // Nothing picked: the platform's default (the built-in DuckStation).
-        assert_eq!(pick(None).cfg.emulator_id, "duckstation");
+        assert_eq!(pick().cfg.emulator_id, "duckstation");
         // The game picks RetroArch: it gets RetroArch with the suggested core.
         queries::set_game_emulator(&conn, game.id, Some("retroarch")).unwrap();
-        let c = pick(None);
+        let c = pick();
         assert_eq!((c.cfg.emulator_id.as_str(), c.cfg.core.as_deref(), c.notice), ("retroarch", Some("swanstation"), None));
         // Its core goes missing: DuckStation plays it, and the notice says why.
         std::fs::remove_file(cores.join("swanstation_libretro.dll")).unwrap();
-        let c = pick(None);
+        let c = pick();
         assert_eq!(c.cfg.emulator_id, "duckstation");
         assert_eq!(c.notice.as_deref(), Some("RetroArch's swanstation core isn't installed. Playing with DuckStation instead."));
-        // Picked for this launch only: reported, not swapped.
-        let err = choose(&conn, &game, Some("retroarch"), Some(&cores)).unwrap_err().to_string();
-        assert!(err.contains("swanstation"), "{err}");
-        assert_eq!(pick(Some("duckstation")).cfg.emulator_id, "duckstation");
-        // An emulator the platform doesn't have can't be used.
-        assert!(choose(&conn, &game, Some("pcsx2"), Some(&cores)).is_err());
     }
 
     #[test]
@@ -533,16 +517,16 @@ mod tests {
         let (t, conn, game) = ps1_setup();
         let cores = t.path().join("cores");
         queries::set_platform_default(&conn, "ps1", "retroarch").unwrap();
-        assert_eq!(choose(&conn, &game, None, Some(&cores)).unwrap().cfg.emulator_id, "retroarch");
+        assert_eq!(choose(&conn, &game, Some(&cores)).unwrap().cfg.emulator_id, "retroarch");
         // A game can still pick the built-in one.
         queries::set_game_emulator(&conn, game.id, Some("duckstation")).unwrap();
-        assert_eq!(choose(&conn, &game, None, Some(&cores)).unwrap().cfg.emulator_id, "duckstation");
+        assert_eq!(choose(&conn, &game, Some(&cores)).unwrap().cfg.emulator_id, "duckstation");
         queries::set_game_emulator(&conn, game.id, Some("retroarch")).unwrap();
         // Taking RetroArch off PS1: the default and the game's pick go back to DuckStation.
         queries::remove_platform_emulator(&conn, "ps1", "retroarch").unwrap();
         assert_eq!(queries::platform_default(&conn, "ps1").unwrap(), "duckstation");
         assert_eq!(queries::game_emulator_choice(&conn, game.id).unwrap(), None);
-        let c = choose(&conn, &game, None, Some(&cores)).unwrap();
+        let c = choose(&conn, &game, Some(&cores)).unwrap();
         assert_eq!((c.cfg.emulator_id.as_str(), c.notice), ("duckstation", None));
         // PCSX2 can't be added to PS1; RetroArch can't be added twice.
         assert!(queries::add_platform_emulator(&conn, "ps1", "pcsx2").is_err());
@@ -575,7 +559,7 @@ mod tests {
         assert!(addable.contains(&id) && !addable.contains(&"retroarch".to_string()), "{addable:?}");
         queries::add_platform_emulator(&conn, "ps1", &id).unwrap();
         queries::set_game_emulator(&conn, game.id, Some(&id)).unwrap();
-        let c = choose(&conn, &game, None, Some(&t.path().join("cores"))).unwrap();
+        let c = choose(&conn, &game, Some(&t.path().join("cores"))).unwrap();
         assert_eq!(c.cfg.emulator_name, "PPSSPP (standalone)");
         let p = prepare(&game, &c.cfg, None, Path::new("x")).unwrap();
         assert_eq!(p.argv, [exe.to_string_lossy().into_owned(), r"E:\PS1\Silent Hill.cue".to_string()]);

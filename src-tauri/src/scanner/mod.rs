@@ -487,14 +487,16 @@ pub fn scan_files_with(
 /// apart by the title ID in the name (a game's ends in 13 zero bits; an update
 /// adds 0x800, DLC 0x1000 + n), an [UPD]/[Update 1.3]/[DLC] tag, or a version
 /// number only updates have (base games are v0, updates v65536 and up, as in
-/// the scene's "sxs-bayonetta_2_v131072").
+/// the scene's "sxs-bayonetta_2_v131072"). A title ID decides on its own: a
+/// game with an update merged in carries the game's ID and a big version.
 fn is_switch_add_on(stem: &str) -> bool {
     // Only what's inside brackets: "DLC Quest" is a game.
-    let tags = stem.split(['[', '(']).skip(1).map(|s| s.split([']', ')']).next().unwrap_or("").trim());
-    let tagged = tags.into_iter().any(|t| match u64::from_str_radix(t, 16) {
-        Ok(id) if t.len() == 16 && t.starts_with("01") => id & 0x1FFF != 0,
-        _ => matches!(t.split_whitespace().next().map(str::to_ascii_lowercase).as_deref(), Some("upd" | "update" | "dlc")),
-    });
+    let tags: Vec<&str> = stem.split(['[', '(']).skip(1).map(|s| s.split([']', ')']).next().unwrap_or("").trim()).collect();
+    let title_id = tags.iter().find_map(|t| (t.len() == 16 && t.starts_with("01")).then(|| u64::from_str_radix(t, 16).ok()).flatten());
+    if let Some(id) = title_id {
+        return id & 0x1FFF != 0;
+    }
+    let tagged = tags.iter().any(|t| matches!(t.split_whitespace().next().map(str::to_ascii_lowercase).as_deref(), Some("upd" | "update" | "dlc")));
     // The version can be glued to a word: "hr-bgw5av131072".
     tagged
         || stem.split(|c: char| !c.is_ascii_alphanumeric()).any(|w| {

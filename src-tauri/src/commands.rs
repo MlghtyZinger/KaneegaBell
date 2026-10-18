@@ -182,7 +182,7 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
     let game = queries::game_detail(&conn, id)?;
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let cores_dir = cores_dir.as_deref().map(Path::new);
-    let choice = launcher::choose(&conn, &game, None, cores_dir)?;
+    let choice = launcher::choose(&conn, &game, cores_dir)?;
     let playlists = state.data_dir().join("playlists");
     let bios = launcher::bios_warning(&choice.cfg, &game.platform_id);
     Ok(LaunchPreview {
@@ -195,11 +195,10 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
     })
 }
 
-/// `emulator`: run with this one, this time only (else the game's pick or
-/// the platform's default).
+/// Starts a game with its own emulator pick, else the platform's default.
 #[tauri::command]
-pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64, emulator: Option<String>) -> Result<launcher::Started> {
-    state.launcher.launch(&app, id, emulator.as_deref())
+pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<launcher::Started> {
+    state.launcher.launch(&app, id)
 }
 
 #[derive(Serialize)]
@@ -239,7 +238,7 @@ pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulato
         let cfg = queries::launch_config(&conn, &game.platform_id, &e)?;
         let info = emulators.iter().find(|x| x.id == e);
         options.push(EmulatorOption {
-            ready: launcher::choose(&conn, &game, Some(&e), cores.as_deref().map(Path::new)).is_ok(),
+            ready: launcher::not_ready(&cfg, cores.as_deref().map(Path::new)).is_none(),
             achievements: ra_console.and(info.and_then(|x| x.achievements)),
             warning: launcher::bios_warning(&cfg, &game.platform_id),
             name: cfg.emulator_name,

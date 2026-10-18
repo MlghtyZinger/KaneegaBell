@@ -701,6 +701,9 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.5
+- Fixed: a Switch game whose file name has both its own title ID and a high version number (a cartridge revision or a merged update) is no longer hidden as an update.
+
 ### 0.3.4 (2026-10-18)
 - New: Xbox, played with xemu (XISO disc images).
 - New: Xbox 360, played with Xenia Canary (disc images).
