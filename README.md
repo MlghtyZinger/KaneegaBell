@@ -706,6 +706,7 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.6
+- New: every platform has its own icon (pads, handhelds, discs, the Xbox sphere and more) in the platform list, and emulators get a small badge in Settings.
 - Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.
 - New: Change background shows each background's shape (16:9 or wide) and previews it the way the sidebar will show it.
 

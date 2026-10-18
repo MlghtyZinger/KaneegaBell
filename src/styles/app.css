@@ -2721,7 +2721,24 @@ html.nav-mode .tv-menu-item:focus {
   color: var(--accent-strong);
 }
 
-/* Placeholder platform icons, tinted by maker family. */
+/* Emulator monogram badge. */
+.emu-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  margin-right: 0.5em;
+  padding: 0 0.2em;
+  border-radius: 0.45em;
+  background: var(--surface-hover);
+  color: var(--accent-strong);
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+/* Platform icons, tinted by maker family. */
 .fam-nintendo { color: #ff7a7a; }
 .fam-sony { color: #79acff; }
 .fam-sega { color: #5fd6d6; }

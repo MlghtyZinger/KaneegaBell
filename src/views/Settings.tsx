@@ -12,6 +12,7 @@ import { Hint } from "../components/Hints";
 import { ScanReport, summarizeChanges } from "../components/ScanReport";
 import { device } from "../input/actions";
 import { editWithOsk } from "../state/osk";
+import { EmulatorBadge } from "../components/Icons";
 
 type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
@@ -1110,6 +1111,7 @@ function PlatformEmulatorsPanel(props: { p: PlatformRow; s: Settings; run: Run; 
             return (
               <div class="emu platform-emu">
                 <h3>
+                  <EmulatorBadge id={r.emulatorId} name={e()?.name} />
                   {e()?.name ?? r.emulatorId}
                   <span class="status" classList={{ ok: !!e()?.exeExists }}>
                     {e()?.exeExists ? "found" : e()?.exePath ? "file missing" : "not set"}
