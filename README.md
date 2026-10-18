@@ -689,6 +689,9 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.4
+- Fixed: Switch update files from scene releases (e.g. "hr-bgw5av131072.nsp") no longer show up as games.
+
 ### 0.3.3 (2026-10-18)
 - New: Nintendo Switch, played with Eden (.nsp and .xci games).
 - New: Ryubing, Ryujinx, Citron, Sudachi and Yuzu can be used as Switch emulators, picked as the default or per game.
