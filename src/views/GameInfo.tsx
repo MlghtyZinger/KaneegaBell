@@ -10,7 +10,7 @@ import { Achievements } from "../components/Achievements";
 import { CollectionPicker } from "../components/Collections";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
-import { LaunchWith, PlayWith } from "../components/EmulatorChoice";
+import { LaunchWith } from "../components/EmulatorChoice";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -208,13 +208,11 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     await library.reload();
   }
 
-  async function play(emulator: string | null = null) {
+  async function play() {
     if (launching()) return;
     setLaunching(true);
     setLaunchError(null);
     try {
-      // A pick becomes the game's own emulator (the platform's default clears it).
-      if (emulator) await api.setGameEmulator(id(), emulator === emus()?.defaultId ? null : emulator);
       await api.launchGame(id(), null);
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
@@ -334,7 +332,6 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <div class="row tight launch-with">
                     <span class="dim">Launch with</span>
                     <LaunchWith emus={e()} onChange={(v) => void setEmulator(v)} />
-                    <PlayWith emus={e()} onPick={(v) => void play(v)} />
                   </div>
                 )}
               </Show>

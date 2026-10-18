@@ -5,7 +5,7 @@ import { mainSeries } from "../state/series";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
-import { PlayWith, playWarning } from "./EmulatorChoice";
+import { LaunchWith, playWarning } from "./EmulatorChoice";
 
 /** How long the selection must rest before the panel loads another game. */
 const SETTLE_MS = 100;
@@ -35,8 +35,16 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
   const row = () => library.games().find((g) => g.id === id());
   const [detail] = createResource(id, (gid) => api.getGame(gid).catch(() => null));
   const [glance] = createResource(id, (gid) => api.achievementGlance(gid).catch(() => null));
-  // "Play with…" only for platforms with more than one emulator.
-  const [emus] = createResource(id, (gid) => api.gameEmulators(gid).catch(() => null));
+  // "Launch with" only for platforms with more than one emulator.
+  const [emus, { refetch: refetchEmus }] = createResource(id, (gid) => api.gameEmulators(gid).catch(() => null));
+  async function setEmulator(emulator: string | null) {
+    try {
+      await api.setGameEmulator(id(), emulator);
+    } catch (e) {
+      setLaunchError(errorText(e));
+    }
+    void refetchEmus();
+  }
   const otherEmulators = () => {
     const e = emus();
     return e && e.options.length > 1 ? e : null;
@@ -59,13 +67,11 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   createEffect(on(id, () => setLaunchError(null), { defer: true }));
 
-  async function play(emulator: string | null = null) {
+  async function play() {
     if (launching()) return;
     setLaunching(true);
     setLaunchError(null);
     try {
-      // A pick becomes the game's own emulator (the platform's default clears it).
-      if (emulator) await api.setGameEmulator(id(), emulator === emus()?.defaultId ? null : emulator);
       await api.launchGame(id(), null);
       props.onClose(); // the Now Playing screen takes over
     } catch (e) {
@@ -129,7 +135,8 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
               <Show when={otherEmulators()}>
                 {(e) => (
                   <div class="side-play-with">
-                    <PlayWith emus={e()} onPick={(v) => void play(v)} />
+                    <span class="dim">Launch with</span>
+                    <LaunchWith emus={e()} onChange={(v) => void setEmulator(v)} />
                   </div>
                 )}
               </Show>

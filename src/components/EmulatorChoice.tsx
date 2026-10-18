@@ -36,17 +36,3 @@ export function LaunchWith(props: { emus: GameEmulators; onChange: (emulator: st
     />
   );
 }
-
-/** "Play with…": starts the game with the picked emulator, which the game then keeps using. */
-export function PlayWith(props: { emus: GameEmulators; onPick: (emulator: string) => void; class?: string }) {
-  return (
-    <Picker
-      title="Play with (remembered for this game)"
-      label="Play with…"
-      class={props.class}
-      value={props.emus.chosen ?? props.emus.defaultId}
-      options={props.emus.options.map((o) => ({ value: o.id, label: emulatorLabel(o) }))}
-      onChange={props.onPick}
-    />
-  );
-}

@@ -252,10 +252,9 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
 - **Your own emulators:** Settings → Emulators → **Add emulator…**: a name, its `.exe` and a
   launch template (`"{emulator}" "{rom}"` plus whatever options the emulator's documentation
   gives, e.g. a fullscreen flag). KB doesn't configure emulators, it only starts them.
-- **Per game:** the details screen's **Launch with** sets the emulator a game always uses (or the
-  platform's default); **Play with…** (details screen and sidebar) starts it with another one and
-  remembers that for the game (picking the platform's default goes back to following it). They
-  appear when a platform has more than one emulator. A Switch emulator joins the Switch platform as
+- **Per game:** **Launch with** (details screen and sidebar) sets the emulator a game always uses,
+  or "Default", which follows the platform's choice in Settings. It appears when a platform has more
+  than one emulator. A Switch emulator joins the Switch platform as
   soon as its exe is set (Settings → Emulators, or Find emulators).
 - If a game's emulator isn't set up (exe or RetroArch core missing, or removed), KB plays it with
   the platform's default and says so on the Now Playing screen.
@@ -690,6 +689,7 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.4
+- Changed: one "Launch with" choice per game, on the details screen and in the sidebar ("Play with…" did the same thing and is gone).
 - Fixed: Switch update files from scene releases (e.g. "hr-bgw5av131072.nsp") no longer show up as games.
 
 ### 0.3.3 (2026-10-18)
