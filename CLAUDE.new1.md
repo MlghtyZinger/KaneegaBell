@@ -443,6 +443,13 @@ Each milestone is runnable and tested, and passes the perf gate.
       performance (performance stays the top priority: no heavier rendering, settings screens stay
       code-split and load only when opened). Ideas to propose: shorter texts with details behind a
       "More" toggle, grouped rows instead of long paragraphs, one status line per source.
+      **Design chosen (owner, 2026-10-18), from interactive mockups (claude.ai artifact "KB Settings Layouts"):**
+      layout **E, search first**: a search box at the top finds any setting across all sections (results tagged
+      with their section); with it empty, section chips show one section's compact rows (name · one status line ·
+      main button · on/off switch). Details **follow focus**: a strip under the list explains the selected row, no
+      "More" control. Controller: D-pad moves, A presses, X switches on/off, LB/RB change section, up from the first
+      row reaches the search box (on-screen keyboard), B clears the search / goes back. Rejected: A rows, B list and
+      detail, C summary and cards, D grouped list, F tile home; chevron and "More ▸" for details.
 - [ ] Storage audit (owner, 2026-10-15; **right after 0.2.7 is uploaded**, as its own small update): list
       everything in both data folders with sizes, check every place KB writes files/cache rows for a
       limit or cleanup. Known items: delete `data\ra` badges **only for games that were removed**

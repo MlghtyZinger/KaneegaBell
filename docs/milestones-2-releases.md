@@ -45,9 +45,10 @@ milestone is planned and approved before it's built.
 1. ~~q, part 2: new platforms~~ done in 0.3.4 (Xbox and Xbox 360 together, owner's request). Left for
    later: Xbox 360 `.xex` folders, Games on Demand and XBLA content; checking Xenia's launch option
    once it's installed.
-2. **t: Settings touch-up.** Compact and easier to read without costing performance: shorter texts
-   with details behind "More", grouped rows, one status line per source; Settings loads only when
-   opened (code-split).
+2. **t: Settings touch-up.** Design chosen from interactive mockups: **search first** (a search box
+   that finds any setting across all sections, section chips below it) with compact one-line rows,
+   and each setting's explanation **following focus** in a strip under the list. Settings loads only
+   when opened (code-split).
 3. **m: Icons.** Small square game icons (manual pick, SteamGridDB, or cropped from the cover) for the
    sidebar title, Recent and collections (the grid stays covers); original or permissively licensed
    platform and emulator icons, no official logos; app icon: 2–3 original concepts (bold, dark, a
