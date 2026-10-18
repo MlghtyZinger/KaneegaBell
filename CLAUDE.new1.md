@@ -355,7 +355,9 @@ Each milestone is runnable and tested, and passes the perf gate.
       icons, bundled with the sidebar background fixes), part 2 = 0.3.7 (game icons). App icon direction (owner): a black
       bull-man with a gold nose ring, white-yellowish horns, his left horn broken halfway; smooth, not blocky. The owner
       allows the WoW Tauren as inspiration ("not publishing this app ever"); still drawn by Claude, not traced.
-      Concepts in the artifact "KB App Icon Concepts" (round 3 = G/H). Icons show on
+      **Picked: concept L** (round 5, black bull emblem on the ember tile, cream outline); master saved as
+      `src-tauri/icons/icon-master.svg`. Next: generate the .ico/PNGs from it (`tauri icon`, output to a temp
+      folder, copy only the sizes tauri.conf.json lists), then the platform/emulator icons. Icons show on
       the sidebar title, Recent, collections, platform tabs; the grid stays covers.
 - [ ] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a third layout
       next to "Sections"/"One list": games as text rows with their icon on the left, the focused
@@ -375,6 +377,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       V and Verdict Day today): SteamGridDB search with the user's key (LaunchBox keeps only owned games' picture
       lists); own image file stays.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
+      **Owner (2026-10-18): model the app's look around the icon** (concept L: black, ember red-orange, cream, gold)
+      when themes come; likely the default or a built-in theme.
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are

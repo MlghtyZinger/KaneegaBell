@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 256 256">
+  <!-- KaneegaBell app icon, concept L (owner's pick, 2026-10-18): black bull emblem,
+       cream horns (his left one, the viewer's right, broken halfway), gold nose ring,
+       cream outline, ember tile. Master for `tauri icon`. -->
+  <defs>
+    <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2462a"/><stop offset="1" stop-color="#5a140a"/></linearGradient>
+    <linearGradient id="horn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf4e0"/><stop offset="1" stop-color="#e3cf98"/></linearGradient>
+    <g id="horns">
+      <path d="M92 118 C52 120 22 100 30 36 C40 70 64 88 102 92 Z"/>
+      <path d="M164 118 C184 119 201.5 114.5 213 102 L206 96 L214 88 L200.5 75 C188.5 84.5 173 90 154 92 Z"/>
+    </g>
+    <path id="head" d="M128 70 C152 70 172 76 180 92 C188 108 192 124 186 140 C180 156 168 166 164 180 C162 196 166 206 160 216 C152 230 104 230 96 216 C90 206 94 196 92 180 C88 166 76 156 70 140 C64 124 68 108 76 92 C84 76 104 70 128 70 Z"/>
+    <path id="ears" d="M74 112 C54 108 40 116 30 130 C48 136 62 134 78 126 Z M182 112 C202 108 216 116 226 130 C208 136 194 134 178 126 Z"/>
+    <path id="tuft" d="M100 78 L110 58 L119 72 L128 52 L137 72 L146 58 L156 78 Z"/>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#ember)"/>
+  <g fill="none" stroke="#f3e6c4" stroke-width="10" stroke-linejoin="round">
+    <use xlink:href="#horns"/><use xlink:href="#ears"/><use xlink:href="#head"/><use xlink:href="#tuft"/>
+  </g>
+  <use xlink:href="#horns" fill="url(#horn)"/>
+  <use xlink:href="#ears" fill="#17181d"/>
+  <use xlink:href="#tuft" fill="#17181d"/>
+  <use xlink:href="#head" fill="#17181d"/>
+  <path d="M92 126 C100 119 112 121 119 131 C110 133 100 133 92 126 Z M164 126 C156 119 144 121 137 131 C146 133 156 133 164 126 Z" fill="#f7e4a0"/>
+  <path d="M100 184 C100 172 156 172 156 184 L158 206 C158 221 98 221 98 206 Z" fill="#3b3d48"/>
+  <ellipse cx="114" cy="196" rx="5" ry="7.5" fill="#0b0b0e"/>
+  <ellipse cx="142" cy="196" rx="5" ry="7.5" fill="#0b0b0e"/>
+  <circle cx="128" cy="214" r="16" fill="none" stroke="#efb446" stroke-width="8"/>
+</svg>
