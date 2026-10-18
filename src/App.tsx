@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createEffect, createSignal, lazy, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, events } from "./api";
 import { library } from "./state/library";
@@ -6,7 +6,8 @@ import { session } from "./state/session";
 import { dispatchFromGamepad, installKeyboard, pushHandler, type Action } from "./input/actions";
 import { LibraryView } from "./views/Library";
 import { TvMode } from "./views/TvMode";
-import { SettingsView } from "./views/Settings";
+// Loaded the first time Settings opens, so starting KB doesn't parse it.
+const SettingsView = lazy(() => import("./views/Settings").then((m) => ({ default: m.SettingsView })));
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
 import { ScanToast } from "./components/ScanToast";

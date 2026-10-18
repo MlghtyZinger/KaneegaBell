@@ -467,6 +467,203 @@ code {
   margin: 0 auto;
 }
 
+/* Settings: compact rows (name · status · controls), lists and forms under
+   them, and the focused setting's explanation in the strip at the bottom. */
+.set-item {
+  border-top: 1px solid var(--border);
+  padding: 4px 0;
+}
+
+.set-item:first-child {
+  border-top: 0;
+}
+
+.set-item:focus-within {
+  background: var(--surface);
+  border-radius: 10px;
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 240px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  min-height: 48px;
+}
+
+.set-name {
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+
+.set-status {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.set-sub {
+  padding: 0 12px 10px calc(12px + min(240px, 25%));
+  font-size: var(--fs-sm);
+}
+
+.set-sub > :first-child {
+  margin-top: 0;
+}
+
+.set-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.set-list .table,
+.set-list .emu {
+  margin: 6px 0;
+}
+
+/* A checkbox drawn as an on/off switch; A / Enter / a click toggles it. */
+input[type="checkbox"].switch {
+  appearance: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  margin: 0;
+}
+
+input[type="checkbox"].switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.15s;
+}
+
+input[type="checkbox"].switch:checked {
+  background: var(--accent);
+}
+
+input[type="checkbox"].switch:checked::after {
+  transform: translateX(18px);
+  background: #08101f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  input[type="checkbox"].switch::after {
+    transition: none;
+  }
+}
+
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  max-width: 520px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+}
+
+.settings-search:focus-within {
+  border-color: var(--accent);
+}
+
+.settings-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-chips {
+  padding: 8px calc(var(--gap) * 2) 0;
+  flex: none;
+}
+
+.settings-chips.dimmed {
+  opacity: 0.55;
+}
+
+.set-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.set-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.set-result:hover,
+.set-result:focus-visible {
+  background: var(--surface);
+}
+
+.settings-detail {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 4.6em;
+  padding: 10px calc(var(--gap) * 2);
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: var(--fs-sm);
+}
+
+.settings-detail span {
+  color: var(--text-dim);
+  max-width: 110ch;
+}
+
+@media (max-width: 900px) {
+  .set-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .set-status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .set-sub {
+    padding-left: 12px;
+  }
+}
+
 .card-section h2 {
   font-size: var(--fs-lg);
   margin: calc(var(--gap) * 2) 0 var(--gap);

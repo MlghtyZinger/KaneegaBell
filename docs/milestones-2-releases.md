@@ -45,7 +45,7 @@ milestone is planned and approved before it's built.
 1. ~~q, part 2: new platforms~~ done in 0.3.4 (Xbox and Xbox 360 together, owner's request). Left for
    later: Xbox 360 `.xex` folders, Games on Demand and XBLA content; checking Xenia's launch option
    once it's installed.
-2. **t: Settings touch-up.** Design chosen from interactive mockups: **search first** (a search box
+2. **t: Settings touch-up** (built for 0.3.5, not released yet). Design chosen from interactive mockups: **search first** (a search box
    that finds any setting across all sections, section chips below it) with compact one-line rows,
    and each setting's explanation **following focus** in a strip under the list. Settings loads only
    when opened (code-split).

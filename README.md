@@ -647,6 +647,10 @@ background). A first run failed while a game used ~3.4 cores (cold start 561 ms,
 0.3.2 (Sega Saturn): cold start 437 ms, 240 fps (max frame 4.3 ms), 203 MB in Task Manager after scrolling,
 104–110 MB while a game runs; passed on the first run.
 
+0.3.5 (Settings touch-up, Settings loaded only when opened): cold start 460 ms, 240 fps (max frame 10.3 ms on the
+first pass), 116 MB in Task Manager at start (−8%), 202 MB after scrolling (−10%), 104 MB while a game runs, 130 MB
+after it (−16%); passed on the first run.
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -702,6 +706,10 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.5
+- Changed: Settings is compact: one line per setting with its status, button and switch.
+- New: the selected setting explains itself in a strip at the bottom of Settings, so the long texts are gone from the page.
+- New: search in Settings finds any setting in any section (type in the box, or press Square / X); choosing a result jumps to it.
+- Improved: KB starts a little lighter, because Settings now loads only when you open it.
 - Fixed: a Switch game whose file name has both its own title ID and a high version number (a cartridge revision or a merged update) is no longer hidden as an update.
 
 ### 0.3.4 (2026-10-18)

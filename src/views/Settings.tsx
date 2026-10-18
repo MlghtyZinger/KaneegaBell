@@ -1,4 +1,4 @@
-import { createEffect, createResource, createSignal, For, on, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onMount, Show, type JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
@@ -10,6 +10,8 @@ import { Picker } from "../components/Picker";
 import { FileBrowser } from "../components/FileBrowser";
 import { Hint } from "../components/Hints";
 import { ScanReport, summarizeChanges } from "../components/ScanReport";
+import { device } from "../input/actions";
+import { editWithOsk } from "../state/osk";
 
 type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
@@ -21,6 +23,72 @@ const SECTIONS: [Section, string][] = [
 ];
 
 type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
+
+/**
+ * Every setting's name, section and explanation. The explanation shows in the
+ * details strip when the setting has focus, and search looks through all of
+ * it (plus `words`), so a setting is found from any section.
+ */
+type Info = { section: Section; title: string; detail: string; words?: string };
+const INFO: Record<string, Info> = {
+  scan: { section: "library", title: "Scan", words: "rescan games warnings skipped", detail: "Looks through your ROM folders for new, changed and removed games. The report lists what changed and anything it skipped." },
+  covers: { section: "library", title: "Covers", words: "box art artwork thumbnails libretro gametdb automatic", detail: "Box art comes first from the LaunchBox Games Database, then libretro-thumbnails and GameTDB. No account needed, and it's cached for offline use. Change any cover from the game's details. The switch fetches covers after each scan." },
+  folders: { section: "library", title: "ROM folders", words: "auto folder source path platform subfolders add browse", detail: "Auto works out each game's platform from its files and disc contents, falling back to folder names like \"PS2\" or \"PSX\". Files it can't place are listed under the scan's warnings; assigning a platform to the folder always works." },
+  rpcs3: { section: "library", title: "RPCS3 installs", words: "ps3 dev_hdd0 installed psn", detail: "Adds the PS3 games installed in RPCS3 (its dev_hdd0 folder) as a source of their own." },
+  findEmus: { section: "emulators", title: "Find emulators", words: "detect scan folder exe paths", detail: "Looks in a folder (up to two levels deep) for every emulator KB knows, like RetroArch, Dolphin, PCSX2, Eden, Ryubing or xemu, and fills in their paths." },
+  ownEmus: { section: "emulators", title: "Your emulators", words: "custom add emulator exe template", detail: "Any other emulator: its .exe and launch template. Then add it to a platform (Platforms, emulator button) and pick it per game with Launch with." },
+  cores: { section: "emulators", title: "RetroArch cores folder", words: "retroarch cores libretro dll", detail: "Where RetroArch keeps its cores (…\\RetroArch\\cores). Platforms played with RetroArch load their core from here." },
+  platforms: { section: "platforms", title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
+  launchbox: { section: "services", title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) only when there's something to gain, keeps only your games' details, and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
+  wikidata: { section: "services", title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
+  igdb: { section: "services", title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
+  sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
+  ra: { section: "services", title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
+  exitCombo: { section: "general", title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
+  grouped: { section: "general", title: "Platform sections", words: "display grouped sections rows one list r3 v", detail: "Shows All, Favorites and search results in sections per platform, so covers in a row share a shape. Switch from the library with R3 or V." },
+  fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
+  startTv: { section: "general", title: "Start in TV Mode", words: "big picture tv mode l3 f10", detail: "Opens KB in TV Mode, the big-screen view with backgrounds and logos. Switch any time with L3, F10 or the TV Mode button." },
+  size: { section: "general", title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
+  tv: { section: "general", title: "TV Mode display", words: "tv monitor display text size overscan margin", detail: "With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving brings the window back. Raise the overscan margin if your TV cuts off the edges (the clock or hints are missing)." },
+  updates: { section: "general", title: "Updates", words: "version check what's new access code", detail: "Updates install only when you choose to, never while a game runs, and KB refuses any download that isn't signed. The access code lets this copy read KaneegaBell's private releases." },
+  storage: { section: "general", title: "Storage and reset", words: "clear downloaded data reset backup cache space", detail: "Clear downloaded data deletes the covers, info and achievement data KB downloaded, then fetches them again. Reset goes back to the first start (a copy of the old library is kept). Neither touches your games, emulators or saves." },
+  removed: { section: "general", title: "Removed games", words: "forget missing hidden deleted play time", detail: "When a game's file disappears, KB keeps it hidden if you played or favorited it, so it comes back with the file (e.g. an unplugged drive). Forgetting deletes them for good. With the switch on, scans do that right away." },
+};
+
+/**
+ * One compact setting: name · status · controls on one line, anything bigger
+ * (a list, a form) under it. Its explanation goes to the details strip when
+ * anything inside it has focus.
+ */
+function Row(props: { k: string; title?: string; detail?: string; status?: JSX.Element; children?: JSX.Element; sub?: JSX.Element }) {
+  const title = () => props.title ?? INFO[props.k]?.title ?? "";
+  return (
+    <div class="set-item" id={`set-${props.k}`} data-title={title()} data-detail={props.detail ?? INFO[props.k]?.detail ?? ""}>
+      <div class="set-row">
+        <div class="set-name">{title()}</div>
+        <div class="set-status">{props.status}</div>
+        <div class="set-actions">{props.children}</div>
+      </div>
+      <Show when={props.sub}>
+        <div class="set-sub">{props.sub}</div>
+      </Show>
+    </div>
+  );
+}
+
+/** An on/off switch (a styled checkbox, so A / Enter / a click toggles it). */
+function OnOff(props: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <input
+      type="checkbox"
+      class="switch"
+      role="switch"
+      aria-label={props.label}
+      checked={props.checked}
+      onChange={(e) => props.onChange(e.currentTarget.checked)}
+    />
+  );
+}
 
 /** A missed game, as Settings lists it. */
 type Missed = { title: string; platform: string; ambiguous?: boolean };
@@ -81,31 +149,141 @@ export function SettingsView(props: { onClose: () => void }) {
   };
 
   const cycle = (d: 1 | -1) => {
+    setQuery("");
     const i = SECTIONS.findIndex(([id]) => id === section());
     setSection(SECTIONS[(i + d + SECTIONS.length) % SECTIONS.length][0]);
   };
 
+  // Search: every setting of every section, emulators and platforms by name too.
+  const [query, setQuery] = createSignal("");
+  let searchEl!: HTMLInputElement;
+  const sectionLabel = (id: Section) => SECTIONS.find(([s]) => s === id)?.[1] ?? "";
+  const index = createMemo(() => [
+    ...Object.entries(INFO).map(([k, v]) => ({ k, ...v })),
+    ...(store.s?.emulators ?? []).map((e) => ({
+      k: `emu-${e.id}`,
+      section: "emulators" as Section,
+      title: e.name,
+      detail: `${e.name}: where its .exe is and how KB starts it (launch template).`,
+      words: "emulator exe path template",
+    })),
+    ...(store.s?.platforms ?? []).map((p) => ({
+      k: `plat-${p.id}`,
+      section: "platforms" as Section,
+      title: p.name,
+      detail: `${p.name}: on or off, its emulators, RetroArch core, launch template and file types.`,
+      words: `${p.shortName} platform core extensions emulators ${p.coreProblem ?? ""}`,
+    })),
+  ]);
+  const results = createMemo(() => {
+    const words = query().toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
+    // Name and keyword matches first, then ones found only in the explanation.
+    const rank = (i: Info & { k: string }) => {
+      const head = `${i.title} ${i.words ?? ""} ${sectionLabel(i.section)}`.toLowerCase();
+      if (words.every((w) => head.includes(w))) return 0;
+      return words.every((w) => `${head} ${i.detail.toLowerCase()}`.includes(w)) ? 1 : 2;
+    };
+    return index()
+      .map((i) => ({ i, r: rank(i) }))
+      .filter((x) => x.r < 2)
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.i);
+  });
+  /** Opens a search result's section and puts focus on that setting. */
+  const jump = (k: string, s: Section) => {
+    setQuery("");
+    setSection(s);
+    // After the section has rendered (a timer: animation frames pause in a hidden window).
+    setTimeout(() => {
+      const el = document.getElementById(`set-${k}`);
+      if (!el) return;
+      el.scrollIntoView({ block: "center" });
+      el.querySelector<HTMLElement>("button, input, [tabindex]")?.focus({ preventScroll: true });
+      // A row with nothing to focus still explains itself.
+      if (el.dataset.detail) setShown({ title: el.dataset.title ?? "", detail: el.dataset.detail });
+    }, 0);
+  };
+  const openSearch = () => {
+    searchEl.focus();
+    if (device() === "gamepad") editWithOsk(searchEl);
+  };
+
+  // The details strip explains whatever setting has focus (or the mouse).
+  const [shown, setShown] = createSignal<{ title: string; detail: string } | null>(null);
+  const follow = (e: Event) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-detail]");
+    if (el?.dataset.detail) setShown({ title: el.dataset.title ?? "", detail: el.dataset.detail });
+  };
+
   return (
-    <NavScope class="settings" onBack={props.onClose} onMenu={props.onClose} onTab={cycle}>
+    <NavScope
+      class="settings"
+      onBack={() => (query() ? setQuery("") : props.onClose())}
+      onMenu={props.onClose}
+      onTab={cycle}
+      onSecondary={openSearch}
+    >
       <header class="topbar">
         <h1>Settings</h1>
-        <nav class="platform-tabs">
-          <For each={SECTIONS}>
-            {([id, label]) => (
-              <button class="tab" classList={{ active: section() === id }} onClick={() => setSection(id)}>
-                {label}
-              </button>
-            )}
-          </For>
-        </nav>
+        <label class="settings-search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            ref={searchEl}
+            type="search"
+            aria-label="Search settings"
+            placeholder="Search settings (e.g. bios, xbox, key)"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && query()) {
+                setQuery("");
+                e.stopPropagation();
+              }
+            }}
+          />
+        </label>
         <div class="topbar-right">
           <button class="btn ghost" onClick={props.onClose}>
             Done
           </button>
         </div>
       </header>
+      <nav class="platform-tabs settings-chips" classList={{ dimmed: !!query() }}>
+        <For each={SECTIONS}>
+          {([id, label]) => (
+            <button
+              class="tab"
+              classList={{ active: !query() && section() === id }}
+              onClick={() => {
+                setQuery("");
+                setSection(id);
+              }}
+            >
+              {label}
+            </button>
+          )}
+        </For>
+      </nav>
 
-      <div class="settings-body">
+      <div class="settings-body" onFocusIn={follow} onMouseOver={follow}>
+        <Show when={query()}>
+          <section class="card-section set-results">
+            <Show
+              when={results().length > 0}
+              fallback={<p class="dim">No setting matches "{query()}". Try a shorter word.</p>}
+            >
+              <For each={results()}>
+                {(r) => (
+                  <button class="set-result" data-title={r.title} data-detail={r.detail} onClick={() => jump(r.k, r.section)}>
+                    <span class="set-name">{r.title}</span>
+                    <span class="badge">{sectionLabel(r.section)}</span>
+                  </button>
+                )}
+              </For>
+            </Show>
+          </section>
+        </Show>
         <Show when={error()}>
           <div class="banner error" role="alert">
             {error()}
@@ -116,7 +294,7 @@ export function SettingsView(props: { onClose: () => void }) {
             {notice()}
           </div>
         </Show>
-        <Show when={store.s} fallback={<p>Loading…</p>}>
+        <Show when={!query() && store.s} fallback={store.s ? null : <p>Loading…</p>}>
           {(s) => (
             <>
               <Show when={section() === "library"}>
@@ -142,10 +320,21 @@ export function SettingsView(props: { onClose: () => void }) {
           )}
         </Show>
       </div>
+      <div class="settings-detail" aria-live="polite">
+        <Show when={shown()} fallback={<span class="dim">Select a setting to see what it does.</span>}>
+          {(d) => (
+            <>
+              <b>{d().title}</b>
+              <span>{d().detail}</span>
+            </>
+          )}
+        </Show>
+      </div>
       <footer class="hints">
+        <Hint action="secondary" label="Search" />
         <Hint actions={["prevPlatform", "nextPlatform"]} label="Section" />
         <Hint action="select" label="Select / edit" />
-        <Hint action="back" label="Back" />
+        <Hint action="back" label={query() ? "Clear search" : "Back"} />
       </footer>
     </NavScope>
   );
@@ -197,9 +386,62 @@ function LibrarySection(props: { s: Settings; run: Run }) {
     );
 
   return (
-    <section class="card-section">
-      <h2>Scan</h2>
-      <div class="row">
+    <section class="card-section set-list">
+      <Row
+        k="scan"
+        status={
+          <Show
+            when={library.scanProgress()}
+            fallback={
+              <Show when={library.lastScan()} fallback={`${library.games().length} games`}>
+                {(s) => (
+                  <>
+                    {s().cancelled ? "Scan cancelled · " : ""}
+                    {s().gamesTotal} games · {s().added} added · {s().updated} updated
+                    {s().removed > 0 ? ` · ${s().removed} removed` : ""}
+                    {s().missing > 0 ? ` · ${s().missing} missing (kept)` : ""} · {(s().durationMs / 1000).toFixed(1)} s
+                  </>
+                )}
+              </Show>
+            }
+          >
+            {(p) => (
+              <>
+                Folder {Math.min(p().done + 1, Math.max(p().total, 1))} of {Math.max(p().total, 1)}
+                {p().filesTotal > 0 ? ` · ${p().filesDone.toLocaleString()} / ${p().filesTotal.toLocaleString()} files` : ""}
+              </>
+            )}
+          </Show>
+        }
+        sub={
+          <>
+            <Show when={library.scanError()}>
+              <p class="warn">Scan failed: {library.scanError()}</p>
+            </Show>
+            <Show when={library.lastScan()?.warnings.length}>
+              <details>
+                <summary>{library.lastScan()!.warnings.length} skipped / warnings</summary>
+                <ul class="warnings">
+                  <For each={library.lastScan()!.warnings}>{(w) => <li class="mono">{w}</li>}</For>
+                </ul>
+              </details>
+            </Show>
+            <Show when={library.report()} keyed>
+              {(r) => (
+                <div class="scan-summary">
+                  <p>
+                    <strong>{r.title}:</strong>{" "}
+                    {r.changes.length > 0 ? summarizeChanges(r.changes, platformName) : "no games added or removed."}
+                  </p>
+                  <Show when={r.changes.length > 0}>
+                    <ScanReport changes={r.changes} name={platformName} />
+                  </Show>
+                </div>
+              )}
+            </Show>
+          </>
+        }
+      >
         <Show
           when={library.scanProgress()}
           fallback={
@@ -208,111 +450,52 @@ function LibrarySection(props: { s: Settings; run: Run }) {
             </button>
           }
         >
-          {(p) => (
-            <>
-              <button class="btn" onClick={() => void api.cancelScan()}>
-                Cancel scan
-              </button>
-              <span class="dim">
-                Folder {Math.min(p().done + 1, Math.max(p().total, 1))} of {Math.max(p().total, 1)}
-                {p().filesTotal > 0 ? ` · ${p().filesDone.toLocaleString()} / ${p().filesTotal.toLocaleString()} files` : ""}
-                : <span class="mono">{p().source}</span>
-              </span>
-            </>
-          )}
+          <button class="btn" onClick={() => void api.cancelScan()}>
+            Cancel scan
+          </button>
         </Show>
-      </div>
-      <Show when={library.scanError()}>
-        <p class="warn">Scan failed: {library.scanError()}</p>
-      </Show>
-      <Show when={library.lastScan()}>
-        {(s) => (
-          <div class="scan-summary">
-            <p>
-              {s().cancelled ? "Scan cancelled · " : ""}
-              {s().gamesTotal} games · {s().added} added · {s().updated} updated
-              {s().removed > 0 ? ` · ${s().removed} removed` : ""}
-              {s().missing > 0 ? ` · ${s().missing} missing (kept: played or favorite)` : ""} ·{" "}
-              {(s().durationMs / 1000).toFixed(1)} s
-            </p>
-            <Show when={s().warnings.length > 0}>
-              <details>
-                <summary>{s().warnings.length} skipped / warnings</summary>
-                <ul class="warnings">
-                  <For each={s().warnings}>{(w) => <li class="mono">{w}</li>}</For>
-                </ul>
-              </details>
-            </Show>
-          </div>
-        )}
-      </Show>
-      <Show when={library.report()} keyed>
-        {(r) => (
-          <div class="scan-summary">
-            <p>
-              <strong>{r.title}:</strong>{" "}
-              {r.changes.length > 0 ? summarizeChanges(r.changes, platformName) : "no games added or removed."}
-            </p>
-            <Show when={r.changes.length > 0}>
-              <ScanReport changes={r.changes} name={platformName} />
-            </Show>
-          </div>
-        )}
-      </Show>
+      </Row>
 
-      <h2>Covers</h2>
-      <p class="dim">
-        Box art comes first from the LaunchBox Games Database (see Game info), then libretro-thumbnails and GameTDB.
-        No account needed. Everything is cached, so covers stay available offline. Change any cover from the game's
-        details.
-      </p>
-      <div class="row">
+      <Row
+        k="covers"
+        status={
+          <Show
+            when={library.artProgress()}
+            fallback={`${library.games().length - coverless().length} of ${library.games().length} have a cover`}
+          >
+            {(p) => `Fetching: ${p().done} / ${p().total} · ${p().found} found`}
+          </Show>
+        }
+        sub={
+          <Show when={!library.artProgress() && coverless().length > 0}>
+            <MissedGames games={coverless()} label="No cover yet" />
+          </Show>
+        }
+      >
         <Show
           when={library.artProgress()}
           fallback={
             <button class="btn" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
-              Fetch missing covers
+              Fetch missing
             </button>
           }
         >
-          {(p) => (
-            <>
-              <button class="btn" onClick={() => void api.cancelScan()}>
-                Stop
-              </button>
-              <span class="dim">
-                Fetching covers: {p().done} / {p().total} · {p().found} found
-              </span>
-            </>
-          )}
+          <button class="btn" onClick={() => void api.cancelScan()}>
+            Stop
+          </button>
         </Show>
-        <Show when={!library.artProgress() && library.lastArt()}>
-          {(s) => (
-            <span class="dim">
-              Last run: {s().found} found · {s().notFound} not found
-              {s().failed > 0 ? ` · ${s().failed} failed (retried next time)` : ""}
-            </span>
-          )}
-        </Show>
-      </div>
-      <Show when={!library.artProgress()}>
-        <MissedGames games={coverless()} label="No cover yet" />
-      </Show>
-      <label class="check">
-        <input
-          type="checkbox"
+        <OnOff
+          label="Fetch covers automatically after each scan"
           checked={props.s.values.autoArt !== false}
-          onChange={(e) => props.run(() => api.setSetting("autoArt", e.currentTarget.checked))}
+          onChange={(on) => void props.run(() => api.setSetting("autoArt", on))}
         />
-        Fetch covers automatically after each scan
-      </label>
+      </Row>
 
-      <h2>ROM folders</h2>
-      <p class="dim">
-        <b>Auto</b> works out each game's platform from its file type and disc contents (GameCube/Wii, PS1/PS2/PSP,
-        Sega CD, Saturn), falling back to folder names like "PS2" or "PSX". Files it still can't place are listed under the
-        scan's warnings; assigning a platform to the folder always works.
-      </p>
+      <Row
+        k="folders"
+        status={`${props.s.sources.length} folder${props.s.sources.length === 1 ? "" : "s"}`}
+        sub={
+          <>
       <table class="table">
         <thead>
           <tr>
@@ -352,7 +535,10 @@ function LibrarySection(props: { s: Settings; run: Run }) {
           Add folder
         </button>
       </div>
-      <div class="row">
+          </>
+        }
+      />
+      <Row k="rpcs3" status="PS3 games installed in RPCS3">
         <button
           class="btn"
           onClick={() =>
@@ -365,9 +551,9 @@ function LibrarySection(props: { s: Settings; run: Run }) {
             )
           }
         >
-          Add RPCS3 installed games (dev_hdd0)
+          Add RPCS3 games
         </button>
-      </div>
+      </Row>
       <Show when={browsing()}>
         <FileBrowser
           title="Choose a ROM folder"
@@ -461,35 +647,41 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
     );
 
   return (
-    <section class="card-section">
-      <div class="row">
+    <section class="card-section set-list">
+      <Row k="findEmus" status={`${builtIn().filter((e) => e.exeExists).length} of ${builtIn().length} set up`}>
         <button class="btn primary" onClick={() => setBrowsing(true)}>
-          Find emulators in a folder…
+          Find emulators…
         </button>
-        <span class="dim">Looks for the six supported emulators up to two folders deep.</span>
-      </div>
+      </Row>
       <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} />}</For>
-      <h2>Your emulators</h2>
-      <p class="dim small">
-        Any other emulator: its .exe and launch template. Then add it to a platform in Settings → Platforms (Emulator
-        column), and pick it per game on the game's details screen.
-      </p>
-      <For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>
-      <div class="row">
+      <Row
+        k="ownEmus"
+        status={own().length ? own().map((e) => e.name).join(", ") : "None added"}
+        sub={
+          <Show when={own().length > 0}>
+            <For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>
+          </Show>
+        }
+      >
         <button class="btn" onClick={() => setAdding(true)}>
           Add emulator…
         </button>
-      </div>
+      </Row>
       <Show when={adding()}>
         <AddEmulatorPanel run={props.run} onClose={() => setAdding(false)} />
       </Show>
-      <h2>RetroArch cores folder</h2>
-      <PathField
-        label="RetroArch cores folder"
-        value={coresDir()}
-        placeholder="e.g. E:\Emulators\RetroArch\cores"
-        mode="folder"
-        onCommit={(v) => props.run(() => api.setSetting("retroarchCoresDir", v))}
+      <Row
+        k="cores"
+        status={coresDir() || "Not set"}
+        sub={
+          <PathField
+            label="RetroArch cores folder"
+            value={coresDir()}
+            placeholder="e.g. E:\Emulators\RetroArch\cores"
+            mode="folder"
+            onCommit={(v) => props.run(() => api.setSetting("retroarchCoresDir", v))}
+          />
+        }
       />
       <Show when={browsing()}>
         <FileBrowser
@@ -510,37 +702,35 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
 function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
   const save = (exe: string | null, tpl: string | null) => props.run(() => api.updateEmulator(props.emu.id, exe, tpl));
   return (
-    <div class="emu">
-      <h2>
-        {props.emu.name}
+    <Row
+      k={`emu-${props.emu.id}`}
+      title={props.emu.name}
+      detail={`Where ${props.emu.name}'s .exe is, and how KB starts it. Leave the launch template empty for the default (shown in grey); placeholders: {emulator} {core} {rom} {rom_dir} {rom_name}.${achievementsNote(props.emu.achievements) ? ` ${achievementsNote(props.emu.achievements)} with RetroAchievements.` : ""}`}
+      status={
         <span class="status" classList={{ ok: props.emu.exeExists }}>
           {props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}
+          <Show when={achievementsNote(props.emu.achievements)}>{` · ${achievementsNote(props.emu.achievements)}`}</Show>
         </span>
-        <Show when={achievementsNote(props.emu.achievements)}>
-          <span class="dim small"> · {achievementsNote(props.emu.achievements)}</span>
-        </Show>
-      </h2>
-      <label class="field-label">Executable</label>
-      <PathField
-        label={`${props.emu.name} executable`}
-        value={props.emu.exePath ?? ""}
-        placeholder="Path to the emulator .exe"
-        mode="file"
-        onCommit={(v) => save(v || null, props.emu.templateOverride)}
-      />
-      <label class="field-label">Launch template</label>
-      <input
-        class="input mono"
-        aria-label={`${props.emu.name} launch template`}
-        value={props.emu.templateOverride ?? ""}
-        placeholder={props.emu.defaultTemplate}
-        onChange={(e) => save(props.emu.exePath, e.currentTarget.value || null)}
-      />
-      <p class="dim small">
-        Leave empty for the default. Placeholders: <code>{"{emulator}"}</code> <code>{"{core}"}</code>{" "}
-        <code>{"{rom}"}</code> <code>{"{rom_dir}"}</code> <code>{"{rom_name}"}</code>
-      </p>
-    </div>
+      }
+      sub={
+        <div class="set-fields">
+          <PathField
+            label={`${props.emu.name} executable`}
+            value={props.emu.exePath ?? ""}
+            placeholder="Path to the emulator .exe"
+            mode="file"
+            onCommit={(v) => save(v || null, props.emu.templateOverride)}
+          />
+          <input
+            class="input mono"
+            aria-label={`${props.emu.name} launch template`}
+            value={props.emu.templateOverride ?? ""}
+            placeholder={props.emu.defaultTemplate}
+            onChange={(e) => save(props.emu.exePath, e.currentTarget.value || null)}
+          />
+        </div>
+      }
+    />
   );
 }
 
@@ -564,13 +754,13 @@ function CustomEmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
       ),
     );
   return (
-    <div class="emu">
-      <h2>
+    <div class="emu" id={`set-emu-${props.emu.id}`} data-title={props.emu.name} data-detail={`Your emulator ${props.emu.name}: its name, .exe, launch template and whether it opens .m3u playlists.`}>
+      <h3>
         {props.emu.name}
         <span class="status" classList={{ ok: props.emu.exeExists }}>
           {props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}
         </span>
-      </h2>
+      </h3>
       <label class="field-label">Name</label>
       <input
         class="input"
@@ -745,10 +935,11 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
   };
 
   return (
-    <section class="card-section">
-      <p class="dim">
-        Overrides are optional; empty fields use the defaults shown in grey. Extension changes apply on the next scan.
-      </p>
+    <section class="card-section set-list">
+      <Row
+        k="platforms"
+        status={`${props.s.platforms.filter((p) => p.enabled).length} of ${props.s.platforms.length} on · ${props.s.platforms.filter((p) => p.coreProblem).length} need attention`}
+      />
       <table class="table platforms-table">
         <thead>
           <tr>
@@ -764,7 +955,15 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
         <tbody>
           <For each={props.s.platforms}>
             {(p) => (
-              <tr classList={{ disabled: !p.enabled }}>
+              <tr
+                classList={{ disabled: !p.enabled }}
+                id={`set-plat-${p.id}`}
+                data-title={p.name}
+                data-detail={
+                  p.coreProblem ??
+                  `${p.name}: ${p.gameCount} game${p.gameCount === 1 ? "" : "s"}. The emulator button lists its emulators and the default; core and launch template are for its built-in emulator. Empty fields use the defaults in grey.`
+                }
+              >
                 <td>
                   <input
                     type="checkbox"
@@ -820,10 +1019,6 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
           </For>
         </tbody>
       </table>
-      <p class="dim small">
-        Core and launch template above are for each platform's built-in emulator; emulators you add (Emulator column)
-        have their own.
-      </p>
       <Show when={props.s.platforms.find((p) => p.id === emusOf())}>
         {(p) => <PlatformEmulatorsPanel p={p()} s={props.s} run={props.run} onClose={() => setEmusOf(null)} />}
       </Show>
@@ -852,10 +1047,7 @@ function PlatformEmulatorsPanel(props: { p: PlatformRow; s: Settings; run: Run; 
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
       <NavScope class="panel platform-emus-panel" modal onBack={props.onClose}>
         <h2>{props.p.name}: emulators</h2>
-        <p class="dim small">
-          Games use the default unless you pick another on a game's details screen ("Launch with"), or choose one for a
-          single launch ("Play with…").
-        </p>
+        <p class="dim small">Games use the default unless you pick another with "Launch with" on the game.</p>
         <For each={rows()}>
           {(r) => {
             const e = () => emu(r.emulatorId);
@@ -968,74 +1160,56 @@ function LaunchBoxSection(props: { run: Run }) {
   const when = (secs: number) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <section class="card-section">
-      <h2>LaunchBox Games Database (no account needed)</h2>
-      <p class="dim">
-        Box art, logos, backgrounds (for TV Mode), descriptions, release dates, developers, publishers and genres, for
-        everyone, without a key. It comes first; IGDB and SteamGridDB below fill what it doesn't have, and anything you
-        pick yourself always stays.
-      </p>
+    <section class="card-section set-list">
       <Show when={status()}>
         {(st) => (
-          <>
-            <label class="check">
-              <input
-                type="checkbox"
-                checked={st().enabled}
-                onChange={(e) => {
-                  const on = e.currentTarget.checked;
-                  return props.run(async () => {
-                    await api.setLbEnabled(on);
-                    await refetch();
-                  });
-                }}
-              />
-              Use the LaunchBox Games Database
-            </label>
-            <Show when={st().enabled}>
-              <p>
-                {st().total > 0 ? (
-                  <>
-                    {st().matched} of {st().total} games found
-                    {st().ambiguous > 0 ? ` · ${st().ambiguous} with several possible matches (use Fix match)` : ""}
-                    {st().notFound > 0 ? ` · ${st().notFound} not found` : ""}
-                  </>
-                ) : (
-                  "No games on the platforms it covers yet."
-                )}
-              </p>
-              <MissedGames games={st().unmatched} />
-              <div class="row">
-                <Show
-                  when={library.lbProgress()}
-                  fallback={
-                    <button
-                      class="btn"
-                      disabled={!!library.scanProgress()}
-                      onClick={() => void props.run(() => api.fetchLaunchbox(true), { notice: "Updating from LaunchBox…" })}
-                    >
-                      Update now
-                    </button>
-                  }
-                >
-                  <button class="btn" onClick={() => void api.cancelScan()}>
-                    Stop
-                  </button>
+          <Row
+            k="launchbox"
+            status={
+              !st().enabled
+                ? "Off"
+                : st().total > 0
+                  ? `${st().matched} of ${st().total} found${st().importedAt ? ` · updated ${when(st().importedAt!)}` : ""}`
+                  : "No games on the platforms it covers yet"
+            }
+            sub={
+              <Show when={st().enabled}>
+                <MissedGames games={st().unmatched} />
+                <Show when={library.lbError()}>
+                  <p class="warn">{library.lbError()}</p>
                 </Show>
-                <span class="dim small">{st().importedAt ? `Last updated ${when(st().importedAt!)}` : "Not downloaded yet"}</span>
-              </div>
-              <Show when={library.lbError()}>
-                <p class="warn">{library.lbError()}</p>
               </Show>
-              <p class="dim small">
-                LaunchBox publishes its database as one file (about 100 MB). KB downloads it only when there's something
-                to gain (new games, or LaunchBox changed while some games still have no match; checked at most weekly),
-                keeps only your games' details and a list of names for your platforms (a few MB, in KB's folder), and
-                fetches pictures just for your games. Game info and pictures from the LaunchBox Games Database
-                (gamesdb.launchbox-app.com), made by its community.
-              </p>
+            }
+          >
+            <Show when={st().enabled}>
+              <Show
+                when={library.lbProgress()}
+                fallback={
+                  <button
+                    class="btn"
+                    disabled={!!library.scanProgress()}
+                    onClick={() => void props.run(() => api.fetchLaunchbox(true), { notice: "Updating from LaunchBox…" })}
+                  >
+                    Update now
+                  </button>
+                }
+              >
+                <button class="btn" onClick={() => void api.cancelScan()}>
+                  Stop
+                </button>
+              </Show>
             </Show>
-          </>
+            <OnOff
+              label="Use the LaunchBox Games Database"
+              checked={st().enabled}
+              onChange={(on) =>
+                void props.run(async () => {
+                  await api.setLbEnabled(on);
+                  await refetch();
+                })
+              }
+            />
+          </Row>
         )}
       </Show>
     </section>
@@ -1048,68 +1222,56 @@ function WikidataSection(props: { run: Run }) {
   const when = (secs: number) => new Date(secs * 1000).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <section class="card-section">
-      <h2>Wikidata (no account needed)</h2>
-      <p class="dim">Which series and franchise each game belongs to (e.g. "Jak and Daxter", "Final Fantasy"), shown in the game details.</p>
+    <section class="card-section set-list">
       <Show when={status()}>
         {(st) => (
-          <>
-            <label class="check">
-              <input
-                type="checkbox"
-                checked={st().enabled}
-                onChange={(e) => {
-                  const on = e.currentTarget.checked;
-                  return props.run(async () => {
-                    await api.setWdEnabled(on);
-                    await refetch();
-                  });
-                }}
-              />
-              Use Wikidata
-            </label>
-            <Show when={st().enabled}>
-              <p>
-                {st().total > 0 ? (
-                  <>
-                    {st().matched} of {st().total} games found · {st().withSeries} in a series
-                    {st().ambiguous > 0 ? ` · ${st().ambiguous} with several possible matches` : ""}
-                    {st().notFound > 0 ? ` · ${st().notFound} not found` : ""}
-                  </>
-                ) : (
-                  "No games yet."
-                )}
-              </p>
-              <MissedGames games={st().unmatched} />
-              <div class="row">
-                <Show
-                  when={library.wdProgress()}
-                  fallback={
-                    <button
-                      class="btn"
-                      disabled={!!library.scanProgress()}
-                      onClick={() => void props.run(() => api.fetchWikidata(true), { notice: "Asking Wikidata…" })}
-                    >
-                      Update now
-                    </button>
-                  }
-                >
-                  <button class="btn" onClick={() => void api.cancelScan()}>
-                    Stop
-                  </button>
+          <Row
+            k="wikidata"
+            status={
+              !st().enabled
+                ? "Off"
+                : st().total > 0
+                  ? `${st().withSeries} in a series · ${st().matched} of ${st().total} found${st().checkedAt ? ` · asked ${when(st().checkedAt!)}` : ""}`
+                  : "No games yet"
+            }
+            sub={
+              <Show when={st().enabled}>
+                <MissedGames games={st().unmatched} />
+                <Show when={library.wdError()}>
+                  <p class="warn">{library.wdError()}</p>
                 </Show>
-                <span class="dim small">{st().checkedAt ? `Last asked ${when(st().checkedAt!)}` : "Not asked yet"}</span>
-              </div>
-              <Show when={library.wdError()}>
-                <p class="warn">{library.wdError()}</p>
               </Show>
-              <p class="dim small">
-                KB asks Wikidata once per platform you have games on (a few seconds each, in the background), keeps only
-                your games' entries and series (a few KB, in KB's folder), and asks again only for new games or, once a
-                month, for games it couldn't find. Series data from Wikidata (wikidata.org), free to use (CC0).
-              </p>
+            }
+          >
+            <Show when={st().enabled}>
+              <Show
+                when={library.wdProgress()}
+                fallback={
+                  <button
+                    class="btn"
+                    disabled={!!library.scanProgress()}
+                    onClick={() => void props.run(() => api.fetchWikidata(true), { notice: "Asking Wikidata…" })}
+                  >
+                    Update now
+                  </button>
+                }
+              >
+                <button class="btn" onClick={() => void api.cancelScan()}>
+                  Stop
+                </button>
+              </Show>
             </Show>
-          </>
+            <OnOff
+              label="Use Wikidata"
+              checked={st().enabled}
+              onChange={(on) =>
+                void props.run(async () => {
+                  await api.setWdEnabled(on);
+                  await refetch();
+                })
+              }
+            />
+          </Row>
         )}
       </Show>
     </section>
@@ -1138,19 +1300,13 @@ function ServicesSection(props: { s: Settings; run: Run }) {
     });
 
   return (
-    <section class="card-section">
-      <h2>IGDB (optional)</h2>
-      <p class="dim">
-        Adds descriptions, release dates, developers, publishers and genres (with a genre filter in the library).
-        Covers work without it. IGDB is free for personal use, but each person needs their own key from Twitch.
-        Your keys stay in KB's folder, encrypted with your Windows login.
-      </p>
+    <section class="card-section set-list">
       <Show when={services()}>
         {(sv) => (
           <Show
             when={sv().igdb}
             fallback={
-              <>
+              <Row k="igdb" status="Not set up · optional key" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">dev.twitch.tv/console</span> with a free Twitch account (Twitch asks
@@ -1192,60 +1348,51 @@ function ServicesSection(props: { s: Settings; run: Run }) {
                     Save and connect
                   </button>
                 </div>
-              </>
+              </>} />
             }
           >
-            <p>
-              <span class="ok-text">Connected</span>{" "}
-              <span class="dim">(Client ID {sv().igdbClientId})</span>
-            </p>
-            <div class="row">
+            <Row
+              k="igdb"
+              status={
+                <Show
+                  when={library.metaProgress()}
+                  fallback={
+                    <>
+                      <span class="ok-text">Connected</span> (Client ID {sv().igdbClientId})
+                      <Show when={library.lastMeta()}>{(m) => ` · last run ${m().matched} found, ${m().notFound} not found`}</Show>
+                    </>
+                  }
+                >
+                  {(p) => `Looking up: ${p().done} / ${p().total} · ${p().matched} found`}
+                </Show>
+              }
+              sub={
+                <Show when={library.metaError()}>
+                  <p class="warn">{library.metaError()}</p>
+                </Show>
+              }
+            >
               <Show
                 when={library.metaProgress()}
                 fallback={
                   <button class="btn" disabled={!!library.scanProgress()} onClick={() => void api.fetchMetadata()}>
-                    Look up missing info
+                    Look up
                   </button>
                 }
               >
-                {(p) => (
-                  <>
-                    <button class="btn" onClick={() => void api.cancelScan()}>
-                      Stop
-                    </button>
-                    <span class="dim">
-                      Looking up games: {p().done} / {p().total} · {p().matched} found
-                    </span>
-                  </>
-                )}
-              </Show>
-              <Show when={!library.metaProgress() && library.lastMeta()}>
-                {(m) => (
-                  <span class="dim">
-                    Last run: {m().matched} found · {m().notFound} not found
-                    {m().failed > 0 ? ` · ${m().failed} failed (retried next time)` : ""}
-                  </span>
-                )}
+                <button class="btn" onClick={() => void api.cancelScan()}>
+                  Stop
+                </button>
               </Show>
               <button class="btn danger" onClick={() => void remove()}>
                 Remove keys
               </button>
-            </div>
-            <Show when={library.metaError()}>
-              <p class="warn">{library.metaError()}</p>
-            </Show>
-            <label class="check">
-              <input
-                type="checkbox"
+              <OnOff
+                label="Look up new games automatically after each scan"
                 checked={props.s.values.autoMeta !== false}
-                onChange={(e) => props.run(() => api.setSetting("autoMeta", e.currentTarget.checked))}
+                onChange={(on) => void props.run(() => api.setSetting("autoMeta", on))}
               />
-              Look up new games automatically after each scan
-            </label>
-            <p class="dim small">
-              Wrong game? Open it and use <b>Fix match…</b> to pick the right one. Games IGDB doesn't know are tried
-              again weekly. Info from IGDB.com, used under the Twitch Developer Services Agreement.
-            </p>
+            </Row>
           </Show>
         )}
       </Show>
@@ -1273,19 +1420,13 @@ function SteamGridDbSection(props: { run: Run }) {
     });
 
   return (
-    <section class="card-section">
-      <h2>SteamGridDB (optional)</h2>
-      <p class="dim">
-        Community artwork: a wide background and a logo for each game (shown in TV Mode), more covers to choose from,
-        and covers for games the other sources don't have. Free with an account. Your key stays in KB's folder,
-        encrypted with your Windows login.
-      </p>
+    <section class="card-section set-list">
       <Show when={services()}>
         {(sv) => (
           <Show
             when={sv().sgdb}
             fallback={
-              <>
+              <Row k="sgdb" status="Not set up · optional key" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">steamgriddb.com</span> (with Steam).
@@ -1312,51 +1453,48 @@ function SteamGridDbSection(props: { run: Run }) {
                     Save and connect
                   </button>
                 </div>
-              </>
+              </>} />
             }
           >
-            <p>
-              <span class="ok-text">Connected</span>
-            </p>
-            <div class="row">
+            <Row
+              k="sgdb"
+              status={
+                <Show
+                  when={library.sgdbProgress()}
+                  fallback={
+                    <>
+                      <span class="ok-text">Connected</span>
+                      <Show when={library.lastSgdb()}>
+                        {(s) => ` · last run ${s().heroes} backgrounds, ${s().logos} logos, ${s().covers} covers`}
+                      </Show>
+                    </>
+                  }
+                >
+                  {(p) => `Looking up: ${p().done} / ${p().total} · ${p().matched} found`}
+                </Show>
+              }
+              sub={
+                <Show when={library.sgdbError()}>
+                  <p class="warn">{library.sgdbError()}</p>
+                </Show>
+              }
+            >
               <Show
                 when={library.sgdbProgress()}
                 fallback={
                   <button class="btn" disabled={!!library.scanProgress()} onClick={() => void api.fetchExtras()}>
-                    Look up missing artwork
+                    Look up
                   </button>
                 }
               >
-                {(p) => (
-                  <>
-                    <button class="btn" onClick={() => void api.cancelScan()}>
-                      Stop
-                    </button>
-                    <span class="dim">
-                      Looking up games: {p().done} / {p().total} · {p().matched} found
-                    </span>
-                  </>
-                )}
-              </Show>
-              <Show when={!library.sgdbProgress() && library.lastSgdb()}>
-                {(s) => (
-                  <span class="dim">
-                    Last run: {s().matched} found ({s().heroes} backgrounds, {s().logos} logos, {s().covers} covers)
-                    {s().notFound > 0 ? ` · ${s().notFound} not found` : ""}
-                  </span>
-                )}
+                <button class="btn" onClick={() => void api.cancelScan()}>
+                  Stop
+                </button>
               </Show>
               <button class="btn danger" onClick={() => void remove()}>
                 Remove key
               </button>
-            </div>
-            <Show when={library.sgdbError()}>
-              <p class="warn">{library.sgdbError()}</p>
-            </Show>
-            <p class="dim small">
-              Pick other pictures from a game's details (Change cover / background / logo). Games SteamGridDB doesn't
-              know are tried again weekly. Artwork from SteamGridDB.com, made by its community.
-            </p>
+            </Row>
           </Show>
         )}
       </Show>
@@ -1386,20 +1524,13 @@ function RetroAchievementsSection(props: { run: Run }) {
     });
 
   return (
-    <section class="card-section">
-      <h2>RetroAchievements (optional)</h2>
-      <p class="dim">
-        Shows each game's achievements and which ones you've unlocked, on its details page. Games are recognized by
-        RetroAchievements' own fingerprint of the game file, so it works whatever the files are called. Consoles
-        RetroAchievements doesn't cover (like 3DS) simply show nothing. Your key stays in KB's folder, encrypted
-        with your Windows login.
-      </p>
+    <section class="card-section set-list">
       <Show when={services()}>
         {(sv) => (
           <Show
             when={sv().raUser}
             fallback={
-              <>
+              <Row k="ra" status="Not set up · optional key" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">retroachievements.org</span> (a free account; the one you use in
@@ -1436,44 +1567,42 @@ function RetroAchievementsSection(props: { run: Run }) {
                     Save and connect
                   </button>
                 </div>
-              </>
+              </>} />
             }
           >
-            <p>
-              <span class="ok-text">Connected</span> <span class="dim">as {sv().raUser}</span>
-            </p>
-            <div class="row">
+            <Row
+              k="ra"
+              detail={`${INFO.ra.detail} "Not recognized" means RetroAchievements doesn't list that exact dump (a hack, a translation or another revision).`}
+              status={
+                <Show
+                  when={library.raProgress()}
+                  fallback={
+                    <>
+                      <span class="ok-text">Connected</span> as {sv().raUser}
+                      <Show when={library.lastRa()}>
+                        {(s) => ` · ${s().matched} recognized${s().unknown > 0 ? `, ${s().unknown} not` : ""}`}
+                      </Show>
+                    </>
+                  }
+                >
+                  {(p) => `Identifying: ${p().done} / ${p().total} · ${p().matched} recognized`}
+                </Show>
+              }
+              sub={
+                <Show when={library.raError()}>
+                  <p class="warn">{library.raError()}</p>
+                </Show>
+              }
+            >
               <Show when={library.raProgress()}>
-                {(p) => (
-                  <>
-                    <button class="btn" onClick={() => void api.cancelScan()}>
-                      Stop
-                    </button>
-                    <span class="dim">
-                      Identifying games: {p().done} / {p().total} · {p().matched} recognized
-                    </span>
-                  </>
-                )}
-              </Show>
-              <Show when={!library.raProgress() && library.lastRa()}>
-                {(s) => (
-                  <span class="dim">
-                    Last run: {s().matched} recognized
-                    {s().unknown > 0 ? ` · ${s().unknown} not recognized` : ""}
-                  </span>
-                )}
+                <button class="btn" onClick={() => void api.cancelScan()}>
+                  Stop
+                </button>
               </Show>
               <button class="btn danger" onClick={() => void remove()}>
                 Remove key
               </button>
-            </div>
-            <Show when={library.raError()}>
-              <p class="warn">{library.raError()}</p>
-            </Show>
-            <p class="dim small">
-              A game "not recognized" means RetroAchievements doesn't list that exact dump (a hack, a translation or
-              a different revision). Achievement data from RetroAchievements.org.
-            </p>
+            </Row>
           </Show>
         )}
       </Show>
@@ -1491,68 +1620,58 @@ function GeneralSection(props: { s: Settings; run: Run }) {
   };
 
   return (
-    <section class="card-section">
-      <h2>Exit-emulator combo</h2>
-      <p class="dim">
-        Hold these buttons together on one controller to close the running game. It works while the emulator has
-        focus. Pick at least two, and avoid combos your games use.
-        {session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}
-      </p>
-      <div class="combo-grid">
-        <For each={COMBO_BUTTONS}>
-          {(b) => (
-            <label class="check">
-              <input
-                type="checkbox"
-                checked={combo().buttons.includes(b)}
-                onChange={(e) => void toggle(b, e.currentTarget.checked)}
-              />
-              {buttonLabel(b, family())}
-            </label>
-          )}
-        </For>
-      </div>
-      <div class="row">
-        <span>Hold for</span>
+    <section class="card-section set-list">
+      <Row
+        k="exitCombo"
+        detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}
+        status={`Hold ${combo().buttons.map((b) => buttonLabel(b, family())).join(" + ")} for ${combo().holdMs / 1000} s`}
+        sub={
+          <div class="combo-grid">
+            <For each={COMBO_BUTTONS}>
+              {(b) => (
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    checked={combo().buttons.includes(b)}
+                    onChange={(e) => void toggle(b, e.currentTarget.checked)}
+                  />
+                  {buttonLabel(b, family())}
+                </label>
+              )}
+            </For>
+          </div>
+        }
+      >
         <Picker
           title="Hold the combo for"
           value={String(combo().holdMs)}
           options={[500, 1000, 1500, 2000, 3000].map((ms) => ({ value: String(ms), label: `${ms / 1000} s` }))}
           onChange={(v) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(v) }))}
         />
-      </div>
+      </Row>
 
-      <h2>Display</h2>
-      <label class="check">
-        <input
-          type="checkbox"
+      <Row k="grouped" status={library.grouped() ? "Sections per platform" : "One list"}>
+        <OnOff
+          label="Show All, Favorites and search results in sections per platform"
           checked={library.grouped()}
-          onChange={(e) => library.setGrouped(e.currentTarget.checked)}
+          onChange={(on) => library.setGrouped(on)}
         />
-        Show All, Favorites and search results in sections per platform
-      </label>
-      <p class="dim small">
-        Each platform starts its own rows, so covers in a row share a shape. Switch from the library with the right
-        stick button (R3) or V. Zoom with the right stick, + / −, or Ctrl + mouse wheel.
-      </p>
-      <label class="check">
-        <input
-          type="checkbox"
+      </Row>
+      <Row k="fullscreen" status={props.s.values.tvMode === true ? "On" : "Off"}>
+        <OnOff
+          label="Start fullscreen"
           checked={props.s.values.tvMode === true}
-          onChange={(e) => props.run(() => api.setSetting("tvMode", e.currentTarget.checked))}
+          onChange={(on) => void props.run(() => api.setSetting("tvMode", on))}
         />
-        Start fullscreen
-      </label>
-      <label class="check">
-        <input
-          type="checkbox"
+      </Row>
+      <Row k="startTv" status={props.s.values.startInTv === true ? "On" : "Off"}>
+        <OnOff
+          label="Start in TV Mode"
           checked={props.s.values.startInTv === true}
-          onChange={(e) => props.run(() => api.setSetting("startInTv", e.currentTarget.checked))}
+          onChange={(on) => void props.run(() => api.setSetting("startInTv", on))}
         />
-        Start in TV Mode
-      </label>
-      <div class="row">
-        <span>Interface size</span>
+      </Row>
+      <Row k="size">
         <Picker
           title="Interface size"
           value={props.s.values.interfaceSize === "fixed" ? "fixed" : "auto"}
@@ -1567,16 +1686,7 @@ function GeneralSection(props: { s: Settings; run: Run }) {
             })
           }
         />
-      </div>
-      <p class="dim small">
-        "Fit the screen" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of
-        tiny. Screens up to 1080p, or with Windows scaling turned up, look the same either way.
-      </p>
-      <p class="dim small">
-        <kbd>F11</kbd> toggles fullscreen at any time. TV Mode is the big-screen view: switch with the left stick button
-        (L3), <kbd>F10</kbd> or the TV Mode button. It shows each game's background and logo when SteamGridDB is set up
-        (above), and a blurred cover otherwise.
-      </p>
+      </Row>
 
       <TvModeBlock s={props.s} run={props.run} />
 
@@ -1642,62 +1752,36 @@ function StorageBlock(props: { s: Settings; run: Run }) {
 
   return (
     <>
-      <h2>Storage and reset</h2>
-      <p>
-        Downloaded data: <span class="mono">{storage() ? size(storage()!.downloadedBytes) : "…"}</span>{" "}
-        <span class="dim small">(covers, backgrounds, logos, game info, achievement data)</span>
-      </p>
-      <div class="row">
+      <Row
+        k="storage"
+        detail={`${INFO.storage.detail}${storage() ? ` KB's folder: ${storage()!.dataDir}.` : ""}`}
+        status={`Downloaded data ${storage() ? size(storage()!.downloadedBytes) : "…"}${storage()?.resetBackupBytes ? ` · reset backup ${size(storage()!.resetBackupBytes!)}` : ""}`}
+      >
         <button class="btn" onClick={() => ask("clear")}>
           Clear downloaded data…
         </button>
+        <Show when={storage()?.resetBackupBytes}>
+          <button class="btn" onClick={() => ask("backup")}>
+            Delete reset backup…
+          </button>
+        </Show>
         <button class="btn danger" onClick={() => ask("reset")}>
           Reset KaneegaBell…
         </button>
-      </div>
-      <p class="dim small">
-        Your games, emulators and saves are never touched: both only delete inside KB's own folder
-        {storage() ? <> (<span class="mono">{storage()!.dataDir}</span>)</> : null}.
-      </p>
-      <Show when={storage()?.resetBackupBytes}>
-        {(bytes) => (
-          <>
-            <p>
-              Library copy from the last reset: <span class="mono">{size(bytes())}</span>
-            </p>
-            <div class="row">
-              <button class="btn" onClick={() => ask("backup")}>
-                Delete reset backup…
-              </button>
-            </div>
-          </>
-        )}
-      </Show>
-      <h3>Removed games</h3>
-      <p>
-        {removed()?.count
-          ? `${removed()!.count} game${removed()!.count === 1 ? " is" : "s are"} hidden because ${removed()!.count === 1 ? "its file is" : "their files are"} gone.`
-          : "No removed games are kept."}
-      </p>
-      <div class="row">
+      </Row>
+      <Row
+        k="removed"
+        status={removed()?.count ? `${removed()!.count} hidden (file gone)` : "None kept"}
+      >
         <button class="btn" disabled={!removed()?.count} onClick={() => ask("forget")}>
-          Forget removed games…
+          Forget them…
         </button>
-      </div>
-      <label class="check">
-        <input
-          type="checkbox"
+        <OnOff
+          label="Forget removed games automatically"
           checked={props.s.values.forgetRemovedGames === true}
-          onChange={(e) => props.run(() => api.setSetting("forgetRemovedGames", e.currentTarget.checked))}
+          onChange={(on) => void props.run(() => api.setSetting("forgetRemovedGames", on))}
         />
-        Forget removed games automatically
-      </label>
-      <p class="dim small">
-        When a game's file disappears, KB keeps it hidden if you played or favorited it, so its play time and favorite
-        come back if the file returns (e.g. a drive that wasn't plugged in). Games you never played are removed at the
-        next scan. Forgetting deletes the hidden ones for good: play time, favorite, collections and pictures. With the
-        switch on, scans do that right away.
-      </p>
+      </Row>
       <Show when={asking()}>
         {(what) => (
           <div class="overlay" onClick={(e) => e.target === e.currentTarget && close()}>
@@ -1803,8 +1887,10 @@ function TvModeBlock(props: { s: Settings; run: Run }) {
   const set = (key: string, v: unknown) => props.run(() => api.setSetting(key, v));
 
   return (
-    <>
-      <h2>TV Mode</h2>
+    <Row
+      k="tv"
+      status={displayOptions().find((o) => o.value === chosen())?.label ?? "The display KB is on"}
+      sub={
       <div class="form-grid">
         <label>Display</label>
         <Picker title="Open TV Mode on" value={chosen()} options={displayOptions()} onChange={(v) => set("tvDisplay", v || null)} />
@@ -1833,12 +1919,8 @@ function TvModeBlock(props: { s: Settings; run: Run }) {
           onChange={(v) => set("tvOverscan", Number(v))}
         />
       </div>
-      <p class="dim small">
-        With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving TV Mode brings the window back. If
-        that display is off or unplugged, TV Mode opens where KB is. Raise the overscan margin if your TV cuts off the
-        edges of the picture (the clock or the hints along the bottom are missing).
-      </p>
-    </>
+      }
+    />
   );
 }
 
@@ -1861,37 +1943,24 @@ function UpdatesBlock(props: { s: Settings; run: Run }) {
   }
 
   return (
-    <>
-      <h2>Updates</h2>
-      <p>
-        KaneegaBell <span class="mono">{info()?.version ?? ""}</span>
-      </p>
-      <label class="check">
-        <input
-          type="checkbox"
-          checked={props.s.values.autoUpdateCheck !== false}
-          onChange={(e) => props.run(() => api.setSetting("autoUpdateCheck", e.currentTarget.checked))}
-        />
-        Check for updates when KaneegaBell starts
-      </label>
-      <div class="row">
-        <button class="btn" disabled={checking()} onClick={() => void checkNow()}>
-          {checking() ? "Checking…" : "Check now"}
-        </button>
-        <button class="btn" onClick={() => whatsNew.setOpen(true)}>
-          What's new
-        </button>
-        <Show when={result()}>
-          <span class="dim">{result()}</span>
-        </Show>
-      </div>
-      <p class="dim small">
-        Updates are only installed when you choose to, never while a game is running. Each one is signed, and KB
-        refuses any download that isn't.
-        {info()?.devBuild ? " This copy runs from a build folder, so it doesn't check by itself; use Check now." : ""}
-      </p>
-      <UpdateCodeField run={props.run} onSaved={() => void checkNow()} />
-    </>
+    <Row
+      k="updates"
+      detail={`${INFO.updates.detail}${info()?.devBuild ? " This copy runs from a build folder, so it doesn't check by itself; use Check now." : ""} The switch checks once when KaneegaBell starts.`}
+      status={result() ?? `Version ${info()?.version ?? ""}${props.s.values.autoUpdateCheck !== false ? " · checks at start" : ""}`}
+      sub={<UpdateCodeField run={props.run} onSaved={() => void checkNow()} />}
+    >
+      <button class="btn" disabled={checking()} onClick={() => void checkNow()}>
+        {checking() ? "Checking…" : "Check now"}
+      </button>
+      <button class="btn" onClick={() => whatsNew.setOpen(true)}>
+        What's new
+      </button>
+      <OnOff
+        label="Check for updates when KaneegaBell starts"
+        checked={props.s.values.autoUpdateCheck !== false}
+        onChange={(on) => void props.run(() => api.setSetting("autoUpdateCheck", on))}
+      />
+    </Row>
   );
 }
 
