@@ -707,6 +707,7 @@ window, so they're written for players.
 
 ### 0.3.6
 - Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.
+- New: Change background shows each background's shape (16:9 or wide) and previews it the way the sidebar will show it.
 
 ### 0.3.5 (2026-10-18)
 - Changed: Settings fits on one screen: two columns of one-line settings, with every button and switch lined up.

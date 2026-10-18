@@ -1692,9 +1692,10 @@ kbd.ps-favorite { color: #4fe0c0; }
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 }
 
+/* Shown in the sidebar's 16:9 box: 16:9 backgrounds fill it, wide ones show their bands. */
 .cover-grid.wide .cover-option img {
-  aspect-ratio: 1920 / 620;
-  object-fit: cover;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
 }
 
 .cover-grid.logos {
@@ -1715,6 +1716,11 @@ kbd.ps-favorite { color: #4fe0c0; }
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.cover-option-shape {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .info-main {

@@ -14,6 +14,16 @@ const WORDS: Record<PictureKind, { title: string; noun: string; use: string }> =
 };
 
 /**
+ * A background's shape: "16:9", or "3:1 wide" past the 2:1 cut-off SideHero
+ * uses to show it whole with bands instead of filling the sidebar's box.
+ */
+export function shapeOf(img: HTMLImageElement): string {
+  const r = img.naturalWidth / img.naturalHeight;
+  const name = Math.abs(r - 16 / 9) < 0.12 ? "16:9" : r >= 2.8 && r <= 3.3 ? "3:1" : `${r.toFixed(1)}:1`;
+  return r > 2 ? `${name} wide` : name;
+}
+
+/**
  * "Change cover": pick from libretro alternatives (other regions, related
  * titles), SteamGridDB (with a key), search by name, use the game's own icon,
  * pick an image file, or remove the cover. With `kind` "hero" / "logo" it
@@ -69,6 +79,8 @@ export function CoverPicker(props: {
 
   // GameTDB options are guesses per region: drop the ones whose image doesn't exist.
   const [broken, setBroken] = createSignal<ReadonlySet<string>>(new Set());
+  // Each background's shape, read from its preview once it loads.
+  const [shapes, setShapes] = createSignal<Record<string, string>>({});
   const list = (): CoverCandidate[] =>
     candidates.state === "ready" ? candidates().filter((c) => !broken().has(c.url)) : [];
 
@@ -105,6 +117,9 @@ export function CoverPicker(props: {
         <Show when={candidates.state === "ready" && list().length === 0}>
           <p class="dim">No {words().noun} found. Try searching with a different name.</p>
         </Show>
+        <Show when={kind() === "hero"}>
+          <p class="dim small">16:9 backgrounds fill the sidebar; wide ones show whole, with blurred bands above and below.</p>
+        </Show>
         <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo" }}>
           <For each={list()}>
             {(c, i) => (
@@ -122,9 +137,13 @@ export function CoverPicker(props: {
                     loading="lazy"
                     decoding="async"
                     onError={() => c.source === "gametdb" && setBroken((s) => new Set(s).add(c.url))}
+                    onLoad={(e) => kind() === "hero" && setShapes((m) => ({ ...m, [c.url]: shapeOf(e.currentTarget) }))}
                   />
                 </Show>
-                <span class="cover-option-label">{busy() === c.name ? "Applying…" : c.label}</span>
+                <span class="cover-option-label">
+                  {busy() === c.name ? "Applying…" : c.label}
+                  <Show when={shapes()[c.url]}>{(sh) => <b class="cover-option-shape"> · {sh()}</b>}</Show>
+                </span>
               </button>
             )}
           </For>
