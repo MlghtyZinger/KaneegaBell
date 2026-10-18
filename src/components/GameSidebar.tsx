@@ -103,7 +103,7 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
                   </Show>
                 }
               >
-                {(v) => <img class="side-hero-img" src={artUrl(g().id, v(), "h")} alt="" decoding="async" />}
+                {(v) => <SideHero src={artUrl(g().id, v(), "h")} />}
               </Show>
               <Show when={g().logo}>
                 {(v) => <img class="side-logo" src={artUrl(g().id, v(), "l")} alt={g().title} decoding="async" />}
@@ -181,5 +181,29 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
         )}
       </Show>
     </NavScope>
+  );
+}
+
+/**
+ * A background in the sidebar's 16:9 box. A 16:9 one fills it; a wide one
+ * (SteamGridDB's are about 3:1) shows whole, with a blurred copy of itself
+ * filling the bands above and below, instead of losing its sides.
+ */
+function SideHero(props: { src: string }) {
+  const [wide, setWide] = createSignal(false);
+  return (
+    <>
+      <Show when={wide()}>
+        <img class="side-hero-blur" src={props.src} alt="" />
+      </Show>
+      <img
+        class="side-hero-img"
+        classList={{ wide: wide() }}
+        src={props.src}
+        alt=""
+        decoding="async"
+        onLoad={(e) => setWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight * 2)}
+      />
+    </>
   );
 }
