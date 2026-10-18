@@ -450,6 +450,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       "More" control. Controller: D-pad moves, A presses, X switches on/off, LB/RB change section, up from the first
       row reaches the search box (on-screen keyboard), B clears the search / goes back. Rejected: A rows, B list and
       detail, C summary and cards, D grouped list, F tile home; chevron and "More ▸" for details.
+      **Built 2026-10-18 (0.3.5, owner's go-ahead):** `INFO` map (title, section, explanation, keywords) feeds both the
+      details strip (focus/hover on `[data-detail]`) and search (plus every emulator and platform by name; name and
+      keyword matches ranked first); `Row` (name · status · controls, lists and forms under it), `OnOff` switch
+      (styled checkbox); results jump to the setting and focus it. Settings code-split with `lazy()` (62 KB chunk).
+      Perf gate passed and improved: start 460 ms, Task Manager 116 MB at start (−8%), after a game −16%.
 - [ ] Storage audit (owner, 2026-10-15; **right after 0.2.7 is uploaded**, as its own small update): list
       everything in both data folders with sizes, check every place KB writes files/cache rows for a
       limit or cleanup. Known items: delete `data\ra` badges **only for games that were removed**
