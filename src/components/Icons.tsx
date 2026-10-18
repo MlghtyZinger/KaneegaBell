@@ -123,7 +123,7 @@ export function Icon(props: { name: IconName; class?: string }) {
 }
 
 const HANDHELD = new Set(["gba", "nds", "3ds", "switch", "psp"]);
-const DISC = new Set(["gc", "wii", "segacd", "saturn", "ps1", "ps2", "ps3"]);
+const DISC = new Set(["gc", "wii", "segacd", "saturn", "ps1", "ps2", "ps3", "xbox", "xbox360"]);
 const FAMILY: Record<string, string> = {
   snes: "nintendo",
   n64: "nintendo",
@@ -139,6 +139,8 @@ const FAMILY: Record<string, string> = {
   ps2: "sony",
   psp: "sony",
   ps3: "sony",
+  xbox: "microsoft",
+  xbox360: "microsoft",
 };
 
 /** A platform's (placeholder) icon, tinted by maker family. */

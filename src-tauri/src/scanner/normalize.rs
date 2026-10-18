@@ -41,7 +41,7 @@ macro_rules! re {
     };
 }
 
-re!(SUFFIX_JUNK, r"(?i)\.(piratelegit|decrypted|trimmed|trim)$");
+re!(SUFFIX_JUNK, r"(?i)\.(piratelegit|decrypted|trimmed|trim|xiso)$");
 re!(TITLE_ID_PREFIX, r"^[0-9A-Fa-f]{16}\s+");
 re!(RELEASE_NO_PREFIX, r"^\d{4}\s+-\s+");
 re!(SCENE_GROUP, r"-[A-Za-z0-9]+$");

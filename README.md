@@ -287,6 +287,19 @@ virtual Xbox pad next to the real one, the same press arriving from both is coun
   installers circulate. KB never downloads emulators.
 - Switch has no RetroAchievements.
 
+### Xbox and Xbox 360
+
+- **Xbox** plays in **xemu** (`-full-screen -dvd_path "{rom}"`). xemu needs your own BIOS, MCPX boot
+  ROM and hard-drive image, set in xemu's own settings; KB never downloads them. xemu reads **XISO**
+  images (`.xiso`, `.xiso.iso`); a full Redump `.iso` may need converting to XISO first (e.g. with
+  extract-xiso).
+- **Xbox 360** plays in **Xenia Canary** (`--fullscreen "{rom}"`), from its official GitHub releases.
+  Disc images (`.iso`) are listed; extracted `.xex` folders, Games on Demand and Xbox Live Arcade
+  content aren't scanned yet.
+- In mixed folders, a full disc image is told apart by where its file system starts (original Xbox,
+  or 360). An XISO looks the same for both consoles, so its folder name decides ("Xbox" or "Xbox 360").
+- Neither has RetroAchievements.
+
 ## Covers and metadata
 
 Everything works without accounts or API keys:
@@ -689,6 +702,9 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.4
+- New: Xbox, played with xemu (XISO disc images).
+- New: Xbox 360, played with Xenia Canary (disc images).
+- New: Xbox and Xbox 360 discs in mixed folders are recognized by their disc layout.
 - Changed: one "Launch with" choice per game, on the details screen and in the sidebar ("Play with…" did the same thing and is gone).
 - Fixed: Switch update files from scene releases (e.g. "hr-bgw5av131072.nsp") no longer show up as games.
 

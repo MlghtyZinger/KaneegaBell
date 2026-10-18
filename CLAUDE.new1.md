@@ -365,6 +365,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       saved filters (the genre filter grows into platform/genre/developer/year/played/play time,
       and a combination can be saved); developer/publisher become filter fields, not automatic
       collections. **Approved by the owner (2026-10-16); build it in n.**
+      **Also for n (owner, 2026-10-18):** edit members from the collection page ("Add games…" picker with ticks,
+      "Remove from collection" on Y/right-click); series get the same, saved as the user's corrections on top of
+      Wikidata (a refresh never undoes them); "Search logos…" beyond the members' own (e.g. Armored Core offers only
+      V and Verdict Day today): SteamGridDB search with the user's key (LaunchBox keeps only owned games' picture
+      lists); own image file stays.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
@@ -405,6 +410,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       so the cover pass no longer requires a libretro system; a Switch emulator joins Switch when its exe is set
       (migration 017 for ones set earlier); "Play with…" now saves the pick as the game's emulator, owner's request;
       Ryubing added (exe also Ryujinx.exe, detected by folder))
+      **0.3.4 Xbox + Xbox 360 built together 2026-10-18 (owner's request):** xemu `-full-screen -dvd_path` (checked in
+      the owner's build); Xenia Canary `--fullscreen` (not installed yet: unchecked, `shortcut:` comment); XDVDFS
+      marker offset decides XGD1 0x18310000 / XGD2 0xFDA0000 / XGD3 0x2090000, XISO 0x10000 = folder decides
+      (verified on the owner's 4 discs); `.xiso` suffix dropped from titles; 360 .xex/GOD/XBLA not scanned yet.
       **Parked idea (owner, 2026-10-18, research only, not scheduled): suggest the best emulator per game.**
       Data: Ryubing/Compatibility `compatibility.csv` (title_id, game_name, labels, status playable/ingame/menus/
       boots/nothing, last_updated; keyless on GitHub, ~270 KB); Yuzu's frozen `compatibility_list.json` (Flathub,

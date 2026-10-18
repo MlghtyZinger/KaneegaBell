@@ -12,6 +12,8 @@
 //! - Eden, Citron, Sudachi, Yuzu: `-f -g <file>` (Yuzu's Qt front end; no `--help`
 //!   output, so checked in the owner's builds' argument parsers)
 //! - Ryujinx, Ryubing: `--fullscreen <file>` (1.1.1403 and the owner's Ryubing; a bare path launches the game)
+//! - xemu:      `-full-screen -dvd_path <file>` (checked in the owner's build); BIOS, MCPX and HDD
+//!              come from xemu's own settings
 //!
 //! Defaults are re-applied on every start; user changes live in the `*_override`
 //! columns and `exe_path`, which seeding never touches.
@@ -124,6 +126,20 @@ pub const EMULATORS: &[EmulatorDef] = &[
         id: "yuzu",
         name: "Yuzu (discontinued)",
         template: r#""{emulator}" -f -g "{rom}""#,
+        supports_m3u: false,
+    },
+    EmulatorDef {
+        id: "xemu",
+        name: "xemu",
+        template: r#""{emulator}" -full-screen -dvd_path "{rom}""#,
+        supports_m3u: false,
+    },
+    // shortcut: flags from Xenia Canary's documented `--fullscreen` option, not checked in a local
+    // build (the owner hasn't installed it yet); verify once it's there.
+    EmulatorDef {
+        id: "xenia",
+        name: "Xenia Canary",
+        template: r#""{emulator}" --fullscreen "{rom}""#,
         supports_m3u: false,
     },
 ];
@@ -318,6 +334,35 @@ pub const PLATFORMS: &[PlatformDef] = &[
         igdb: Some(9),
         ra: Some(82),
     },
+    PlatformDef {
+        id: "xbox",
+        name: "Xbox",
+        short_name: "Xbox",
+        emulator: "xemu",
+        core: None,
+        // XISO images (xemu's format); in mixed folders an .iso is Xbox by its
+        // XDVDFS header (scanner::detect::xbox).
+        extensions: &["iso", "xiso"],
+        libretro: Some("Microsoft - Xbox"),
+        launchbox: Some("Microsoft Xbox"),
+        wikidata: Some("Q132020"),
+        igdb: Some(11),
+        ra: None,
+    },
+    PlatformDef {
+        id: "xbox360",
+        name: "Xbox 360",
+        short_name: "360",
+        emulator: "xenia",
+        core: None,
+        // Disc images; .xex folders, GOD and XBLA content aren't scanned yet.
+        extensions: &["iso"],
+        libretro: Some("Microsoft - Xbox 360"),
+        launchbox: Some("Microsoft Xbox 360"),
+        wikidata: Some("Q48263"),
+        igdb: Some(12),
+        ra: None,
+    },
 ];
 
 /// Whether an emulator is on RetroAchievements' list of supported emulators
@@ -328,7 +373,7 @@ pub const PLATFORMS: &[PlatformDef] = &[
 pub fn achievements(emulator_id: &str) -> Option<bool> {
     match emulator_id {
         "retroarch" | "duckstation" | "pcsx2" | "dolphin" => Some(true),
-        "rpcs3" | "azahar" | "eden" | "ryubing" | "ryujinx" | "citron" | "sudachi" | "yuzu" => Some(false),
+        "rpcs3" | "azahar" | "eden" | "ryubing" | "ryujinx" | "citron" | "sudachi" | "yuzu" | "xemu" | "xenia" => Some(false),
         _ => None,
     }
 }
@@ -408,7 +453,8 @@ pub fn retroarch_bios_problem(core: &str, platform_id: &str, system_dir: &Path) 
 pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &str) -> bool {
     match platform_id {
         "switch" => SWITCH_ALTERNATIVES.contains(&emulator_id),
-        "ps3" => false,
+        // PS3 games are folders; Xbox 360 has no RetroArch core.
+        "ps3" | "xbox360" => false,
         _ => emulator_id == "retroarch" && platform_builtin != "retroarch",
     }
 }
@@ -431,6 +477,8 @@ pub fn exe_patterns(emulator_id: &str) -> &'static [&'static str] {
         "citron" => &["citron.exe"],
         "sudachi" => &["sudachi.exe"],
         "yuzu" => &["yuzu.exe"],
+        "xemu" => &["xemu.exe"],
+        "xenia" => &["xenia_canary.exe", "xenia*.exe"],
         _ => &[],
     }
 }

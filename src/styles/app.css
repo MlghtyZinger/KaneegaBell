@@ -2486,6 +2486,7 @@ html.nav-mode .tv-menu-item:focus {
 .fam-nintendo { color: #ff7a7a; }
 .fam-sony { color: #79acff; }
 .fam-sega { color: #5fd6d6; }
+.fam-microsoft { color: #7fd36a; }
 .rail-row.active .platform-icon { color: #0e1014; }
 
 /* Controller focus on an open collection's banner buttons (up from the covers). */

@@ -95,6 +95,28 @@ pub fn other_iso(b: &[u8]) -> Option<Sniff> {
     None
 }
 
+/// Xbox and Xbox 360 discs: the XDVDFS file system's "MICROSOFT*XBOX*MEDIA"
+/// sits 0x10000 into the game partition, and where that partition starts
+/// tells the disc kind apart (full Redump images). A trimmed XISO has it at
+/// the start, which both consoles' tools make: that one says "Xbox family"
+/// and the folder name decides.
+const XDVDFS_MAGIC: &[u8] = b"MICROSOFT*XBOX*MEDIA";
+const XBOX_LAYOUTS: [(u64, Option<&str>); 4] = [
+    (0x1831_0000, Some("xbox")),    // XGD1 (original Xbox)
+    (0x0FDA_0000, Some("xbox360")), // XGD2
+    (0x0209_0000, Some("xbox360")), // XGD3
+    (0x0001_0000, None),            // XISO
+];
+
+/// `Some(platform)` for a full Xbox/360 disc image, `Some(None)` for an XISO
+/// (either console), `None` when it isn't one.
+pub fn xbox(f: &mut File) -> Option<Option<&'static str>> {
+    XBOX_LAYOUTS
+        .iter()
+        .find(|(at, _)| read_at(f, *at, XDVDFS_MAGIC.len()).is_ok_and(|b| b == XDVDFS_MAGIC))
+        .map(|(_, p)| *p)
+}
+
 /// PS1 vs PS2 from SYSTEM.CNF (`BOOT2 = cdrom0:\SLUS_203.12;1` is PS2,
 /// `BOOT = cdrom:\SCUS_944.55;1` is PS1), plus the serial from the boot file.
 pub fn parse_system_cnf(text: &str) -> Option<(&'static str, Option<String>)> {
@@ -234,7 +256,10 @@ pub fn sniff(path: &Path, ext: &str) -> Sniff {
             }
             "iso" => {
                 let b = read_at(&mut f, 0, HEAD_LEN)?;
-                dolphin(&b).or_else(|| other_iso(&b)).unwrap_or_default()
+                match dolphin(&b).or_else(|| other_iso(&b)) {
+                    Some(s) => s,
+                    None => Sniff { platform: xbox(&mut f).flatten(), serial: None },
+                }
             }
             "nds" | "dsi" | "ids" => Sniff { platform: None, serial: nds(&read_at(&mut f, 0, 0x10)?) },
             "gba" => Sniff { platform: None, serial: gba(&read_at(&mut f, 0, 0xC0)?) },

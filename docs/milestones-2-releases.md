@@ -60,7 +60,9 @@ milestone is planned and approved before it's built.
    focused game's info on the right; up/down moves and the panel follows.
 5. **n, the rest: Collections.** Nothing new appears unless the user makes it. Smart collections become
    saved filters (platform / genre / developer / year / played / play time, combinations saved);
-   developer and publisher become filter fields; a Collections screen in TV Mode.
+   developer and publisher become filter fields; a Collections screen in TV Mode. Also (owner,
+   2026-10-18): add and remove games from the collection page itself, for series too (your corrections
+   survive Wikidata refreshes), and "Search logos…" beyond the games you own (SteamGridDB).
 6. **o: Themes.** A safe, data-only `.kbtheme` format (no code), built-in themes, import/export, a
    community gallery on GitHub (owner asked first), an optional generator using the user's own
    Anthropic API key.

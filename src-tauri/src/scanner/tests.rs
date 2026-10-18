@@ -131,6 +131,30 @@ fn switch_games_without_their_updates_and_dlc() {
     );
 }
 
+/// A disc image of `len` bytes (sized without writing them) with the XDVDFS
+/// marker at `magic_at`.
+fn xdvdfs_image(path: &Path, len: u64, magic_at: u64) {
+    use std::io::{Seek, SeekFrom, Write};
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let mut f = fs::File::create(path).unwrap();
+    f.set_len(len).unwrap();
+    f.seek(SeekFrom::Start(magic_at)).unwrap();
+    f.write_all(b"MICROSOFT*XBOX*MEDIA").unwrap();
+}
+
+#[test]
+fn xbox_and_xbox_360_discs() {
+    let t = tempfile::tempdir().unwrap();
+    // The owner's two kinds: an XISO in the Xbox folder (the folder decides),
+    // and a full 360 disc image, recognized even in a folder that says nothing.
+    xdvdfs_image(&t.path().join("Xbox").join("Kingdom Under Fire - The Crusaders (USA, Korea) (En,Ko).xiso.iso"), 0x20_0000, 0x1_0000);
+    xdvdfs_image(&t.path().join("Unsorted").join("Fable III (World) (En,Zh,Ko).iso"), 0x0300_0000, 0x0209_0000);
+    let (c, w) = scan(t.path(), None);
+    assert!(w.is_empty(), "{w:?}");
+    let got: Vec<_> = c.iter().map(|c| (c.name.title.as_str(), c.platform.as_str())).collect();
+    assert_eq!(got, [("Fable III", "xbox360"), ("Kingdom Under Fire: The Crusaders", "xbox")]);
+}
+
 #[test]
 fn gamecube_wii_mixed_folder() {
     let t = gc_wii_folder();
@@ -390,7 +414,7 @@ fn auto_ignores_tiny_disc_images_like_amiibo_dumps() {
 fn auto_skips_folders_of_platforms_that_are_not_set_up_yet() {
     let t = tempfile::tempdir().unwrap();
     let r = t.path();
-    write(&r.join("Xbox").join("Halo (USA).iso"), &vec![0; DISC]);
+    write(&r.join("Nintendo").join("Wii U").join("Zelda (USA).iso"), &vec![0; DISC]);
     write(&r.join("Sony").join("PS4").join("Game.iso"), &vec![0; DISC]);
     write(&r.join("Sega").join("Dreamcast").join("Shenmue").join("Track 01.bin"), &vec![0; DISC]);
     write(&r.join("Nintendo").join("GBA").join("Golden Sun (USA, Europe).gba"), &[0; 0xC0]);
@@ -400,9 +424,9 @@ fn auto_skips_folders_of_platforms_that_are_not_set_up_yet() {
 
     // Once such a platform exists and is enabled, its folders are scanned.
     let mut rules = rules();
-    rules.push(PlatformRule { id: "xbox".into(), extensions: vec!["iso".into()] });
+    rules.push(PlatformRule { id: "wiiu".into(), extensions: vec!["iso".into()] });
     let found = scan_files(&src(r, None), &rules, &HashMap::new(), &mut Vec::new());
-    assert!(found.iter().any(|g| g.platform == "xbox" && g.name.title == "Halo"), "{found:?}");
+    assert!(found.iter().any(|g| g.platform == "wiiu" && g.name.title == "Zelda"), "{found:?}");
 }
 
 #[test]
