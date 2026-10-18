@@ -1,11 +1,11 @@
 {
-  "version": "0.3.5",
-  "notes": "- Changed: Settings fits on one screen: two columns of one-line settings, with every button and switch lined up.\n- Changed: lists and forms (ROM folders, emulator paths, keys, exit combo, TV Mode display, storage) open in a small panel instead of stretching the page.\n- New: rest on a setting (mouse or controller) and a short explanation pops up beside it, so the long texts are gone from the page.\n- Changed: Check now also shows what's new when you already have the latest version; the separate What's new button is gone.\n- New: Storage has a \"Clear web cache\" button that empties only KB's page cache (your covers and game info stay).\n- New: search in Settings finds any setting in any section (type in the box, or press Square / X); choosing a result jumps to it.\n- Improved: KB starts a little lighter, because Settings now loads only when you open it.\n- Fixed: a Switch game whose file name has both its own title ID and a high version number (a cartridge revision or a merged update) is no longer hidden as an update.",
-  "pub_date": "2026-10-18T14:04:54Z",
+  "version": "0.3.6",
+  "notes": "- New: every platform has its own picture in the platform list (SNES, N64, GameCube, Wii, Switch, PlayStation, Xbox and the rest), emulators get a small badge in Settings, and the app has a new bull icon (exe, window, title bar).\n- Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.\n- New: Change background shows each background's shape (16:9 or wide) and previews it the way the sidebar will show it.",
+  "pub_date": "2026-10-18T17:32:23Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVQrTHNzQjRqSkc0MUljQlNmd2hzblFRcWdRU3ppelgvWXpPSEh3L0dhQU1DQmtDSWQ1QnM2Nk9PdFB6elZXbnpxbTJ1Rk5DcHNwdlBxKzZQVE5VcUFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzI4NjQ1CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy41CndTN0RIbHlqcCsrNUZFUXhlWTQxL29jQjZXdWNFZjdoOXRrZmlST2YrWExqME9ZWWlPamdUL0JFRWp3SHlmSWxRWVVtWXlIMFNWRVdNN2JIZFlpOEJBPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.5_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRDS1NubDRNT252Y3N6Y3EzbUJiamduVmJEcUVUTktzU2piaWJ2OEZDT01IUHV5by9xNmkvYWRCdUVadmFWTEFJYmJsWGtpQmVvcUE1WFhubEhXWmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzQ0NTU4CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy42ClJ1ekoxMHhTQThRTVBCZFJLMjQ0bDRKc2k0VEMwSnFNeVdGTk0ycUVZQ1dFMUhkRmV5OGFYeFUrTTRLZFBZRHZaTnZYWGZWWEhUaDZmNTVIQ1hjTkRRPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.6_x64-setup.exe?ref=updates"
     }
   }
 }
