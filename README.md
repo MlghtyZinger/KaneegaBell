@@ -706,6 +706,8 @@ window, so they're written for players.
 - New: Xbox 360, played with Xenia Canary (disc images).
 - New: Xbox and Xbox 360 discs in mixed folders are recognized by their disc layout.
 - Changed: one "Launch with" choice per game, on the details screen and in the sidebar ("Play with…" did the same thing and is gone).
+- Changed: background progress (covers, game info, series…) shows in the top bar, where there's room; it no longer makes the bottom bar jump.
+- Fixed: after a game, KB sometimes came back windowed instead of fullscreen.
 - Fixed: Switch update files from scene releases (e.g. "hr-bgw5av131072.nsp") no longer show up as games.
 
 ### 0.3.3 (2026-10-18)

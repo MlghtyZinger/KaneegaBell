@@ -73,7 +73,15 @@ function JobPill() {
     const secs = Math.floor((now() - changedAt) / 1000);
     return t && secs >= 3 ? `${t} · ${secs} s` : t;
   };
-  return <Show when={shown()}>{(t) => <span class="scan-pill">{t()}</span>}</Show>;
+  return (
+    <Show when={shown()}>
+      {(t) => (
+        <span class="scan-pill" title={t()}>
+          {t()}
+        </span>
+      )}
+    </Show>
+  );
 }
 
 function initial(title: string): string {
@@ -476,10 +484,8 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <span class="here-count">{here().count}</span>
         </div>
         <div class="topbar-right">
-          {/* With games, progress sits in the footer. */}
-          <Show when={games().length === 0 && !overview()}>
-            <JobPill />
-          </Show>
+          {/* Background progress lives here: the footer is full of key hints. */}
+          <JobPill />
           <button
             class="search-box"
             classList={{ active: !!library.query(), "nav-focus": topFocus() === "search" }}
@@ -599,9 +605,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
               <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
               <Hint action="menu" label="Settings" />
               <Hint actions={["zoomOut", "zoomIn"]} label="Tile size" />
-              <span class="footer-jobs">
-                <JobPill />
-              </span>
             </footer>
           </>
         }
@@ -698,9 +701,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <Show when={mixed() && library.platform() !== "recent" && !openKey()}>
             <Hint action="toggleGroups" label={library.grouped() ? "One list" : "Sections"} />
           </Show>
-          <span class="footer-jobs">
-            <JobPill />
-          </span>
           <input
             class="zoom-slider"
             type="range"

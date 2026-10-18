@@ -107,6 +107,16 @@ pub fn core_problem(core: Option<&str>, platform_id: &str, retroarch_exe: Option
     crate::platforms::retroarch_bios_problem(core, platform_id, &crate::platforms::retroarch_system_dir(Path::new(exe)))
 }
 
+/// Whether the window is fullscreen and fills its whole screen (a mode change
+/// by the emulator can leave a "fullscreen" window at the old size).
+fn covers_its_screen(w: &tauri::WebviewWindow) -> bool {
+    let (Ok(true), Ok(size), Ok(Some(monitor))) = (w.is_fullscreen(), w.outer_size(), w.current_monitor()) else {
+        return false;
+    };
+    let screen = monitor.size();
+    size.width >= screen.width && size.height >= screen.height
+}
+
 /// An emulator that exits this soon (without KB asking it to) didn't start
 /// the game: KB says so and doesn't count it as played.
 const QUICK_EXIT: Duration = Duration::from_secs(5);
@@ -343,18 +353,32 @@ impl Launcher {
             }
             let _ = w.unminimize();
             let _ = w.show();
-            if session.was_fullscreen {
-                // Restoring from minimized leaves the window flagged fullscreen
-                // but drawn windowed, so toggle to re-apply it.
-                let _ = w.set_fullscreen(false);
-                let _ = w.set_fullscreen(true);
-            }
+            // To the front first: its restore step, run after fullscreen was
+            // re-applied, could drop the window back to windowed.
             #[cfg(windows)]
             if let Ok(hwnd) = w.hwnd() {
                 window::bring_to_front(hwnd);
             }
             #[cfg(not(windows))]
             let _ = w.set_focus();
+            if session.was_fullscreen {
+                // Restoring from minimized leaves the window flagged fullscreen
+                // but drawn windowed, so toggle to re-apply it.
+                let _ = w.set_fullscreen(false);
+                let _ = w.set_fullscreen(true);
+                // Those run on the window's thread a moment later, and an emulator
+                // that changed the screen mode can leave it wrong: check once
+                // things have settled, and re-apply if it isn't covering its screen.
+                let w = w.clone();
+                let _ = std::thread::Builder::new().name("refullscreen".into()).spawn(move || {
+                    std::thread::sleep(Duration::from_millis(700));
+                    if !covers_its_screen(&w) {
+                        log::info!("window wasn't fullscreen after the game: re-applying");
+                        let _ = w.set_fullscreen(false);
+                        let _ = w.set_fullscreen(true);
+                    }
+                });
+            }
         }
         let _ = app.emit("game-exited", &Exited { game_id: session.game_id, session_seconds: secs, failed });
     }

@@ -56,13 +56,6 @@
   mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent);
 }
 
-.footer-jobs {
-  margin-left: auto;
-}
-
-.footer-jobs .scan-pill {
-  padding: 2px 12px;
-}
 
 .tab {
   background: transparent;
@@ -94,10 +87,18 @@
   opacity: 0.7;
 }
 
+/* Takes the top bar's spare room (flex-basis 0), so the progress text can be
+   long or change without moving the search box and buttons; only it shrinks. */
 .topbar-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--gap);
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.topbar-right > :not(.scan-pill) {
   flex: none;
 }
 
@@ -107,6 +108,11 @@
   padding: 6px 14px;
   border-radius: 999px;
   border: 1px solid var(--accent);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------ grid */
@@ -2268,7 +2274,8 @@ html.nav-mode .tv-menu-item:focus {
   align-items: baseline;
   gap: 10px;
   min-width: 0;
-  flex: 1;
+  /* Its own width; the rest of the bar goes to the right side (progress, search). */
+  flex: 0 1 auto;
 }
 
 .here-title {
