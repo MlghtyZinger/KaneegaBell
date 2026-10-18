@@ -1,7 +1,11 @@
-# KaneegaBell milestones, part 2: the releases (0.2.0 to now)
+# KaneegaBell milestones, part 2: from 0.2.0 to the end of the plan
 
-From the first published version to the current one. One milestone per release (the owner's rule
-since 0.2.7). Full per-change lists are in the README's **Patch notes**.
+Everything from the first published version through the last agreed milestone (u, customization):
+what's released, what's planned in the locked order, and ideas already discussed and parked.
+One milestone per release (the owner's rule since 0.2.7). Full per-change lists are in the README's
+**Patch notes**.
+
+## Released
 
 | Version | Date | Milestone | What it brought |
 |---|---|---|---|
@@ -33,4 +37,47 @@ since 0.2.7). Full per-change lists are in the README's **Patch notes**.
 - The 4 multi-disc games (FF7, Valkyrie Profile, Xenogears, Policenauts) were converted to CHD and
   checked (same achievement fingerprints); the originals are in `E:\CHD originals`.
 
-Before: [part 1, building the app](milestones-1-foundation.md). Next: [part 3, the future](milestones-3-future.md).
+## Planned (the locked order)
+The order is **locked** (owner, 2026-10-16): before changing it, the owner is reminded, the idea is
+parked as a note under its milestone, and the order changes only if the owner confirms. Each
+milestone is planned and approved before it's built.
+
+1. **q, part 2 (the rest): new platforms**
+   - **0.3.4 Xbox:** xemu (`-full-screen -dvd_path <iso>`), RetroArch's experimental xemu core as an
+     alternative; XISO images; Xbox `.iso` told apart by its header; the user's own MCPX/BIOS/HDD
+     (never downloaded); no RetroAchievements. Needs the owner's OK to check xemu's options first.
+   - **0.3.5 Xbox 360 (optional):** Xenia Canary (`--fullscreen <game>`); disc ISO/XEX, GOD + .data,
+     XBLA; no RetroAchievements; only if the owner has games without PC ports.
+   - The pending 0.3.4 fixes ship with Xbox or just before it.
+2. **t: Settings touch-up.** Compact and easier to read without costing performance: shorter texts
+   with details behind "More", grouped rows, one status line per source; Settings loads only when
+   opened (code-split).
+3. **m: Icons.** Small square game icons (manual pick, SteamGridDB, or cropped from the cover) for the
+   sidebar title, Recent and collections (the grid stays covers); original or permissively licensed
+   platform and emulator icons, no official logos; app icon: 2–3 original concepts (bold, dark, a
+   horned bull), then the final icon.
+4. **Steam-style list view** (its own release right after m): games as text rows with their icon, the
+   focused game's info on the right; up/down moves and the panel follows.
+5. **n, the rest: Collections.** Nothing new appears unless the user makes it. Smart collections become
+   saved filters (platform / genre / developer / year / played / play time, combinations saved);
+   developer and publisher become filter fields; a Collections screen in TV Mode.
+6. **o: Themes.** A safe, data-only `.kbtheme` format (no code), built-in themes, import/export, a
+   community gallery on GitHub (owner asked first), an optional generator using the user's own
+   Anthropic API key.
+7. **p: Animations and TV Mode touch-up.** Full / Reduced / Off (only `transform` and `opacity`, no idle
+   CPU, every frame under 16.7 ms). TV Mode backgrounds are mostly hidden behind the UI (Boktai too
+   zoomed in, letterboxed art, dark logos on dark art): 2–3 layout mockups first. TV Mode code-split.
+8. **u: Customization.** Sort (title, last played, play time, release year, date added), start tab,
+   hide/reorder platforms, hide empty platforms, button glyphs (auto / Xbox / PlayStation / generic),
+   text size, settings export/import (never keys).
+
+## Discussed and parked (not scheduled)
+- **Best emulator per game** (under q): label each emulator in "Launch with" with its compatibility,
+  e.g. "Ryubing · Playable". Data: Ryubing's `compatibility.csv` (by title ID); Yuzu's frozen list as
+  a weak hint for the Eden family; no Eden list exists; EmuReady has no public API.
+- **Wikidata speed:** run each platform's two queries at the same time (Switch: ~21 s → ~16 s).
+- **Backloggd sync:** only if Backloggd publishes an official API.
+- **Code signing:** only if KB is shared widely (removes the SmartScreen warning; costs money).
+- **Replacing WebView2 with a native UI:** deferred; only for low-memory devices (handheld PC, TV box).
+
+Before: [part 1, building the app](milestones-1-foundation.md). Next: [part 3, ideas not discussed yet](milestones-3-future.md).
