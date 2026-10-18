@@ -464,6 +464,19 @@ code {
   overflow-y: auto;
   padding: calc(var(--gap) * 2);
   user-select: text;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A section shorter than the screen sits in the middle; auto margins (not
+   justify-content) keep a taller one scrollable from its top. */
+.settings-body > .card-section {
+  width: 100%;
+  flex: none;
+}
+
+.settings-body > .set-list {
+  margin: auto;
 }
 
 .card-section {
