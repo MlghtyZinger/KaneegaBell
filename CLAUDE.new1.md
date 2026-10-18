@@ -351,7 +351,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       touch-up, includes code-splitting Settings) → m (icons) → Steam-style list view → n rest, o, p,
       u. The separate code-split release (0.2.10) was dropped: it saves only ~10-30 ms today, so
       Settings is split in t and TV Mode in p.
-- [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon. Icons show on
+- [ ] m. Icons (game icons, platform/emulator icons) + app icon concepts → final icon. **Split (owner, 2026-10-18):** part 1 = 0.3.6 (app icon + platform/emulator
+      icons, bundled with the sidebar background fixes), part 2 = 0.3.7 (game icons). App icon direction (owner): a black
+      bull-man with a gold nose ring, white-yellowish horns, his left horn broken halfway; smooth, not blocky. The owner
+      allows the WoW Tauren as inspiration ("not publishing this app ever"); still drawn by Claude, not traced.
+      Concepts in the artifact "KB App Icon Concepts" (round 3 = G/H). Icons show on
       the sidebar title, Recent, collections, platform tabs; the grid stays covers.
 - [ ] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a third layout
       next to "Sections"/"One list": games as text rows with their icon on the left, the focused
