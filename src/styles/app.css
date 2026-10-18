@@ -2743,6 +2743,17 @@ html.nav-mode .tv-menu-item:focus {
 .fam-sony { color: #79acff; }
 .fam-sega { color: #5fd6d6; }
 .fam-microsoft { color: #7fd36a; }
+/* Platform pictures: a white mask painted with the maker's color (n64 keeps its own). */
+.platform-icon.picture {
+  background-color: currentColor;
+  -webkit-mask: var(--picture) center / contain no-repeat;
+  mask: var(--picture) center / contain no-repeat;
+}
+.platform-icon.picture.own-colors {
+  background: var(--picture) center / contain no-repeat;
+  -webkit-mask: none;
+  mask: none;
+}
 .rail-row.active .platform-icon { color: #0e1014; }
 
 /* Controller focus on an open collection's banner buttons (up from the covers). */
