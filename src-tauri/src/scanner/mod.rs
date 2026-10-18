@@ -495,11 +495,13 @@ fn is_switch_add_on(stem: &str) -> bool {
         Ok(id) if t.len() == 16 && t.starts_with("01") => id & 0x1FFF != 0,
         _ => matches!(t.split_whitespace().next().map(str::to_ascii_lowercase).as_deref(), Some("upd" | "update" | "dlc")),
     });
+    // The version can be glued to a word: "hr-bgw5av131072".
     tagged
-        || stem
-            .split(|c: char| !c.is_ascii_alphanumeric())
-            .filter_map(|w| w.strip_prefix(['v', 'V']))
-            .any(|n| n.parse::<u64>().is_ok_and(|v| v >= 0x10000))
+        || stem.split(|c: char| !c.is_ascii_alphanumeric()).any(|w| {
+            w.rfind(['v', 'V'])
+                .map(|i| &w[i + 1..])
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) && n.parse::<u64>().is_ok_and(|v| v >= 0x10000))
+        })
 }
 
 /// PS3 candidates: disc folders (kind "files") or installed games (kind "ps3_hdd0").

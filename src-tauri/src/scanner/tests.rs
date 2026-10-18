@@ -110,6 +110,9 @@ fn switch_games_without_their_updates_and_dlc() {
     // The owner's folder: a scene update (version number only) and eShop dumps.
     write(&r.join("Bayonetta_2_Update_v1.2_NSW-SUXXORS").join("sxs-bayonetta_2_v131072.nsp"), b"x");
     write(&r.join("Bayonetta 2.xci"), b"x");
+    write(&r.join("DLC + Updates").join("hr-bgw5av131072.nsp"), b"x"); // version glued to a word
+    write(&r.join("v-bayonetta_3_v131072.nsp"), b"x");
+    write(&r.join("sxs-the_legend_of_zelda_tears_of_the_kingdom_v720896.nsp"), b"x");
     write(&r.join("Super Mario Galaxy v1.0.0[010099C022B96000][v0][APP].nsp"), b"x");
     write(&r.join("Super Mario Galaxy (NSP)(Update 1.3.1)").join("Super Mario Galaxy v1.3.1[010099C022B96800][v327680][UPD].nsp"), b"x");
 
