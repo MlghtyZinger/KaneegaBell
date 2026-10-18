@@ -23,7 +23,7 @@ One milestone per release (the owner's rule since 0.2.7). Full per-change lists 
 | **0.3.1** | 2026-10-16 | q, part 1 | **Several emulators per platform** (RetroArch cores or your own), per-game "Launch with"; warnings for missing RetroArch cores or BIOS; a quick-closing emulator is explained instead of counted as played. |
 | **0.3.2** | 2026-10-18 | q, part 2 | **Sega Saturn** (RetroArch Beetle Saturn, achievements, header detection, BIOS warning). Also: damaged Wii/CSO images can't crash KB, backgrounds/logos always refresh when changed, cue sheets without their discs skipped. |
 | **0.3.3** | 2026-10-18 | q, part 2 | **Nintendo Switch**: Eden by default, plus Ryubing, Ryujinx, Citron, Sudachi and Yuzu; updates and DLC hidden; title IDs kept; covers for platforms without a libretro set; covers before Wikidata; clearer footer progress. |
-| **0.3.4** | not released yet | | So far: one "Launch with" choice per game (details and sidebar); scene update files like `hr-bgw5av131072.nsp` hidden. The owner decides whether these ship alone or with Xbox. |
+| **0.3.4** | 2026-10-18 | q, part 2 | **Xbox** (xemu) and **Xbox 360** (Xenia Canary), told apart by disc layout; one "Launch with" choice per game; background progress in the top bar; fullscreen restored reliably after a game; scene Switch updates hidden. |
 
 ## Decided along the way
 - **Release order locked** (2026-10-16): the owner asked to be reminded before any reorder.
@@ -42,13 +42,9 @@ The order is **locked** (owner, 2026-10-16): before changing it, the owner is re
 parked as a note under its milestone, and the order changes only if the owner confirms. Each
 milestone is planned and approved before it's built.
 
-1. **q, part 2 (the rest): new platforms**
-   - **0.3.4 Xbox:** xemu (`-full-screen -dvd_path <iso>`), RetroArch's experimental xemu core as an
-     alternative; XISO images; Xbox `.iso` told apart by its header; the user's own MCPX/BIOS/HDD
-     (never downloaded); no RetroAchievements. Needs the owner's OK to check xemu's options first.
-   - **0.3.5 Xbox 360 (optional):** Xenia Canary (`--fullscreen <game>`); disc ISO/XEX, GOD + .data,
-     XBLA; no RetroAchievements; only if the owner has games without PC ports.
-   - The pending 0.3.4 fixes ship with Xbox or just before it.
+1. ~~q, part 2: new platforms~~ done in 0.3.4 (Xbox and Xbox 360 together, owner's request). Left for
+   later: Xbox 360 `.xex` folders, Games on Demand and XBLA content; checking Xenia's launch option
+   once it's installed.
 2. **t: Settings touch-up.** Compact and easier to read without costing performance: shorter texts
    with details behind "More", grouped rows, one status line per source; Settings loads only when
    opened (code-split).
@@ -71,7 +67,9 @@ milestone is planned and approved before it's built.
    zoomed in, letterboxed art, dark logos on dark art): 2–3 layout mockups first. TV Mode code-split.
 8. **u: Customization.** Sort (title, last played, play time, release year, date added), start tab,
    hide/reorder platforms, hide empty platforms, button glyphs (auto / Xbox / PlayStation / generic),
-   text size, settings export/import (never keys).
+   text size, settings export/import (never keys). Also (owner, 2026-10-18): the platform sidebar is
+   getting crowded: group platforms by maker (Nintendo / PlayStation / Sega / Microsoft) as folding
+   rows, plus slimmer rows.
 
 ## Discussed and parked (not scheduled)
 - **Best emulator per game** (under q): label each emulator in "Launch with" with its compatibility,

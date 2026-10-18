@@ -472,6 +472,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       release year, date added), start tab, hide/reorder platforms, hide empty platforms, button glyphs
       (auto/Xbox/PlayStation/generic), text size, settings export/import (no keys). List view and card
       art wait for m (icons); accent color for o (themes).
+      **Also for u (owner, 2026-10-18): the platform sidebar is getting crowded** (3 fixed rows + 16 platforms).
+      Ideas to build here: group platforms by maker (Nintendo / PlayStation / Sega / Microsoft) as folding rows,
+      open state remembered, A opens/closes with a controller (preferred); hide and reorder platforms (already
+      in u); slimmer rows when the sidebar is open.
 
 ## How to work (carried over, with additions)
 1. Propose a plan for each milestone and **wait for the owner's approval** before writing large

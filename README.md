@@ -701,7 +701,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.4
+### 0.3.4 (2026-10-18)
 - New: Xbox, played with xemu (XISO disc images).
 - New: Xbox 360, played with Xenia Canary (disc images).
 - New: Xbox and Xbox 360 discs in mixed folders are recognized by their disc layout.
