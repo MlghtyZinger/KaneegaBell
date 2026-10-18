@@ -548,11 +548,11 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
 ```
 
 ## Icons and credits
-- Platform pictures (`src/assets/platforms/*.png`, 160 px white-on-transparent masks tinted by maker, N64
-  in red): supplied by the owner and cleaned up (smoothed, recolored; the PS3 "3" and the Xbox X
-  were redrawn from them). Saturn: the logo from [Simple Icons](https://simpleicons.org) (CC0). PSP
-  has no picture yet and uses a drawn glyph (`Icons.tsx`).
-- Emulator badges and the other small icons are drawn for KB.
+- Platform pictures (`src/assets/platforms/*.png`, 160 px white-on-transparent masks tinted by maker):
+  supplied by the owner and cleaned up (smoothed, recolored; the PS3 "3", the Xbox X, the N64's
+  facet lines and the PSP were redrawn from them). Saturn: the logo from
+  [Simple Icons](https://simpleicons.org) (CC0).
+- The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
 
 ## Adding a platform
 
@@ -713,7 +713,7 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.6
-- New: every platform has its own picture in the platform list (SNES, N64, GameCube, Wii, Switch, PlayStation, Xbox and the rest), and emulators get a small badge in Settings.
+- New: every platform has its own picture in the platform list (SNES, N64, GameCube, Wii, Switch, PlayStation, Xbox and the rest), emulators get a small badge in Settings, and the app has a new bull icon (exe, window, title bar).
 - Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.
 - New: Change background shows each background's shape (16:9 or wide) and previews it the way the sidebar will show it.
 

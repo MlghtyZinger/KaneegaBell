@@ -122,26 +122,12 @@ export function Icon(props: { name: IconName; class?: string }) {
   );
 }
 
-/** Platforms without a picture in src/assets/platforms keep a drawn glyph (24x24, stroke from `.icon`). */
-const PLATFORM_GLYPHS: Record<string, () => JSX.Element> = {
-  psp: () => (
-    <>
-      <rect x="1.8" y="7" width="20.4" height="10" rx="3.2" />
-      <rect x="7" y="9" width="10" height="6" rx="0.8" />
-      <path d="M4.2 10.8v2.8M2.9 12.2h2.6" />
-      <circle cx="19.5" cy="11" r="0.6" />
-      <circle cx="19.5" cy="13.4" r="0.6" />
-    </>
-  ),
-};
-
-/** The platform pictures by id (white-on-transparent masks, tinted by maker; n64 keeps its own colors). */
+/** The platform pictures by id (white-on-transparent masks, tinted by maker). */
 const PICTURES = import.meta.glob("../assets/platforms/*.png", { eager: true, query: "?url", import: "default" }) as Record<
   string,
   string
 >;
 const pictureOf = (id: string) => PICTURES[`../assets/platforms/${id}.png`];
-const OWN_COLORS = new Set(["n64"]);
 
 const FAMILY: Record<string, string> = {
   snes: "nintendo",
@@ -162,7 +148,7 @@ const FAMILY: Record<string, string> = {
   xbox360: "microsoft",
 };
 
-/** A platform's icon: its picture tinted by maker family, or a drawn glyph when there is none. */
+/** A platform's icon: its picture tinted by maker family, or a plain pad when there is none. */
 export function PlatformIcon(props: { id: string; class?: string }) {
   const url = () => pictureOf(props.id);
   const cls = () => `icon platform-icon fam-${FAMILY[props.id] ?? "other"} ${props.class ?? ""}`;
@@ -180,13 +166,12 @@ export function PlatformIcon(props: { id: string; class?: string }) {
           stroke-linejoin="round"
           aria-hidden="true"
         >
-          {(PLATFORM_GLYPHS[props.id] ?? PATHS.gamepad)()}
+          {PATHS.gamepad()}
         </svg>
       }
     >
       <span
         class={`${cls()} picture`}
-        classList={{ "own-colors": OWN_COLORS.has(props.id) }}
         style={{ "--picture": `url(${url()})` }}
         aria-hidden="true"
       />

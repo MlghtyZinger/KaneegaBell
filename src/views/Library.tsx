@@ -12,6 +12,7 @@ import {
   renameCollection,
 } from "../components/Collections";
 import type { Collection } from "../api";
+import appIcon from "../assets/app-icon.png";
 import { Icon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
@@ -477,7 +478,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     <div class="library">
       <header class="topbar slim">
         <span class="kb-mark" aria-hidden="true">
-          KB
+          <img src={appIcon} alt="" />
         </span>
         <div class="here">
           <span class="here-title">{here().title}</span>
