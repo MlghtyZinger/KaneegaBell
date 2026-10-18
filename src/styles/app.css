@@ -464,19 +464,11 @@ code {
   overflow-y: auto;
   padding: calc(var(--gap) * 2);
   user-select: text;
-  display: flex;
-  flex-direction: column;
 }
 
-/* A section shorter than the screen sits in the middle; auto margins (not
-   justify-content) keep a taller one scrollable from its top. */
-.settings-body > .card-section {
-  width: 100%;
-  flex: none;
-}
-
+/* A little room under the centred section chips. */
 .settings-body > .set-list {
-  margin: auto;
+  margin-top: 3vh;
 }
 
 .card-section {
@@ -655,6 +647,15 @@ input[type="checkbox"].switch:checked::after {
 .settings-chips {
   padding: 8px calc(var(--gap) * 2) 0;
   flex: none;
+}
+
+/* Centred; auto margins (not justify-content) keep them scrollable when narrow. */
+.settings-chips > :first-child {
+  margin-left: auto;
+}
+
+.settings-chips > :last-child {
+  margin-right: auto;
 }
 
 .settings-chips.dimmed {
