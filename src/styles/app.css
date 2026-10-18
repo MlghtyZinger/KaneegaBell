@@ -2847,10 +2847,15 @@ html.nav-mode .tv-menu-item:focus {
   overflow: hidden;
 }
 
+/* A background shows whole: the box takes its shape (SteamGridDB's are ~3:1,
+   LaunchBox's 16:9), so wide ones are never cut at the sides. */
+.side-hero:has(.side-hero-img) {
+  aspect-ratio: auto;
+}
+
 .side-hero-img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   display: block;
 }
 

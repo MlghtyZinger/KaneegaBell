@@ -705,6 +705,9 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.6
+- Fixed: wide backgrounds in the game sidebar show whole instead of being cut off at the sides.
+
 ### 0.3.5 (2026-10-18)
 - Changed: Settings fits on one screen: two columns of one-line settings, with every button and switch lined up.
 - Changed: lists and forms (ROM folders, emulator paths, keys, exit combo, TV Mode display, storage) open in a small panel instead of stretching the page.
