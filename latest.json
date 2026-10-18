@@ -1,11 +1,11 @@
 {
-  "version": "0.3.4",
-  "notes": "- New: Xbox, played with xemu (XISO disc images).\n- New: Xbox 360, played with Xenia Canary (disc images).\n- New: Xbox and Xbox 360 discs in mixed folders are recognized by their disc layout.\n- Changed: one \"Launch with\" choice per game, on the details screen and in the sidebar (\"Play with…\" did the same thing and is gone).\n- Changed: background progress (covers, game info, series…) shows in the top bar, where there's room; it no longer makes the bottom bar jump.\n- Fixed: after a game, KB sometimes came back windowed instead of fullscreen.\n- Fixed: Switch update files from scene releases (e.g. \"hr-bgw5av131072.nsp\") no longer show up as games.",
-  "pub_date": "2026-10-18T02:29:04Z",
+  "version": "0.3.5",
+  "notes": "- Changed: Settings fits on one screen: two columns of one-line settings, with every button and switch lined up.\n- Changed: lists and forms (ROM folders, emulator paths, keys, exit combo, TV Mode display, storage) open in a small panel instead of stretching the page.\n- New: rest on a setting (mouse or controller) and a short explanation pops up beside it, so the long texts are gone from the page.\n- Changed: Check now also shows what's new when you already have the latest version; the separate What's new button is gone.\n- New: Storage has a \"Clear web cache\" button that empties only KB's page cache (your covers and game info stay).\n- New: search in Settings finds any setting in any section (type in the box, or press Square / X); choosing a result jumps to it.\n- Improved: KB starts a little lighter, because Settings now loads only when you open it.\n- Fixed: a Switch game whose file name has both its own title ID and a high version number (a cartridge revision or a merged update) is no longer hidden as an update.",
+  "pub_date": "2026-10-18T14:04:54Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWU3T3dOeU9JMElsdGloMURmdzFJR1RxRXNqc2w2K1d4K0pYK2h6N1V5YWpSL0xqc0pyUS9GRU9MZjRGd1p3aE1kWUV2YVVQSk5pVnJOV3hEWmJ3SUEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMjkwNDc0CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjRfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy40CkxGK011a2kyV2FNc1hZRWJnbGV0djVZTk43cHdndHBKUkhudkRlUHEvaC9hbnV2Q0VSWjFkcGVBYndZK3gxUzdzdUp5b0xwa2NwY05TYWdpSFpoK0JRPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.4_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVQrTHNzQjRqSkc0MUljQlNmd2hzblFRcWdRU3ppelgvWXpPSEh3L0dhQU1DQmtDSWQ1QnM2Nk9PdFB6elZXbnpxbTJ1Rk5DcHNwdlBxKzZQVE5VcUFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzI4NjQ1CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy41CndTN0RIbHlqcCsrNUZFUXhlWTQxL29jQjZXdWNFZjdoOXRrZmlST2YrWExqME9ZWWlPamdUL0JFRWp3SHlmSWxRWVVtWXlIMFNWRVdNN2JIZFlpOEJBPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.5_x64-setup.exe?ref=updates"
     }
   }
 }
