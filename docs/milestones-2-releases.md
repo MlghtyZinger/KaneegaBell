@@ -24,6 +24,7 @@ One milestone per release (the owner's rule since 0.2.7). Full per-change lists 
 | **0.3.2** | 2026-10-18 | q, part 2 | **Sega Saturn** (RetroArch Beetle Saturn, achievements, header detection, BIOS warning). Also: damaged Wii/CSO images can't crash KB, backgrounds/logos always refresh when changed, cue sheets without their discs skipped. |
 | **0.3.3** | 2026-10-18 | q, part 2 | **Nintendo Switch**: Eden by default, plus Ryubing, Ryujinx, Citron, Sudachi and Yuzu; updates and DLC hidden; title IDs kept; covers for platforms without a libretro set; covers before Wikidata; clearer footer progress. |
 | **0.3.4** | 2026-10-18 | q, part 2 | **Xbox** (xemu) and **Xbox 360** (Xenia Canary), told apart by disc layout; one "Launch with" choice per game; background progress in the top bar; fullscreen restored reliably after a game; scene Switch updates hidden. |
+| **0.3.5** | 2026-10-18 | t | **Settings on one screen**: search box, two columns of one-line settings with buttons and switches lined up, forms in small panels, explanations pop up beside the setting; Check now shows what's new; Clear web cache; Settings loads only when opened. |
 
 ## Decided along the way
 - **Release order locked** (2026-10-16): the owner asked to be reminded before any reorder.
@@ -45,10 +46,8 @@ milestone is planned and approved before it's built.
 1. ~~q, part 2: new platforms~~ done in 0.3.4 (Xbox and Xbox 360 together, owner's request). Left for
    later: Xbox 360 `.xex` folders, Games on Demand and XBLA content; checking Xenia's launch option
    once it's installed.
-2. **t: Settings touch-up** (built for 0.3.5, not released yet). Design chosen from interactive mockups: **search first** (a search box
-   that finds any setting across all sections, section chips below it) with compact one-line rows,
-   and each setting's explanation **following focus** in a strip under the list. Settings loads only
-   when opened (code-split).
+2. ~~t: Settings touch-up~~ done in 0.3.5 (search first, two columns of one-line settings, forms in panels,
+   explanations pop up on hover or focus).
 3. **m: Icons.** Small square game icons (manual pick, SteamGridDB, or cropped from the cover) for the
    sidebar title, Recent and collections (the grid stays covers); original or permissively licensed
    platform and emulator icons, no official logos; app icon: 2–3 original concepts (bold, dark, a

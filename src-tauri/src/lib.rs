@@ -94,11 +94,11 @@ const WEB_CACHE_BYTES: u64 = 32 * 1024 * 1024;
 /// Once: deletes a web cache that grew before the cap existed (it only holds
 /// downloaded previews; WebView2 rebuilds it), and again after "Clear
 /// downloaded data" or a reset. Runs before WebView2 starts.
-fn trim_web_cache(conn: &rusqlite::Connection, webview_dir: &std::path::Path) {
+fn trim_web_cache(conn: &rusqlite::Connection, data_dir: &std::path::Path) {
     if db::queries::get_setting::<bool>(conn, "webCacheTrimmed").ok().flatten() == Some(true) {
         return;
     }
-    let cache = webview_dir.join("EBWebView").join("Default").join("Cache");
+    let cache = maintenance::web_cache_dir(data_dir);
     if cache.is_dir() {
         match std::fs::remove_dir_all(&cache) {
             Ok(()) => log::info!("removed the old web cache ({})", cache.display()),
@@ -241,7 +241,7 @@ pub fn run() {
             let conn = db::init(&db_path)?;
             // The window is made here (not from the config) so WebView2 keeps
             // its own files in the data folder too, instead of AppData.
-            trim_web_cache(&conn, &dir.join("webview"));
+            trim_web_cache(&conn, &dir);
             remove_unused_web_components(&conn, &dir.join("webview"));
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
@@ -361,6 +361,7 @@ pub fn run() {
             commands::app_info,
             commands::get_storage,
             commands::clear_downloaded,
+            commands::clear_web_cache,
             commands::delete_reset_backup,
             commands::reset_app,
             commands::list_displays,

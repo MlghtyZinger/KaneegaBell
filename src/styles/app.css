@@ -434,6 +434,10 @@ kbd {
   margin: var(--gap) 0;
 }
 
+.row.wrap {
+  flex-wrap: wrap;
+}
+
 .dim {
   color: var(--text-dim);
 }
@@ -467,31 +471,38 @@ code {
   margin: 0 auto;
 }
 
-/* Settings: compact rows (name · status · controls), lists and forms under
-   them, and the focused setting's explanation in the strip at the bottom. */
-.set-item {
-  border-top: 1px solid var(--border);
-  padding: 4px 0;
+/* Settings: a section is two columns of one-line tiles (name and status, then
+   the button slot and the switch slot, the same on every tile); lists and forms
+   open in a panel, and a setting's explanation pops up beside it. */
+.set-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
 }
 
-.set-item:first-child {
-  border-top: 0;
+.set-list .set-list {
+  display: contents;
+}
+
+.set-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  min-height: 56px;
+  border-radius: 10px;
+  background: var(--bg-raised);
+  border: 1px solid transparent;
 }
 
 .set-item:focus-within {
+  border-color: var(--accent);
   background: var(--surface);
-  border-radius: 10px;
 }
 
-.set-row {
-  display: grid;
-  /* Capped status column: controls line up right after it instead of at the far edge. */
-  grid-template-columns: minmax(150px, 240px) minmax(0, 420px) auto;
-  justify-content: start;
-  align-items: center;
-  gap: 14px;
-  padding: 8px 12px;
-  min-height: 48px;
+.set-text {
+  min-width: 0;
 }
 
 .set-name {
@@ -502,7 +513,6 @@ code {
 .set-status {
   color: var(--text-dim);
   font-size: var(--fs-sm);
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -511,27 +521,55 @@ code {
 .set-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.set-sub {
-  padding: 0 12px 10px calc(12px + min(240px, 25%));
+/* One width for every main button, so they line up down each column. */
+.set-actions > .btn,
+.set-actions > .picker {
+  min-width: 9.5em;
+}
+
+.set-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.set-panel {
+  width: min(820px, 94vw);
+}
+
+.set-panel .table,
+.set-panel .emu {
+  margin: 6px 0;
+}
+
+.set-pop {
+  position: fixed;
+  z-index: 5;
+  width: min(440px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
   font-size: var(--fs-sm);
+  pointer-events: none;
 }
 
-.set-sub > :first-child {
-  margin-top: 0;
+.set-pop b {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.set-pop span {
+  color: var(--text-dim);
 }
 
 .set-fields {
   display: grid;
   gap: 8px;
-}
-
-.set-list .table,
-.set-list .emu {
-  margin: 6px 0;
 }
 
 /* A checkbox drawn as an on/off switch; A / Enter / a click toggles it. */
@@ -635,33 +673,9 @@ input[type="checkbox"].switch:checked::after {
   background: var(--surface);
 }
 
-.settings-detail {
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 4.6em;
-  padding: 10px calc(var(--gap) * 2);
-  border-top: 1px solid var(--border);
-  background: var(--bg-raised);
-  font-size: var(--fs-sm);
-}
-
-.settings-detail span {
-  color: var(--text-dim);
-  max-width: 110ch;
-}
-
-@media (max-width: 900px) {
-  .set-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .set-status {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-  .set-sub {
-    padding-left: 12px;
+@media (max-width: 1000px) {
+  .set-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

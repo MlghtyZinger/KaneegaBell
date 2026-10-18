@@ -705,9 +705,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.5
-- Changed: Settings is compact: one line per setting with its status, button and switch.
-- New: the selected setting explains itself in a strip at the bottom of Settings, so the long texts are gone from the page.
+### 0.3.5 (2026-10-18)
+- Changed: Settings fits on one screen: two columns of one-line settings, with every button and switch lined up.
+- Changed: lists and forms (ROM folders, emulator paths, keys, exit combo, TV Mode display, storage) open in a small panel instead of stretching the page.
+- New: rest on a setting (mouse or controller) and a short explanation pops up beside it, so the long texts are gone from the page.
+- Changed: Check now also shows what's new when you already have the latest version; the separate What's new button is gone.
+- New: Storage has a "Clear web cache" button that empties only KB's page cache (your covers and game info stay).
 - New: search in Settings finds any setting in any section (type in the box, or press Square / X); choosing a result jumps to it.
 - Improved: KB starts a little lighter, because Settings now loads only when you open it.
 - Fixed: a Switch game whose file name has both its own title ID and a high version number (a cartridge revision or a merged update) is no longer hidden as an update.

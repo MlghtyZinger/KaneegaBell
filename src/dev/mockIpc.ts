@@ -307,9 +307,11 @@ export function installMockIpc() {
           { igdbId: 2, name: "Okami HD", year: 2012, cover: null, onPlatform: false, summary: "A remaster." },
         ];
       case "get_storage":
-        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data", resetBackupBytes: 9_175_040 };
+        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data", resetBackupBytes: 9_175_040, webCacheBytes: 31_457_280 };
       case "clear_downloaded":
         return 182_452_224;
+      case "clear_web_cache":
+        return 31_457_280;
       case "delete_reset_backup":
         return null;
       case "list_displays":

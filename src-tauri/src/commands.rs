@@ -1389,6 +1389,44 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
     Ok(freed)
 }
 
+/// Settings → Storage: empties WebView2's disk cache only (cookies and page
+/// storage stay). WebView2 refills it as pages need it. Returns its size before.
+#[tauri::command]
+pub fn clear_web_cache(app: AppHandle, state: State<'_, AppState>) -> Result<u64> {
+    let before = crate::maintenance::storage(&state.db(), state.data_dir())?.web_cache_bytes;
+    main_window(&app)?
+        .with_webview(|wv| {
+            use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Profile2, ICoreWebView2_13, COREWEBVIEW2_BROWSING_DATA_KINDS_DISK_CACHE};
+            use webview2_com::ClearBrowsingDataCompletedHandler;
+            use windows::core::Interface;
+            // SAFETY: COM calls on the webview's own (main) thread, where with_webview runs this.
+            unsafe {
+                let profile = wv
+                    .controller()
+                    .CoreWebView2()
+                    .and_then(|c| c.cast::<ICoreWebView2_13>())
+                    .and_then(|c| c.Profile())
+                    .and_then(|p| p.cast::<ICoreWebView2Profile2>());
+                let Ok(profile) = profile else {
+                    log::info!("WebView2 runtime too old to clear only its cache");
+                    return;
+                };
+                let done = ClearBrowsingDataCompletedHandler::create(Box::new(|r| {
+                    if let Err(e) = r {
+                        log::warn!("couldn't clear the web cache: {e}");
+                    }
+                    Ok(())
+                }));
+                if let Err(e) = profile.ClearBrowsingData(COREWEBVIEW2_BROWSING_DATA_KINDS_DISK_CACHE, &done) {
+                    log::warn!("couldn't clear the web cache: {e}");
+                }
+            }
+        })
+        .map_err(|e| Error::msg(e.to_string()))?;
+    log::info!("cleared the web cache ({before} bytes)");
+    Ok(before)
+}
+
 /// Resets KB to a first start (see `maintenance::reset`), optionally also
 /// removing the saved keys. The page reloads afterwards.
 #[tauri::command]

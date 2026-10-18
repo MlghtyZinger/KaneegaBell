@@ -25,6 +25,13 @@ pub struct Storage {
     pub data_dir: String,
     /// Size of the copy of the library the last reset kept, if there is one.
     pub reset_backup_bytes: Option<u64>,
+    /// WebView2's disk cache (picker previews); capped, rebuilt as needed.
+    pub web_cache_bytes: u64,
+}
+
+/// Where WebView2 keeps its disk cache inside KB's folder.
+pub fn web_cache_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("webview").join("EBWebView").join("Default").join("Cache")
 }
 
 fn dir_size(dir: &Path) -> u64 {
@@ -52,6 +59,7 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
         downloaded_bytes: dir_size(&data_dir.join("art")) + dir_size(&data_dir.join("ra")) + cached.max(0) as u64,
         data_dir: data_dir.to_string_lossy().into_owned(),
         reset_backup_bytes: reset_backup_bytes(data_dir),
+        web_cache_bytes: dir_size(&web_cache_dir(data_dir)),
     })
 }
 

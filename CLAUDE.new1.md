@@ -455,6 +455,12 @@ Each milestone is runnable and tested, and passes the perf gate.
       keyword matches ranked first); `Row` (name · status · controls, lists and forms under it), `OnOff` switch
       (styled checkbox); results jump to the setting and focus it. Settings code-split with `lazy()` (62 KB chunk).
       Perf gate passed and improved: start 460 ms, Task Manager 116 MB at start (−8%), after a game −16%.
+      **Redesigned before release (owner, 2026-10-18), layout G from the artifact "KB Compact Settings":** each section
+      is two columns of one-line tiles (name · status, then a fixed button slot and a fixed switch slot so everything
+      lines up); lists and forms open in a panel (`Row` `open`/`sub` → `SetPanel`); the bottom strip is replaced by a
+      pop-up beside the setting after ~350 ms of hover or focus (no (i) button, no key for it); platforms are tiles
+      with Edit… and an on/off switch; Check now opens What's new when up to date; Storage → Manage… adds
+      "Clear web cache" (WebView2 `ClearBrowsingData` disk cache only). Every section fits 1600×900 without scrolling.
 - [ ] Storage audit (owner, 2026-10-15; **right after 0.2.7 is uploaded**, as its own small update): list
       everything in both data folders with sizes, check every place KB writes files/cache rows for a
       limit or cleanup. Known items: delete `data\ra` badges **only for games that were removed**

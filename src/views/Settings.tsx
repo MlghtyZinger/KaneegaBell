@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, on, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
@@ -56,22 +56,66 @@ const INFO: Record<string, Info> = {
 };
 
 /**
- * One compact setting: name · status · controls on one line, anything bigger
- * (a list, a form) under it. Its explanation goes to the details strip when
- * anything inside it has focus.
+ * One setting as a tile: name and status, then its main button(s) and its
+ * on/off switch, each in a fixed slot so they line up down the column. Lists
+ * and forms (`sub`) open in a panel from the `open` button. Its explanation
+ * pops up when it has focus or the mouse rests on it.
  */
-function Row(props: { k: string; title?: string; detail?: string; status?: JSX.Element; children?: JSX.Element; sub?: JSX.Element }) {
+function Row(props: {
+  k: string;
+  title?: string;
+  detail?: string;
+  status?: JSX.Element;
+  children?: JSX.Element;
+  toggle?: JSX.Element;
+  open?: string | false;
+  sub?: JSX.Element;
+}) {
   const title = () => props.title ?? INFO[props.k]?.title ?? "";
+  const [editing, setEditing] = createSignal(false);
+  // Checked by key: reading a JSX prop would build it a second time.
+  const hasStatus = "status" in props;
   return (
     <div class="set-item" id={`set-${props.k}`} data-title={title()} data-detail={props.detail ?? INFO[props.k]?.detail ?? ""}>
-      <div class="set-row">
+      <div class="set-text">
         <div class="set-name">{title()}</div>
-        <div class="set-status">{props.status}</div>
-        <div class="set-actions">{props.children}</div>
+        {hasStatus && <div class="set-status">{props.status}</div>}
       </div>
-      <Show when={props.sub}>
-        <div class="set-sub">{props.sub}</div>
+      <div class="set-actions">
+        {props.children}
+        <Show when={props.open}>
+          <button class="btn" onClick={() => setEditing(true)}>
+            {props.open}
+          </button>
+        </Show>
+      </div>
+      <div class="set-toggle">{props.toggle}</div>
+      <Show when={editing()}>
+        <SetPanel title={title()} onClose={() => setEditing(false)}>
+          {props.sub}
+        </SetPanel>
       </Show>
+    </div>
+  );
+}
+
+/** A setting's list or form, over the section. */
+function SetPanel(props: { title: string; onClose: () => void; children?: JSX.Element }) {
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <NavScope class="panel set-panel" modal onBack={props.onClose}>
+        <h2>{props.title}</h2>
+        {props.children}
+        <div class="panel-actions">
+          <div class="hints-row">
+            <Hint action="select" label="Choose" />
+            <Hint action="back" label="Close" />
+          </div>
+          <button class="btn" onClick={props.onClose}>
+            Close
+          </button>
+        </div>
+      </NavScope>
     </div>
   );
 }
@@ -200,8 +244,7 @@ export function SettingsView(props: { onClose: () => void }) {
       if (!el) return;
       el.scrollIntoView({ block: "center" });
       el.querySelector<HTMLElement>("button, input, [tabindex]")?.focus({ preventScroll: true });
-      // A row with nothing to focus still explains itself.
-      if (el.dataset.detail) setShown({ title: el.dataset.title ?? "", detail: el.dataset.detail });
+      showFor(el, 0);
     }, 0);
   };
   const openSearch = () => {
@@ -209,11 +252,33 @@ export function SettingsView(props: { onClose: () => void }) {
     if (device() === "gamepad") editWithOsk(searchEl);
   };
 
-  // The details strip explains whatever setting has focus (or the mouse).
-  const [shown, setShown] = createSignal<{ title: string; detail: string } | null>(null);
+  // A setting's explanation pops up beside it once focus or the mouse rests on it.
+  const [shown, setShown] = createSignal<{ title: string; detail: string; x: number; y: number; above: boolean } | null>(null);
+  let popEl: HTMLElement | null = null;
+  let popTimer: number | undefined;
+  const showFor = (el: HTMLElement | null, delay = 350) => {
+    if (el === popEl) return;
+    clearTimeout(popTimer);
+    popEl = el;
+    setShown(null);
+    if (!el?.dataset.detail) return;
+    popTimer = window.setTimeout(() => {
+      const r = el.getBoundingClientRect();
+      const above = r.bottom + 170 > window.innerHeight;
+      setShown({
+        title: el.dataset.title ?? "",
+        detail: el.dataset.detail!,
+        x: Math.max(16, Math.min(r.left + 12, window.innerWidth - 456)),
+        y: above ? r.top - 6 : r.bottom + 6,
+        above,
+      });
+    }, delay);
+  };
+  onCleanup(() => clearTimeout(popTimer));
   const follow = (e: Event) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-detail]");
-    if (el?.dataset.detail) setShown({ title: el.dataset.title ?? "", detail: el.dataset.detail });
+    const t = e.target as HTMLElement;
+    // Panels over the section explain themselves.
+    showFor(t.closest(".overlay") ? null : t.closest<HTMLElement>("[data-detail]"));
   };
 
   return (
@@ -266,7 +331,7 @@ export function SettingsView(props: { onClose: () => void }) {
         </For>
       </nav>
 
-      <div class="settings-body" onFocusIn={follow} onMouseOver={follow}>
+      <div class="settings-body" onFocusIn={follow} onMouseOver={follow} onMouseLeave={() => showFor(null)} onScroll={() => showFor(null)}>
         <Show when={query()}>
           <section class="card-section set-results">
             <Show
@@ -307,11 +372,13 @@ export function SettingsView(props: { onClose: () => void }) {
                 <PlatformsSection s={s()} run={run} />
               </Show>
               <Show when={section() === "services"}>
-                <LaunchBoxSection run={run} />
-                <WikidataSection run={run} />
-                <ServicesSection s={s()} run={run} />
-                <SteamGridDbSection run={run} />
-                <RetroAchievementsSection run={run} />
+                <section class="card-section set-list">
+                  <LaunchBoxSection run={run} />
+                  <WikidataSection run={run} />
+                  <ServicesSection s={s()} run={run} />
+                  <SteamGridDbSection run={run} />
+                  <RetroAchievementsSection run={run} />
+                </section>
               </Show>
               <Show when={section() === "general"}>
                 <GeneralSection s={s()} run={run} />
@@ -320,16 +387,18 @@ export function SettingsView(props: { onClose: () => void }) {
           )}
         </Show>
       </div>
-      <div class="settings-detail" aria-live="polite">
-        <Show when={shown()} fallback={<span class="dim">Select a setting to see what it does.</span>}>
-          {(d) => (
-            <>
-              <b>{d().title}</b>
-              <span>{d().detail}</span>
-            </>
-          )}
-        </Show>
-      </div>
+      <Show when={shown()}>
+        {(d) => (
+          <div
+            class="set-pop"
+            role="tooltip"
+            style={{ left: `${d().x}px`, top: `${d().y}px`, transform: d().above ? "translateY(-100%)" : undefined }}
+          >
+            <b>{d().title}</b>
+            <span>{d().detail}</span>
+          </div>
+        )}
+      </Show>
       <footer class="hints">
         <Hint action="secondary" label="Search" />
         <Hint actions={["prevPlatform", "nextPlatform"]} label="Section" />
@@ -389,7 +458,12 @@ function LibrarySection(props: { s: Settings; run: Run }) {
     <section class="card-section set-list">
       <Row
         k="scan"
+        open={(!!library.scanError() || !!library.lastScan()?.warnings.length || !!library.report()) && "Report…"}
         status={
+          <Show
+            when={!library.scanError()}
+            fallback={<span class="warn">Scan failed: {library.scanError()}</span>}
+          >
           <Show
             when={library.scanProgress()}
             fallback={
@@ -411,6 +485,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
                 {p().filesTotal > 0 ? ` · ${p().filesDone.toLocaleString()} / ${p().filesTotal.toLocaleString()} files` : ""}
               </>
             )}
+          </Show>
           </Show>
         }
         sub={
@@ -466,10 +541,14 @@ function LibrarySection(props: { s: Settings; run: Run }) {
             {(p) => `Fetching: ${p().done} / ${p().total} · ${p().found} found`}
           </Show>
         }
-        sub={
-          <Show when={!library.artProgress() && coverless().length > 0}>
-            <MissedGames games={coverless()} label="No cover yet" />
-          </Show>
+        open={!library.artProgress() && coverless().length > 0 && "Missing…"}
+        sub={<MissedGames games={coverless()} label="No cover yet" />}
+        toggle={
+          <OnOff
+            label="Fetch covers automatically after each scan"
+            checked={props.s.values.autoArt !== false}
+            onChange={(on) => void props.run(() => api.setSetting("autoArt", on))}
+          />
         }
       >
         <Show
@@ -484,16 +563,12 @@ function LibrarySection(props: { s: Settings; run: Run }) {
             Stop
           </button>
         </Show>
-        <OnOff
-          label="Fetch covers automatically after each scan"
-          checked={props.s.values.autoArt !== false}
-          onChange={(on) => void props.run(() => api.setSetting("autoArt", on))}
-        />
       </Row>
 
       <Row
         k="folders"
-        status={`${props.s.sources.length} folder${props.s.sources.length === 1 ? "" : "s"}`}
+        status={`${props.s.sources.length} folder${props.s.sources.length === 1 ? "" : "s"}${props.s.sources.some((x) => !x.exists) ? " · some not found" : ""}`}
+        open="Edit…"
         sub={
           <>
       <table class="table">
@@ -657,11 +732,8 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
       <Row
         k="ownEmus"
         status={own().length ? own().map((e) => e.name).join(", ") : "None added"}
-        sub={
-          <Show when={own().length > 0}>
-            <For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>
-          </Show>
-        }
+        open={own().length > 0 && "Edit…"}
+        sub={<For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>}
       >
         <button class="btn" onClick={() => setAdding(true)}>
           Add emulator…
@@ -673,6 +745,7 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
       <Row
         k="cores"
         status={coresDir() || "Not set"}
+        open="Change…"
         sub={
           <PathField
             label="RetroArch cores folder"
@@ -712,8 +785,10 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
           <Show when={achievementsNote(props.emu.achievements)}>{` · ${achievementsNote(props.emu.achievements)}`}</Show>
         </span>
       }
+      open={props.emu.exePath ? "Edit…" : "Set path…"}
       sub={
         <div class="set-fields">
+          <label class="field-label">Executable</label>
           <PathField
             label={`${props.emu.name} executable`}
             value={props.emu.exePath ?? ""}
@@ -721,6 +796,7 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
             mode="file"
             onCommit={(v) => save(v || null, props.emu.templateOverride)}
           />
+          <label class="field-label">Launch template (empty = the default in grey)</label>
           <input
             class="input mono"
             aria-label={`${props.emu.name} launch template`}
@@ -935,90 +1011,69 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
   };
 
   return (
-    <section class="card-section set-list">
-      <Row
-        k="platforms"
-        status={`${props.s.platforms.filter((p) => p.enabled).length} of ${props.s.platforms.length} on · ${props.s.platforms.filter((p) => p.coreProblem).length} need attention`}
-      />
-      <table class="table platforms-table">
-        <thead>
-          <tr>
-            <th>On</th>
-            <th>Platform</th>
-            <th>Emulator</th>
-            <th>Core</th>
-            <th>Launch template</th>
-            <th>Extensions</th>
-            <th>Games</th>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={props.s.platforms}>
-            {(p) => (
-              <tr
-                classList={{ disabled: !p.enabled }}
-                id={`set-plat-${p.id}`}
-                data-title={p.name}
-                data-detail={
-                  p.coreProblem ??
-                  `${p.name}: ${p.gameCount} game${p.gameCount === 1 ? "" : "s"}. The emulator button lists its emulators and the default; core and launch template are for its built-in emulator. Empty fields use the defaults in grey.`
-                }
-              >
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Enable ${p.name}`}
-                    checked={p.enabled}
-                    onChange={(e) => save(p, { enabled: e.currentTarget.checked })}
-                  />
-                </td>
-                <td>{p.name}</td>
-                <td>
-                  <button class="btn small" aria-label={`${p.name} emulators`} onClick={() => setEmusOf(p.id)}>
+    <section class="card-section set-list" id="set-platforms">
+      <For each={props.s.platforms}>
+        {(p) => (
+          <Row
+            k={`plat-${p.id}`}
+            title={p.name}
+            detail={
+              p.coreProblem ??
+              `${p.name}: ${p.gameCount} game${p.gameCount === 1 ? "" : "s"}. Edit… chooses its emulators and default, and overrides the core, launch template and file types (empty fields use the defaults in grey). The switch turns the platform on or off.`
+            }
+            status={
+              <Show when={!p.coreProblem} fallback={<span class="warn">{p.coreProblem}</span>}>
+                {emuName(defaultOf(p))}
+                {p.extraEmulators.length > 0 ? ` +${p.extraEmulators.length}` : ""}
+                {p.emulatorId === "retroarch" ? ` · ${p.coreOverride ?? p.defaultCore ?? ""}` : ""} · {p.gameCount} game
+                {p.gameCount === 1 ? "" : "s"}
+              </Show>
+            }
+            open="Edit…"
+            sub={
+              <>
+                <div class="form-grid">
+                  <label>Emulators</label>
+                  <button class="btn" aria-label={`${p.name} emulators`} onClick={() => setEmusOf(p.id)}>
                     {emuName(defaultOf(p))}
                     {p.extraEmulators.length > 0 ? ` +${p.extraEmulators.length}` : ""} ▾
                   </button>
-                </td>
-                <td>
-                  <Show when={p.emulatorId === "retroarch"} fallback={<span class="dim">—</span>}>
+                  <Show when={p.emulatorId === "retroarch"}>
+                    <label for={`core-${p.id}`}>Core</label>
                     <input
-                      class="input mono narrow"
-                      aria-label={`${p.name} core`}
+                      id={`core-${p.id}`}
+                      class="input mono"
                       value={p.coreOverride ?? ""}
                       placeholder={p.defaultCore ?? ""}
                       onChange={(e) => save(p, { coreOverride: e.currentTarget.value.trim() || null })}
                     />
-                    <Show when={p.coreProblem}>
-                      <div class="warn small">{p.coreProblem}</div>
-                    </Show>
                   </Show>
-                </td>
-                <td>
+                  <label for={`tpl-${p.id}`}>Launch template</label>
                   <input
+                    id={`tpl-${p.id}`}
                     class="input mono"
-                    aria-label={`${p.name} launch template`}
                     value={p.templateOverride ?? ""}
                     placeholder={emuTemplate(p.emulatorId)}
                     onChange={(e) => save(p, { templateOverride: e.currentTarget.value.trim() || null })}
                   />
-                </td>
-                <td>
+                  <label for={`ext-${p.id}`}>File types</label>
                   <Show when={p.id !== "ps3"} fallback={<span class="dim">folders (PS3_GAME)</span>}>
                     <input
+                      id={`ext-${p.id}`}
                       class="input mono"
-                      aria-label={`${p.name} extensions`}
                       value={p.extensionsOverride?.join(", ") ?? ""}
                       placeholder={p.defaultExtensions.join(", ")}
                       onChange={(e) => save(p, { extensionsOverride: parseExts(e.currentTarget.value) })}
                     />
                   </Show>
-                </td>
-                <td class="num">{p.gameCount}</td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
+                </div>
+                <p class="dim small">{INFO.platforms.detail}</p>
+              </>
+            }
+            toggle={<OnOff label={`Use ${p.name}`} checked={p.enabled} onChange={(on) => void save(p, { enabled: on })} />}
+          />
+        )}
+      </For>
       <Show when={props.s.platforms.find((p) => p.id === emusOf())}>
         {(p) => <PlatformEmulatorsPanel p={p()} s={props.s} run={props.run} onClose={() => setEmusOf(null)} />}
       </Show>
@@ -1166,19 +1221,29 @@ function LaunchBoxSection(props: { run: Run }) {
           <Row
             k="launchbox"
             status={
-              !st().enabled
-                ? "Off"
-                : st().total > 0
-                  ? `${st().matched} of ${st().total} found${st().importedAt ? ` · updated ${when(st().importedAt!)}` : ""}`
-                  : "No games on the platforms it covers yet"
+              library.lbError() ? (
+                <span class="warn">{library.lbError()}</span>
+              ) : !st().enabled ? (
+                "Off"
+              ) : st().total > 0 ? (
+                `${st().matched} of ${st().total} found${st().importedAt ? ` · updated ${when(st().importedAt!)}` : ""}`
+              ) : (
+                "No games on the platforms it covers yet"
+              )
             }
-            sub={
-              <Show when={st().enabled}>
-                <MissedGames games={st().unmatched} />
-                <Show when={library.lbError()}>
-                  <p class="warn">{library.lbError()}</p>
-                </Show>
-              </Show>
+            open={st().enabled && st().unmatched.length > 0 && "Missing…"}
+            sub={<MissedGames games={st().unmatched} />}
+            toggle={
+              <OnOff
+                label="Use the LaunchBox Games Database"
+                checked={st().enabled}
+                onChange={(on) =>
+                  void props.run(async () => {
+                    await api.setLbEnabled(on);
+                    await refetch();
+                  })
+                }
+              />
             }
           >
             <Show when={st().enabled}>
@@ -1199,16 +1264,6 @@ function LaunchBoxSection(props: { run: Run }) {
                 </button>
               </Show>
             </Show>
-            <OnOff
-              label="Use the LaunchBox Games Database"
-              checked={st().enabled}
-              onChange={(on) =>
-                void props.run(async () => {
-                  await api.setLbEnabled(on);
-                  await refetch();
-                })
-              }
-            />
           </Row>
         )}
       </Show>
@@ -1228,19 +1283,29 @@ function WikidataSection(props: { run: Run }) {
           <Row
             k="wikidata"
             status={
-              !st().enabled
-                ? "Off"
-                : st().total > 0
-                  ? `${st().withSeries} in a series · ${st().matched} of ${st().total} found${st().checkedAt ? ` · asked ${when(st().checkedAt!)}` : ""}`
-                  : "No games yet"
+              library.wdError() ? (
+                <span class="warn">{library.wdError()}</span>
+              ) : !st().enabled ? (
+                "Off"
+              ) : st().total > 0 ? (
+                `${st().withSeries} in a series · ${st().matched} of ${st().total} found${st().checkedAt ? ` · asked ${when(st().checkedAt!)}` : ""}`
+              ) : (
+                "No games yet"
+              )
             }
-            sub={
-              <Show when={st().enabled}>
-                <MissedGames games={st().unmatched} />
-                <Show when={library.wdError()}>
-                  <p class="warn">{library.wdError()}</p>
-                </Show>
-              </Show>
+            open={st().enabled && st().unmatched.length > 0 && "Missing…"}
+            sub={<MissedGames games={st().unmatched} />}
+            toggle={
+              <OnOff
+                label="Use Wikidata"
+                checked={st().enabled}
+                onChange={(on) =>
+                  void props.run(async () => {
+                    await api.setWdEnabled(on);
+                    await refetch();
+                  })
+                }
+              />
             }
           >
             <Show when={st().enabled}>
@@ -1261,16 +1326,6 @@ function WikidataSection(props: { run: Run }) {
                 </button>
               </Show>
             </Show>
-            <OnOff
-              label="Use Wikidata"
-              checked={st().enabled}
-              onChange={(on) =>
-                void props.run(async () => {
-                  await api.setWdEnabled(on);
-                  await refetch();
-                })
-              }
-            />
           </Row>
         )}
       </Show>
@@ -1306,7 +1361,7 @@ function ServicesSection(props: { s: Settings; run: Run }) {
           <Show
             when={sv().igdb}
             fallback={
-              <Row k="igdb" status="Not set up · optional key" sub={<>
+              <Row k="igdb" status="Not set up · optional key" open="Set up…" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">dev.twitch.tv/console</span> with a free Twitch account (Twitch asks
@@ -1358,7 +1413,9 @@ function ServicesSection(props: { s: Settings; run: Run }) {
                   when={library.metaProgress()}
                   fallback={
                     <>
-                      <span class="ok-text">Connected</span> (Client ID {sv().igdbClientId})
+                      <Show when={library.metaError()} fallback={<span class="ok-text">Connected</span>}>
+                        <span class="warn">{library.metaError()}</span>
+                      </Show>
                       <Show when={library.lastMeta()}>{(m) => ` · last run ${m().matched} found, ${m().notFound} not found`}</Show>
                     </>
                   }
@@ -1366,10 +1423,23 @@ function ServicesSection(props: { s: Settings; run: Run }) {
                   {(p) => `Looking up: ${p().done} / ${p().total} · ${p().matched} found`}
                 </Show>
               }
+              open="Key…"
               sub={
-                <Show when={library.metaError()}>
-                  <p class="warn">{library.metaError()}</p>
-                </Show>
+                <div class="row">
+                  <span>
+                    <span class="ok-text">Connected</span> with Client ID <span class="mono">{sv().igdbClientId}</span>
+                  </span>
+                  <button class="btn danger" onClick={() => void remove()}>
+                    Remove keys
+                  </button>
+                </div>
+              }
+              toggle={
+                <OnOff
+                  label="Look up new games automatically after each scan"
+                  checked={props.s.values.autoMeta !== false}
+                  onChange={(on) => void props.run(() => api.setSetting("autoMeta", on))}
+                />
               }
             >
               <Show
@@ -1384,14 +1454,6 @@ function ServicesSection(props: { s: Settings; run: Run }) {
                   Stop
                 </button>
               </Show>
-              <button class="btn danger" onClick={() => void remove()}>
-                Remove keys
-              </button>
-              <OnOff
-                label="Look up new games automatically after each scan"
-                checked={props.s.values.autoMeta !== false}
-                onChange={(on) => void props.run(() => api.setSetting("autoMeta", on))}
-              />
             </Row>
           </Show>
         )}
@@ -1426,7 +1488,7 @@ function SteamGridDbSection(props: { run: Run }) {
           <Show
             when={sv().sgdb}
             fallback={
-              <Row k="sgdb" status="Not set up · optional key" sub={<>
+              <Row k="sgdb" status="Not set up · optional key" open="Set up…" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">steamgriddb.com</span> (with Steam).
@@ -1463,7 +1525,9 @@ function SteamGridDbSection(props: { run: Run }) {
                   when={library.sgdbProgress()}
                   fallback={
                     <>
-                      <span class="ok-text">Connected</span>
+                      <Show when={library.sgdbError()} fallback={<span class="ok-text">Connected</span>}>
+                        <span class="warn">{library.sgdbError()}</span>
+                      </Show>
                       <Show when={library.lastSgdb()}>
                         {(s) => ` · last run ${s().heroes} backgrounds, ${s().logos} logos, ${s().covers} covers`}
                       </Show>
@@ -1473,10 +1537,14 @@ function SteamGridDbSection(props: { run: Run }) {
                   {(p) => `Looking up: ${p().done} / ${p().total} · ${p().matched} found`}
                 </Show>
               }
+              open="Key…"
               sub={
-                <Show when={library.sgdbError()}>
-                  <p class="warn">{library.sgdbError()}</p>
-                </Show>
+                <div class="row">
+                  <span class="ok-text">Connected</span>
+                  <button class="btn danger" onClick={() => void remove()}>
+                    Remove key
+                  </button>
+                </div>
               }
             >
               <Show
@@ -1491,9 +1559,6 @@ function SteamGridDbSection(props: { run: Run }) {
                   Stop
                 </button>
               </Show>
-              <button class="btn danger" onClick={() => void remove()}>
-                Remove key
-              </button>
             </Row>
           </Show>
         )}
@@ -1530,7 +1595,7 @@ function RetroAchievementsSection(props: { run: Run }) {
           <Show
             when={sv().raUser}
             fallback={
-              <Row k="ra" status="Not set up · optional key" sub={<>
+              <Row k="ra" status="Not set up · optional key" open="Set up…" sub={<>
                 <ol class="steps">
                   <li>
                     Sign in at <span class="mono">retroachievements.org</span> (a free account; the one you use in
@@ -1578,7 +1643,10 @@ function RetroAchievementsSection(props: { run: Run }) {
                   when={library.raProgress()}
                   fallback={
                     <>
-                      <span class="ok-text">Connected</span> as {sv().raUser}
+                      <Show when={library.raError()} fallback={<span class="ok-text">Connected</span>}>
+                        <span class="warn">{library.raError()}</span>
+                      </Show>{" "}
+                      as {sv().raUser}
                       <Show when={library.lastRa()}>
                         {(s) => ` · ${s().matched} recognized${s().unknown > 0 ? `, ${s().unknown} not` : ""}`}
                       </Show>
@@ -1588,10 +1656,16 @@ function RetroAchievementsSection(props: { run: Run }) {
                   {(p) => `Identifying: ${p().done} / ${p().total} · ${p().matched} recognized`}
                 </Show>
               }
+              open="Key…"
               sub={
-                <Show when={library.raError()}>
-                  <p class="warn">{library.raError()}</p>
-                </Show>
+                <div class="row">
+                  <span>
+                    <span class="ok-text">Connected</span> as {sv().raUser}
+                  </span>
+                  <button class="btn danger" onClick={() => void remove()}>
+                    Remove key
+                  </button>
+                </div>
               }
             >
               <Show when={library.raProgress()}>
@@ -1599,9 +1673,6 @@ function RetroAchievementsSection(props: { run: Run }) {
                   Stop
                 </button>
               </Show>
-              <button class="btn danger" onClick={() => void remove()}>
-                Remove key
-              </button>
             </Row>
           </Show>
         )}
@@ -1625,7 +1696,9 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         k="exitCombo"
         detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}
         status={`Hold ${combo().buttons.map((b) => buttonLabel(b, family())).join(" + ")} for ${combo().holdMs / 1000} s`}
+        open="Change…"
         sub={
+          <>
           <div class="combo-grid">
             <For each={COMBO_BUTTONS}>
               {(b) => (
@@ -1640,37 +1713,46 @@ function GeneralSection(props: { s: Settings; run: Run }) {
               )}
             </For>
           </div>
+          <div class="form-grid">
+            <label>Hold for</label>
+            <Picker
+              title="Hold the combo for"
+              value={String(combo().holdMs)}
+              options={[500, 1000, 1500, 2000, 3000].map((ms) => ({ value: String(ms), label: `${ms / 1000} s` }))}
+              onChange={(v) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(v) }))}
+            />
+          </div>
+          </>
         }
-      >
-        <Picker
-          title="Hold the combo for"
-          value={String(combo().holdMs)}
-          options={[500, 1000, 1500, 2000, 3000].map((ms) => ({ value: String(ms), label: `${ms / 1000} s` }))}
-          onChange={(v) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(v) }))}
-        />
-      </Row>
+      />
 
-      <Row k="grouped" status={library.grouped() ? "Sections per platform" : "One list"}>
-        <OnOff
+      <Row k="grouped" status={library.grouped() ? "Sections per platform" : "One list"}
+        toggle={
+          <OnOff
           label="Show All, Favorites and search results in sections per platform"
           checked={library.grouped()}
           onChange={(on) => library.setGrouped(on)}
         />
-      </Row>
-      <Row k="fullscreen" status={props.s.values.tvMode === true ? "On" : "Off"}>
-        <OnOff
+        }
+      />
+      <Row k="fullscreen" status="F11 switches any time"
+        toggle={
+          <OnOff
           label="Start fullscreen"
           checked={props.s.values.tvMode === true}
           onChange={(on) => void props.run(() => api.setSetting("tvMode", on))}
         />
-      </Row>
-      <Row k="startTv" status={props.s.values.startInTv === true ? "On" : "Off"}>
-        <OnOff
+        }
+      />
+      <Row k="startTv" status="L3 or F10 switches any time"
+        toggle={
+          <OnOff
           label="Start in TV Mode"
           checked={props.s.values.startInTv === true}
           onChange={(on) => void props.run(() => api.setSetting("startInTv", on))}
         />
-      </Row>
+        }
+      />
       <Row k="size">
         <Picker
           title="Interface size"
@@ -1713,6 +1795,14 @@ function StorageBlock(props: { s: Settings; run: Run }) {
     setAsking(what);
   };
   const close = () => !working() && setAsking(null);
+  const clearWebCache = () =>
+    props.run(
+      async () => {
+        await api.clearWebCache();
+        await refetch();
+      },
+      { notice: "Web cache cleared." },
+    );
 
   async function confirm() {
     setWorking(true);
@@ -1755,32 +1845,68 @@ function StorageBlock(props: { s: Settings; run: Run }) {
       <Row
         k="storage"
         detail={`${INFO.storage.detail}${storage() ? ` KB's folder: ${storage()!.dataDir}.` : ""}`}
-        status={`Downloaded data ${storage() ? size(storage()!.downloadedBytes) : "…"}${storage()?.resetBackupBytes ? ` · reset backup ${size(storage()!.resetBackupBytes!)}` : ""}`}
-      >
-        <button class="btn" onClick={() => ask("clear")}>
-          Clear downloaded data…
-        </button>
-        <Show when={storage()?.resetBackupBytes}>
-          <button class="btn" onClick={() => ask("backup")}>
-            Delete reset backup…
-          </button>
-        </Show>
-        <button class="btn danger" onClick={() => ask("reset")}>
-          Reset KaneegaBell…
-        </button>
-      </Row>
+        status={`Downloaded ${storage() ? size(storage()!.downloadedBytes) : "…"} · web cache ${storage() ? size(storage()!.webCacheBytes) : "…"}`}
+        open="Manage…"
+        sub={
+          <>
+            <Show when={storage()}>
+              {(st) => (
+                <table class="table">
+                  <tbody>
+                    <tr>
+                      <td>Downloaded covers, pictures, game info and achievement data</td>
+                      <td class="num">{size(st().downloadedBytes)}</td>
+                    </tr>
+                    <tr>
+                      <td>Web cache (picker previews)</td>
+                      <td class="num">{size(st().webCacheBytes)}</td>
+                    </tr>
+                    <Show when={st().resetBackupBytes}>
+                      <tr>
+                        <td>Reset backup (library.before-reset.db)</td>
+                        <td class="num">{size(st().resetBackupBytes!)}</td>
+                      </tr>
+                    </Show>
+                  </tbody>
+                </table>
+              )}
+            </Show>
+            <div class="row wrap">
+              <button class="btn" data-autofocus onClick={() => void clearWebCache()}>
+                Clear web cache
+              </button>
+              <button class="btn" onClick={() => ask("clear")}>
+                Clear downloaded data…
+              </button>
+              <Show when={storage()?.resetBackupBytes}>
+                <button class="btn" onClick={() => ask("backup")}>
+                  Delete reset backup…
+                </button>
+              </Show>
+              <button class="btn danger" onClick={() => ask("reset")}>
+                Reset KaneegaBell…
+              </button>
+            </div>
+            <p class="dim small">
+              Clear web cache only empties KB's page cache; it refills as needed and your covers and game info stay.
+            </p>
+          </>
+        }
+      />
       <Row
         k="removed"
         status={removed()?.count ? `${removed()!.count} hidden (file gone)` : "None kept"}
+        toggle={
+          <OnOff
+            label="Forget removed games automatically"
+            checked={props.s.values.forgetRemovedGames === true}
+            onChange={(on) => void props.run(() => api.setSetting("forgetRemovedGames", on))}
+          />
+        }
       >
         <button class="btn" disabled={!removed()?.count} onClick={() => ask("forget")}>
           Forget them…
         </button>
-        <OnOff
-          label="Forget removed games automatically"
-          checked={props.s.values.forgetRemovedGames === true}
-          onChange={(on) => void props.run(() => api.setSetting("forgetRemovedGames", on))}
-        />
       </Row>
       <Show when={asking()}>
         {(what) => (
@@ -1889,7 +2015,8 @@ function TvModeBlock(props: { s: Settings; run: Run }) {
   return (
     <Row
       k="tv"
-      status={displayOptions().find((o) => o.value === chosen())?.label ?? "The display KB is on"}
+      status={`${displayOptions().find((o) => o.value === chosen())?.label ?? "The display KB is on"} · ${{ s: "small", m: "medium", l: "large", xl: "extra large" }[(props.s.values.tvTextSize as string | undefined) ?? "m"] ?? "medium"} text${props.s.values.tvOverscan ? ` · ${props.s.values.tvOverscan}% margin` : ""}`}
+      open="Change…"
       sub={
       <div class="form-grid">
         <label>Display</label>
@@ -1928,15 +2055,22 @@ function UpdatesBlock(props: { s: Settings; run: Run }) {
   const [info] = createResource(() => api.appInfo().catch(() => null));
   const [checking, setChecking] = createSignal(false);
   const [result, setResult] = createSignal<string | null>(null);
+  const [failed, setFailed] = createSignal(false);
+  const [hasCode, { refetch: refetchCode }] = createResource(() => api.hasUpdateCode().catch(() => false));
 
+  // One button: a new version opens the update dialog (with its notes), otherwise What's new.
   async function checkNow() {
     setChecking(true);
     setResult(null);
+    setFailed(false);
     try {
-      // When there is one, the update dialog opens by itself.
-      if (!(await updates.checkNow())) setResult("You have the latest version.");
+      if (!(await updates.checkNow())) {
+        setResult("You have the latest version.");
+        whatsNew.setOpen(true);
+      }
     } catch (e) {
       setResult(errorText(e));
+      setFailed(true);
     } finally {
       setChecking(false);
     }
@@ -1946,20 +2080,33 @@ function UpdatesBlock(props: { s: Settings; run: Run }) {
     <Row
       k="updates"
       detail={`${INFO.updates.detail}${info()?.devBuild ? " This copy runs from a build folder, so it doesn't check by itself; use Check now." : ""} The switch checks once when KaneegaBell starts.`}
-      status={result() ?? `Version ${info()?.version ?? ""}${props.s.values.autoUpdateCheck !== false ? " · checks at start" : ""}`}
-      sub={<UpdateCodeField run={props.run} onSaved={() => void checkNow()} />}
+      status={
+        <span classList={{ warn: failed() }}>
+          {result() ?? `Version ${info()?.version ?? ""}${props.s.values.autoUpdateCheck !== false ? " · checks at start" : ""}`}
+        </span>
+      }
+      // The access code only matters until it's saved, or when it stops working.
+      open={(failed() || hasCode() === false) && "Access code…"}
+      sub={
+        <UpdateCodeField
+          run={props.run}
+          onSaved={() => {
+            void refetchCode();
+            void checkNow();
+          }}
+        />
+      }
+      toggle={
+        <OnOff
+          label="Check for updates when KaneegaBell starts"
+          checked={props.s.values.autoUpdateCheck !== false}
+          onChange={(on) => void props.run(() => api.setSetting("autoUpdateCheck", on))}
+        />
+      }
     >
       <button class="btn" disabled={checking()} onClick={() => void checkNow()}>
         {checking() ? "Checking…" : "Check now"}
       </button>
-      <button class="btn" onClick={() => whatsNew.setOpen(true)}>
-        What's new
-      </button>
-      <OnOff
-        label="Check for updates when KaneegaBell starts"
-        checked={props.s.values.autoUpdateCheck !== false}
-        onChange={(on) => void props.run(() => api.setSetting("autoUpdateCheck", on))}
-      />
     </Row>
   );
 }
