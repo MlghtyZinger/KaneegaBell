@@ -146,6 +146,7 @@ Stop-App $last
 $r = Start-App @{ WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = "--remote-debugging-port=9333" }
 Start-Sleep -Seconds 2
 $fps = & node (Join-Path $PSScriptRoot "fps.mjs") 9333
+if ($LASTEXITCODE -ne 0) { Stop-Process -Id $r.Process.Id -Force; throw "the scroll measurement failed (fps.mjs exit $LASTEXITCODE)" }
 $fps | Where-Object { $_ -notmatch '^RESULT ' } | ForEach-Object { Write-Host $_ }
 $scroll = ($fps | Where-Object { $_ -match '^RESULT ' } | Select-Object -First 1) -replace '^RESULT ', '' | ConvertFrom-Json
 foreach ($pass in "first", "second") {
@@ -161,6 +162,7 @@ $results.scrollTaskManagerMB = [math]::Round($m.TaskManagerMB)
 $gameId = (& node (Join-Path $PSScriptRoot "db.mjs") (Join-Path $Data "library.db") game)
 if ($gameId) {
     & node (Join-Path $PSScriptRoot "cdp.mjs") 9333 eval "window.__TAURI_INTERNALS__.invoke('launch_game', {id: $gameId}).then(() => 'launched', (e) => String(e))" | Out-Null
+    if ($LASTEXITCODE -ne 0) { Stop-Process -Id $r.Process.Id -Force; throw "launching the stand-in game failed (cdp.mjs exit $LASTEXITCODE)" }
     Start-Sleep -Seconds 4
     # Three 5 s windows while the stand-in game runs; the middle CPU value counts.
     $g = @(1..3 | ForEach-Object { Measure-App $r.Process "While a game runs (5 s window $_)" 5 })

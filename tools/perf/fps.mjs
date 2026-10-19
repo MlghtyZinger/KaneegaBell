@@ -3,11 +3,13 @@
 // Scrolls the library grid top to bottom at a steady speed (like holding the
 // stick) and records every frame's duration. Pass 1 decodes thumbnails for
 // the first time; pass 2 scrolls through the same rows again.
+// Fail instead of hanging (rAF stops in a hidden/suspended window, a reply can never come).
+setTimeout(() => { console.error("fps.mjs: scrolling took over 120 s, giving up"); process.exit(2); }, 120000).unref();
 const port = process.argv[2] ?? "9333";
 const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
 const page = targets.find((t) => t.type === "page");
 const ws = new WebSocket(page.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
+await new Promise((r, j) => { ws.addEventListener("open", r, { once: true }); ws.addEventListener("error", () => j(new Error("DevTools connection failed")), { once: true }); });
 let id = 0;
 const pending = new Map();
 ws.addEventListener("message", (ev) => {
