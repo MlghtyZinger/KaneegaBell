@@ -53,13 +53,13 @@ fn webp(img: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
     Ok(enc.encode(quality).to_vec())
 }
 
-/// Decodes PNG, JPEG or WebP bytes (the `image` crate here reads PNG and JPEG;
+/// Decodes PNG, JPEG, ICO (SteamGridDB icons come as .ico) or WebP bytes (the `image` crate here reads PNG and JPEG;
 /// WebP goes through libwebp).
 pub fn decode(bytes: &[u8]) -> Result<DynamicImage> {
     match image::load_from_memory(bytes) {
         Ok(img) => Ok(img),
         Err(_) => {
-            let bad = || Error::msg("That file isn't a PNG, JPEG or WebP image.");
+            let bad = || Error::msg("That file isn't a PNG, JPEG, ICO or WebP image.");
             let d = webp::Decoder::new(bytes).decode().ok_or_else(bad)?;
             let (w, h, px) = (d.width(), d.height(), d.to_vec());
             Ok(if d.is_alpha() {
@@ -362,6 +362,16 @@ mod tests {
         assert_eq!(dims(&fs::read(icon_path(t.path(), 7)).unwrap()), (192, 192));
         remove_icon(t.path(), 7);
         assert!(!icon_path(t.path(), 7).exists());
+    }
+
+    #[test]
+    fn an_ico_file_decodes() {
+        let rgba = image::RgbaImage::from_pixel(64, 64, image::Rgba([200, 30, 30, 255]));
+        let mut ico = Vec::new();
+        image::ImageEncoder::write_image(image::codecs::ico::IcoEncoder::new(&mut ico), rgba.as_raw(), 64, 64, image::ExtendedColorType::Rgba8).unwrap();
+        assert_eq!(decode(&ico).unwrap().width(), 64);
+        let t = tempfile::tempdir().unwrap();
+        assert_eq!(store_icon(t.path(), 9, &ico).unwrap(), (64, 64));
     }
 
     #[test]
