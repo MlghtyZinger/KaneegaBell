@@ -519,7 +519,7 @@ pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
         if !seen.insert(series_qid) {
             continue;
         }
-        let games = crate::collections::series_game_ids(conn, series_qid)?;
+        let games = crate::collections::series_game_ids_for_game(conn, series_qid, game_id)?;
         if !games.contains(&game_id) {
             continue;
         }

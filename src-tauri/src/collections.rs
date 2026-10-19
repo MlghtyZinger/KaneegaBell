@@ -279,6 +279,24 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
 /// A Wikidata series' games, with persistent user additions and removals
 /// applied on top of its current source membership.
 pub fn series_game_ids(conn: &Connection, qid: i64) -> Result<Vec<i64>> {
+    series_game_ids_inner(conn, qid, None)
+}
+
+/// A game's series, preferring that game's copy when multiple library files
+/// map to the same Wikidata entry. The collection itself still shows one copy.
+pub fn series_game_ids_for_game(
+    conn: &Connection,
+    qid: i64,
+    game_id: i64,
+) -> Result<Vec<i64>> {
+    series_game_ids_inner(conn, qid, Some(game_id))
+}
+
+fn series_game_ids_inner(
+    conn: &Connection,
+    qid: i64,
+    preferred_game: Option<i64>,
+) -> Result<Vec<i64>> {
     let mut stmt = conn.prepare_cached(
         "SELECT g.id, g.wd_id, w.year, gs.ord, g.sort_title
          FROM wd_game_series gs
@@ -291,8 +309,20 @@ pub fn series_game_ids(conn: &Connection, qid: i64) -> Result<Vec<i64>> {
     let rows: Vec<Member> = stmt
         .query_map([qid], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
         .collect::<rusqlite::Result<_>>()?;
-    let mut seen_entries = std::collections::HashSet::new();
-    let mut members: Vec<Member> = rows.into_iter().filter(|m| seen_entries.insert(m.1)).collect();
+    let mut by_entry = HashMap::<i64, Member>::new();
+    for member in rows {
+        let preferred = Some(member.0) == preferred_game;
+        match by_entry.entry(member.1) {
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(member);
+            }
+            std::collections::hash_map::Entry::Occupied(mut entry) if preferred => {
+                entry.insert(member);
+            }
+            std::collections::hash_map::Entry::Occupied(_) => {}
+        }
+    }
+    let mut members: Vec<Member> = by_entry.into_values().collect();
 
     let mut stmt = conn.prepare_cached(
         "SELECT g.id, g.wd_id, w.year, g.sort_title, o.member
