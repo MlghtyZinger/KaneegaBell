@@ -2,7 +2,7 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { api, errorText, events, raMediaUrl, type Achievement, type GameAchievements } from "../api";
 
 /** RA times ("YYYY-MM-DD HH:MM:SS", UTC) as a local date. */
-function formatEarned(s: string): string {
+export function formatEarned(s: string): string {
   const d = new Date(s.replace(" ", "T") + "Z");
   return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }

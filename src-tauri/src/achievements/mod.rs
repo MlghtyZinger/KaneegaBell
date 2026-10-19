@@ -372,6 +372,19 @@ pub struct Glance {
     pub total: usize,
     pub points_earned: i64,
     pub points_total: i64,
+    /// The game's RetroAchievements id (for a link).
+    pub ra_game_id: i64,
+    /// Up to 5 to show: the latest unlocked first, then the most valuable locked ones.
+    pub shown: Vec<ra::Achievement>,
+}
+
+const GLANCE_SHOWN: usize = 5;
+
+fn pick_shown(mut all: Vec<ra::Achievement>) -> Vec<ra::Achievement> {
+    // "YYYY-MM-DD HH:MM:SS" sorts as time; locked ones (no date) go after, by points.
+    all.sort_by(|a, b| b.earned.cmp(&a.earned).then(b.points.cmp(&a.points)));
+    all.truncate(GLANCE_SHOWN);
+    all
 }
 
 /// The user's progress in a game from what's already cached: no hashing and
@@ -385,7 +398,14 @@ pub fn glance(conn: &Connection, user: &str, game_id: i64) -> Result<Option<Glan
     if p.total == 0 {
         return Ok(None);
     }
-    Ok(Some(Glance { earned: p.earned, total: p.total, points_earned: p.points_earned, points_total: p.points_total }))
+    Ok(Some(Glance {
+        earned: p.earned,
+        total: p.total,
+        points_earned: p.points_earned,
+        points_total: p.points_total,
+        ra_game_id: id,
+        shown: pick_shown(p.achievements),
+    }))
 }
 
 #[cfg(test)]
@@ -462,9 +482,38 @@ mod tests {
         // The sidebar's glance reads that cache and asks nothing.
         let before = http.requests.lock().unwrap().len();
         let g = glance(&conn, "Me", id).unwrap();
-        assert_eq!(g, Some(Glance { earned: 1, total: 1, points_earned: 5, points_total: 5 }));
+        let g = g.unwrap();
+        assert_eq!((g.earned, g.total, g.points_earned, g.points_total), (1, 1, 5, 5));
+        assert_eq!(g.shown.len(), 1);
+        assert!(g.ra_game_id > 0);
         assert_eq!(http.requests.lock().unwrap().len(), before);
         assert_eq!(glance(&conn, "someone else", id).unwrap(), None, "another user's progress was never fetched");
+    }
+
+    #[test]
+    fn the_five_shown_are_the_latest_unlocked_then_the_most_valuable_locked() {
+        let a = |id: i64, points: i64, earned: Option<&str>| ra::Achievement {
+            id,
+            title: String::new(),
+            description: String::new(),
+            points,
+            badge: String::new(),
+            earned: earned.map(str::to_string),
+            hardcore: false,
+            kind: None,
+            rarity: None,
+        };
+        let all = vec![
+            a(1, 10, None),
+            a(2, 50, None),
+            a(3, 5, Some("2026-01-02 10:00:00")),
+            a(4, 5, Some("2026-03-01 09:00:00")),
+            a(5, 25, None),
+            a(6, 1, None),
+            a(7, 5, Some("2026-02-01 09:00:00")),
+        ];
+        let ids: Vec<i64> = pick_shown(all).iter().map(|x| x.id).collect();
+        assert_eq!(ids, [4, 7, 3, 2, 5]);
     }
 
     #[test]

@@ -18,6 +18,7 @@ import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
+import { GameListRow } from "../components/GameListRow";
 import { Hint } from "../components/Hints";
 import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
@@ -161,7 +162,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   // list in play order.
   const mixed = () => library.query() !== "" || ["all", "favorites", "recent"].includes(library.platform()) || !!openKey();
   // A collection stays one list in its own order (like Recent).
-  const sectioned = () => library.grouped() && mixed() && library.platform() !== "recent" && !openKey();
+  const sectioned = () => mixed() && library.platform() !== "recent" && !openKey();
+  /** List rows are this tall (px). */
+  const LIST_ROW_H = 40;
   const sectionCounts = createMemo(() => {
     const counts = new Map<string, number>();
     for (const g of games()) counts.set(g.platformId, (counts.get(g.platformId) ?? 0) + 1);
@@ -212,6 +215,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   function move(dir: NavDir) {
     const n = overview() ? tiles().length : games().length;
+    // List view: right goes to the details panel (like A).
+    if (dir === "right" && library.listView() && !overview()) {
+      if (games()[focused()]) setSideOpen(true);
+      return;
+    }
     // Left from the first column (or an empty view) moves into the rail.
     if (dir === "left" && (n === 0 || !navigate || navigate.atRowStart(focused()))) {
       openRail();
@@ -334,7 +342,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       case "down":
         move(a);
         return true;
-      case "toggleGroups": library.setGrouped(!library.grouped()); return true;
+      case "toggleGroups": library.setListView(!library.listView()); return true;
       case "filter":
         if (library.genres().length > 0) setGenreOpen(true);
         return true;
@@ -665,6 +673,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           </div>
         }
       >
+        <div class="list-split">
         <div class="grid-wrap" onWheel={onWheel}>
           <VirtualGrid
             items={games()}
@@ -675,18 +684,32 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
             itemAspect={itemAspect}
+            rowHeight={library.listView() ? LIST_ROW_H : undefined}
             groupOf={sectioned() ? (g) => g.platformId : undefined}
             groupLabel={sectionLabel}
-            gap={18}
+            gap={library.listView() ? 2 : 18}
             renderItem={(g, isFocused) => (
-              <GameCard
-                game={g}
-                focused={isFocused}
-                showIcon={library.platform() === "recent" || !!openKey()}
-                platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined}
-              />
+              <Show
+                when={library.listView()}
+                fallback={
+                  <GameCard
+                    game={g}
+                    focused={isFocused}
+                    showIcon={library.platform() === "recent" || !!openKey()}
+                    platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined}
+                  />
+                }
+              >
+                <GameListRow game={g} focused={isFocused} platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined} />
+              </Show>
             )}
           />
+        </div>
+        <Show when={library.listView() && focusedGame()}>
+          {(g) => (
+            <GameSidebar docked active={sideOpen()} id={g().id} onClose={() => setSideOpen(false)} onMore={setInfoId} onSettings={props.onOpenSettings} />
+          )}
+        </Show>
         </div>
         <footer class="hints">
           <Hint action="select" label="Open" />
@@ -699,11 +722,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
           <Hint action="toggleTv" label="TV Mode" />
-          <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
-          <Show when={mixed() && library.platform() !== "recent" && !openKey()}>
-            <Hint action="toggleGroups" label={library.grouped() ? "One list" : "Sections"} />
+          <Show when={!library.listView()}>
+            <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
           </Show>
+          <Hint action="toggleGroups" label={library.listView() ? "Grid" : "List"} />
           <input
+            hidden={library.listView()}
             class="zoom-slider"
             type="range"
             aria-label="Card size"
@@ -716,7 +740,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             onPointerUp={(e) => e.currentTarget.blur()}
             tabIndex={-1}
           />
-          <span class="zoom-pct" title="Card size (100% = the default)">
+          <span class="zoom-pct" hidden={library.listView()} title="Card size (100% = the default)">
             {Math.round((library.cardSize() / library.CARD_DEFAULT) * 100)}%
           </span>
           <span class="hint-count">
@@ -727,7 +751,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       </Show>
 
       </div>
-      <Show when={sideId()}>
+      <Show when={library.listView() ? null : sideId()}>
         {(id) => (
           <GameSidebar
             id={id()}

@@ -3,7 +3,7 @@ import { artUrl, type GameRow } from "../api";
 
 // Stable hue per title: the background of text-only cards, and the letterbox
 // color around box art that doesn't match the card's shape.
-function hue(s: string): number {
+export function hue(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return Math.abs(h) % 360;

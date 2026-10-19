@@ -253,7 +253,16 @@ export function installMockIpc() {
       case "achievement_glance": {
         // Every third game has cached progress.
         const id = (args as { id: number }).id;
-        return id % 3 === 0 ? { earned: id % 25, total: 40, pointsEarned: (id % 25) * 5, pointsTotal: 400 } : null;
+        return id % 3 === 0
+          ? {
+              earned: id % 25,
+              total: 40,
+              pointsEarned: (id % 25) * 5,
+              pointsTotal: 400,
+              raGameId: 1000 + id,
+              shown: [1, 2, 3, 4, 5].map((n) => ({ id: n, title: `Achievement ${n}`, description: "Do the thing.", points: n * 5, badge: "00000", earned: n < 3 ? "2026-03-0" + n + " 10:00:00" : null, hardcore: false, kind: null, rarity: 0.2 })),
+            }
+          : null;
       }
       case "get_achievements": {
         // ?ra=1: odd ids are recognized with progress, even ids aren't; 3DS is unsupported.

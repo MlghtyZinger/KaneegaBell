@@ -2875,7 +2875,8 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 @media (max-width: 1100px) {
-  .game-side {
+  .game-side:not(.docked),
+  .game-side.docked.active {
     position: absolute;
     top: 0;
     right: 0;
@@ -3045,4 +3046,181 @@ html.nav-mode .tv-menu-item:focus {
   padding: 10px var(--gap);
   border-top: 1px solid var(--border);
   font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------------------ list view */
+
+.list-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.hints [hidden] {
+  display: none;
+}
+
+.lrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+
+.lrow.focused {
+  background: var(--bg-raised);
+  box-shadow: var(--focus-ring);
+}
+
+.lrow-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #111;
+}
+
+.lrow-icon.monogram {
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  background: hsl(var(--card-hue) 32% 24%);
+}
+
+.lrow-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lrow-variant,
+.lrow-meta,
+.lrow-time {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.lrow-fav {
+  color: #ffd75e;
+}
+
+.lrow-time {
+  min-width: 4.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The panel on the right of the list: a banner, the whole cover over its lower
+   edge, then a box per topic. */
+.game-side.docked {
+  width: clamp(380px, 36vw, 600px);
+}
+
+.game-side.docked .side-hero {
+  aspect-ratio: 21 / 9;
+}
+
+.dock-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 0 var(--gap);
+  margin-top: -52px;
+  position: relative;
+  z-index: 1;
+}
+
+.dock-cover {
+  flex: none;
+  width: clamp(104px, 9vw, 150px);
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--bg-sunken);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.6);
+}
+
+.dock-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 60px;
+}
+
+.dock-boxes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--gap);
+}
+
+.dock-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-sunken);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.dock-ach {
+  cursor: pointer;
+}
+
+.dock-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.dock-ach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-sm);
+}
+
+.dock-ach-row img {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 4px;
+}
+
+.dock-ach-row.locked img {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+
+.dock-ach-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Narrow windows: the panel hides until A / Enter opens it over the list. */
+@media (max-width: 900px) {
+  .game-side.docked:not(.active) {
+    display: none;
+  }
 }

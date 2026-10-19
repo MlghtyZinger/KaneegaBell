@@ -27,6 +27,8 @@ interface Props<T> {
   groupOf?: (item: T) => string;
   groupLabel?: (key: string) => string;
   gap: number;
+  /** List mode: one column of rows this tall (px), ignoring the cover shape. */
+  rowHeight?: number;
   /** `item` is an accessor: a cell is reused when the list changes under it. */
   renderItem: (item: () => T, focused: () => boolean) => JSX.Element;
   /** Hands out the layout-aware neighbor lookup for D-pad navigation. */
@@ -38,6 +40,9 @@ const clampAspect = (a: number) => Math.min(1.6, Math.max(0.5, a || 1.4));
 /** Space a group header takes above its first row (label band + breathing room). */
 const HEADER_H = 58;
 const HEADER_LABEL_H = 44;
+/** Group headers are slimmer above list rows. */
+const LIST_HEADER_H = 40;
+const LIST_HEADER_LABEL_H = 32;
 
 interface Layout {
   rows: Rows;
@@ -68,7 +73,11 @@ export function VirtualGrid<T>(props: Props<T>) {
 
   const OVERSCAN_PX = 600;
 
-  const cols = createMemo(() => Math.max(1, Math.floor((width() + props.gap) / (props.minCardWidth + props.gap))));
+  const headerH = () => (props.rowHeight ? LIST_HEADER_H : HEADER_H);
+  const labelH = () => (props.rowHeight ? LIST_HEADER_LABEL_H : HEADER_LABEL_H);
+  const cols = createMemo(() =>
+    props.rowHeight ? 1 : Math.max(1, Math.floor((width() + props.gap) / (props.minCardWidth + props.gap))),
+  );
   const cardW = createMemo(() => (width() - props.gap * (cols() - 1)) / cols());
 
   // Positions: recomputed when the list, the columns, the card width or the
@@ -92,13 +101,13 @@ export function VirtualGrid<T>(props: Props<T>) {
         // A little extra space before every group but the first.
         if (r > 0) top += gap;
         headers.push({ key, y: top });
-        top += HEADER_H;
+        top += headerH();
       }
-      rowTop[r] = key !== null ? top - HEADER_H : top;
+      rowTop[r] = key !== null ? top - headerH() : top;
       let rowH = 0;
       for (let k = 0; k < rows.len[r]; k++) {
         const i = rows.start[r] + k;
-        h[i] = w * clampAspect(props.itemAspect(items[i]));
+        h[i] = props.rowHeight ?? w * clampAspect(props.itemAspect(items[i]));
         x[i] = k * (w + gap);
         y[i] = top;
         rowH = Math.max(rowH, h[i]);
@@ -190,7 +199,7 @@ export function VirtualGrid<T>(props: Props<T>) {
       <div class="vgrid-sizer" style={{ height: `${layout().total}px` }}>
         <For each={layout().headers}>
           {(hd) => (
-            <div class="vgrid-header" style={{ transform: `translate3d(0, ${hd.y}px, 0)`, height: `${HEADER_LABEL_H}px` }}>
+            <div class="vgrid-header" style={{ transform: `translate3d(0, ${hd.y}px, 0)`, height: `${labelH()}px` }}>
               {props.groupLabel?.(hd.key) ?? hd.key}
             </div>
           )}

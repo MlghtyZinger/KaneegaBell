@@ -46,7 +46,7 @@ const INFO: Record<string, Info> = {
   sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
   ra: { section: "services", title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
   exitCombo: { section: "general", title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
-  grouped: { section: "general", title: "Platform sections", words: "display grouped sections rows one list r3 v", detail: "Shows All, Favorites and search results in sections per platform, so covers in a row share a shape. Switch from the library with R3 or V." },
+  listView: { section: "general", title: "List view", words: "display layout rows steam list sections grid r3 v", detail: "Shows games as rows with a details panel on the right (cover, background, achievements, links) instead of the cover grid. Switch from the library with R3 or V." },
   fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
   startTv: { section: "general", title: "Start in TV Mode", words: "big picture tv mode l3 f10", detail: "Opens KB in TV Mode, the big-screen view with backgrounds and logos. Switch any time with L3, F10 or the TV Mode button." },
   size: { section: "general", title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
@@ -1728,12 +1728,12 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         }
       />
 
-      <Row k="grouped" status={library.grouped() ? "Sections per platform" : "One list"}
+      <Row k="listView" status={library.listView() ? "List with details panel" : "Cover grid"}
         toggle={
           <OnOff
-          label="Show All, Favorites and search results in sections per platform"
-          checked={library.grouped()}
-          onChange={(on) => library.setGrouped(on)}
+          label="Show the library as a list with a details panel"
+          checked={library.listView()}
+          onChange={(on) => library.setListView(on)}
         />
         }
       />

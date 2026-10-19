@@ -359,9 +359,16 @@ Each milestone is runnable and tested, and passes the perf gate.
       `src-tauri/icons/icon-master.svg`. Next: generate the .ico/PNGs from it (`tauri icon`, output to a temp
       folder, copy only the sizes tauri.conf.json lists), then the platform/emulator icons. Icons show on
       the sidebar title, Recent, collections, platform tabs; the grid stays covers.
-- [ ] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a third layout
-      next to "Sections"/"One list": games as text rows with their icon on the left, the focused
-      game's info on the right (a wider version of the sidebar). Up/down moves, the panel follows.
+- [x] Steam-style list view (owner's idea, 2026-10-16; its own release right after m): a layout
+      with games as text rows with their icon on the left, the focused game's info on the right (a wider
+      version of the sidebar). Up/down moves, the panel follows. **Decided 2026-10-19 (owner):** design A1;
+      it **replaces "One list"** (V now switches Grid ↔ List; Grid keeps its platform sections). Panel: the
+      background as a banner, the whole cover over its lower edge, then a box each for Play, Achievements
+      (the latest 5 unlocked, then the most valuable locked; click opens the details screen for now), Collections
+      and series (if the game has any), Links and About. **Built 2026-10-19 (0.3.8):** `VirtualGrid` `rowHeight`
+      (one column of fixed rows, platform headers kept), `GameListRow`, `GameSidebar` `docked`/`active` (A/Enter/→
+      focus the panel, B/Esc back to the list; the panel hides below 900 px until opened), setting `listView`,
+      `Glance` carries the 5 shown achievements and the RA game id.
 - [ ] n. Collections (manual, smart, automatic). Part 1 done early (owner's request 2026-10-15):
       Collections tab, the user's own collections, series as automatic collections (2+ games,
       hideable), logos for collections and series (a game's logo, a cover, or the user's image).
@@ -502,6 +509,18 @@ Each milestone is runnable and tested, and passes the perf gate.
       Ideas to build here: group platforms by maker (Nintendo / PlayStation / Sega / Microsoft) as folding rows,
       open state remembered, A opens/closes with a controller (preferred); hide and reorder platforms (already
       in u); slimmer rows when the sidebar is open.
+- [ ] v. Achievements window (owner, 2026-10-19; **placed last in the release order: it was added after the order
+      was locked, so move it only if the owner says so**). A window of its own with all of a game's
+      RetroAchievements information, opened by clicking the Achievements box in the list view's panel (and from
+      the sidebar and the details screen, which today show the list inline, so it can move out of there):
+      every achievement with badge, title, description, points, type (progression / win condition / missable),
+      unlock date and hardcore mark, rarity; progress (earned / total, points, hardcore count); filters
+      (all / unlocked / locked / missable) and sort (unlock date, points, rarity, RA's order); jump to the
+      next achievement worth the most points; a link to the game's RetroAchievements page; refresh; the
+      reasons when a game isn't recognized (as in `Achievements.tsx`). Works with a controller alone (D-pad
+      moves, B closes, LB/RB switch filters). Reads the cache like the details screen: no hashing, no requests
+      except Refresh. Open question: the user's own latest unlocks across all games (a "recent achievements"
+      view), which RA's API offers, would be a separate idea.
 
 ## How to work (carried over, with additions)
 1. Propose a plan for each milestone and **wait for the owner's approval** before writing large

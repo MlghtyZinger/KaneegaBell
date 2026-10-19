@@ -98,15 +98,15 @@ function createLibraryStore() {
     .then((v) => typeof v === "number" && setCardSizeRaw(Math.min(CARD_MAX, Math.max(CARD_MIN, v))))
     .catch(() => {});
 
-  /** Mixed views (All, Favorites, search) in per-platform sections, so each row holds one cover shape. */
-  const [grouped, setGroupedRaw] = createSignal(true);
-  function setGrouped(on: boolean) {
-    setGroupedRaw(on);
-    void api.setSetting("groupByPlatform", on).catch(() => {});
+  /** The Steam-style list (rows and a details panel) instead of the cover grid. */
+  const [listView, setListViewRaw] = createSignal(false);
+  function setListView(on: boolean) {
+    setListViewRaw(on);
+    void api.setSetting("listView", on).catch(() => {});
   }
   void api
-    .getSetting<boolean>("groupByPlatform")
-    .then((v) => setGroupedRaw(v !== false))
+    .getSetting<boolean>("listView")
+    .then((v) => setListViewRaw(v === true))
     .catch(() => {});
   const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
@@ -317,8 +317,8 @@ function createLibraryStore() {
     CARD_MIN,
     CARD_MAX,
     CARD_DEFAULT,
-    grouped,
-    setGrouped,
+    listView,
+    setListView,
     genres,
     genre,
     setGenre,

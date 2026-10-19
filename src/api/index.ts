@@ -301,6 +301,9 @@ export interface AchievementGlance {
   total: number;
   pointsEarned: number;
   pointsTotal: number;
+  raGameId: number;
+  /** Up to 5: the latest unlocked first, then the most valuable locked ones. */
+  shown: Achievement[];
 }
 
 /** A version of a game RetroAchievements accepts. */

@@ -712,6 +712,11 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.8
+- New: List view. Press V (or R3, or Settings → General) to see your games as rows, with a details panel on the right: the background, the whole cover, play buttons, your latest achievements, collections, links and the description, each in its own box.
+- Changed: V now switches between the cover grid and the list. The old "One list" option is gone; the grid keeps its platform sections.
+- Improved: the panel shows the game you're on as you move down the list. A, Enter or → moves into it; B or Esc comes back.
+
 ### 0.3.7
 - New: every game has a small square icon, shown in the game sidebar, on Recent and inside collections. KB crops it from the cover on its own (no key needed) and keeps it up to date when the cover changes.
 - New: Icon… on the details screen picks your own: SteamGridDB icons (with a key), an image file, or "Use the cover" to go back to the automatic one.
