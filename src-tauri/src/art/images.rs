@@ -192,11 +192,8 @@ pub fn square_crop(img: &DynamicImage) -> DynamicImage {
 /// A picture kept whole inside a transparent square: a logo isn't cropped and
 /// a wide image isn't stretched.
 fn icon_square(img: &DynamicImage) -> DynamicImage {
-    let scaled = if img.width() > ICON || img.height() > ICON {
-        img.resize(ICON, ICON, FilterType::Lanczos3)
-    } else {
-        img.clone()
-    };
+    // Small icons (32 px .ico files) are scaled up too, or they sit tiny in the square.
+    let scaled = img.resize(ICON, ICON, FilterType::Lanczos3);
     let mut canvas = image::RgbaImage::from_pixel(ICON, ICON, image::Rgba([0, 0, 0, 0]));
     let x = ((ICON - scaled.width()) / 2) as i64;
     let y = ((ICON - scaled.height()) / 2) as i64;
@@ -362,6 +359,14 @@ mod tests {
         assert_eq!(dims(&fs::read(icon_path(t.path(), 7)).unwrap()), (192, 192));
         remove_icon(t.path(), 7);
         assert!(!icon_path(t.path(), 7).exists());
+    }
+
+    #[test]
+    fn a_small_icon_is_scaled_up_to_fill_the_square() {
+        let t = tempfile::tempdir().unwrap();
+        store_icon(t.path(), 10, &test_png(32, 32)).unwrap();
+        let d = webp::Decoder::new(&fs::read(icon_path(t.path(), 10)).unwrap()).decode().unwrap();
+        assert!(!d.is_alpha() || d.to_vec()[3] > 200, "the corner is picture, not padding");
     }
 
     #[test]

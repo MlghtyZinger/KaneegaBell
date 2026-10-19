@@ -716,6 +716,7 @@ window, so they're written for players.
 - New: every game has a small square icon, shown in the game sidebar, on Recent and inside collections. KB crops it from the cover on its own (no key needed) and keeps it up to date when the cover changes.
 - New: Icon… on the details screen picks your own: SteamGridDB icons (with a key), an image file, or "Use the cover" to go back to the automatic one.
 - Fixed: SteamGridDB icons that come as .ico files can now be picked.
+- Fixed: small icons (32 px) are scaled up to fill the icon square instead of sitting tiny in it.
 - Improved: games without an icon yet show a coloured letter in the sidebar until their cover arrives.
 
 ### 0.3.6
