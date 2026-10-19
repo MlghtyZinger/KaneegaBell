@@ -3074,8 +3074,13 @@ html.nav-mode .tv-menu-item:focus {
   cursor: pointer;
 }
 
+.lrow:hover {
+  background: rgb(255 255 255 / 0.04);
+}
+
+/* The chosen row lights up as a whole, with the focus ring around it. */
 .lrow.focused {
-  background: var(--bg-raised);
+  background: rgb(255 215 94 / 0.13);
   box-shadow: var(--focus-ring);
 }
 
@@ -3111,16 +3116,13 @@ html.nav-mode .tv-menu-item:focus {
   font-size: var(--fs-sm);
 }
 
-/* A favorite: a small star in the row's left padding (it moves nothing). */
+/* The star keeps a slot left of the platform and play time, so titles shorten
+   before running into it and the stars line up. */
 .lrow-fav {
-  position: absolute;
-  left: -3px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 14px;
-  line-height: 1;
+  flex: none;
+  width: 1.2em;
+  text-align: center;
   color: #ffd75e;
-  text-shadow: 0 0 4px rgb(0 0 0 / 0.8);
 }
 
 /* The play time keeps its own slot, so titles shorten before running into it

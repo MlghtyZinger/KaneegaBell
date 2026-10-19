@@ -8,9 +8,6 @@ export function GameListRow(props: { game: () => GameRow; focused: () => boolean
   const g = () => props.game();
   return (
     <div class="lrow" classList={{ focused: props.focused() }} title={g().favorite ? "Favorite" : undefined}>
-      <Show when={g().favorite}>
-        <span class="lrow-fav" aria-hidden="true">★</span>
-      </Show>
       <Show
         when={(g().icon ?? 0) > 0}
         fallback={<div class="lrow-icon monogram" style={{ "--card-hue": hue(g().title) }}>{g().title.slice(0, 1).toUpperCase()}</div>}
@@ -23,6 +20,7 @@ export function GameListRow(props: { game: () => GameRow; focused: () => boolean
           <span class="lrow-variant"> {g().variant}</span>
         </Show>
       </span>
+      <span class="lrow-fav" aria-label={g().favorite ? "Favorite" : undefined}>{g().favorite ? "★" : ""}</span>
       <Show when={props.platformLabel}>
         <span class="lrow-meta">{props.platformLabel}</span>
       </Show>
