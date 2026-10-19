@@ -3061,6 +3061,7 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 .lrow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -3110,9 +3111,16 @@ html.nav-mode .tv-menu-item:focus {
   font-size: var(--fs-sm);
 }
 
-/* A favorite: a gold ring and a soft glow on its icon (static, so scrolling stays cheap). */
-.lrow-icon.fav {
-  box-shadow: 0 0 0 1.5px #ffd75e, 0 0 8px 1px rgb(255 215 94 / 0.55);
+/* A favorite: a small star in the row's left padding (it moves nothing). */
+.lrow-fav {
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  line-height: 1;
+  color: #ffd75e;
+  text-shadow: 0 0 4px rgb(0 0 0 / 0.8);
 }
 
 /* The play time keeps its own slot, so titles shorten before running into it

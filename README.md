@@ -715,7 +715,7 @@ window, so they're written for players.
 ### 0.3.8
 - New: List view. Press V (or R3, or Settings → General) to see your games as rows, with a details panel on the right: the background, the whole cover, play buttons, your latest achievements, collections, links and the description, each in its own box.
 - Changed: V now switches between the cover grid and the list. The old "One list" option is gone; the grid keeps its platform sections.
-- New: a favorite game's icon has a gold ring and glow in the list.
+- New: a favorite game has a small gold star to the left of its icon in the list.
 - Improved: the panel shows the game you're on as you move down the list. A, Enter or → moves into it; B or Esc comes back.
 
 ### 0.3.7
