@@ -4,7 +4,7 @@
 // Add ?games=N to the URL to change the library size (default 5000), and
 // ?art=1 to give games cover shapes (for card layout work).
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import type { GameRow, Library, Settings } from "../api";
+import type { CollectionRules, GameRow, Library, Settings } from "../api";
 
 const PLATFORMS = [
   ["snes", "Super Nintendo", "SNES"],
@@ -36,6 +36,9 @@ function rng(seed: number) {
 }
 
 const GENRES = ["Adventure", "Platform", "Role-playing (RPG)", "Shooter", "Strategy", "Racing", "Fighting"];
+
+const DEVELOPERS = ["Hal Laboratory", "Square", "Capcom", "Konami", "Nintendo", "Sega", "Namco", "FromSoftware", "Atlus"];
+const PUBLISHERS = ["Nintendo", "Sony", "Capcom", "Konami", "Sega", "Bandai Namco", "Square Enix"];
 
 // Typical cover shapes (height / width), for ?art=1 layout tests.
 const ASPECTS: Record<string, number> = {
@@ -69,6 +72,9 @@ function makeLibrary(n: number): Library {
       art: withArt ? 1 : 0,
       artAspect: withArt ? ASPECTS[platformId] : null,
       genres: r() < 0.7 ? [1 + Math.floor(r() * GENRES.length)] : undefined,
+      developer: r() < 0.75 ? DEVELOPERS[Math.floor(r() * DEVELOPERS.length)] : undefined,
+      publisher: r() < 0.75 ? PUBLISHERS[Math.floor(r() * PUBLISHERS.length)] : undefined,
+      year: r() < 0.85 ? 1985 + Math.floor(r() * 41) : undefined,
     });
   }
   const order = new Map(PLATFORMS.map(([id], i) => [id as string, i]));
@@ -132,19 +138,21 @@ export function installMockIpc() {
   type MockCollection = {
     key: string;
     name: string;
-    kind: "mine" | "series" | "franchise";
+    kind: "mine" | "series" | "franchise" | "smart";
     games: number[];
     logo: unknown;
     hidden: boolean;
     gameOrder: string | null;
+    rules: CollectionRules | null;
   };
-  let nextCol = 3;
+  let nextCol = 4;
   let removedGames = 3;
   const cols: MockCollection[] = [
-    { key: "c:1", name: "Couch co-op", kind: "mine", games: [3, 8, 13, 21], logo: null, hidden: false, gameOrder: "added" },
-    { key: "c:2", name: "Comfort games", kind: "mine", games: [], logo: null, hidden: false, gameOrder: "added" },
-    { key: "s:100", name: "Mock Saga", kind: "series", games: [5, 6, 7, 8], logo: null, hidden: false, gameOrder: null },
-    { key: "s:200", name: "Mock Universe", kind: "franchise", games: [30, 31, 32], logo: null, hidden: true, gameOrder: null },
+    { key: "c:1", name: "Couch co-op", kind: "mine", games: [3, 8, 13, 21], logo: null, hidden: false, gameOrder: "added", rules: null },
+    { key: "c:2", name: "Comfort games", kind: "mine", games: [], logo: null, hidden: false, gameOrder: "added", rules: null },
+    { key: "c:3", name: "Played platformers", kind: "smart", games: [], logo: null, hidden: false, gameOrder: null, rules: { genres: [2], played: "played" } },
+    { key: "s:100", name: "Mock Saga", kind: "series", games: [5, 6, 7, 8], logo: null, hidden: false, gameOrder: null, rules: null },
+    { key: "s:200", name: "Mock Universe", kind: "franchise", games: [30, 31, 32], logo: null, hidden: true, gameOrder: null, rules: null },
   ];
   const col = (key: string) => cols.find((c) => c.key === key)!;
   mockIPC((cmd, args) => {
@@ -169,9 +177,27 @@ export function installMockIpc() {
           logo: null,
           hidden: false,
           gameOrder: "added",
+          rules: null,
         });
         return key;
       }
+      case "create_smart_collection": {
+        const key = `c:${nextCol++}`;
+        cols.push({
+          key,
+          name: String(a.name).trim(),
+          kind: "smart",
+          games: [],
+          logo: null,
+          hidden: false,
+          gameOrder: null,
+          rules: (a.rules as CollectionRules) ?? {},
+        });
+        return key;
+      }
+      case "set_collection_rules":
+        col(a.key as string).rules = (a.rules as CollectionRules) ?? null;
+        return null;
       case "rename_collection":
         col(a.key as string).name = String(a.name);
         return null;

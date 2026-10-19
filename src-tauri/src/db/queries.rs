@@ -44,6 +44,14 @@ pub struct GameRow {
     pub logo: i64,
     /// The game icon's version (sidebar, Recent, collections), 0 when none.
     pub icon: i64,
+    /// Developer, publisher and release year (LaunchBox, else IGDB, else
+    /// Wikidata's year) for the filters; absent when unknown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub developer: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub publisher: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<i64>,
 }
 
 fn is_zero(v: &i64) -> bool {
@@ -60,9 +68,18 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
                      THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END,
                 COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1), 0),
                 COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1), 0),
-                g.icon_version
+                g.icon_version,
+                COALESCE(l.developer, m.developer),
+                COALESCE(l.publisher, m.publisher),
+                COALESCE(
+                    CAST(strftime('%Y', datetime(NULLIF(COALESCE(l.release_date, m.release_date), 0), 'unixepoch')) AS INTEGER),
+                    w.year
+                )
          FROM games g JOIN platforms p ON p.id = g.platform_id
          LEFT JOIN artwork a ON a.game_id = g.id AND a.kind = 'boxart' AND a.selected = 1
+         LEFT JOIN lb_games l ON l.db_id = g.lb_id AND g.lb_status IN ('ok', 'manual')
+         LEFT JOIN metadata m ON m.game_id = g.id
+         LEFT JOIN wd_games w ON w.qid = g.wd_id AND g.wd_status = 'ok'
          WHERE g.missing = 0 AND p.enabled = 1
          ORDER BY p.sort_order, g.sort_title, g.id",
     )?;
@@ -83,6 +100,9 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             hero: r.get(11)?,
             logo: r.get(12)?,
             icon: r.get(13)?,
+            developer: r.get(14)?,
+            publisher: r.get(15)?,
+            year: r.get(16)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)

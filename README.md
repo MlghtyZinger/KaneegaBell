@@ -398,6 +398,9 @@ The **Collections** tab (next to Favorites and Recent) holds:
 - **Your own collections.** "New collection" (the first tile) asks for a name. Add a game from its
   details with **Collections…** (tick any collections; a game can be in several), or start a new
   collection with it there. Open a collection to see its games; B goes back to the tiles.
+- **Edit members from the collection page.** Choose **Edit… → Add games…** and tick games to add
+  or remove them. In an open manual collection or series, press **Y** or right-click a game to
+  remove it. Series edits are saved over Wikidata, so refreshing series data keeps your changes.
 - **Series**, automatically: every series or franchise (from Wikidata, see Covers and metadata) you
   have two or more games from, in release order. Hide the ones you don't want; "Show hidden
   series" brings them back.
@@ -711,6 +714,11 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.9
+- New: filter your games by platform, genre, developer, publisher, release year, play time, whether you've played them, and favorites. Save a filter as a smart collection that updates as your library changes.
+- New: edit a smart collection's rules from its collection tile; its games always follow the saved filter.
+- New: add or remove games from a collection page. Your edits to a series stay saved when its Wikidata information refreshes.
 
 ### 0.3.8
 - New: List view. Press V (or R3, or Settings → General) to see your games as rows, with a details panel on the right: the background, the whole cover, play buttons, your latest achievements, collections, links and the description, each in its own box.

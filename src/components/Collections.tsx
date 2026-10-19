@@ -1,14 +1,15 @@
-import { createSignal, For, Show } from "solid-js";
-import { api, artUrl, errorText, type Collection } from "../api";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { api, artUrl, errorText, type Collection, type CollectionRules, type GameRow } from "../api";
 import { collections } from "../state/collections";
 import { library } from "../state/library";
 import { osk } from "../state/osk";
 import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
+import { FilterPanel } from "./FilterPanel";
 import { Hint } from "./Hints";
 import { Icon } from "./Icons";
 
-const KIND_LABEL = { mine: "Collection", series: "Series", franchise: "Franchise" } as const;
+const KIND_LABEL = { mine: "Collection", series: "Series", franchise: "Franchise", smart: "Smart" } as const;
 
 /** The collection's picture: the chosen logo, else (series) its first logo, else the name. */
 function Emblem(props: { c: Collection; class?: string }) {
@@ -54,7 +55,7 @@ export function CollectionTile(props: { c: Collection; focused: () => boolean; o
       <Show when={props.onEdit}>
         <button
           class="col-edit"
-          title={props.c.kind === "mine" ? "Rename, logo and more (Y)" : "Logo, hide (Y)"}
+          title={props.c.kind === "mine" ? "Rename, logo and more (Y)" : props.c.kind === "smart" ? "Rename, rules, logo and more (Y)" : "Logo, hide (Y)"}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
@@ -96,6 +97,24 @@ export function newCollection(gameId: number | null, onMade?: (key: string) => v
   });
 }
 
+/** Asks for a name, then makes a smart collection whose games follow `rules`. */
+export function saveSmartCollection(rules: CollectionRules, onMade?: (key: string) => void) {
+  osk.open({
+    title: "Name the smart collection",
+    value: "",
+    onDone: (name) => {
+      if (!name.trim()) return;
+      void api
+        .createSmartCollection(name, rules)
+        .then(async (key) => {
+          await collections.reload();
+          onMade?.(key);
+        })
+        .catch(() => {});
+    },
+  });
+}
+
 /** Asks for a new name for one of the user's collections. */
 export function renameCollection(c: Collection) {
   osk.open({
@@ -112,7 +131,8 @@ export function renameCollection(c: Collection) {
 }
 
 /** The banner's buttons, in order (for controller focus). */
-export const bannerActions = (c: Collection) => (c.kind === "mine" ? (["back", "rename", "edit"] as const) : (["back", "edit"] as const));
+export const bannerActions = (c: Collection) =>
+  c.kind === "mine" || c.kind === "smart" ? (["back", "rename", "edit"] as const) : (["back", "edit"] as const);
 
 /**
  * The strip above an open collection's games. `focused` is the controller's
@@ -147,11 +167,14 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
   const [picking, setPicking] = createSignal<"logo" | "cover" | null>(null);
   const [browsing, setBrowsing] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
+  const [editingRules, setEditingRules] = createSignal(false);
+  const [managingMembers, setManagingMembers] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   // Always the latest version of this collection (after each change).
   const c = () => collections.byKey().get(props.c.key) ?? props.c;
   const members = () => collections.gamesOf(c());
   const mine = () => c().kind === "mine";
+  const smart = () => c().kind === "smart";
 
   async function run(f: () => Promise<unknown>) {
     setError(null);
@@ -216,12 +239,12 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           }}
         </Show>
         <p class="dim small">
-          Automatic shows a mosaic of its covers{mine() ? "" : " with the series' first logo"}. Your own image (PNG, JPEG or
+          Automatic shows a mosaic of its covers{mine() || smart() ? "" : " with the series' first logo"}. Your own image (PNG, JPEG or
           WebP) is copied into KB's folder.
         </p>
 
-        <Show when={mine()}>
-          <h3>Collection</h3>
+        <Show when={mine() || smart()}>
+          <h3>{smart() ? "Smart collection" : "Collection"}</h3>
           <div class="row">
             <button class="btn" onClick={() => renameCollection(c())}>
               Rename…
@@ -233,17 +256,31 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
               Move later
             </button>
           </div>
-          <div class="row">
-            <span class="dim">Order games by</span>
-            <For each={[["added", "When added"], ["title", "Title"], ["release", "Release date"]] as const}>
-              {([value, label]) => (
-                <button class="btn small" classList={{ selected: c().gameOrder === value }} onClick={() => void run(() => api.setCollectionOrder(c().key, value))}>
-                  {label}
-                </button>
-              )}
-            </For>
-          </div>
-          <p class="dim small">Add or remove games from a game's details: Collections….</p>
+          <Show when={smart()}>
+            <div class="row">
+              <button class="btn" onClick={() => setEditingRules(true)}>
+                Edit rules…
+              </button>
+            </div>
+          </Show>
+          <Show when={mine()}>
+            <div class="row">
+              <span class="dim">Order games by</span>
+              <For each={[["added", "When added"], ["title", "Title"], ["release", "Release date"]] as const}>
+                {([value, label]) => (
+                  <button class="btn small" classList={{ selected: c().gameOrder === value }} onClick={() => void run(() => api.setCollectionOrder(c().key, value))}>
+                    {label}
+                  </button>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={mine()}>
+            <div class="row">
+              <button class="btn" onClick={() => setManagingMembers(true)}>Add games…</button>
+            </div>
+            <p class="dim small">Tick games to add them. On the collection page, press Y or right-click a game to remove it.</p>
+          </Show>
           <div class="row">
             <Show
               when={confirmDelete()}
@@ -271,12 +308,13 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
             </Show>
           </div>
         </Show>
-        <Show when={!mine()}>
+        <Show when={!mine() && !smart()}>
           <h3>Collections tab</h3>
           <div class="row">
             <button class="btn" onClick={() => void run(() => api.setCollectionHidden(c().key, !c().hidden))}>
               {c().hidden ? "Show in Collections" : "Hide from Collections"}
             </button>
+            <button class="btn" onClick={() => setManagingMembers(true)}>Add games…</button>
           </div>
         </Show>
 
@@ -305,6 +343,88 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           onClose={() => setBrowsing(false)}
         />
       </Show>
+      <Show when={editingRules()}>
+        <FilterPanel
+          initial={c().rules ?? {}}
+          onSave={(r) => {
+            void run(() => api.setCollectionRules(c().key, r)).then(() => setEditingRules(false));
+          }}
+          onClose={() => setEditingRules(false)}
+        />
+      </Show>
+      <Show when={managingMembers()}>
+        <CollectionMembersPicker
+          c={c()}
+          onClose={() => setManagingMembers(false)}
+        />
+      </Show>
+    </div>
+  );
+}
+
+/** Searchable, tick-to-toggle membership editor for a manual collection or series. */
+function CollectionMembersPicker(props: { c: Collection; onClose: () => void }) {
+  const [query, setQuery] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const collection = () => collections.byKey().get(props.c.key) ?? props.c;
+  const selected = createMemo(() => new Set(collections.gamesOf(collection()).map((g) => g.id)));
+  const matching = createMemo(() => {
+    const q = query().trim().toLocaleLowerCase();
+    const found = library.games().filter((g) => !q || `${g.title} ${g.variant ?? ""} ${g.platformId}`.toLocaleLowerCase().includes(q));
+    return { total: found.length, games: found.slice(0, 120) };
+  });
+
+  async function toggle(game: GameRow, member: boolean) {
+    if (busy()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setInCollection(props.c.key, game.id, member);
+      await collections.reload();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <NavScope class="panel col-picker col-members-picker" modal onBack={props.onClose}>
+        <h2>Add games</h2>
+        <p class="dim">{collection().name} · tick or untick games to change its members.</p>
+        <input
+          class="input"
+          data-autofocus
+          type="search"
+          placeholder="Search games…"
+          value={query()}
+          onInput={(e) => setQuery(e.currentTarget.value)}
+        />
+        <p class="dim small">
+          {matching().total > matching().games.length ? `Showing ${matching().games.length} of ${matching().total}; search to narrow the list.` : `${matching().total} games`}
+        </p>
+        <div class="col-picker-list">
+          <For each={matching().games}>
+            {(g) => (
+              <label class="col-member" classList={{ selected: selected().has(g.id) }}>
+                <input type="checkbox" checked={selected().has(g.id)} disabled={busy()} onChange={(e) => void toggle(g, e.currentTarget.checked)} />
+                <span>{g.title}{g.variant ? ` · ${g.variant}` : ""}</span>
+                <small>{library.platforms().find((p) => p.id === g.platformId)?.shortName ?? g.platformId}</small>
+              </label>
+            )}
+          </For>
+          <Show when={matching().games.length === 0}>
+            <p class="dim">No games match that search.</p>
+          </Show>
+        </div>
+        <Show when={error()}><p class="warn">{error()}</p></Show>
+        <div class="panel-actions">
+          <div class="hints-row"><Hint action="select" label="Choose" /><Hint action="back" label="Done" /></div>
+          <button class="btn" onClick={props.onClose}>Done</button>
+        </div>
+      </NavScope>
     </div>
   );
 }

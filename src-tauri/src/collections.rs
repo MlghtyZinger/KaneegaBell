@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use rusqlite::{params, Connection};
-use serde::Serialize;
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
 
 use crate::db::queries;
 use crate::error::{Error, Result};
@@ -27,6 +27,9 @@ pub struct Collection {
     pub hidden: bool,
     /// The user's collections: "added" | "title" | "release".
     pub game_order: Option<String>,
+    /// Smart collections: the saved filter rules (none for manual/series).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rules: Option<Rules>,
 }
 
 /// A logo the user picked.
@@ -39,6 +42,89 @@ pub enum Logo {
     Cover { id: i64 },
     /// The user's own image (version: cache-buster).
     File { version: i64 },
+}
+
+/// A smart collection's saved filter rules. Every field is optional; an empty
+/// set matches every game. Stored as JSON in `collections.rules`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Rules {
+    #[serde(default)]
+    pub platforms: Vec<String>,
+    #[serde(default)]
+    pub genres: Vec<i64>,
+    #[serde(default)]
+    pub developers: Vec<String>,
+    #[serde(default)]
+    pub publishers: Vec<String>,
+    #[serde(default)]
+    pub year_from: Option<i64>,
+    #[serde(default)]
+    pub year_to: Option<i64>,
+    /// "played" | "unplayed" | null (any).
+    #[serde(default)]
+    pub played: Option<String>,
+    #[serde(default)]
+    pub favorite: bool,
+    /// Play-time bounds in seconds (inclusive).
+    #[serde(default)]
+    pub play_from: Option<i64>,
+    #[serde(default)]
+    pub play_to: Option<i64>,
+}
+
+impl Rules {
+    /// Trims, dedups and sorts the list fields so the same filter is written the
+    /// same way, then rejects nonsense (negative ids, a from above its to).
+    fn normalize(&mut self) {
+        let tidy = |v: &mut Vec<String>| {
+            for s in v.iter_mut() {
+                *s = s.trim().to_string();
+            }
+            v.retain(|s| !s.is_empty());
+            v.sort();
+            v.dedup();
+        };
+        tidy(&mut self.platforms);
+        tidy(&mut self.developers);
+        tidy(&mut self.publishers);
+        self.genres.sort_unstable();
+        self.genres.dedup();
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.genres.iter().any(|&g| g < 1) {
+            return Err(Error::msg("A genre id must be positive."));
+        }
+        if self.year_from.is_some_and(|y| y < 1) || self.year_to.is_some_and(|y| y < 1) {
+            return Err(Error::msg("A year must be positive."));
+        }
+        if let (Some(a), Some(b)) = (self.year_from, self.year_to) {
+            if a > b {
+                return Err(Error::msg("The year range is backwards."));
+            }
+        }
+        if let Some(p) = &self.played {
+            if !matches!(p.as_str(), "played" | "unplayed") {
+                return Err(Error::msg("Played must be 'played' or 'unplayed'."));
+            }
+        }
+        if self.play_from.is_some_and(|p| p < 0) || self.play_to.is_some_and(|p| p < 0) {
+            return Err(Error::msg("Play-time values can't be negative."));
+        }
+        if let (Some(a), Some(b)) = (self.play_from, self.play_to) {
+            if a > b {
+                return Err(Error::msg("The play-time range is wrong."));
+            }
+        }
+        Ok(())
+    }
+
+    fn to_json(mut self) -> Result<String> {
+        self.normalize();
+        self.validate()?;
+        serde_json::to_string(&self).map_err(Error::from)
+    }
 }
 
 /// Where a collection's own logo image lives (`data\art\c\`).
@@ -97,19 +183,23 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
     let looks = looks(conn)?;
     let mut out = Vec::new();
 
-    let mut stmt = conn.prepare("SELECT id, name, game_order FROM collections ORDER BY sort_order, id")?;
-    let mine: Vec<(i64, String, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
-    for (id, name, order) in mine {
+    let mut stmt = conn.prepare("SELECT id, name, game_order, rules FROM collections ORDER BY sort_order, id")?;
+    let mine: Vec<(i64, String, String, Option<String>)> =
+        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<rusqlite::Result<_>>()?;
+    for (id, name, order, rules_json) in mine {
         let key = format!("c:{id}");
         let look = looks.get(&key);
+        let rules = rules_json.as_deref().and_then(|s| serde_json::from_str::<Rules>(s).ok());
+        let smart = rules.is_some();
         out.push(Collection {
-            games: games_of(conn, id, &order)?,
+            games: if smart { Vec::new() } else { games_of(conn, id, &order)? },
             logo: logo_of(look),
             hidden: false,
-            game_order: Some(order),
+            game_order: (!smart).then_some(order),
+            rules,
             name,
             key,
-            kind: "mine".into(),
+            kind: if smart { "smart".into() } else { "mine".into() },
         });
     }
 
@@ -143,31 +233,95 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
             s.members.push((game, entry, year, ord, title));
         }
     }
-    let mut series: Vec<(i64, Series)> = series.into_iter().filter(|(_, s)| s.members.len() >= 2).collect();
+    let mut stmt = conn.prepare(
+        "SELECT series_qid, MAX(series_name), MAX(series_kind)
+         FROM series_membership_overrides GROUP BY series_qid",
+    )?;
+    let saved_series: Vec<(i64, String, String)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (qid, name, kind) in saved_series {
+        series.entry(qid).or_insert_with(|| Series { name, kind, members: Vec::new() });
+    }
+    let mut series: Vec<(i64, Series)> = series.into_iter().collect();
     series.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase()).then(a.1.kind.cmp(&b.1.kind).reverse()));
     let mut names = std::collections::HashSet::new();
-    for (qid, mut s) in series {
+    for (qid, s) in series {
         // A franchise named like a series shows once (as the series).
+        let games = series_game_ids(conn, qid)?;
+        let customized: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM series_membership_overrides WHERE series_qid = ?1)",
+            [qid],
+            |r| r.get(0),
+        )?;
+        if games.len() < 2 && !customized {
+            continue;
+        }
         if !names.insert(s.name.to_lowercase()) {
             continue;
         }
-        let num = |o: &Option<String>| o.as_deref().and_then(|v| v.trim().parse::<f64>().ok()).unwrap_or(f64::MAX);
-        s.members.sort_by(|a, b| {
-            a.2.unwrap_or(i64::MAX).cmp(&b.2.unwrap_or(i64::MAX)).then(num(&a.3).total_cmp(&num(&b.3))).then_with(|| a.4.cmp(&b.4))
-        });
         let key = format!("s:{qid}");
         let look = looks.get(&key);
         out.push(Collection {
-            games: s.members.iter().map(|m| m.0).collect(),
+            games,
             logo: logo_of(look),
             hidden: look.is_some_and(|l| l.hidden),
             game_order: None,
+            rules: None,
             name: s.name,
             kind: s.kind,
             key,
         });
     }
     Ok(out)
+}
+
+/// A Wikidata series' games, with persistent user additions and removals
+/// applied on top of its current source membership.
+pub fn series_game_ids(conn: &Connection, qid: i64) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT g.id, g.wd_id, w.year, gs.ord, g.sort_title
+         FROM wd_game_series gs
+         JOIN games g ON g.wd_id = gs.game_qid AND g.wd_status = 'ok' AND g.missing = 0
+         LEFT JOIN wd_games w ON w.qid = gs.game_qid
+         WHERE gs.series_qid = ?1
+         ORDER BY g.id",
+    )?;
+    type Member = (i64, i64, Option<i64>, Option<String>, String);
+    let rows: Vec<Member> = stmt
+        .query_map([qid], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut seen_entries = std::collections::HashSet::new();
+    let mut members: Vec<Member> = rows.into_iter().filter(|m| seen_entries.insert(m.1)).collect();
+
+    let mut stmt = conn.prepare_cached(
+        "SELECT g.id, g.wd_id, w.year, g.sort_title, o.member
+         FROM series_membership_overrides o
+         JOIN games g ON g.id = o.game_id AND g.missing = 0
+         LEFT JOIN wd_games w ON w.qid = g.wd_id
+         WHERE o.series_qid = ?1",
+    )?;
+    let overrides: Vec<(i64, Option<i64>, Option<i64>, String, bool)> = stmt
+        .query_map([qid], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (game, entry, year, title, member) in overrides {
+        if member {
+            if !members.iter().any(|m| m.0 == game) {
+                members.push((game, entry.unwrap_or(game), year, None, title));
+            }
+        } else {
+            members.retain(|m| m.0 != game);
+        }
+    }
+
+    let number = |o: &Option<String>| o.as_deref().and_then(|v| v.trim().parse::<f64>().ok()).unwrap_or(f64::MAX);
+    members.sort_by(|a, b| {
+        a.2.unwrap_or(i64::MAX)
+            .cmp(&b.2.unwrap_or(i64::MAX))
+            .then(number(&a.3).total_cmp(&number(&b.3)))
+            .then_with(|| a.4.cmp(&b.4))
+    });
+    Ok(members.into_iter().map(|m| m.0).collect())
 }
 
 /// A collection's present games in its chosen order.
@@ -215,6 +369,25 @@ pub fn create(conn: &Connection, name: &str, first_game: Option<i64>) -> Result<
     Ok(key)
 }
 
+/// A new smart collection (last in the list) whose games follow `rules`. Returns its key.
+pub fn create_smart(conn: &Connection, name: &str, rules: Rules) -> Result<String> {
+    let name = clean_name(name)?;
+    let json = rules.to_json()?;
+    let next: i64 = conn.query_row("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM collections", [], |r| r.get(0))?;
+    conn.execute(
+        "INSERT INTO collections (name, sort_order, created_at, rules) VALUES (?1, ?2, ?3, ?4)",
+        params![name, next, queries::now(), json],
+    )?;
+    Ok(format!("c:{}", conn.last_insert_rowid()))
+}
+
+/// Replaces a smart collection's rules (turns a manual one smart if given).
+pub fn set_rules(conn: &Connection, key: &str, rules: Rules) -> Result<()> {
+    let json = rules.to_json()?;
+    conn.execute("UPDATE collections SET rules = ?2 WHERE id = ?1", params![mine_id(key)?, json])?;
+    Ok(())
+}
+
 pub fn rename(conn: &Connection, key: &str, name: &str) -> Result<()> {
     conn.execute("UPDATE collections SET name = ?2 WHERE id = ?1", params![mine_id(key)?, clean_name(name)?])?;
     Ok(())
@@ -237,15 +410,61 @@ fn now_millis() -> i64 {
 
 /// Adds a game to (or removes it from) one of the user's collections.
 pub fn set_member(conn: &Connection, key: &str, game_id: i64, member: bool) -> Result<()> {
-    let id = mine_id(key)?;
-    if member {
-        conn.execute(
-            "INSERT OR IGNORE INTO collection_games (collection_id, game_id, added_at) VALUES (?1, ?2, ?3)",
-            params![id, game_id, now_millis()],
-        )?;
-    } else {
-        conn.execute("DELETE FROM collection_games WHERE collection_id = ?1 AND game_id = ?2", params![id, game_id])?;
+    match parse_key(key) {
+        Some(('c', id)) => {
+            let smart: Option<bool> = conn
+                .query_row("SELECT rules IS NOT NULL FROM collections WHERE id = ?1", [id], |r| r.get(0))
+                .optional()?;
+            match smart {
+                None => return Err(Error::msg("That collection no longer exists.")),
+                Some(true) => return Err(Error::msg("Games in a smart collection follow its rules.")),
+                Some(false) => {}
+            }
+            if member {
+                conn.execute(
+                    "INSERT OR IGNORE INTO collection_games (collection_id, game_id, added_at) VALUES (?1, ?2, ?3)",
+                    params![id, game_id, now_millis()],
+                )?;
+            } else {
+                conn.execute("DELETE FROM collection_games WHERE collection_id = ?1 AND game_id = ?2", params![id, game_id])?;
+            }
+            Ok(())
+        }
+        Some(('s', qid)) => set_series_member(conn, qid, game_id, member),
+        _ => Err(Error::msg("That collection can't be changed.")),
     }
+}
+
+fn set_series_member(conn: &Connection, qid: i64, game_id: i64, member: bool) -> Result<()> {
+    let exists: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM games WHERE id = ?1 AND missing = 0)", [game_id], |r| r.get(0))?;
+    if !exists {
+        return Err(Error::msg("That game is no longer in the library."));
+    }
+    let known: Option<(String, String)> = conn
+        .query_row(
+            "SELECT s.name,
+                    CASE WHEN EXISTS(SELECT 1 FROM wd_game_series gs WHERE gs.series_qid = s.qid AND gs.kind = 'series')
+                         THEN 'series' ELSE 'franchise' END
+             FROM wd_series s WHERE s.qid = ?1",
+            [qid],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    let saved: Option<(String, String)> = conn
+        .query_row(
+            "SELECT series_name, series_kind FROM series_membership_overrides WHERE series_qid = ?1 LIMIT 1",
+            [qid],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    let (name, kind) = known.or(saved).ok_or_else(|| Error::msg("That series is no longer available."))?;
+    conn.execute(
+        "INSERT INTO series_membership_overrides (series_qid, game_id, member, series_name, series_kind)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(series_qid, game_id) DO UPDATE SET
+           member = excluded.member, series_name = excluded.series_name, series_kind = excluded.series_kind",
+        params![qid, game_id, member, name, kind],
+    )?;
     Ok(())
 }
 

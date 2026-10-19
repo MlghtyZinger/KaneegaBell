@@ -383,6 +383,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       Wikidata (a refresh never undoes them); "Search logos…" beyond the members' own (e.g. Armored Core offers only
       V and Verdict Day today): SteamGridDB search with the user's key (LaunchBox keeps only owned games' picture
       lists); own image file stays.
+      **Member editing built 2026-10-19 (0.3.9):** collection editor has a searchable tick picker; Y/right-click removes
+      a game from an open manual collection or series; series membership corrections persist across Wikidata refreshes.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
       **Owner (2026-10-18): model the app's look around the icon** (concept L: black, ember red-orange, cream, gold)
       when themes come; likely the default or a built-in theme.

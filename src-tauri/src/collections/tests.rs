@@ -148,3 +148,35 @@ fn logos_can_be_a_game_s_logo_a_cover_or_your_own_image() {
     delete(&conn, dir.path(), &key).unwrap();
     assert!(!stored.exists());
 }
+
+#[test]
+fn smart_collections_store_and_validate_their_rules() {
+    let conn = db::test_db();
+    let a = add_game(&conn, "A");
+    let _b = add_game(&conn, "B");
+
+    let key = create_smart(&conn, "  Platformers  ", Rules { genres: vec![3], played: Some("played".into()), ..Default::default() }).unwrap();
+    let cols = list(&conn).unwrap();
+    let c = find(&cols, &key);
+    assert_eq!((c.name.as_str(), c.kind.as_str()), ("Platformers", "smart"));
+    assert!(c.games.is_empty(), "smart membership is computed in the UI");
+    assert!(c.game_order.is_none());
+    assert_eq!(c.rules.as_ref().unwrap().genres, vec![3]);
+    assert_eq!(c.rules.as_ref().unwrap().played.as_deref(), Some("played"));
+
+    // A manual collection has no rules and keeps its kind.
+    let manual = create(&conn, "Manual", Some(a)).unwrap();
+    let cols = list(&conn).unwrap();
+    let mc = find(&cols, &manual);
+    assert_eq!(mc.kind.as_str(), "mine");
+    assert_eq!(mc.rules, None);
+
+    // Updating rules sorts and dedups; nonsense is rejected.
+    set_rules(&conn, &key, Rules { genres: vec![5, 3, 5], ..Default::default() }).unwrap();
+    assert_eq!(find(&list(&conn).unwrap(), &key).rules.as_ref().unwrap().genres, vec![3, 5]);
+    assert!(set_rules(&conn, &key, Rules { genres: vec![0], ..Default::default() }).is_err());
+    assert!(set_rules(&conn, &key, Rules { year_from: Some(2000), year_to: Some(1990), ..Default::default() }).is_err());
+    assert!(set_rules(&conn, &key, Rules { played: Some("sometimes".into()), ..Default::default() }).is_err());
+    assert!(set_rules(&conn, &key, Rules { play_from: Some(500), play_to: Some(100), ..Default::default() }).is_err());
+    assert!(create_smart(&conn, "Bad", Rules { genres: vec![-1], ..Default::default() }).is_err());
+}

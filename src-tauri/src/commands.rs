@@ -1251,6 +1251,18 @@ pub fn rename_collection(state: State<'_, AppState>, key: String, name: String) 
     crate::collections::rename(&state.db(), &key, &name)
 }
 
+/// A new smart collection whose games follow the given filter rules. Returns its key.
+#[tauri::command]
+pub fn create_smart_collection(state: State<'_, AppState>, name: String, rules: crate::collections::Rules) -> Result<String> {
+    crate::collections::create_smart(&state.db(), &name, rules)
+}
+
+/// Replaces a collection's saved filter rules.
+#[tauri::command]
+pub fn set_collection_rules(state: State<'_, AppState>, key: String, rules: crate::collections::Rules) -> Result<()> {
+    crate::collections::set_rules(&state.db(), &key, rules)
+}
+
 #[tauri::command]
 pub fn delete_collection(state: State<'_, AppState>, key: String) -> Result<()> {
     crate::collections::delete(&state.db(), state.data_dir(), &key)

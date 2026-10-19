@@ -493,50 +493,37 @@ pub struct Series {
 /// A game's series, then franchises (no repeated names).
 pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT gs.series_qid, s.name, gs.kind, gs.ord, g.wd_id FROM games g
+        "SELECT gs.series_qid, s.name, gs.kind, gs.ord FROM games g
          JOIN wd_game_series gs ON gs.game_qid = g.wd_id
          JOIN wd_series s ON s.qid = gs.series_qid
          WHERE g.id = ?1 AND g.wd_status = 'ok'
          ORDER BY gs.kind DESC, s.name",
     )?;
-    let rows: Vec<(i64, String, String, Option<String>, i64)> = stmt
-        .query_map([game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
+    let rows: Vec<(i64, String, String, Option<String>)> = stmt
+        .query_map([game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
         .collect::<rusqlite::Result<_>>()?;
-    let mut members = conn.prepare_cached(
-        "SELECT g.id, g.wd_id, gs.ord, w.year, g.sort_title FROM wd_game_series gs
-         JOIN games g ON g.wd_id = gs.game_qid AND g.wd_status = 'ok' AND g.missing = 0
-         LEFT JOIN wd_games w ON w.qid = gs.game_qid
-         WHERE gs.series_qid = ?1 AND gs.kind = ?2
-         ORDER BY g.id",
+    let mut candidates = rows;
+    let mut stmt = conn.prepare_cached(
+        "SELECT series_qid, MAX(series_name), MAX(series_kind), NULL
+         FROM series_membership_overrides
+         WHERE game_id = ?1 AND member = 1
+         GROUP BY series_qid",
     )?;
+    candidates.extend(
+        stmt.query_map([game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?
+            .collect::<rusqlite::Result<Vec<(i64, String, String, Option<String>)>>>()?,
+    );
     let mut seen = HashSet::new();
     let mut out = Vec::new();
-    for (series_qid, name, kind, number, own_qid) in rows {
-        if !seen.insert(name.to_lowercase()) {
+    for (series_qid, name, kind, number) in candidates {
+        if !seen.insert(series_qid) {
             continue;
         }
-        type Member = (i64, i64, Option<String>, Option<i64>, String);
-        let list: Vec<Member> = members
-            .query_map(params![series_qid, kind], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?
-            .collect::<rusqlite::Result<_>>()?;
-        // Two copies of one game (e.g. two regions): this one, else the first.
-        let mut by_entry: HashMap<i64, Member> = HashMap::new();
-        for m in list {
-            if m.1 == own_qid && m.0 != game_id {
-                continue;
-            }
-            by_entry.entry(m.1).or_insert(m);
+        let games = crate::collections::series_game_ids(conn, series_qid)?;
+        if !games.contains(&game_id) {
+            continue;
         }
-        let mut list: Vec<Member> = by_entry.into_values().collect();
-        // Release order; the series number settles games from the same year.
-        let num = |o: &Option<String>| o.as_deref().and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(f64::MAX);
-        list.sort_by(|a, b| {
-            a.3.unwrap_or(i64::MAX)
-                .cmp(&b.3.unwrap_or(i64::MAX))
-                .then(num(&a.2).total_cmp(&num(&b.2)))
-                .then_with(|| a.4.cmp(&b.4))
-        });
-        out.push(Series { key: format!("s:{series_qid}"), name, kind, number, games: list.into_iter().map(|m| m.0).collect() });
+        out.push(Series { key: format!("s:{series_qid}"), name, kind, number, games });
     }
     Ok(out)
 }

@@ -1,6 +1,7 @@
 import { createMemo, createRoot, createSignal } from "solid-js";
 import { api, artUrl, collectionLogoUrl, events, type Collection, type GameRow } from "../api";
 import { library } from "./library";
+import { matchesRules } from "./smartFilter";
 
 /** A picture to show for a collection: a logo (shown whole) or a cover (fills). */
 export interface CollectionPicture {
@@ -22,15 +23,28 @@ function createCollections() {
   }
 
   const byKey = createMemo(() => new Map(list().map((c) => [c.key, c])));
-  // The library's "col:<key>" tabs read their games from here.
-  library.setCollectionLookup(() => (key: string) => byKey().get(key)?.games ?? null);
   const rows = createMemo(() => new Map(library.games().map((g) => [g.id, g])));
-  /** A collection's games that are in the library, in its order. */
-  const gamesOf = (c: Collection): GameRow[] => c.games.map((id) => rows().get(id)).filter((g): g is GameRow => !!g);
-  const visible = createMemo(() => list().filter((c) => (showHidden() || !c.hidden) && (c.kind === "mine" || gamesOf(c).length >= 2)));
+  /** A smart collection's game ids, computed live from the library and its rules. */
+  const smartIds = (c: Collection): number[] =>
+    c.kind === "smart" && c.rules ? library.games().filter((g) => matchesRules(g, c.rules!)).map((g) => g.id) : [];
+  // The library's "col:<key>" tabs read their games from here.
+  library.setCollectionLookup(() => (key: string) => {
+    const c = byKey().get(key);
+    return c ? (c.kind === "smart" ? smartIds(c) : c.games) : null;
+  });
+  /** A collection's games that are in the library, in its order (smart: its rules). */
+  const gamesOf = (c: Collection): GameRow[] =>
+    c.kind === "smart"
+      ? smartIds(c).map((id) => rows().get(id)).filter((g): g is GameRow => !!g)
+      : c.games.map((id) => rows().get(id)).filter((g): g is GameRow => !!g);
+  const visible = createMemo(() =>
+    list().filter((c) => (showHidden() || !c.hidden) && (c.kind === "smart" || c.kind === "mine" || gamesOf(c).length >= 2)),
+  );
   const hiddenCount = createMemo(() => list().filter((c) => c.hidden).length);
-  /** The user's own collections (games can be added to these). */
+  /** The user's own manual collections (games can be added to these). */
   const mine = createMemo(() => list().filter((c) => c.kind === "mine"));
+  /** Smart collections (their games follow saved rules). */
+  const smart = createMemo(() => list().filter((c) => c.kind === "smart"));
 
   /** The logo the user picked, if it can be shown. */
   function chosenPicture(c: Collection): CollectionPicture | null {
@@ -65,7 +79,7 @@ function createCollections() {
     void events.onScanFinished(() => void reload());
   }
 
-  return { list, reload, listen, byKey, visible, mine, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic };
+  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic };
 }
 
 export const collections = createRoot(createCollections);

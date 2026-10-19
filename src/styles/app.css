@@ -2496,6 +2496,42 @@ html.nav-mode .tv-menu-item:focus {
   overflow-y: auto;
 }
 
+.col-members-picker {
+  width: min(700px, 94vw);
+}
+
+.col-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.col-member:hover,
+.col-member.selected {
+  background: var(--surface);
+}
+
+.col-member.selected {
+  border-color: var(--accent);
+}
+
+.col-member span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-member small {
+  color: var(--text-faint);
+}
+
 /* ------------------------------------------------------------ Slim top bar + rail */
 
 .icon {
@@ -2599,6 +2635,52 @@ html.nav-mode .tv-menu-item:focus {
 
 .genre-picker.compact {
   font-size: var(--fs-sm);
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.filter-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-btn.active {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.filter-btn.nav-focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.filter-panel {
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.check {
+  display: inline-block;
+  width: 1.2em;
 }
 
 .library {

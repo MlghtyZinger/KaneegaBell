@@ -4,6 +4,7 @@ import {
   events,
   type ArtProgress,
   type ArtSummary,
+  type CollectionRules,
   type GameChange,
   type GameRow,
   type Genre,
@@ -21,6 +22,7 @@ import {
   type ScanProgress,
   type ScanSummary,
 } from "../api";
+import { countActive, distinct, emptyRules, matchesRules } from "./smartFilter";
 
 /**
  * A library tab: everything, a pseudo-filter, one platform id, the
@@ -135,9 +137,14 @@ function createLibraryStore() {
       .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0)),
   );
 
-  /** Genres (from IGDB) and the active genre filter (applies on top of the tab or search). */
+  /** Genres (from IGDB) for the filter. */
   const [genres, setGenres] = createSignal<Genre[]>([]);
-  const [genre, setGenre] = createSignal<number | null>(null);
+  /** The active saved filter (applies on top of the tab or search). */
+  const [filter, setFilter] = createSignal<CollectionRules>(emptyRules());
+  /** A string key of the filter, so views can key animations on it. */
+  const filterKey = createMemo(() => JSON.stringify(filter()));
+  const activeFilter = createMemo(() => countActive(filter()) > 0);
+  const clearFilter = () => setFilter(emptyRules());
 
   /** A collection's game ids by key (set by the collections store). */
   const [collectionGames, setCollectionLookup] = createSignal<(key: string) => number[] | null>(() => null);
@@ -166,16 +173,19 @@ function createLibraryStore() {
     return games().filter((g) => g.platformId === p);
   });
   const visibleGames = createMemo(() => {
-    const id = genre();
-    const list = tabOrSearch();
-    return id === null ? list : list.filter((g) => g.genres?.includes(id));
+    const r = filter();
+    if (countActive(r) === 0) return tabOrSearch();
+    return tabOrSearch().filter((g) => matchesRules(g, r));
   });
-  /** How many games in the current tab/search have each genre (for the picker). */
+  /** How many games in the current tab/search have each genre (for the filter). */
   const genreCounts = createMemo(() => {
     const counts = new Map<number, number>();
     for (const g of tabOrSearch()) for (const id of g.genres ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
     return counts;
   });
+  /** Distinct developers / publishers in the library, for the filter pickers. */
+  const developers = createMemo(() => distinct(games().map((g) => g.developer)));
+  const publishers = createMemo(() => distinct(games().map((g) => g.publisher)));
 
   const platformTabs = createMemo<PlatformFilter[]>(() => [
     "all",
@@ -190,7 +200,12 @@ function createLibraryStore() {
     setPlatforms(lib.platforms);
     setGames(lib.games);
     setGenres(lib.genres ?? []);
-    if (genre() !== null && !lib.genres?.some((x) => x.id === genre())) setGenre(null);
+    // Drop genre ids from the filter that no longer exist (metadata was reset).
+    if (filter().genres?.length) {
+      const ids = new Set((lib.genres ?? []).map((x) => x.id));
+      const kept = filter().genres!.filter((id) => ids.has(id));
+      if (kept.length !== filter().genres!.length) setFilter({ ...filter(), genres: kept.length ? kept : undefined });
+    }
     // Keep the current tab if it still exists (a collection checks itself).
     if (!platformTabs().includes(platform()) && !collectionKeyOf(platform())) setPlatform("all");
     setLoaded(true);
@@ -337,9 +352,14 @@ function createLibraryStore() {
     panelWidth,
     setPanelWidth,
     genres,
-    genre,
-    setGenre,
+    filter,
+    setFilter,
+    clearFilter,
+    filterKey,
+    activeFilter,
     genreCounts,
+    developers,
+    publishers,
     metaProgress,
     lastMeta,
     metaError,

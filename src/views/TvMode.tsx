@@ -46,7 +46,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   if (library.platform() === "collections") library.setPlatform("all");
 
   // Clamp when the list shrinks; new tab or search starts at the first game.
-  createEffect(on([library.platform, library.query, library.genre], () => setFocused(0), { defer: true }));
+  createEffect(on([library.platform, library.query, library.filterKey], () => setFocused(0), { defer: true }));
   createEffect(() => {
     const n = games().length;
     if (focused() >= n) setFocused(Math.max(0, n - 1));
@@ -195,7 +195,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       }
       case "back":
         if (library.query()) library.setQuery("");
-        else if (library.genre() !== null) library.setGenre(null);
+        else if (library.activeFilter()) library.clearFilter();
         return true;
       case "menu": setMenuOpen(true); return true;
       case "toggleTv": props.onExit(); return true;
@@ -316,7 +316,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       >
         <Show when={games().length > 0}>
           {/* Keyed by tab/search so a new list slides in. */}
-          <Show when={`${library.platform()}|${library.query()}|${library.genre()}`} keyed>
+          <Show when={`${library.platform()}|${library.query()}|${library.filterKey()}`} keyed>
             <div
               class="tv-track"
               style={{ transform: `translate3d(${-(offsets()[focused()] ?? 0)}px, 0, 0)`, height: `${shelfH()}px` }}

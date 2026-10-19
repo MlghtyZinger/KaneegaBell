@@ -24,6 +24,10 @@ export interface GameRow {
   /** TV Mode hero (wide background) / logo versions (SteamGridDB); absent when none. */
   hero?: number;
   logo?: number;
+  /** Developer / publisher / release year (LaunchBox, else IGDB, else Wikidata). */
+  developer?: string | null;
+  publisher?: string | null;
+  year?: number | null;
 }
 
 export interface PlatformSummary {
@@ -79,19 +83,36 @@ export interface GameMetadata {
 /** A logo the user picked for a collection or series. */
 export type CollectionLogo = { type: "game"; id: number } | { type: "cover"; id: number } | { type: "file"; version: number };
 
-/** One of the user's collections, or a series / franchise shown as one. */
+/** A smart collection's saved filter rules. Every field is optional. */
+export interface CollectionRules {
+  platforms?: string[];
+  genres?: number[];
+  developers?: string[];
+  publishers?: string[];
+  yearFrom?: number | null;
+  yearTo?: number | null;
+  played?: "played" | "unplayed" | null;
+  favorite?: boolean;
+  /** Play-time bounds in seconds (inclusive). */
+  playFrom?: number | null;
+  playTo?: number | null;
+}
+
+/** One of the user's collections, a series / franchise, or a smart collection. */
 export interface Collection {
-  /** "c:<id>" (the user's) or "s:<series>" (from Wikidata). */
+  /** "c:<id>" (yours, manual or smart) or "s:<series>" (from Wikidata). */
   key: string;
   name: string;
-  kind: "mine" | "series" | "franchise";
-  /** The games in it, in its order. */
+  kind: "mine" | "series" | "franchise" | "smart";
+  /** The games in it, in its order (empty for a smart collection; the UI follows its rules). */
   games: number[];
   logo: CollectionLogo | null;
   /** Series hidden from the Collections tab. */
   hidden: boolean;
   /** The user's collections: how its games are ordered. */
   gameOrder: "added" | "title" | "release" | null;
+  /** The saved filter rules for a smart collection. */
+  rules?: CollectionRules | null;
 }
 
 /** A collection's or series' own logo image (the user's file, copied into KB's folder). */
@@ -647,7 +668,9 @@ export const api = {
   forgetRemoved: () => invoke<number>("forget_removed"),
   listCollections: () => invoke<Collection[]>("list_collections"),
   createCollection: (name: string, gameId: number | null) => invoke<string>("create_collection", { name, gameId }),
+  createSmartCollection: (name: string, rules: CollectionRules) => invoke<string>("create_smart_collection", { name, rules }),
   renameCollection: (key: string, name: string) => invoke<void>("rename_collection", { key, name }),
+  setCollectionRules: (key: string, rules: CollectionRules) => invoke<void>("set_collection_rules", { key, rules }),
   deleteCollection: (key: string) => invoke<void>("delete_collection", { key }),
   setInCollection: (key: string, gameId: number, member: boolean) => invoke<void>("set_in_collection", { key, gameId, member }),
   setCollectionOrder: (key: string, order: "added" | "title" | "release") => invoke<void>("set_collection_order", { key, order }),

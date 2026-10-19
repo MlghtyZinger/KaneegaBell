@@ -10,20 +10,22 @@ import {
   newCollection,
   openCollection,
   renameCollection,
+  saveSmartCollection,
 } from "../components/Collections";
 import type { Collection } from "../api";
 import appIcon from "../assets/app-icon.png";
 import { Icon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
+import { countActive } from "../state/smartFilter";
 import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
 import { GameListRow } from "../components/GameListRow";
 import { Hint } from "../components/Hints";
-import { Picker } from "../components/Picker";
+import { FilterPanel } from "../components/FilterPanel";
 import { GameInfo } from "./GameInfo";
 import { GameSidebar } from "../components/GameSidebar";
-import { api, type GameRow } from "../api";
+import { api, errorText, type GameRow } from "../api";
 
 /** What the background worker is doing (one job at a time). */
 function JobPill() {
@@ -107,15 +109,8 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     const g = games()[i];
     if (g) setInfoId(g.id);
   };
-  const [genreOpen, setGenreOpen] = createSignal(false);
-  const genreOptions = createMemo(() => [
-    { value: "", label: "All genres" },
-    ...library
-      .genres()
-      .filter((g) => library.genreCounts().has(g.id) || g.id === library.genre())
-      .map((g) => ({ value: String(g.id), label: `${g.name} (${library.genreCounts().get(g.id) ?? 0})` })),
-  ]);
-  const genreName = () => library.genres().find((g) => g.id === library.genre())?.name;
+  const [filterOpen, setFilterOpen] = createSignal(false);
+  const filterLabel = () => (library.activeFilter() ? `Filter (${countActive(library.filter())})` : "Filter");
   // The grid knows where cards are (rows, sections): D-pad moves ask it.
   let navigate: Navigator | undefined;
 
@@ -129,6 +124,17 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     const k = openKey();
     return k ? collections.byKey().get(k) : undefined;
   };
+  const [collectionError, setCollectionError] = createSignal<string | null>(null);
+  async function removeCollectionMember(c: Collection, game: GameRow) {
+    if (c.kind === "smart") return;
+    setCollectionError(null);
+    try {
+      await api.setInCollection(c.key, game.id, false);
+      await collections.reload();
+    } catch (e) {
+      setCollectionError(errorText(e));
+    }
+  }
   const tiles = createMemo<Tile[]>(() => [
     { kind: "new" },
     ...collections.visible().map((c) => ({ kind: "col" as const, c })),
@@ -200,7 +206,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // New tab, search or genre -> start at the top (back in Collections: on the tile you left).
   createEffect(
-    on([library.platform, library.query, library.genre], () => {
+    on([library.platform, library.query, library.filterKey], () => {
       setSideOpen(false);
       setFocused(overview() ? Math.min(lastTile, tiles().length - 1) : 0);
     }, {
@@ -263,7 +269,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // Controller focus on the top bar (up from the top row), or null.
   const [topFocus, setTopFocus] = createSignal<string | null>(null);
-  const topActions = () => ["search", ...(library.genres().length > 0 ? ["genre"] : []), "tv", "settings"];
+  const topActions = () => ["search", "filter", "tv", "settings"];
   function topAction(a: Action): boolean {
     const acts = topActions();
     const i = Math.max(0, acts.indexOf(topFocus()!));
@@ -277,7 +283,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         const f = topFocus();
         setTopFocus(null);
         if (f === "search") openSearch();
-        else if (f === "genre") setGenreOpen(true);
+        else if (f === "filter") setFilterOpen(true);
         else if (f === "tv") props.onTvMode();
         else props.onOpenSettings();
         return true;
@@ -366,14 +372,18 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         return true;
       case "toggleGroups": library.setListView(!library.listView()); return true;
       case "filter":
-        if (library.genres().length > 0) setGenreOpen(true);
+        setFilterOpen(true);
         return true;
       case "prevPlatform": library.cyclePlatform(-1); return true;
       case "nextPlatform": library.cyclePlatform(1); return true;
       case "prevLetter": if (!overview()) jumpLetter(-1); return true;
       case "nextLetter": if (!overview()) jumpLetter(1); return true;
       // △ / Y / F: the full details screen (in the Collections overview: edit the collection).
-      case "favorite": if (overview()) editTile(focused()); else openDetails(focused()); return true;
+      case "favorite":
+        if (overview()) editTile(focused());
+        else if (openCol() && openCol()!.kind !== "smart" && games()[focused()]) void removeCollectionMember(openCol()!, games()[focused()]);
+        else openDetails(focused());
+        return true;
       case "secondary": openSearch(); return true;
       case "select": {
         if (overview()) activateTile(focused());
@@ -385,8 +395,8 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           library.setQuery("");
           return true;
         }
-        if (library.genre() !== null) {
-          library.setGenre(null);
+        if (library.activeFilter()) {
+          library.clearFilter();
           return true;
         }
         if (openKey()) {
@@ -532,18 +542,14 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
               <Icon name="close" />
             </button>
           </Show>
-          <Show when={library.genres().length > 0}>
-            <Picker
-              class={`genre-picker compact${library.genre() !== null ? " active" : ""}${topFocus() === "genre" ? " nav-focus" : ""}`}
-              title="Show genre"
-              value={library.genre() === null ? "" : String(library.genre())}
-              options={genreOptions()}
-              onChange={(v) => library.setGenre(v === "" ? null : Number(v))}
-              open={genreOpen()}
-              onOpenChange={setGenreOpen}
-              label={genreName() ?? "Genre"}
-            />
-          </Show>
+          <button
+            class={`filter-btn compact${library.activeFilter() ? " active" : ""}${topFocus() === "filter" ? " nav-focus" : ""}`}
+            onClick={() => setFilterOpen(true)}
+            title="Filter games"
+          >
+            <Icon name="filter" />
+            <span>{filterLabel()}</span>
+          </button>
           <button class="icon-btn" classList={{ "nav-focus": topFocus() === "tv" }} onClick={props.onTvMode} title="TV Mode (L3 / F10)">
             <Icon name="tv" />
           </button>
@@ -651,6 +657,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           />
         )}
       </Show>
+      <Show when={collectionError()}>
+        <p class="warn collection-error">{collectionError()}</p>
+      </Show>
       <Show
         when={games().length > 0}
         fallback={
@@ -669,23 +678,23 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                 }
               >
                 <Show
-                  when={openKey() && library.genre() === null}
+                  when={openKey() && !library.activeFilter()}
                   fallback={
                     <>
                       <h2>No matches</h2>
                       <p>
                         {library.query() ? `Nothing matches “${library.query()}”` : "No games here"}
-                        {genreName() ? ` in ${genreName()}` : ""}.
+                        {library.activeFilter() ? " with your filter" : ""}.
                       </p>
                       <div class="hints-row">
                         <Hint action="secondary" label="Search again" />
-                        <Hint action="back" label={library.query() ? "Clear search" : "All genres"} />
+                        <Hint action="back" label={library.query() ? "Clear search" : "Clear filter"} />
                       </div>
                     </>
                   }
                 >
-                  <h2>Nothing in this collection yet</h2>
-                  <p>Add games from their details: Collections….</p>
+                  <h2>{openCol()?.kind === "smart" ? "No games match these rules" : "Nothing in this collection yet"}</h2>
+                  <p>{openCol()?.kind === "smart" ? "Edit the rules to find games." : "Choose Edit… then Add games… to fill this collection."}</p>
                   <div class="hints-row">
                     <Hint action="up" label="Rename / Edit" />
                     <Hint action="back" label="Collections" />
@@ -703,7 +712,12 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             focused={focused()}
             onFocus={setFocused}
             onActivate={openSide}
-            onContext={openDetails}
+            onContext={(i) => {
+              const c = openCol();
+              const g = games()[i];
+              if (c && c.kind !== "smart" && g) void removeCollectionMember(c, g);
+              else openDetails(i);
+            }}
             onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
             itemAspect={itemAspect}
@@ -739,11 +753,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <footer class="hints">
           <Hint action="select" label="Open" />
-          <Hint action="favorite" label="Details" />
+          <Hint action="favorite" label={openCol() && openCol()!.kind !== "smart" ? "Remove from collection" : "Details"} />
           <Hint action="secondary" label="Search" />
-          <Show when={library.genres().length > 0}>
-            <Hint action="filter" label="Genre" />
-          </Show>
+          <Hint action="filter" label="Filter" />
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
@@ -801,6 +813,19 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             }}
           />
         )}
+      </Show>
+      <Show when={filterOpen()}>
+        <FilterPanel
+          initial={library.filter()}
+          onChange={(r) => library.setFilter(r)}
+          onSaveAs={(r) =>
+            saveSmartCollection(r, (key) => {
+              setFilterOpen(false);
+              openCollection(key);
+            })
+          }
+          onClose={() => setFilterOpen(false)}
+        />
       </Show>
     </div>
   );
