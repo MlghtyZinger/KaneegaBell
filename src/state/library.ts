@@ -108,6 +108,21 @@ function createLibraryStore() {
     .getSetting<boolean>("listView")
     .then((v) => setListViewRaw(v === true))
     .catch(() => {});
+
+  /** Width of the list view's panel in px; 0 = automatic (a share of the window). */
+  const PANEL_MIN = 320;
+  const PANEL_MAX = 4000;
+  const [panelWidth, setPanelWidthRaw] = createSignal(0);
+  /** Follows the pointer while dragging; `save` stores it (on release, or for a key press). */
+  function setPanelWidth(px: number, save = true) {
+    const w = px <= 0 ? 0 : Math.round(Math.min(PANEL_MAX, Math.max(PANEL_MIN, px)));
+    setPanelWidthRaw(w);
+    if (save) void api.setSetting("listPanelWidth", w).catch(() => {});
+  }
+  void api
+    .getSetting<number>("listPanelWidth")
+    .then((v) => typeof v === "number" && setPanelWidthRaw(v > 0 ? Math.min(PANEL_MAX, Math.max(PANEL_MIN, v)) : 0))
+    .catch(() => {});
   const publishReport = (title: string, changes: GameChange[]) => setReport({ title, changes, seq: ++reportSeq });
 
   // Computed once per library load, not per keystroke.
@@ -319,6 +334,8 @@ function createLibraryStore() {
     CARD_DEFAULT,
     listView,
     setListView,
+    panelWidth,
+    setPanelWidth,
     genres,
     genre,
     setGenre,

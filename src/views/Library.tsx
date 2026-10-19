@@ -213,6 +213,28 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (focused() >= n) setFocused(Math.max(0, n - 1));
   });
 
+  // The list view's panel: drag its left edge (double-click resets), or + / − / right stick.
+  let splitEl: HTMLDivElement | undefined;
+  const panelNow = () => splitEl?.querySelector<HTMLElement>(".game-side")?.offsetWidth ?? 0;
+  function resizePanel(delta: number) {
+    library.setPanelWidth(panelNow() + delta);
+  }
+  function dragPanel(e: PointerEvent) {
+    const handle = e.currentTarget as HTMLElement;
+    handle.setPointerCapture(e.pointerId);
+    const right = splitEl!.getBoundingClientRect().right;
+    const move = (ev: PointerEvent) => library.setPanelWidth(right - ev.clientX, false);
+    const done = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", done);
+      handle.removeEventListener("pointercancel", done);
+      library.setPanelWidth(library.panelWidth());
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", done);
+    handle.addEventListener("pointercancel", done);
+  }
+
   function move(dir: NavDir) {
     const n = overview() ? tiles().length : games().length;
     // List view: right goes to the details panel (like A).
@@ -373,8 +395,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         }
         return false;
       case "menu": props.onOpenSettings(); return true;
-      case "zoomIn": library.zoom(1); return true;
-      case "zoomOut": library.zoom(-1); return true;
+      // List view: the same keys (+ / − / right stick) widen and narrow the panel.
+      case "zoomIn": if (library.listView()) resizePanel(40); else library.zoom(1); return true;
+      case "zoomOut": if (library.listView()) resizePanel(-40); else library.zoom(-1); return true;
       default: return false;
     }
   };
@@ -673,7 +696,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           </div>
         }
       >
-        <div class="list-split">
+        <div class="list-split" ref={splitEl} style={{ "--dock-w": library.panelWidth() ? `${library.panelWidth()}px` : undefined }}>
         <div class="grid-wrap" onWheel={onWheel}>
           <VirtualGrid
             items={games()}
@@ -707,7 +730,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <Show when={library.listView() && focusedGame()}>
           {(g) => (
+            <>
+            <div class="dock-resizer" title="Drag to resize the panel (double-click to reset)" onPointerDown={dragPanel} onDblClick={() => library.setPanelWidth(0)} />
             <GameSidebar docked active={sideOpen()} id={g().id} onClose={() => setSideOpen(false)} onMore={setInfoId} onSettings={props.onOpenSettings} />
+            </>
           )}
         </Show>
         </div>
@@ -722,9 +748,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
           <Hint action="menu" label="Settings" />
           <Hint action="toggleTv" label="TV Mode" />
-          <Show when={!library.listView()}>
-            <Hint actions={["zoomOut", "zoomIn"]} label="Card size" />
-          </Show>
+          <Hint actions={["zoomOut", "zoomIn"]} label={library.listView() ? "Panel width" : "Card size"} />
           <Hint action="toggleGroups" label={library.listView() ? "Grid" : "List"} />
           <input
             hidden={library.listView()}

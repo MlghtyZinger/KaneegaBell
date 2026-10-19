@@ -3110,20 +3110,46 @@ html.nav-mode .tv-menu-item:focus {
   font-size: var(--fs-sm);
 }
 
-.lrow-fav {
-  color: #ffd75e;
+/* A favorite: a gold ring and a soft glow on its icon (static, so scrolling stays cheap). */
+.lrow-icon.fav {
+  box-shadow: 0 0 0 1.5px #ffd75e, 0 0 8px 1px rgb(255 215 94 / 0.55);
 }
 
+/* The play time keeps its own slot, so titles shorten before running into it
+   and the times line up. */
 .lrow-time {
-  min-width: 4.5em;
+  flex: none;
+  width: 4.5em;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* A narrow list drops the platform label first. */
+@container (max-width: 300px) {
+  .lrow-meta {
+    display: none;
+  }
 }
 
 /* The panel on the right of the list: a banner, the whole cover over its lower
    edge, then a box per topic. */
 .game-side.docked {
-  width: clamp(380px, 36vw, 600px);
+  width: var(--dock-w, clamp(420px, 44vw, 760px));
+  /* Always leave the list a little room, whatever width was saved. */
+  max-width: calc(100% - 260px);
+  /* Compact: smaller text than the rest of the app (still readable at a desk). */
+  --fs-xs: clamp(11px, 1.05vh, 15px);
+  --fs-sm: clamp(12px, 1.3vh, 17px);
+  --fs-md: clamp(14px, 1.55vh, 20px);
+  --fs-lg: clamp(18px, 2.1vh, 26px);
+}
+
+.game-side.docked .btn.big {
+  padding: 7px 14px;
+}
+
+.game-side.docked .side-desc {
+  -webkit-line-clamp: 6;
 }
 
 .game-side.docked .side-hero {
@@ -3135,15 +3161,15 @@ html.nav-mode .tv-menu-item:focus {
   gap: 16px;
   align-items: flex-start;
   padding: 0 var(--gap);
-  margin-top: -52px;
+  margin-top: -44px;
   position: relative;
   z-index: 1;
 }
 
 .dock-cover {
   flex: none;
-  width: clamp(104px, 9vw, 150px);
-  max-height: 220px;
+  width: clamp(84px, 7vw, 124px);
+  max-height: 190px;
   object-fit: contain;
   border-radius: 8px;
   background: var(--bg-sunken);
@@ -3155,22 +3181,28 @@ html.nav-mode .tv-menu-item:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding-top: 60px;
+  gap: 4px;
+  padding-top: 50px;
 }
 
+/* Boxes sit side by side once the panel is wide enough (about 600 px for two). */
 .dock-boxes {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: var(--gap);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 8px;
+  padding: 10px var(--gap) var(--gap);
+}
+
+.dock-boxes > :first-child,
+.dock-boxes > :last-child {
+  grid-column: 1 / -1;
 }
 
 .dock-box {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 6px;
+  padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-sunken);
@@ -3199,8 +3231,8 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 .dock-ach-row img {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   flex: none;
   border-radius: 4px;
 }
@@ -3221,6 +3253,29 @@ html.nav-mode .tv-menu-item:focus {
 /* Narrow windows: the panel hides until A / Enter opens it over the list. */
 @media (max-width: 900px) {
   .game-side.docked:not(.active) {
+    display: none;
+  }
+}
+
+/* Drag handle between the list and its panel. */
+.dock-resizer {
+  flex: none;
+  width: 6px;
+  margin: 0 -3px;
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.dock-resizer:hover,
+.dock-resizer:active {
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+@media (max-width: 900px) {
+  .dock-resizer {
     display: none;
   }
 }
