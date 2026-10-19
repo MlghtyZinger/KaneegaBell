@@ -1,11 +1,11 @@
 {
-  "version": "0.3.6",
-  "notes": "- New: every platform has its own picture in the platform list (SNES, N64, GameCube, Wii, Switch, PlayStation, Xbox and the rest), emulators get a small badge in Settings, and the app has a new bull icon (exe, window, title bar).\n- Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.\n- New: Change background shows each background's shape (16:9 or wide) and previews it the way the sidebar will show it.",
-  "pub_date": "2026-10-18T17:32:23Z",
+  "version": "0.3.7",
+  "notes": "- New: every game has a small square icon, shown in the game sidebar, on Recent and inside collections. KB crops it from the cover on its own (no key needed) and keeps it up to date when the cover changes.\n- New: Icon… on the details screen picks your own: SteamGridDB icons (with a key), an image file, or \"Use the cover\" to go back to the automatic one.\n- Fixed: SteamGridDB icons that come as .ico files can now be picked.\n- Fixed: small icons (32 px) are scaled up to fill the icon square instead of sitting tiny in it.\n- Improved: games without an icon yet show a coloured letter in the sidebar until their cover arrives.",
+  "pub_date": "2026-10-19T04:07:38Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRDS1NubDRNT252Y3N6Y3EzbUJiamduVmJEcUVUTktzU2piaWJ2OEZDT01IUHV5by9xNmkvYWRCdUVadmFWTEFJYmJsWGtpQmVvcUE1WFhubEhXWmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzQ0NTU4CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjZfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy42ClJ1ekoxMHhTQThRTVBCZFJLMjQ0bDRKc2k0VEMwSnFNeVdGTk0ycUVZQ1dFMUhkRmV5OGFYeFUrTTRLZFBZRHZaTnZYWGZWWEhUaDZmNTVIQ1hjTkRRPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.6_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVZibElyK3BPdzR3MXBZNUI2Szd6NERSd2VGVytpMTF3eDEvOW5LTHdiV3NaSTd1Y0c5a3lMck1veTJuaStML1pxVEVjc3NmaXdQRzYzZXdCMUFuYUFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMzgyODM5CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjdfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy43CmRNOFY1d3ZNVHVkbjNOWG44RzAyTHI3VWZFb3JEcHphMW9Yd0tTSDNJS1ZwL1kzOHcyaC9Wb2VFYTZtVEJleUZYOCs0OFB3TFZDRGEwVEhQTjF4Y0J3PT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.7_x64-setup.exe?ref=updates"
     }
   }
 }
