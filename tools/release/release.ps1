@@ -104,8 +104,13 @@ Run node @("tools\release\set-version.mjs", $Version)
 
 Step "Tests"
 Push-Location src-tauri
+# The tests make temp folders: keep them in target\ (git-ignored), because security software
+# can refuse new programs creating folders under AppData (seen 2026-10-19).
+$oldTemp = $env:TEMP; $oldTmp = $env:TMP
+$env:TEMP = $env:TMP = (New-Item -ItemType Directory -Force "target\tmp").FullName
 & cargo test --lib --quiet
 $testExit = $LASTEXITCODE
+$env:TEMP = $oldTemp; $env:TMP = $oldTmp
 Pop-Location
 if ($testExit -ne 0) { git checkout -- .; Fail "Rust tests failed (version bump undone)" }
 Run node @("--test", "tests/*.test.ts")
