@@ -13,6 +13,7 @@ pub mod color;
 pub mod extras;
 pub mod gametdb;
 pub mod http;
+pub mod icons;
 pub mod images;
 pub mod libretro;
 pub mod matcher;
@@ -259,7 +260,7 @@ pub fn run(
     // Record no-match / failure outcomes right away.
     let done = AtomicUsize::new(0);
     for o in outcomes.drain(..) {
-        record(conn, &o, &mut summary)?;
+        record(conn, data_dir, &o, &mut summary)?;
         done.fetch_add(1, Ordering::Relaxed);
     }
     progress(Progress { done: done.load(Ordering::Relaxed), total, found: summary.found });
@@ -285,7 +286,7 @@ pub fn run(
         }
         drop(tx);
         for o in rx {
-            record(conn, &o, &mut summary)?;
+            record(conn, data_dir, &o, &mut summary)?;
             let n = done.fetch_add(1, Ordering::Relaxed) + 1;
             progress(Progress { done: n, total, found: summary.found });
         }
@@ -333,11 +334,12 @@ fn fetch_first(fetch: &dyn Fetch, data_dir: &Path, job: &Job) -> Outcome {
     }
 }
 
-fn record(conn: &Connection, o: &Outcome, summary: &mut Summary) -> Result<()> {
+fn record(conn: &Connection, data_dir: &Path, o: &Outcome, summary: &mut Summary) -> Result<()> {
     let now = queries::now();
     match o {
         Outcome::Found { id, source, name, url, width, height } => {
             queries::set_boxart(conn, *id, source, name, url, *width, *height, now)?;
+            icons::cover_changed(conn, data_dir, *id)?;
             summary.found += 1;
         }
         Outcome::NotFound { id } => {
@@ -479,6 +481,7 @@ pub fn apply_choice(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_
     let p = images::process(&bytes)?;
     images::store(data_dir, game_id, &p)?;
     queries::set_boxart(conn, game_id, source, name, url, p.width, p.height, queries::now())?;
+    icons::cover_changed(conn, data_dir, game_id)?;
     queries::set_art_manual(conn, game_id)
 }
 
@@ -488,6 +491,7 @@ pub fn remove(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
         let _ = std::fs::remove_file(p);
     }
     queries::reset_art(conn, game_id)?;
+    icons::cover_changed(conn, data_dir, game_id)?;
     queries::set_art_manual(conn, game_id)?;
     queries::set_art_status(conn, game_id, "removed", queries::now())
 }
@@ -508,7 +512,8 @@ pub fn reset(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<()> {
     for p in [images::thumb_path(data_dir, game_id), images::full_path(data_dir, game_id)] {
         let _ = std::fs::remove_file(p);
     }
-    queries::reset_art(conn, game_id)
+    queries::reset_art(conn, game_id)?;
+    icons::cover_changed(conn, data_dir, game_id)
 }
 
 #[cfg(test)]

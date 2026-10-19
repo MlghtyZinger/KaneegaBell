@@ -51,6 +51,7 @@ pub enum Kind {
     Grid,
     Hero,
     Logo,
+    Icon,
 }
 
 impl Kind {
@@ -61,6 +62,7 @@ impl Kind {
             Kind::Grid => format!("/grids/game/{game_id}?dimensions=600x900,342x482,660x930&{base}"),
             Kind::Hero => format!("/heroes/game/{game_id}?{base}"),
             Kind::Logo => format!("/logos/game/{game_id}?{base}"),
+            Kind::Icon => format!("/icons/game/{game_id}?{base}"),
         }
     }
 }

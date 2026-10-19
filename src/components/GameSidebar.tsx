@@ -9,6 +9,11 @@ import { LaunchWith, playWarning } from "./EmulatorChoice";
 
 /** How long the selection must rest before the panel loads another game. */
 const SETTLE_MS = 100;
+function hue(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h) % 360;
+}
 
 /**
  * The game details sidebar (right of the grid): the chosen game's background,
@@ -111,10 +116,15 @@ export function GameSidebar(props: { id: number; onClose: () => void; onMore: (i
             </div>
             </Show>
             <div class="side-body">
-              <Show when={series()}>
-                {(s) => <div class="side-series">{s().name}</div>}
-              </Show>
-              <h2 class="side-title">{g().title}</h2>
+              <div class="side-heading">
+                <Show when={(g().icon ?? 0) > 0} fallback={<div class="side-icon monogram" style={{ "--card-hue": hue(g().title) }}>{g().title.slice(0, 1).toUpperCase()}</div>}>
+                  <img class="side-icon" src={artUrl(g().id, g().icon!, "i")} alt="" />
+                </Show>
+                <div class="side-heading-copy">
+                  <Show when={series()}>{(s) => <div class="side-series">{s().name}</div>}</Show>
+                  <h2 class="side-title">{g().title}</h2>
+                </div>
+              </div>
               <p class="side-meta">{[platform(), year(), meta()?.developer].filter(Boolean).join(" · ")}</p>
               <Show when={(meta()?.genres.length ?? 0) > 0}>
                 <div class="genre-row">

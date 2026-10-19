@@ -682,6 +682,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
               <GameCard
                 game={g}
                 focused={isFocused}
+                showIcon={library.platform() === "recent" || !!openKey()}
                 platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined}
               />
             )}

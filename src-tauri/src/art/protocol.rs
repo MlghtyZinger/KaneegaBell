@@ -14,6 +14,7 @@ pub enum Asset {
     Full(i64),
     Hero(i64),
     Logo(i64),
+    Icon(i64),
     /// A collection's ('c') or series' ('s') own logo image.
     Collection(char, i64),
 }
@@ -28,6 +29,7 @@ pub fn parse(path: &str) -> Option<Asset> {
         "f" => Some(Asset::Full(id)),
         "h" => Some(Asset::Hero(id)),
         "l" => Some(Asset::Logo(id)),
+        "i" => Some(Asset::Icon(id)),
         "cc" => Some(Asset::Collection('c', id)),
         "cs" => Some(Asset::Collection('s', id)),
         _ => None,
@@ -40,6 +42,7 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
         Asset::Full(id) => images::full_path(data_dir, *id),
         Asset::Hero(id) => images::extra_path(data_dir, images::Extra::Hero, *id),
         Asset::Logo(id) => images::extra_path(data_dir, images::Extra::Logo, *id),
+        Asset::Icon(id) => images::icon_path(data_dir, *id),
         Asset::Collection(kind, id) => data_dir.join("art").join("c").join(format!("{kind}-{id}.webp")),
     }
 }
@@ -83,6 +86,7 @@ mod tests {
         assert_eq!(parse("t/9.webp"), Some(Asset::Thumb(9)));
         assert_eq!(parse("/h/4?v=2"), Some(Asset::Hero(4)));
         assert_eq!(parse("/l/4"), Some(Asset::Logo(4)));
+        assert_eq!(parse("/i/5?v=2"), Some(Asset::Icon(5)));
         assert_eq!(parse("/cc/3?v=2"), Some(Asset::Collection('c', 3)));
         assert_eq!(parse("/cs/526700"), Some(Asset::Collection('s', 526700)));
         assert_eq!(parse("/x/1"), None);

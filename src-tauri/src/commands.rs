@@ -10,6 +10,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::art;
+use crate::art::http::Fetch;
 use crate::db::{self, queries};
 use crate::error::{Error, Result};
 use crate::input::{ExitCombo, InputShared};
@@ -24,6 +25,7 @@ pub struct AppState {
     scanning: Arc<AtomicBool>,
     rescan_pending: Arc<AtomicBool>,
     art_pending: Arc<AtomicBool>,
+    icon_pending: Arc<AtomicBool>,
     meta_pending: Arc<AtomicBool>,
     ra_pending: Arc<AtomicBool>,
     sgdb_pending: Arc<AtomicBool>,
@@ -46,6 +48,7 @@ impl AppState {
             scanning: Arc::default(),
             rescan_pending: Arc::default(),
             art_pending: Arc::default(),
+            icon_pending: Arc::default(),
             meta_pending: Arc::default(),
             ra_pending: Arc::default(),
             sgdb_pending: Arc::default(),
@@ -535,6 +538,7 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
 pub fn cancel_scan(state: State<'_, AppState>) {
     state.rescan_pending.store(false, Ordering::Release);
     state.art_pending.store(false, Ordering::Release);
+    state.icon_pending.store(false, Ordering::Release);
     state.meta_pending.store(false, Ordering::Release);
     state.ra_pending.store(false, Ordering::Release);
     state.sgdb_pending.store(false, Ordering::Release);
@@ -561,11 +565,15 @@ pub fn fetch_art(app: AppHandle, state: State<'_, AppState>) -> bool {
 
 /// Which picture a picker works on: "cover" (default), or "hero" / "logo"
 /// (TV Mode's background and logo, from SteamGridDB).
-fn extra_kind(kind: Option<&str>) -> Result<Option<art::images::Extra>> {
+#[derive(Clone, Copy)]
+enum PickerKind { Cover, Hero, Logo, Icon }
+
+fn extra_kind(kind: Option<&str>) -> Result<PickerKind> {
     match kind.unwrap_or("cover") {
-        "cover" => Ok(None),
-        "hero" => Ok(Some(art::images::Extra::Hero)),
-        "logo" => Ok(Some(art::images::Extra::Logo)),
+        "cover" => Ok(PickerKind::Cover),
+        "hero" => Ok(PickerKind::Hero),
+        "logo" => Ok(PickerKind::Logo),
+        "icon" => Ok(PickerKind::Icon),
         other => Err(Error::msg(format!("unknown picture kind {other}"))),
     }
 }
@@ -582,8 +590,13 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
         let key = sgdb_key()?;
         let sgdb = key.map(|k| art::sgdb::Sgdb::new(&http, k));
         match extra_kind(kind.as_deref())? {
-            None => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
-            Some(extra) => {
+            PickerKind::Cover => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
+            PickerKind::Icon => {
+                let sgdb = sgdb.ok_or_else(|| Error::msg("A SteamGridDB key is needed to search for icons. KB can crop an icon from the cover instead."))?;
+                art::extras::candidates(&conn, &sgdb, id, art::sgdb::Kind::Icon, query.as_deref())
+            }
+            kind => {
+                let extra = match kind { PickerKind::Hero => art::images::Extra::Hero, _ => art::images::Extra::Logo };
                 // LaunchBox's pictures for the matched game, then SteamGridDB's.
                 let searching = query.as_deref().is_some_and(|q| !q.trim().is_empty());
                 let mut out = if searching { Vec::new() } else { crate::launchbox::picker(&conn, id, Some(extra))? };
@@ -620,8 +633,15 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
         let conn = db::open(&state.db_path)?;
         let http = art::http::Http::new();
         match extra_kind(kind.as_deref())? {
-            None => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
-            Some(extra) => art::extras::apply(&conn, state.data_dir(), &http, id, extra, &source, &name, &url),
+            PickerKind::Cover => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
+            PickerKind::Icon => {
+                let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that icon is no longer available"))? };
+                art::icons::set_manual(&conn, state.data_dir(), id, &bytes)
+            }
+            kind => {
+                let extra = match kind { PickerKind::Hero => art::images::Extra::Hero, _ => art::images::Extra::Logo };
+                art::extras::apply(&conn, state.data_dir(), &http, id, extra, &source, &name, &url)
+            }
         }
     })
     .await
@@ -633,8 +653,21 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
 /// Removes a game's hero or logo for good (TV Mode then uses the cover).
 #[tauri::command]
 pub fn remove_extra(app: AppHandle, state: State<'_, AppState>, id: i64, kind: String) -> Result<()> {
-    let extra = extra_kind(Some(&kind))?.ok_or_else(|| Error::msg("use remove_cover for covers"))?;
-    art::extras::remove(&state.db(), state.data_dir(), id, extra)?;
+    match extra_kind(Some(&kind))? {
+        PickerKind::Icon => art::icons::reset_to_cover(&state.db(), state.data_dir(), id)?,
+        PickerKind::Cover => return Err(Error::msg("use remove_cover for covers")),
+        PickerKind::Hero | PickerKind::Logo => {
+            let extra = if kind == "hero" { art::images::Extra::Hero } else { art::images::Extra::Logo };
+            art::extras::remove(&state.db(), state.data_dir(), id, extra)?;
+        }
+    }
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn use_cover_icon(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<()> {
+    art::icons::reset_to_cover(&state.db(), state.data_dir(), id)?;
     let _ = app.emit("library-changed", ());
     Ok(())
 }
@@ -665,20 +698,22 @@ pub fn resume_art_on_startup(app: AppHandle) {
     let _ = std::thread::Builder::new().name("art-resume".into()).spawn(move || {
         std::thread::sleep(std::time::Duration::from_secs(3));
         let state = app.state::<AppState>();
-        let pending = (|| -> Result<(bool, bool, bool, bool, bool, bool)> {
+        let pending = (|| -> Result<(bool, bool, bool, bool, bool, bool, bool)> {
             let conn = state.db();
             crate::maintenance::sweep_leftovers_once(&conn, state.data_dir());
             let auto = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
             let art = auto && queries::count_games_needing_art(&conn, queries::now())? > 0;
             let lb = crate::launchbox::wanted(&conn)? || crate::launchbox::check_due(&conn)?;
             let wd = crate::wikidata::wanted(&conn)?;
-            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb, wd))
+            let icons = queries::count_games_needing_icon(&conn)? > 0;
+            Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb, wd, icons))
         })();
-        let (art, meta, ra, sgdb, lb, wd) = pending.unwrap_or_default();
-        if art || meta || ra || sgdb || lb || wd {
+        let (art, meta, ra, sgdb, lb, wd, icons) = pending.unwrap_or_default();
+        if art || meta || ra || sgdb || lb || wd || icons {
             state.lb_pending.fetch_or(lb, Ordering::AcqRel);
             state.wd_pending.fetch_or(wd, Ordering::AcqRel);
             state.art_pending.fetch_or(art, Ordering::AcqRel);
+            state.icon_pending.fetch_or(icons, Ordering::AcqRel);
             state.meta_pending.fetch_or(meta, Ordering::AcqRel);
             state.ra_pending.fetch_or(ra, Ordering::AcqRel);
             state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
@@ -703,6 +738,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let busy = state.scanning.clone();
     let scan_pending = state.rescan_pending.clone();
     let art_pending = state.art_pending.clone();
+    let icon_pending = state.icon_pending.clone();
     let meta_pending = state.meta_pending.clone();
     let ra_pending = state.ra_pending.clone();
     let sgdb_pending = state.sgdb_pending.clone();
@@ -738,6 +774,10 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 wd_pending.fetch_or(wd, Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
+                let needs = db::open(&db_path).and_then(|c| queries::count_games_needing_icon(&c)).unwrap_or(0) > 0;
+                icon_pending.fetch_or(needs, Ordering::AcqRel);
+            } else if icon_pending.swap(false, Ordering::AcqRel) {
+                run_icons(&app, &db_path, &data_dir, &cancel);
             } else if wd_pending.swap(false, Ordering::AcqRel) {
                 run_wd(&app, &db_path, wd_force.swap(false, Ordering::AcqRel), &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
@@ -752,6 +792,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 // A request may have slipped in after the checks above.
                 let more = scan_pending.load(Ordering::Acquire)
                     || art_pending.load(Ordering::Acquire)
+                    || icon_pending.load(Ordering::Acquire)
                     || meta_pending.load(Ordering::Acquire)
                     || ra_pending.load(Ordering::Acquire)
                     || sgdb_pending.load(Ordering::Acquire)
@@ -1380,10 +1421,12 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
     };
     state.wd_pending.fetch_or(wd, Ordering::AcqRel);
     state.art_pending.fetch_or(art, Ordering::AcqRel);
+    let icons = queries::count_games_needing_icon(&state.db()).unwrap_or(0) > 0;
+    state.icon_pending.fetch_or(icons, Ordering::AcqRel);
     state.meta_pending.fetch_or(meta, Ordering::AcqRel);
     state.ra_pending.fetch_or(ra, Ordering::AcqRel);
     state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
-    if art || meta || ra || sgdb || wd {
+    if art || meta || ra || sgdb || wd || icons {
         kick_worker(app, &state);
     }
     Ok(freed)
@@ -1708,6 +1751,14 @@ fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool
             log::error!("artwork fetch failed: {e}");
             let _ = app.emit("art-failed", e.to_string());
         }
+    }
+}
+
+fn run_icons(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
+    match db::open(db_path).and_then(|conn| art::icons::run(&conn, data_dir, cancel).map_err(Into::into)) {
+        Ok(count) if count > 0 => { let _ = app.emit("library-changed", ()); }
+        Ok(_) => {}
+        Err(e) => log::warn!("game icon backfill failed: {e}"),
     }
 }
 

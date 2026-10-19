@@ -15,6 +15,8 @@ export interface GameRow {
   isMultidisc: boolean;
   /** Art version (cache-buster) when the game has art, else 0. */
   art: number;
+  /** Square game icon (cache-buster), else 0. */
+  icon?: number;
   /** The cover's height / width (its card takes this shape). */
   artAspect: number | null;
   /** Genre ids (from IGDB); absent when none. */
@@ -389,7 +391,7 @@ export interface ArtSummary {
  * URL of a game's cached artwork, served by the app's `thumb` protocol
  * (Windows webviews address custom protocols as http://<scheme>.localhost).
  */
-export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" = "t"): string {
+export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" = "t"): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   return `${base}/${size}/${gameId}?v=${version}`;
 }
@@ -622,12 +624,13 @@ export const api = {
   fetchArt: () => invoke<boolean>("fetch_art"),
   /** "kept" when the cover is the user's own pick (Refresh leaves it). */
   refreshArt: (id: number) => invoke<"queued" | "kept">("refresh_art", { id }),
-  coverCandidates: (id: number, query: string | null = null, kind: "cover" | "hero" | "logo" = "cover") =>
+  coverCandidates: (id: number, query: string | null = null, kind: "cover" | "hero" | "logo" | "icon" = "cover") =>
     invoke<CoverCandidate[]>("cover_candidates", { id, query, kind }),
-  setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string, kind: "cover" | "hero" | "logo" = "cover") =>
+  setCover: (id: number, source: CoverCandidate["source"] | "file", name: string, url: string, kind: "cover" | "hero" | "logo" | "icon" = "cover") =>
     invoke<void>("set_cover", { id, source, name, url, kind }),
   removeCover: (id: number) => invoke<void>("remove_cover", { id }),
-  removeExtra: (id: number, kind: "hero" | "logo") => invoke<void>("remove_extra", { id, kind }),
+  removeExtra: (id: number, kind: "hero" | "logo" | "icon") => invoke<void>("remove_extra", { id, kind }),
+  useCoverIcon: (id: number) => invoke<void>("use_cover_icon", { id }),
   lbStatus: () => invoke<LbStatus>("lb_status"),
   /** A LaunchBox pass; `force` downloads its data again ("Update now"). */
   fetchLaunchbox: (force: boolean) => invoke<boolean>("fetch_launchbox", { force }),

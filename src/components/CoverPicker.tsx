@@ -5,12 +5,13 @@ import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
 
-export type PictureKind = "cover" | "hero" | "logo";
+export type PictureKind = "cover" | "hero" | "logo" | "icon";
 
 const WORDS: Record<PictureKind, { title: string; noun: string; use: string }> = {
   cover: { title: "Change cover", noun: "covers", use: "Use this cover" },
   hero: { title: "Change background", noun: "backgrounds", use: "Use this background" },
   logo: { title: "Change logo", noun: "logos", use: "Use this logo" },
+  icon: { title: "Change icon", noun: "icons", use: "Use this icon" },
 };
 
 /**
@@ -64,7 +65,7 @@ export function CoverPicker(props: {
 
   async function remove() {
     if (kind() === "cover") await api.removeCover(props.gameId);
-    else await api.removeExtra(props.gameId, kind() as "hero" | "logo");
+    else await api.removeExtra(props.gameId, kind() as "hero" | "logo" | "icon");
     props.onChanged();
     props.onClose();
   }
@@ -96,13 +97,16 @@ export function CoverPicker(props: {
           <button class="btn" onClick={search}>
             Search {words().noun}…
           </button>
-          <Show when={kind() === "cover"}>
+          <Show when={kind() === "cover" || kind() === "icon"}>
             <button class="btn" onClick={() => setBrowsing(true)}>
               Use an image file…
             </button>
           </Show>
+          <Show when={kind() === "icon"}>
+            <button class="btn" onClick={async () => { await api.useCoverIcon(props.gameId); props.onChanged(); props.onClose(); }}>Use the cover</button>
+          </Show>
           <button class="btn danger" onClick={() => void remove()}>
-            {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : "No logo"}
+            {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : kind() === "icon" ? "Remove icon" : "No logo"}
           </button>
         </div>
         <Show when={error()}>
@@ -120,7 +124,7 @@ export function CoverPicker(props: {
         <Show when={kind() === "hero"}>
           <p class="dim small">16:9 backgrounds fill the sidebar; wide ones show whole, with blurred bands above and below.</p>
         </Show>
-        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo" }}>
+        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo", icons: kind() === "icon" }}>
           <For each={list()}>
             {(c, i) => (
               <button

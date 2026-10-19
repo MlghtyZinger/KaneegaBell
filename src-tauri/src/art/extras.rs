@@ -83,6 +83,7 @@ fn fetch_cover(conn: &Connection, data_dir: &Path, sgdb: &Sgdb, fetch: &dyn Fetc
         let p = images::process(&bytes)?;
         images::store(data_dir, game_id, &p)?;
         queries::set_boxart(conn, game_id, "sgdb", &img.id.to_string(), &img.url, p.width, p.height, queries::now())?;
+        super::icons::cover_changed(conn, data_dir, game_id)?;
         return Ok(true);
     }
     Ok(false)
@@ -182,6 +183,7 @@ pub fn candidates(conn: &Connection, sgdb: &Sgdb, game_id: i64, kind: Kind, quer
         Kind::Grid => "SteamGridDB",
         Kind::Hero => "SteamGridDB background",
         Kind::Logo => "SteamGridDB logo",
+        Kind::Icon => "SteamGridDB icon",
     };
     Ok(sgdb
         .images(kind, id)?

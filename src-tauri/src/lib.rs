@@ -353,6 +353,7 @@ pub fn run() {
             commands::get_achievements,
             commands::perf_mark,
             commands::remove_extra,
+            commands::use_cover_icon,
             commands::set_sgdb_key,
             commands::remove_sgdb_key,
             commands::fetch_extras,

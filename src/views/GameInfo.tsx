@@ -239,6 +239,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <button class="btn small" onClick={() => setPicking("cover")}>
                     Change cover…
                   </button>
+                  <button class="btn small" onClick={() => setPicking("icon")}>Icon…</button>
                   <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
                     {refreshing() ? "Looking…" : "Refresh"}
                   </button>

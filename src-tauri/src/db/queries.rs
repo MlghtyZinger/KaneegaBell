@@ -42,6 +42,8 @@ pub struct GameRow {
     pub hero: i64,
     #[serde(skip_serializing_if = "is_zero")]
     pub logo: i64,
+    /// The game icon's version (sidebar, Recent, collections), 0 when none.
+    pub icon: i64,
 }
 
 fn is_zero(v: &i64) -> bool {
@@ -57,7 +59,8 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
                 CASE WHEN g.art_status = 'ok' AND a.width > 0 AND a.height > 0
                      THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END,
                 COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1), 0),
-                COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1), 0)
+                COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1), 0),
+                g.icon_version
          FROM games g JOIN platforms p ON p.id = g.platform_id
          LEFT JOIN artwork a ON a.game_id = g.id AND a.kind = 'boxart' AND a.selected = 1
          WHERE g.missing = 0 AND p.enabled = 1
@@ -79,6 +82,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             genres: Vec::new(),
             hero: r.get(11)?,
             logo: r.get(12)?,
+            icon: r.get(13)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -309,6 +313,45 @@ pub fn reset_art(conn: &Connection, game_id: i64) -> Result<()> {
 pub fn set_art_manual(conn: &Connection, game_id: i64) -> Result<()> {
     conn.execute("UPDATE games SET art_manual = 1 WHERE id = ?1", [game_id])?;
     Ok(())
+}
+
+// ---------------------------------------------------------------- game icons
+
+/// Whether the user chose this game's icon (a new cover never replaces it).
+pub fn icon_manual(conn: &Connection, game_id: i64) -> Result<bool> {
+    Ok(conn.query_row("SELECT icon_manual FROM games WHERE id = ?1", [game_id], |r| r.get(0))?)
+}
+
+/// A new icon is on disk: its URL gets a new version, so caches never show the old one.
+pub fn bump_icon(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET icon_version = icon_version + 1 WHERE id = ?1", [game_id])?;
+    Ok(())
+}
+
+/// No icon (the cover was removed, or there's nothing to crop from).
+pub fn clear_icon(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET icon_version = 0 WHERE id = ?1", [game_id])?;
+    Ok(())
+}
+
+pub fn set_icon_manual(conn: &Connection, game_id: i64, manual: bool) -> Result<()> {
+    conn.execute("UPDATE games SET icon_manual = ?2 WHERE id = ?1", params![game_id, manual])?;
+    Ok(())
+}
+
+/// Games with a cover but no icon: the one-time backfill after an update.
+pub fn games_needing_icon(conn: &Connection) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM games
+         WHERE missing = 0 AND art_status = 'ok' AND icon_version = 0
+         ORDER BY id",
+    )?;
+    let rows = stmt.query_map([], |r| r.get(0))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn count_games_needing_icon(conn: &Connection) -> Result<usize> {
+    Ok(games_needing_icon(conn)?.len())
 }
 
 // ---------------------------------------------------------------- metadata

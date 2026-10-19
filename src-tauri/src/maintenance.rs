@@ -20,7 +20,7 @@ pub const RESET_BACKUP: &str = "library.before-reset.db";
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Storage {
-    /// Covers, backgrounds, logos, badges and cached web responses.
+    /// Covers, game icons, backgrounds, logos, badges and cached web responses.
     pub downloaded_bytes: u64,
     pub data_dir: String,
     /// Size of the copy of the library the last reset kept, if there is one.
@@ -76,6 +76,7 @@ const CLEAR_SQL: &str = "
            (kind = 'boxart' AND game_id IN (SELECT id FROM games WHERE art_manual = 1))
         OR (kind IN ('hero', 'logo') AND game_id IN (SELECT id FROM games WHERE extras_manual = 1)));
     UPDATE games SET art_status = 'none', art_checked_at = NULL, art_version = art_version + 1 WHERE art_manual = 0;
+    UPDATE games SET icon_version = 0 WHERE icon_manual = 0;
     UPDATE games SET sgdb_status = 'none', sgdb_checked_at = NULL, sgdb_id = NULL WHERE extras_manual = 0;
     DELETE FROM game_genres;
     DELETE FROM genres;
@@ -146,7 +147,7 @@ pub fn forget_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
 /// remaining game uses). Hidden games keep everything.
 pub fn prune_leftovers(conn: &Connection, data_dir: &Path) -> Result<()> {
     let keep = ids(conn, "SELECT id FROM games")?;
-    for d in ["t", "f", "h", "l"] {
+    for d in ["t", "f", "h", "l", "i"] {
         prune_images(&data_dir.join("art").join(d), &keep)?;
     }
     crate::achievements::prune_removed(conn, data_dir)?;
@@ -190,10 +191,12 @@ pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
     let art = data_dir.join("art");
     let covers = ids(conn, "SELECT id FROM games WHERE art_manual = 1")?;
     let extras = ids(conn, "SELECT id FROM games WHERE extras_manual = 1")?;
+    let icons = ids(conn, "SELECT id FROM games WHERE icon_manual = 1")?;
     prune_images(&art.join("t"), &covers)?;
     prune_images(&art.join("f"), &covers)?;
     prune_images(&art.join("h"), &extras)?;
     prune_images(&art.join("l"), &extras)?;
+    prune_images(&art.join("i"), &icons)?;
     remove_dir(&data_dir.join("ra"))?;
     // Give the space back (best effort: another connection may be reading).
     if let Err(e) = conn.execute_batch("VACUUM") {

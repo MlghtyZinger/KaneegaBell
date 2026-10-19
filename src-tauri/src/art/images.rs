@@ -53,6 +53,24 @@ fn webp(img: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
     Ok(enc.encode(quality).to_vec())
 }
 
+/// Decodes PNG, JPEG or WebP bytes (the `image` crate here reads PNG and JPEG;
+/// WebP goes through libwebp).
+pub fn decode(bytes: &[u8]) -> Result<DynamicImage> {
+    match image::load_from_memory(bytes) {
+        Ok(img) => Ok(img),
+        Err(_) => {
+            let bad = || Error::msg("That file isn't a PNG, JPEG or WebP image.");
+            let d = webp::Decoder::new(bytes).decode().ok_or_else(bad)?;
+            let (w, h, px) = (d.width(), d.height(), d.to_vec());
+            Ok(if d.is_alpha() {
+                DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, px).ok_or_else(bad)?)
+            } else {
+                DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, px).ok_or_else(bad)?)
+            })
+        }
+    }
+}
+
 fn fit(img: &DynamicImage, (w, h): (u32, u32)) -> DynamicImage {
     if img.width() <= w && img.height() <= h {
         img.clone()
@@ -141,25 +159,70 @@ pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) ->
 /// Stores a user's logo image at `path` (PNG, JPEG or WebP; resized like the
 /// game logos, transparency kept).
 pub fn store_logo_at(path: &Path, bytes: &[u8]) -> Result<()> {
-    let img = match image::load_from_memory(bytes) {
-        Ok(img) => img,
-        // The image crate here reads PNG and JPEG; WebP goes through libwebp.
-        Err(_) => {
-            let bad = || Error::msg("That file isn't a PNG, JPEG or WebP image.");
-            let d = webp::Decoder::new(bytes).decode().ok_or_else(bad)?;
-            let (w, h, px) = (d.width(), d.height(), d.to_vec());
-            if d.is_alpha() {
-                DynamicImage::ImageRgba8(image::RgbaImage::from_raw(w, h, px).ok_or_else(bad)?)
-            } else {
-                DynamicImage::ImageRgb8(image::RgbImage::from_raw(w, h, px).ok_or_else(bad)?)
-            }
-        }
-    };
+    let img = decode(bytes)?;
     write_atomic(path, &webp(&fit(&img, LOGO_MAX), 90.0)?)
 }
 
 pub fn remove_extra(data_dir: &Path, extra: Extra, game_id: i64) {
     let _ = fs::remove_file(extra_path(data_dir, extra, game_id));
+}
+
+// ---------------------------------------------------------------- game icons
+
+/// The sidebar's tile is 56 px, Recent's 24: 192 leaves room for 200%
+/// scaling and the later list view, without a big file per game.
+pub const ICON: u32 = 192;
+const ICON_QUALITY: f32 = 82.0;
+
+pub fn icon_path(data_dir: &Path, game_id: i64) -> PathBuf {
+    data_dir.join("art").join("i").join(format!("{game_id}.webp"))
+}
+
+/// A square from the middle of the picture, biased up. Box art keeps its
+/// title at the top and the character in the middle, so a dead-centre square
+/// cuts heads off; 45% of the spare height looks right on covers.
+pub fn square_crop(img: &DynamicImage) -> DynamicImage {
+    let (w, h) = (img.width(), img.height());
+    let side = w.min(h);
+    let left = (w - side) / 2;
+    let top = ((h - side) as f32 * 0.45).round() as u32;
+    img.crop_imm(left, top, side, side)
+}
+
+/// A picture kept whole inside a transparent square: a logo isn't cropped and
+/// a wide image isn't stretched.
+fn icon_square(img: &DynamicImage) -> DynamicImage {
+    let scaled = if img.width() > ICON || img.height() > ICON {
+        img.resize(ICON, ICON, FilterType::Lanczos3)
+    } else {
+        img.clone()
+    };
+    let mut canvas = image::RgbaImage::from_pixel(ICON, ICON, image::Rgba([0, 0, 0, 0]));
+    let x = ((ICON - scaled.width()) / 2) as i64;
+    let y = ((ICON - scaled.height()) / 2) as i64;
+    image::imageops::overlay(&mut canvas, &scaled.to_rgba8(), x, y);
+    DynamicImage::ImageRgba8(canvas)
+}
+
+/// Crops the game's cached cover thumbnail into its icon. False when the game
+/// has no cover (nothing to crop).
+pub fn store_icon_from_cover(data_dir: &Path, game_id: i64) -> Result<bool> {
+    let Ok(bytes) = fs::read(thumb_path(data_dir, game_id)) else { return Ok(false) };
+    let img = decode(&bytes)?;
+    let icon = fit(&square_crop(&img), (ICON, ICON));
+    write_atomic(&icon_path(data_dir, game_id), &webp(&icon, ICON_QUALITY)?)?;
+    Ok(true)
+}
+
+/// Stores a user's icon image (PNG, JPEG or WebP). Returns the source size.
+pub fn store_icon(data_dir: &Path, game_id: i64, bytes: &[u8]) -> Result<(u32, u32)> {
+    let img = decode(bytes)?;
+    write_atomic(&icon_path(data_dir, game_id), &webp(&icon_square(&img), ICON_QUALITY)?)?;
+    Ok((img.width(), img.height()))
+}
+
+pub fn remove_icon(data_dir: &Path, game_id: i64) {
+    let _ = fs::remove_file(icon_path(data_dir, game_id));
 }
 
 #[cfg(test)]
@@ -273,5 +336,46 @@ mod tests {
         store(t.path(), 42, &p).unwrap();
         assert!(thumb_path(t.path(), 42).is_file());
         assert!(full_path(t.path(), 42).is_file());
+    }
+
+    #[test]
+    fn icon_crops_are_square_biased_up() {
+        // 400 wide, 800 tall: a 400 px square starting at 45% of the 400 px
+        // of spare height, not dead centre at 200.
+        let img = DynamicImage::ImageRgb8(image::RgbImage::from_fn(400, 800, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 0])));
+        let c = square_crop(&img);
+        assert_eq!((c.width(), c.height()), (400, 400));
+        assert_eq!(c.to_rgb8().get_pixel(0, 0), img.to_rgb8().get_pixel(0, 180));
+        // A wide picture is cropped from its middle, not its left edge.
+        let wide = DynamicImage::ImageRgb8(image::RgbImage::from_fn(800, 400, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 0])));
+        assert_eq!((square_crop(&wide).width(), square_crop(&wide).height()), (400, 400));
+        assert_eq!(square_crop(&wide).to_rgb8().get_pixel(0, 0), wide.to_rgb8().get_pixel(200, 0));
+    }
+
+    #[test]
+    fn a_cover_becomes_a_192_icon_and_needs_a_cover() {
+        let t = tempfile::tempdir().unwrap();
+        assert!(!store_icon_from_cover(t.path(), 7).unwrap(), "no cover, no icon");
+        let p = process(&test_png(600, 900)).unwrap();
+        store(t.path(), 7, &p).unwrap();
+        assert!(store_icon_from_cover(t.path(), 7).unwrap());
+        assert_eq!(dims(&fs::read(icon_path(t.path(), 7)).unwrap()), (192, 192));
+        remove_icon(t.path(), 7);
+        assert!(!icon_path(t.path(), 7).exists());
+    }
+
+    #[test]
+    fn a_picked_icon_is_kept_whole_and_not_stretched() {
+        let t = tempfile::tempdir().unwrap();
+        // A wide logo (300x100): letterboxed on a transparent square.
+        assert_eq!(store_icon(t.path(), 8, &test_png(300, 100)).unwrap(), (300, 100));
+        let d = webp::Decoder::new(&fs::read(icon_path(t.path(), 8)).unwrap()).decode().unwrap();
+        assert_eq!((d.width(), d.height()), (192, 192));
+        assert!(d.is_alpha());
+        // The top band is transparent; the middle row has the picture.
+        let px = d.to_vec();
+        assert_eq!(px[3], 0, "top-left is transparent padding");
+        let mid = ((192 / 2) * 192 + 96) * 4;
+        assert!(px[mid + 3] > 200, "the picture itself is opaque");
     }
 }

@@ -239,6 +239,13 @@ export function installMockIpc() {
             : { title: null, description: null, releaseDate: null, developer: null, publisher: null, genres: [], igdbId: null, matchStatus: "notfound", slug: null, lbId: null, lbStatus: "notfound", players: null, series: [] },
         };
       }
+      case "cover_candidates":
+        return [];
+      case "set_cover":
+      case "remove_cover":
+      case "remove_extra":
+      case "use_cover_icon":
+        return null;
       case "get_services": {
         const q = new URLSearchParams(location.search);
         return { igdb: q.get("igdb") === "1", igdbClientId: "abc123…", raUser: q.get("ra") === "1" ? "MockUser" : null };

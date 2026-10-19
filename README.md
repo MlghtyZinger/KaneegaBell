@@ -712,6 +712,11 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.7
+- New: every game has a small square icon, shown in the game sidebar, on Recent and inside collections. KB crops it from the cover on its own (no key needed) and keeps it up to date when the cover changes.
+- New: Icon… on the details screen picks your own: SteamGridDB icons (with a key), an image file, or "Use the cover" to go back to the automatic one.
+- Improved: games without an icon yet show a coloured letter in the sidebar until their cover arrives.
+
 ### 0.3.6
 - New: every platform has its own picture in the platform list (SNES, N64, GameCube, Wii, Switch, PlayStation, Xbox and the rest), emulators get a small badge in Settings, and the app has a new bull icon (exe, window, title bar).
 - Fixed: wide backgrounds (SteamGridDB) in the game sidebar show whole, with blurred bands above and below, instead of being cut off at the sides; 16:9 ones still fill the box.

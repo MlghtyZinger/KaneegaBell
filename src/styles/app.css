@@ -252,6 +252,18 @@
   z-index: 1;
 }
 
+.card-icon {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #111;
+}
+
 .card-title {
   font-size: var(--fs-md);
   font-weight: 600;
@@ -1709,6 +1721,14 @@ kbd.ps-favorite { color: #4fe0c0; }
   background: repeating-conic-gradient(#2a2e38 0% 25%, #1c1f27 0% 50%) 0 0 / 20px 20px;
 }
 
+.cover-grid.icons { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.cover-grid.icons .cover-option img,
+.cover-grid.icons .cover-option-icon {
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: repeating-conic-gradient(#2a2e38 0% 25%, #1c1f27 0% 50%) 0 0 / 20px 20px;
+}
+
 .cover-option-label {
   font-size: var(--fs-xs);
   color: var(--text-dim);
@@ -2942,6 +2962,14 @@ html.nav-mode .tv-menu-item:focus {
   flex-direction: column;
   gap: 10px;
   padding: var(--gap);
+}
+
+.side-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.side-heading-copy { min-width: 0; }
+.side-icon { width: 56px; height: 56px; flex: none; object-fit: cover; border-radius: 10px; background: #111; }
+.side-icon.monogram {
+  display: grid; place-items: center; font-size: 28px; font-weight: 700;
+  background: linear-gradient(150deg, hsl(var(--card-hue) 35% 26%), hsl(var(--card-hue) 30% 14%));
 }
 
 .side-series {
