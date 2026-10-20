@@ -401,6 +401,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       gap ring, High contrast spotlight, Moss lift, Storm bar) and its own **bull icon colors** (window/taskbar icon
       follows the style; the exe's icon stays Ember). The per-style focus color choices in the artifact are offered as
       options in 0.3.12's customization.
+      **Scrapped (owner, 2026-10-20): no in-app theme editor, no theme customization (colors, borders), no .kbtheme
+      import/export for now.** The six built-in styles stay as they are; the editor code is in git history (8847eaa).
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
