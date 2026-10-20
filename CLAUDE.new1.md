@@ -425,7 +425,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       **Idea for the TV Mode touch-up (owner, 2026-10-20; plan proposed, waiting for the owner's OK): console-style TV
       layouts**, one per platform (Wii channels, PS1 memory-card/CD screen, PS2 browser, PS3 cross-bar, Switch home row,
       GameCube cube, DS/3DS dual screen, Xbox/360, retro CRT for cartridge systems). Homage only: original drawings,
-      sounds and fonts, no console logos, system music or copied assets. Needs mockups first; likely several releases.
+      **Owner (2026-10-20): wants them ~99% like the real consoles ("never licensed or monetized"); approved the order:
+      console layouts inside p across several releases (0.3.13 = layout system + the first ones with the touch-up), then
+      u, then v.** Claude redraws everything by hand to look near-identical (layout, colours, motion, sound character);
+      no extracted console files (logos, system sound/music recordings) are bundled. Mockups when the owner gets to it.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
