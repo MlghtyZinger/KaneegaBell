@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "kaneegabell"
-version = "0.3.9"
+version = "0.3.10"
 dependencies = [
  "chd",
  "env_logger",
