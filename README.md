@@ -725,6 +725,9 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.12
+- New: make your own styles. Settings → General → Style → Manage… → New style from this one…: pick colors from a palette (or type a hex), the focus marker, icon colors and corner rounding, with the whole app as the live preview. Unreadable choices (faint text, invisible focus) are caught before you can save.
+- New: a style can have a background picture, dimmed as you like.
+- New: export a style as a .kbtheme file and import ones from others. Imports are checked and can't carry code.
 - Changed: the series name above a game's title opens its collection (the separate Collections box is gone), and short windows show 3 achievements instead of 5 (none on very short ones).
 - Improved: long descriptions (800 characters or more) are cut to their opening sentences (400 to 800 characters) in the side panels and TV Mode, skipping release dates, ports, patches and franchise history; the full text is on hover and on the details screen. Short ones show whole.
 - Changed: the right-hand panel no longer scrolls, the background shrinks first so the text stays readable, and its Play and Links boxes are slimmer. The description shows as much as fits (the rest is on the details screen).

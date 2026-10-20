@@ -1613,12 +1613,56 @@ pub fn refresh_zoom(app: AppHandle) {
 /// The styles to pick from, and the one in use.
 #[tauri::command]
 pub fn list_themes(state: State<'_, AppState>) -> (Vec<crate::themes::Summary>, String) {
-    (crate::themes::list(), crate::themes::current(&state.db()).0)
+    (crate::themes::list(state.data_dir()), crate::themes::current(&state.db(), state.data_dir()).0)
 }
 
 #[tauri::command]
 pub fn set_theme(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<crate::themes::Applied> {
-    crate::themes::choose(&app, &state.db(), &id)
+    crate::themes::choose(&app, &state.db(), state.data_dir(), &id)
+}
+
+/// A style's settings and whether it has a picture, for the editor to start from.
+#[tauri::command]
+pub fn get_theme(state: State<'_, AppState>, id: String) -> Result<crate::themes::Theme> {
+    crate::themes::load(state.data_dir(), &id).map(|l| l.theme).ok_or_else(|| Error::msg("that style doesn't exist"))
+}
+
+/// The problems with an unsaved theme (in words) and its CSS, for the editor's live preview.
+#[tauri::command]
+pub fn check_theme(
+    state: State<'_, AppState>,
+    id: Option<String>,
+    theme: crate::themes::Theme,
+    picture: crate::themes::PictureChange,
+) -> crate::themes::Checked {
+    crate::themes::check(state.data_dir(), id.as_deref(), &theme, &picture)
+}
+
+/// Saves the user's own theme (new when `id` is None); returns its id.
+#[tauri::command]
+pub fn save_theme(state: State<'_, AppState>, id: Option<String>, theme: crate::themes::Theme, picture: crate::themes::PictureChange) -> Result<String> {
+    crate::themes::save(state.data_dir(), id.as_deref(), theme, &picture)
+}
+
+#[tauri::command]
+pub fn delete_theme(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<crate::themes::Applied> {
+    crate::themes::delete(state.data_dir(), &id)?;
+    // Deleting the one in use falls back to the default.
+    let conn = state.db();
+    let (current, _) = crate::themes::current(&conn, state.data_dir());
+    crate::themes::choose(&app, &conn, state.data_dir(), &current)
+}
+
+/// Writes the style as a `.kbtheme` file in `folder`; returns the file's path.
+#[tauri::command]
+pub fn export_theme(state: State<'_, AppState>, id: String, folder: String) -> Result<String> {
+    Ok(crate::themes::export(state.data_dir(), &id, std::path::Path::new(&folder))?.to_string_lossy().into_owned())
+}
+
+/// Adds a `.kbtheme` file to the user's styles; returns the new style's id.
+#[tauri::command]
+pub fn import_theme(state: State<'_, AppState>, path: String) -> Result<String> {
+    crate::themes::import(state.data_dir(), std::path::Path::new(&path))
 }
 
 // ---------------------------------------------------------------- web links

@@ -257,7 +257,14 @@ export function installMockIpc() {
         });
       }
       case "list_themes":
-        return [Object.entries(mockThemes).map(([id, t]) => ({ id, name: t.name, focusLook: t.focusLook, swatches: [t.colors.bg, t.colors.accent, t.colors.focus] })), mockTheme];
+        return [Object.entries(mockThemes).map(([id, t]) => ({ id, name: t.name, focusLook: t.focusLook, swatches: [t.colors.bg, t.colors.accent, t.colors.focus], custom: false })), mockTheme];
+      case "get_theme":
+        return { format: 1, author: "KaneegaBell", version: "1.0", minAppVersion: "0.3.11", icon: "ember", ...mockThemes[(args as { id: string }).id] };
+      case "check_theme": {
+        const t = (args as { theme: MockTheme }).theme;
+        const vars = Object.entries(t.colors).map(([k, v]) => `--${k}:${v};`).join("");
+        return { problems: [], css: `:root{color-scheme:${t.scheme};--radius:${t.radius}px;${vars}}` };
+      }
       case "set_theme": {
         mockTheme = (args as { id: string }).id;
         const t = mockThemes[mockTheme];
