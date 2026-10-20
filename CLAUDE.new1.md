@@ -418,6 +418,14 @@ Each milestone is runnable and tested, and passes the perf gate.
       The TV shelf becomes 3D cases now (Claude's call, owner delegated; flat covers stay as an option), not in 0.3.13.
       Start-up intros: several, randomizable like the Steam Deck's boot videos: Random / one fixed / Off, desktop and
       TV separately. Six drawn so far: Ember, Horns, Forge, Disc, Power on, Your games (owner to pick which stay).
+      **(changed) Sounds allowed (owner, 2026-10-20): sound effects and short tunes** (overrides the "no music" non-goal for
+      UI sounds only; still no background music library or video snaps). Synthesized live with Web Audio (original, no
+      files): intro tunes, case click/disc spin/cartridge clunk, soft move/select ticks. On/off + volume, desktop and TV
+      separately, silent while a game runs.
+      **Idea for the TV Mode touch-up (owner, 2026-10-20; plan proposed, waiting for the owner's OK): console-style TV
+      layouts**, one per platform (Wii channels, PS1 memory-card/CD screen, PS2 browser, PS3 cross-bar, Switch home row,
+      GameCube cube, DS/3DS dual screen, Xbox/360, retro CRT for cartridge systems). Homage only: original drawings,
+      sounds and fonts, no console logos, system music or copied assets. Needs mockups first; likely several releases.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
