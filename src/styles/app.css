@@ -20,7 +20,7 @@
   gap: calc(var(--gap) * 1.5);
   padding: var(--gap) calc(var(--gap) * 2);
   background: var(--bg-raised);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-w, 1px) solid var(--border);
   flex: none;
 }
 
@@ -151,7 +151,7 @@
   font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text-dim);
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-w, 1px) solid var(--border);
   box-sizing: border-box;
 }
 
@@ -397,7 +397,7 @@ html[data-focus-look="spotlight"] .tv-card.focused .tv-card-face {
   font-size: var(--fs-sm);
   color: var(--text-dim);
   background: var(--bg-raised);
-  border-top: 1px solid var(--border);
+  border-top: var(--border-w, 1px) solid var(--border);
 }
 
 .hint-count {
@@ -415,7 +415,7 @@ kbd {
   font-size: 0.85em;
   padding: 1px 7px;
   border-radius: 5px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--surface);
   color: var(--text);
 }
@@ -441,7 +441,7 @@ kbd {
 /* ------------------------------------------------------------ controls */
 
 .btn {
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--surface);
   border-radius: 8px;
   padding: 8px 16px;
@@ -491,7 +491,7 @@ kbd {
 
 .input {
   background: var(--bg-sunken);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   font-size: var(--fs-sm);
@@ -718,7 +718,7 @@ input[type="checkbox"].switch:checked::after {
   max-width: 520px;
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--bg-sunken);
   color: var(--text-faint);
 }
@@ -768,7 +768,7 @@ input[type="checkbox"].switch:checked::after {
   text-align: left;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -825,12 +825,12 @@ input[type="checkbox"].switch:checked::after {
   color: var(--text-dim);
   font-weight: 500;
   padding: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-w, 1px) solid var(--border);
 }
 
 .table td {
   padding: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border-w, 1px) solid var(--border);
   vertical-align: middle;
 }
 
@@ -857,7 +857,7 @@ input[type="checkbox"].switch:checked::after {
 }
 
 .emu {
-  border-top: 1px solid var(--border);
+  border-top: var(--border-w, 1px) solid var(--border);
   padding-top: var(--gap);
 }
 
@@ -1143,7 +1143,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 .osk-value {
   font-size: var(--fs-lg);
   background: var(--bg-sunken);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   border-radius: 8px;
   padding: 10px 14px;
   margin: 8px 0;
@@ -1190,7 +1190,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   padding: 14px 0;
   font-size: var(--fs-md);
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--surface);
   cursor: pointer;
 }
@@ -1237,7 +1237,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 
 .panel {
   background: var(--bg-raised);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   border-radius: 14px;
   padding: calc(var(--gap) * 2);
   width: min(900px, 92vw);
@@ -1282,7 +1282,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   gap: 4px;
   margin-top: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: var(--border-w, 1px) solid var(--border);
 }
 
 .info-links-label {
@@ -1677,7 +1677,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   text-align: left;
   padding: 10px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--surface);
   color: inherit;
   cursor: pointer;
@@ -1754,7 +1754,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   gap: 8px;
   padding: 8px;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--bg-sunken);
   cursor: pointer;
   text-align: left;
@@ -1846,7 +1846,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 
 .cmd {
   background: var(--bg-sunken);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   border-radius: 8px;
   padding: 12px;
   font-family: "Cascadia Mono", Consolas, monospace;
@@ -2218,7 +2218,7 @@ html.nav-mode .tv-menu-item:focus {
   padding: 14px 18px;
   border-radius: var(--radius);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
   font-size: var(--fs-sm);
 }
@@ -2291,7 +2291,7 @@ html.nav-mode .tv-menu-item:focus {
   padding: 14px 16px;
   border-radius: 10px;
   background: var(--bg-sunken);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   outline: none;
   scroll-margin: 12px;
 }
@@ -2385,7 +2385,7 @@ html.nav-mode .tv-menu-item:focus {
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg-raised);
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   cursor: pointer;
   transition: transform 70ms ease-out;
 }
@@ -2670,7 +2670,7 @@ html.nav-mode .tv-menu-item:focus {
   width: clamp(160px, 22vw, 340px);
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--bg-sunken);
   color: var(--text-faint);
   font: inherit;
@@ -2724,7 +2724,7 @@ html.nav-mode .tv-menu-item:focus {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: var(--bg-sunken);
   color: var(--text-faint);
   font: inherit;
@@ -2800,7 +2800,7 @@ html.nav-mode .tv-menu-item:focus {
   flex-direction: column;
   padding: 8px 0;
   background: var(--bg-raised);
-  border-right: 1px solid var(--border);
+  border-right: var(--border-w, 1px) solid var(--border);
   overflow: hidden;
 }
 
@@ -2952,7 +2952,7 @@ html.nav-mode .tv-menu-item:focus {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   background: color-mix(in srgb, var(--bg) 85%, transparent);
   color: var(--text);
   font-size: var(--fs-sm);
@@ -3035,7 +3035,7 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   flex-direction: column;
   min-height: 0;
   background: var(--bg-raised);
-  border-left: 1px solid var(--border);
+  border-left: var(--border-w, 1px) solid var(--border);
   /* Never scrolls: the background shrinks and the description is cut to what fits. */
   overflow: hidden;
 }
@@ -3239,7 +3239,7 @@ button.side-series:hover {
   margin-top: auto;
   flex: none;
   padding: 10px var(--gap);
-  border-top: 1px solid var(--border);
+  border-top: var(--border-w, 1px) solid var(--border);
   font-size: var(--fs-sm);
 }
 
@@ -3446,7 +3446,7 @@ button.side-series:hover {
 .dock-inline .link-btn {
   width: auto;
   gap: 6px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
 }
 
 .dock-boxes > * {
@@ -3458,7 +3458,7 @@ button.side-series:hover {
   flex-direction: column;
   gap: 6px;
   padding: 9px 11px;
-  border: 1px solid var(--border);
+  border: var(--border-w, 1px) solid var(--border);
   border-radius: 10px;
   background: var(--bg-sunken);
   color: inherit;

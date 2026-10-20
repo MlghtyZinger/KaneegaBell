@@ -8,8 +8,8 @@ into the CSS variables its stylesheets already use (`src/styles/tokens.css`).
 The built-in styles are in [`src-tauri/themes/`](../src-tauri/themes/) and follow this exact
 format. The schema is [`theme.schema.json`](theme.schema.json).
 
-KB 0.3.11 ships the built-in styles only. Making and importing your own themes in the app
-comes in 0.3.12.
+KB ships the built-in styles only. Settings → General → Borders changes corner shape, line
+thickness and border color on top of any of them. Making and importing your own themes is not planned.
 
 ## Example
 

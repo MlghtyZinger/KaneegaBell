@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import type { AppliedTheme } from "../api";
+import { api, type AppliedTheme } from "../api";
 
 /** Set by the window's start-up script (src-tauri/src/themes.rs) before the page loads. */
 type Loaded = AppliedTheme & { sheet: CSSStyleSheet };
@@ -25,7 +25,28 @@ const [icon, setIcon] = createSignal("ember");
 export const themeIcon = () => ICONS[icon()] ?? ICONS.ember;
 
 /** Marks the page with the start-up style's focus look and icon (its colors are already in place). */
+export type BorderShape = "default" | "sharp" | "rounded" | "bold";
+export type BorderColor = "default" | "accent" | "gold" | "focus";
+export const BORDER_SHAPES: Record<BorderShape, string> = { default: "Style's own", sharp: "Sharp", rounded: "Rounded", bold: "Bold" };
+export const BORDER_COLORS: Record<BorderColor, string> = { default: "Style's own", accent: "Accent", gold: "Gold", focus: "Focus color" };
+
+/** Overrides on top of any style: set on <html>, so swapping styles keeps them. */
+export function applyBorders(shape: BorderShape, color: BorderColor) {
+  const st = document.documentElement.style;
+  const set = (k: string, v: string | null) => (v ? st.setProperty(k, v) : st.removeProperty(k));
+  set("--radius", { sharp: "0px", rounded: "14px", bold: null, default: null }[shape]);
+  set("--border-w", shape === "bold" ? "2px" : null);
+  set("--border", color === "default" ? null : `var(--${color})`);
+}
+
+export function loadBorders() {
+  void Promise.all([api.getSetting<BorderShape>("borderShape"), api.getSetting<BorderColor>("borderColor")])
+    .then(([s, c]) => applyBorders(s ?? "default", c ?? "default"))
+    .catch(() => {});
+}
+
 export function initTheme() {
+  loadBorders();
   document.documentElement.dataset.focusLook = loaded()?.focusLook ?? "brackets";
   setIcon(loaded()?.icon ?? "ember");
 }

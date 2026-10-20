@@ -13,7 +13,7 @@ import { ScanReport, summarizeChanges } from "../components/ScanReport";
 import { device } from "../input/actions";
 import { editWithOsk } from "../state/osk";
 import { EmulatorBadge } from "../components/Icons";
-import { applyTheme, FOCUS_LOOKS } from "../state/theme";
+import { applyBorders, applyTheme, BORDER_COLORS, BORDER_SHAPES, FOCUS_LOOKS, type BorderColor, type BorderShape } from "../state/theme";
 
 type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
@@ -47,6 +47,7 @@ const INFO: Record<string, Info> = {
   sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
   ra: { section: "services", title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
   style: { section: "general", title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
+  borders: { section: "general", title: "Borders", words: "border outline corners rounded sharp bold thick line color colour accent gold", detail: "The shape of corners and the thickness of lines, and the color of borders, on top of any style. \"Style's own\" keeps what the style sets." },
   exitCombo: { section: "general", title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
   listView: { section: "general", title: "List view", words: "display layout rows steam list sections grid r3 v", detail: "Shows games as rows with a details panel on the right (cover, background, achievements, links) instead of the cover grid. Switch from the library with R3 or V." },
   fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
@@ -1694,6 +1695,19 @@ function GeneralSection(props: { s: Settings; run: Run }) {
     return props.run(() => api.setSetting("exitCombo", { ...combo(), buttons }));
   };
 
+  const [shape, setShape] = createSignal<BorderShape>("default");
+  const [bcolor, setBcolor] = createSignal<BorderColor>("default");
+  void Promise.all([api.getSetting<BorderShape>("borderShape"), api.getSetting<BorderColor>("borderColor")]).then(([s, c]) => {
+    setShape(s ?? "default");
+    setBcolor(c ?? "default");
+  });
+  const saveBorders = (s: BorderShape, c: BorderColor) =>
+    props.run(async () => {
+      await Promise.all([api.setSetting("borderShape", s), api.setSetting("borderColor", c)]);
+      setShape(s);
+      setBcolor(c);
+      applyBorders(s, c);
+    });
   const [themes, { mutate }] = createResource(() => api.listThemes());
   const current = () => themes()?.[0].find((t) => t.id === themes()?.[1]);
 
@@ -1715,6 +1729,10 @@ function GeneralSection(props: { s: Settings; run: Run }) {
             />
           )}
         </Show>
+      </Row>
+      <Row k="borders" status={`${BORDER_SHAPES[shape()]} · ${BORDER_COLORS[bcolor()]}`}>
+        <Picker title="Border shape" value={shape()} options={Object.entries(BORDER_SHAPES).map(([value, label]) => ({ value: value as BorderShape, label }))} onChange={(v) => void saveBorders(v, bcolor())} />
+        <Picker title="Border color" value={bcolor()} options={Object.entries(BORDER_COLORS).map(([value, label]) => ({ value: value as BorderColor, label }))} onChange={(v) => void saveBorders(shape(), v)} />
       </Row>
       <Row
         k="exitCombo"
