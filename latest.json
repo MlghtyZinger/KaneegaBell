@@ -1,11 +1,11 @@
 {
-  "version": "0.3.9",
-  "notes": "- New: filter your games by platform, genre, developer, publisher, release year, play time, whether you've played them, and favorites. Save a filter as a smart collection that updates as your library changes.\n- New: edit a smart collection's rules from its collection tile; its games always follow the saved filter.\n- New: add or remove games from a collection page. Your edits to a series stay saved when its Wikidata information refreshes.",
-  "pub_date": "2026-10-19T15:49:48Z",
+  "version": "0.3.10",
+  "notes": "- New: search SteamGridDB for a collection's logo (needs your SteamGridDB key).\n- New: TV Mode has a Collections tab; open a collection to browse its games.\n- New: collections show their total play time, how many games you've played and when.\n- New: pick a background for a collection in TV Mode from SteamGridDB (needs your key).\n- New: sort the Collections tab (A–Z, release date, play time, size, genre, or your own order).\n- New: drag your collections and series into your own order (drop on a tile's left or right half; the others shift along), or pick one up with the controller and move it with the D-pad.",
+  "pub_date": "2026-10-20T04:33:19Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVEvTGNaZEtoOHVPM05XVjI5Z3RIUmpQeE4zOXRId0g4YjJmNngvSTRaRkIvTE5xRUJjZTlKcjZUT1J0cDdtMHArOXNvMnpjaHlFakllUXMvL2lJUmc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNDI0ODAwCWZpbGU6S2FuZWVnYUJlbGxfMC4zLjlfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuMy45CkZ6bm5BOVdSOEQvSEJBbDNHVEQvSTFtdW9iOUJiL09NZ1VTb2ppSHVYcEVBbUxCNHN4ZFZBSmxxdTBOYllJMDFvK1Y0aDZ0b2JhSGNLaW4xalBET0RBPT0K",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.9_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWR6NjNXNEZsd1VsLzdRTVVBU2ZkMEE1aGpGQkpPM214a1VzY0RDM3RwNk52Zk5JdCtIeGNHRHlUdnJsR3U4bG1VYUY5VGZEMjA0WTBqUVkzelVKUXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNDcwNzg3CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjEwX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTAKZndYanB3Sk5IR3ZId21zVW1XK0tFbzFmR2hWTkUvQnNWbjZqNXNZSWRmV2VKc2EwYmZJcVE5Yk50VWJuL0haZ0NhU3F6NHo4ZHYrNzFEc2FXb0hXQ0E9PQo=",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.10_x64-setup.exe?ref=updates"
     }
   }
 }
