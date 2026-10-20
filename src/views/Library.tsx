@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
-import { collections } from "../state/collections";
+import { collections, COLLECTION_SORTS } from "../state/collections";
 import {
   CollectionBanner,
   CollectionEditor,
@@ -23,6 +23,7 @@ import { GameCard } from "../components/GameCard";
 import { GameListRow } from "../components/GameListRow";
 import { Hint } from "../components/Hints";
 import { FilterPanel } from "../components/FilterPanel";
+import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
 import { GameSidebar } from "../components/GameSidebar";
 import { api, errorText, type GameRow } from "../api";
@@ -110,6 +111,67 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (g) setInfoId(g.id);
   };
   const [filterOpen, setFilterOpen] = createSignal(false);
+  const [sortOpen, setSortOpen] = createSignal(false);
+  // Reordering your collections (sort "My order"): drag a tile, or pick it up with the controller.
+  const [heldKey, setHeldKey] = createSignal<string | null>(null);
+  const [dropKey, setDropKey] = createSignal<string | null>(null);
+  const reorderable = (key: string) => collections.sort() === "mine" && key.startsWith("c:");
+  async function moveCollectionBy(key: string, delta: number) {
+    const from = collections.visible().findIndex((c) => c.key === key);
+    const last = collections.visible().filter((c) => c.kind === "mine" || c.kind === "smart").length - 1;
+    const to = Math.min(last, Math.max(0, from + delta));
+    if (from < 0 || to === from) return;
+    try {
+      await api.moveCollection(key, to - from);
+      await collections.reload();
+      setFocused(to + 1); // tile 0 is "New collection"
+    } catch (e) {
+      setCollectionError(errorText(e));
+    }
+  }
+  function startDrag(e: PointerEvent) {
+    const tile = (e.target as HTMLElement).closest<HTMLElement>("[data-col-key]");
+    const key = tile?.dataset.colKey;
+    if (!tile || !key || e.button !== 0 || !reorderable(key)) return;
+    const [x0, y0] = [e.clientX, e.clientY];
+    let active = false;
+    const timer = setTimeout(() => {
+      active = true;
+      tile.classList.add("dragging");
+      setHeldKey(key);
+    }, 250);
+    const move = (m: PointerEvent) => {
+      if (!active) {
+        if (Math.hypot(m.clientX - x0, m.clientY - y0) > 6) end(false); // a swipe, not a hold
+        return;
+      }
+      tile.style.transform = `translate(${m.clientX - x0}px, ${m.clientY - y0}px) scale(1.04)`;
+      const over = document.elementFromPoint(m.clientX, m.clientY)?.closest<HTMLElement>("[data-col-key]")?.dataset.colKey;
+      setDropKey(over && over !== key && over.startsWith("c:") ? over : null);
+    };
+    const end = (drop: boolean) => {
+      clearTimeout(timer);
+      removeEventListener("pointermove", move);
+      removeEventListener("pointerup", up);
+      removeEventListener("pointercancel", cancel);
+      const target = dropKey();
+      tile.classList.remove("dragging");
+      tile.style.transform = "";
+      setHeldKey(null);
+      setDropKey(null);
+      if (active) {
+        // The click that ends a drag must not open the collection.
+        addEventListener("click", (c) => c.stopPropagation(), { capture: true, once: true });
+        const list = collections.visible();
+        if (drop && target) void moveCollectionBy(key, list.findIndex((c) => c.key === target) - list.findIndex((c) => c.key === key));
+      }
+    };
+    const up = () => end(true);
+    const cancel = () => end(false);
+    addEventListener("pointermove", move);
+    addEventListener("pointerup", up);
+    addEventListener("pointercancel", cancel);
+  }
   const filterLabel = () => (library.activeFilter() ? `Filter (${countActive(library.filter())})` : "Filter");
   // The grid knows where cards are (rows, sections): D-pad moves ask it.
   let navigate: Navigator | undefined;
@@ -368,11 +430,27 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       case "right":
       case "up":
       case "down":
+        if (overview() && heldKey()) {
+          const cols = [...document.querySelectorAll<HTMLElement>(".grid-wrap [data-col-key]")];
+          const perRow = Math.max(1, cols.filter((el) => el.offsetTop === cols[0]?.offsetTop).length + 1); // + the "New collection" tile
+          void moveCollectionBy(heldKey()!, a === "left" ? -1 : a === "right" ? 1 : a === "up" ? -perRow : perRow);
+          return true;
+        }
         move(a);
         return true;
-      case "toggleGroups": library.setListView(!library.listView()); return true;
+      case "toggleGroups":
+        if (overview()) {
+          // Pick up / put down one of your collections (sort "My order").
+          const t = tiles()[focused()];
+          if (heldKey()) setHeldKey(null);
+          else if (t?.kind === "col" && reorderable(t.c.key)) setHeldKey(t.c.key);
+          return true;
+        }
+        library.setListView(!library.listView());
+        return true;
       case "filter":
-        setFilterOpen(true);
+        if (overview()) setSortOpen(true);
+        else setFilterOpen(true);
         return true;
       case "prevPlatform": library.cyclePlatform(-1); return true;
       case "nextPlatform": library.cyclePlatform(1); return true;
@@ -386,7 +464,8 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         return true;
       case "secondary": openSearch(); return true;
       case "select": {
-        if (overview()) activateTile(focused());
+        if (overview() && heldKey()) setHeldKey(null);
+        else if (overview()) activateTile(focused());
         else if (games()[focused()]) openSide(focused());
         return true;
       }
@@ -608,7 +687,21 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         when={!overview()}
         fallback={
           <>
-            <div class="grid-wrap" onWheel={onWheel}>
+            <div class="col-sortbar">
+              <span class="dim small">Sort</span>
+              <Picker
+                value={collections.sort()}
+                options={COLLECTION_SORTS}
+                onChange={collections.setSort}
+                title="Sort collections"
+                open={sortOpen()}
+                onOpenChange={setSortOpen}
+              />
+              <Show when={collections.sort() === "mine"}>
+                <span class="dim small">Hold a tile and drag it, or press <Hint action="toggleGroups" label="pick up" /> and use the D-pad.</span>
+              </Show>
+            </div>
+            <div class="grid-wrap" onWheel={onWheel} onPointerDown={startDrag}>
               <VirtualGrid
                 items={tiles()}
                 focused={focused()}
@@ -631,7 +724,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                       )
                     }
                   >
-                    {(c) => <CollectionTile c={c()} focused={isFocused} onEdit={() => setEditKey(c().key)} />}
+                    {(c) => (
+                      <CollectionTile c={c()} focused={isFocused} held={heldKey() === c().key} drop={dropKey() === c().key} onEdit={() => setEditKey(c().key)} />
+                    )}
                   </Show>
                 )}
               />
@@ -639,6 +734,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             <footer class="hints">
               <Hint action="select" label="Open" />
               <Hint action="favorite" label="Edit" />
+              <Hint action="filter" label="Sort" />
               <Hint action="secondary" label="Search" />
               <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
               <Hint action="menu" label="Settings" />

@@ -3371,3 +3371,27 @@ html.nav-mode .tv-menu-item:focus {
     display: none;
   }
 }
+
+/* Collections tab: sort bar and reordering. */
+.col-sortbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 0;
+}
+.col-tile.held {
+  box-shadow: var(--focus-ring);
+  transform: scale(1.06);
+  z-index: 2;
+}
+.col-tile.dragging {
+  transition: none;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.9;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.col-tile.drop-target {
+  outline: 3px dashed var(--accent, #4ea1ff);
+  outline-offset: 2px;
+}

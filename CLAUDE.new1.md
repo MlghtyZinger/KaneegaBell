@@ -385,6 +385,12 @@ Each milestone is runnable and tested, and passes the perf gate.
       lists); own image file stays.
       **Member editing built 2026-10-19 (0.3.9):** collection editor has a searchable tick picker; Y/right-click removes
       a game from an open manual collection or series; series membership corrections persist across Wikidata refreshes.
+
+      **Sorting and reordering built 2026-10-20 (owner's request, after 0.3.10's parts; its own release, not yet versioned):**
+      the Collections tab has a sort picker (Select/G): A-Z (default), My order, newest/oldest release (of the latest/first game),
+      recently played, most played, most games, genre (the genre most of its games share, no headings). Missing values sort last.
+      "My order" lets you drag your own collections (hold a tile 250 ms, drag onto another) or pick one up (V / R3), move it with
+      the D-pad and put it down with A. Series stay after yours. Still to decide: a binding better than R3, and genre headings.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
       **Owner (2026-10-18): model the app's look around the icon** (concept L: black, ember red-orange, cream, gold)
       when themes come; likely the default or a built-in theme.

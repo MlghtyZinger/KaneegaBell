@@ -29,11 +29,11 @@ function Emblem(props: { c: Collection; class?: string }) {
  * A tile in the Collections tab: a cover mosaic (or the chosen cover) with its
  * logo or name. `onEdit` adds a pencil (shown on hover and focus).
  */
-export function CollectionTile(props: { c: Collection; focused: () => boolean; onEdit?: () => void }) {
+export function CollectionTile(props: { c: Collection; focused: () => boolean; onEdit?: () => void; held?: boolean; drop?: boolean }) {
   const chosen = () => collections.chosenPicture(props.c);
   const covers = () => collections.mosaic(props.c);
   return (
-    <div class="col-tile" classList={{ focused: props.focused(), hidden: props.c.hidden }}>
+    <div class="col-tile" data-col-key={props.c.key} classList={{ focused: props.focused(), hidden: props.c.hidden, held: props.held, "drop-target": props.drop }}>
       <Show
         when={chosen()?.kind === "cover"}
         fallback={

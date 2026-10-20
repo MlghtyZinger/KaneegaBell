@@ -10,7 +10,29 @@ export interface CollectionPicture {
   kind: "logo" | "cover";
 }
 
+export type CollectionSort = "az" | "mine" | "newest" | "oldest" | "recent" | "most" | "size" | "genre";
+export const COLLECTION_SORTS: { value: CollectionSort; label: string }[] = [
+  { value: "az", label: "A–Z" },
+  { value: "mine", label: "My order" },
+  { value: "newest", label: "Newest release" },
+  { value: "oldest", label: "Oldest release" },
+  { value: "recent", label: "Recently played" },
+  { value: "most", label: "Most played" },
+  { value: "size", label: "Most games" },
+  { value: "genre", label: "Genre" },
+];
+
 function createCollections() {
+  const [sort, setSortRaw] = createSignal<CollectionSort>("az");
+  function setSort(s: CollectionSort) {
+    setSortRaw(s);
+    void api.setSetting("collectionSort", s).catch(() => {});
+  }
+  void api
+    .getSetting<string>("collectionSort")
+    .then((v) => COLLECTION_SORTS.some((o) => o.value === v) && setSortRaw(v as CollectionSort))
+    .catch(() => {});
+
   const [list, setList] = createSignal<Collection[]>([]);
   /** Hidden series show up too (dimmed), to be shown again. */
   const [showHidden, setShowHidden] = createSignal(false);
@@ -38,9 +60,47 @@ function createCollections() {
     c.kind === "smart"
       ? smartIds(c).map((id) => rows().get(id)).filter((g): g is GameRow => !!g)
       : c.games.map((id) => rows().get(id)).filter((g): g is GameRow => !!g);
-  const visible = createMemo(() =>
+  const shown = createMemo(() =>
     list().filter((c) => (showHidden() || !c.hidden) && (c.kind === "smart" || c.kind === "mine" || gamesOf(c).length >= 2)),
   );
+  /** The shown collections in the chosen order (games without a date/play time count as none and sort last). */
+  const visible = createMemo(() => {
+    const s = sort();
+    const items = shown().map((c) => {
+      const games = gamesOf(c);
+      const years = games.map((g) => g.year).filter((y): y is number => !!y);
+      const counts = new Map<number, number>();
+      for (const g of games) for (const id of g.genres ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
+      const top = [...counts].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]?.[0];
+      return {
+        c,
+        newest: years.length ? Math.max(...years) : null,
+        oldest: years.length ? Math.min(...years) : null,
+        last: Math.max(0, ...games.map((g) => g.lastPlayed ?? 0)),
+        played: games.reduce((n, g) => n + g.playSeconds, 0),
+        size: games.length,
+        genre: top === undefined ? null : (library.genres().find((x) => x.id === top)?.name ?? null),
+      };
+    });
+    const byName = (a: (typeof items)[0], b: (typeof items)[0]) => a.c.name.localeCompare(b.c.name, undefined, { sensitivity: "base", numeric: true });
+    // Missing values sort last in either direction.
+    const num = (f: (i: (typeof items)[0]) => number | null, dir: 1 | -1) => (a: (typeof items)[0], b: (typeof items)[0]) => {
+      const x = f(a), y = f(b);
+      if (x === null) return y === null ? byName(a, b) : 1;
+      if (y === null) return -1;
+      return (x - y) * dir || byName(a, b);
+    };
+    if (s === "mine") return items.map((i) => i.c); // your collections first (in your order), then series by name
+    const cmp =
+      s === "newest" ? num((i) => i.newest, -1)
+      : s === "oldest" ? num((i) => i.oldest, 1)
+      : s === "recent" ? num((i) => i.last || null, -1)
+      : s === "most" ? num((i) => i.played || null, -1)
+      : s === "size" ? num((i) => i.size, -1)
+      : s === "genre" ? (a: (typeof items)[0], b: (typeof items)[0]) => (a.genre === null ? (b.genre === null ? byName(a, b) : 1) : b.genre === null ? -1 : a.genre.localeCompare(b.genre) || byName(a, b))
+      : byName;
+    return items.sort(cmp).map((i) => i.c);
+  });
   const hiddenCount = createMemo(() => list().filter((c) => c.hidden).length);
   /** The user's own manual collections (games can be added to these). */
   const mine = createMemo(() => list().filter((c) => c.kind === "mine"));
@@ -93,7 +153,7 @@ function createCollections() {
     void events.onScanFinished(() => void reload());
   }
 
-  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic, statsLine, ownHero };
+  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic, statsLine, ownHero, sort, setSort };
 }
 
 export const collections = createRoot(createCollections);
