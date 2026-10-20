@@ -155,6 +155,17 @@ mod windows_impl {
 
         /// Asks the game's windows to close. Returns how many were asked.
         pub fn close_windows(&self) -> usize {
+            let found = self.windows();
+            for &h in &found {
+                unsafe {
+                    let _ = PostMessageW(Some(HWND(h as *mut c_void)), WM_CLOSE, WPARAM(0), LPARAM(0));
+                }
+            }
+            found.len()
+        }
+
+        /// The game's visible top-level windows.
+        pub fn windows(&self) -> Vec<isize> {
             let mut pids = self.pids();
             if pids.is_empty() {
                 pids.push(self.pid);
@@ -175,11 +186,8 @@ mod windows_impl {
             let mut ctx = Ctx { pids, found: Vec::new() };
             unsafe {
                 let _ = EnumWindows(Some(each), LPARAM(&mut ctx as *mut Ctx as isize));
-                for &h in &ctx.found {
-                    let _ = PostMessageW(Some(HWND(h as *mut c_void)), WM_CLOSE, WPARAM(0), LPARAM(0));
-                }
             }
-            ctx.found.len()
+            ctx.found
         }
 
         pub fn terminate(&self) {
@@ -226,6 +234,9 @@ mod portable {
         }
         pub fn close_windows(&self) -> usize {
             0
+        }
+        pub fn windows(&self) -> Vec<isize> {
+            Vec::new()
         }
         pub fn terminate(&self) {
             let _ = self.child.lock().unwrap().kill();

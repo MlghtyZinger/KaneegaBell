@@ -1,22 +1,26 @@
-/* Dark, TV-distance design tokens. Sizes scale with viewport height so a 1080p TV
+/* Design tokens, set by the chosen style. Sizes scale with viewport height so a 1080p TV
    and a 1440p monitor both read comfortably from the couch. */
 :root {
   color-scheme: dark;
 
-  --bg: #0e1014;
-  --bg-raised: #171a21;
-  --bg-sunken: #0a0b0e;
-  --surface: #1f232c;
-  --surface-hover: #272c37;
-  --border: #2c313c;
-  --text: #eef0f4;
-  --text-dim: #a3a9b6;
-  --text-faint: #6b7280;
-  --accent: #5b9dff;
-  --accent-strong: #8ab8ff;
-  --focus: #ffd75e;
-  --danger: #ff6b6b;
-  --ok: #5fd38d;
+  /* Ember, the default style. A chosen style replaces these before the first
+     paint (src-tauri/src/themes.rs); they apply only if that fails. */
+  --bg: #0d0a09;
+  --bg-raised: #17110e;
+  --bg-sunken: #070504;
+  --surface: #221915;
+  --surface-hover: #2d211b;
+  --border: #33261f;
+  --text: #f2e8d8;
+  --text-dim: #bfae97;
+  --text-faint: #8a7a68;
+  --accent: #e2582b;
+  --accent-strong: #ff8a5c;
+  --on-accent: #140805;
+  --focus: #f2e8d8;
+  --gold: #d9a52b;
+  --danger: #ff6a5a;
+  --ok: #8fcf7a;
 
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --fs-xs: clamp(13px, 1.25vh, 18px);
@@ -26,6 +30,6 @@
   --fs-xl: clamp(28px, 3.4vh, 46px);
 
   --gap: clamp(10px, 1.2vh, 18px);
-  --radius: 10px;
-  --focus-ring: 0 0 0 4px var(--focus), 0 0 24px 4px rgb(255 215 94 / 0.35);
+  --radius: 6px;
+  --focus-ring: 0 0 0 4px var(--focus), 0 0 24px 4px color-mix(in srgb, var(--focus) 35%, transparent);
 }

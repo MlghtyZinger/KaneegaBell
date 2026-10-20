@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kaneegabell-theme-1",
+  "title": "KaneegaBell theme (format 1)",
+  "description": "theme.json of a KaneegaBell style. Data only: colors, corner radius, focus look and icon. KB also checks contrast (see docs/themes.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "name", "author", "version", "minAppVersion", "scheme", "radius", "focusLook", "icon", "colors"],
+  "properties": {
+    "format": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "version": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "minAppVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "scheme": { "enum": ["dark", "light"] },
+    "radius": { "type": "integer", "minimum": 0, "maximum": 24 },
+    "focusLook": { "enum": ["glow", "ring", "lift", "brackets", "bar", "spotlight"] },
+    "icon": { "enum": ["ember", "midnight", "daylight", "contrast", "moss", "storm"] },
+    "colors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bg", "bg-raised", "bg-sunken", "surface", "surface-hover", "border", "text", "text-dim", "text-faint", "accent", "accent-strong", "on-accent", "focus", "gold", "danger", "ok"],
+      "properties": {
+        "bg": { "$ref": "#/$defs/color" },
+        "bg-raised": { "$ref": "#/$defs/color" },
+        "bg-sunken": { "$ref": "#/$defs/color" },
+        "surface": { "$ref": "#/$defs/color" },
+        "surface-hover": { "$ref": "#/$defs/color" },
+        "border": { "$ref": "#/$defs/color" },
+        "text": { "$ref": "#/$defs/color" },
+        "text-dim": { "$ref": "#/$defs/color" },
+        "text-faint": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" },
+        "accent-strong": { "$ref": "#/$defs/color" },
+        "on-accent": { "$ref": "#/$defs/color" },
+        "focus": { "$ref": "#/$defs/color" },
+        "gold": { "$ref": "#/$defs/color" },
+        "danger": { "$ref": "#/$defs/color" },
+        "ok": { "$ref": "#/$defs/color" }
+      }
+    },
+    "tv": {
+      "description": "Colors that differ in TV Mode: any of the names in colors.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bg": { "$ref": "#/$defs/color" },
+        "bg-raised": { "$ref": "#/$defs/color" },
+        "bg-sunken": { "$ref": "#/$defs/color" },
+        "surface": { "$ref": "#/$defs/color" },
+        "surface-hover": { "$ref": "#/$defs/color" },
+        "border": { "$ref": "#/$defs/color" },
+        "text": { "$ref": "#/$defs/color" },
+        "text-dim": { "$ref": "#/$defs/color" },
+        "text-faint": { "$ref": "#/$defs/color" },
+        "accent": { "$ref": "#/$defs/color" },
+        "accent-strong": { "$ref": "#/$defs/color" },
+        "on-accent": { "$ref": "#/$defs/color" },
+        "focus": { "$ref": "#/$defs/color" },
+        "gold": { "$ref": "#/$defs/color" },
+        "danger": { "$ref": "#/$defs/color" },
+        "ok": { "$ref": "#/$defs/color" }
+      }
+    }
+  },
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+  }
+}

@@ -18,6 +18,7 @@ mod perf;
 mod platforms;
 mod scanner;
 mod secrets;
+mod themes;
 mod updates;
 mod wikidata;
 
@@ -243,11 +244,13 @@ pub fn run() {
             // its own files in the data folder too, instead of AppData.
             trim_web_cache(&conn, &dir);
             remove_unused_web_components(&conn, &dir.join("webview"));
+            let (theme_id, theme) = themes::current(&conn);
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
                     tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?
                         .data_directory(dir.join("webview"))
                         .additional_browser_args(&webview_args())
+                        .initialization_script(themes::init_script(&themes::applied(&theme_id, &theme)))
                         .build()?,
                 ),
                 None => app.get_webview_window("main"),
@@ -256,6 +259,7 @@ pub fn run() {
             if let Some(w) = &window {
                 display::restore(w, &conn);
             }
+            themes::set_window_icon(app.handle(), &theme);
             let start_fullscreen = db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true);
             let start_in_tv = db::queries::get_setting::<bool>(&conn, "startInTv")? == Some(true);
 
@@ -369,6 +373,8 @@ pub fn run() {
             commands::tv_enter,
             commands::tv_leave,
             commands::refresh_zoom,
+            commands::list_themes,
+            commands::set_theme,
             commands::lb_status,
             commands::fetch_launchbox,
             commands::set_lb_enabled,

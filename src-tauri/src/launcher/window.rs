@@ -10,7 +10,7 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU,
 };
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow, ShowWindow, SW_RESTORE};
+use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE};
 
 fn key(flags: KEYBD_EVENT_FLAGS) -> INPUT {
     INPUT {
@@ -88,6 +88,22 @@ pub fn set_webview_suspended(window: &tauri::WebviewWindow, suspended: bool) {
             }
         }
     });
+}
+
+/// Gives a just-opened emulator window the foreground without un-maximizing it
+/// (only a minimized one is restored), so a fullscreen game isn't left behind.
+pub fn focus_game(hwnd: HWND) {
+    unsafe {
+        if IsIconic(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+        }
+        if SetForegroundWindow(hwnd).as_bool() && GetForegroundWindow() == hwnd {
+            return;
+        }
+        let inputs = [key(KEYBD_EVENT_FLAGS(0)), key(KEYEVENTF_KEYUP)];
+        SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+        let _ = SetForegroundWindow(hwnd);
+    }
 }
 
 pub fn bring_to_front(hwnd: HWND) {

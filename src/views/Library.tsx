@@ -13,7 +13,7 @@ import {
   saveSmartCollection,
 } from "../components/Collections";
 import type { Collection } from "../api";
-import appIcon from "../assets/app-icon.png";
+import { themeIcon } from "../state/theme";
 import { Icon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
 import { countActive } from "../state/smartFilter";
@@ -609,7 +609,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     <div class="library">
       <header class="topbar slim">
         <span class="kb-mark" aria-hidden="true">
-          <img src={appIcon} alt="" />
+          <img src={themeIcon()} alt="" />
         </span>
         <div class="here">
           <span class="here-title">{here().title}</span>

@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Storm",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.3.11",
+  "scheme": "dark",
+  "radius": 8,
+  "focusLook": "bar",
+  "icon": "storm",
+  "colors": {
+    "bg": "#11151a", "bg-raised": "#181d24", "bg-sunken": "#0b0e12",
+    "surface": "#202630", "surface-hover": "#29303b", "border": "#2d3540",
+    "text": "#e9eef3", "text-dim": "#a0abb8", "text-faint": "#6c7785",
+    "accent": "#3fb8bd", "accent-strong": "#7ad6d9", "on-accent": "#04181a",
+    "focus": "#ff9f4a", "gold": "#d9a52b", "danger": "#ff6b6b", "ok": "#5fd38d"
+  }
+}

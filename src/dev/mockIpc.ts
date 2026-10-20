@@ -6,6 +6,16 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { CollectionRules, GameRow, Library, Settings } from "../api";
 
+// The built-in styles, as the app ships them.
+type MockTheme = { name: string; scheme: string; radius: number; focusLook: string; colors: Record<string, string> };
+const mockThemes: Record<string, MockTheme> = Object.fromEntries(
+  Object.entries(import.meta.glob<MockTheme>("../../src-tauri/themes/*.json", { eager: true, import: "default" })).map(([p, t]) => [
+    p.split("/").pop()!.replace(".json", ""),
+    t,
+  ]),
+);
+let mockTheme = "ember";
+
 const PLATFORMS = [
   ["snes", "Super Nintendo", "SNES"],
   ["n64", "Nintendo 64", "N64"],
@@ -245,6 +255,14 @@ export function installMockIpc() {
           const url = `data:image/svg+xml,${encodeURIComponent(svg)}`;
           return { source: "sgdb", name: String(n), preview: url, url, label: `${q} · 600×200` };
         });
+      }
+      case "list_themes":
+        return [Object.entries(mockThemes).map(([id, t]) => ({ id, name: t.name, focusLook: t.focusLook, swatches: [t.colors.bg, t.colors.accent, t.colors.focus] })), mockTheme];
+      case "set_theme": {
+        mockTheme = (args as { id: string }).id;
+        const t = mockThemes[mockTheme];
+        const vars = Object.entries(t.colors).map(([k, v]) => `--${k}:${v};`).join("");
+        return { id: mockTheme, css: `:root{color-scheme:${t.scheme};--radius:${t.radius}px;${vars}}`, focusLook: t.focusLook, icon: mockTheme };
       }
       case "get_library":
         return lib;
