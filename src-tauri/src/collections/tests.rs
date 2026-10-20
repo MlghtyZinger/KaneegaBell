@@ -131,6 +131,8 @@ fn logos_can_be_a_game_s_logo_a_cover_or_your_own_image() {
     std::fs::write(&webp_file, &*webp::Encoder::from_rgba(&rgba, 64, 32).encode(90.0)).unwrap();
     set_logo_file(&conn, dir.path(), &key, &webp_file).unwrap();
     assert_eq!(find(&list(&conn).unwrap(), &key).logo, Some(Logo::File { version: 2 }));
+    set_logo_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(600, 200)).unwrap();
+    assert_eq!(find(&list(&conn).unwrap(), &key).logo, Some(Logo::File { version: 3 }));
     let text = dir.path().join("notes.txt");
     std::fs::write(&text, b"not an image").unwrap();
     assert!(set_logo_file(&conn, dir.path(), &key, &text).is_err());

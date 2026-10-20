@@ -224,8 +224,18 @@ export function installMockIpc() {
         return null;
       }
       case "set_collection_logo_file":
+      case "set_collection_logo_url":
         col(a.key as string).logo = { type: "file", version: 1 };
         return null;
+      case "collection_logo_candidates": {
+        const q = String(a.query ?? "").trim();
+        if (!q) return [];
+        return [1, 2, 3, 4, 5, 6].map((n) => {
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100"><rect width="300" height="100" rx="12" fill="hsl(${n * 55} 50% 30%)"/><text x="150" y="60" font-size="28" fill="#fff" text-anchor="middle" font-family="sans-serif">${q.slice(0, 12)} ${n}</text></svg>`;
+          const url = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+          return { source: "sgdb", name: String(n), preview: url, url, label: `${q} · 600×200` };
+        });
+      }
       case "get_library":
         return lib;
       case "get_settings":

@@ -679,6 +679,8 @@ export const api = {
   /** "auto", "game:<id>" (its clear logo) or "cover:<id>". */
   setCollectionLogo: (key: string, choice: string) => invoke<void>("set_collection_logo", { key, choice }),
   setCollectionLogoFile: (key: string, path: string) => invoke<void>("set_collection_logo_file", { key, path }),
+  collectionLogoCandidates: (query: string) => invoke<CoverCandidate[]>("collection_logo_candidates", { query }),
+  setCollectionLogoUrl: (key: string, url: string) => invoke<void>("set_collection_logo_url", { key, url }),
   /** A cover's main color (`#rrggbb`), to tint its series; null without one. */
   coverAccent: (id: number) => invoke<string | null>("cover_accent", { id }),
   /** A Wikidata pass; `force` asks about every platform again ("Update now"). */

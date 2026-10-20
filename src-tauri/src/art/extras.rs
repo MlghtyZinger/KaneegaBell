@@ -201,6 +201,35 @@ pub fn candidates(conn: &Connection, sgdb: &Sgdb, game_id: i64, kind: Kind, quer
         .collect())
 }
 
+/// Logos for a collection: SteamGridDB's first 5 games for the words, each one's logos.
+pub fn search_logos(sgdb: &Sgdb, query: &str) -> Result<Vec<Candidate>> {
+    let mut out = Vec::new();
+    let (mut asked, mut last_err) = (0, None);
+    for game in sgdb.search(query)?.into_iter().take(5) {
+        asked += 1;
+        match sgdb.images(Kind::Logo, game.id) {
+            Ok(images) => out.extend(images.into_iter().map(|img| Candidate {
+                source: "sgdb".into(),
+                name: img.id.to_string(),
+                preview: Some(img.thumb.clone()),
+                url: img.url,
+                label: match (img.width, img.height) {
+                    (Some(w), Some(h)) => format!("{} · {w}×{h}", game.name),
+                    _ => game.name.clone(),
+                },
+            })),
+            Err(e) => {
+                log::warn!("SteamGridDB logos for {}: {e}", game.name);
+                last_err = Some(e);
+            }
+        }
+    }
+    match last_err {
+        Some(e) if out.is_empty() && asked > 0 => Err(e),
+        _ => Ok(out),
+    }
+}
+
 /// Sets a hero or logo the user picked (kept: never replaced automatically).
 pub fn apply(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, extra: Extra, source: &str, name: &str, url: &str) -> Result<()> {
     let bytes = fetch.get(url)?.ok_or_else(|| Error::msg("that image is no longer available"))?;
@@ -334,5 +363,26 @@ mod tests {
         remove(&conn, data.path(), id, Extra::Hero).unwrap();
         assert!(!images::extra_path(data.path(), Extra::Hero, id).exists());
         assert_eq!(queries::library(&conn).unwrap()[0].hero, 0);
+    }
+
+    #[test]
+    fn collection_logo_search_takes_five_games_and_skips_failures() {
+        let api = FakePost::new(|url: &str, _: &[(&str, &str)], _: &str| {
+            if url.contains("/search/autocomplete/") {
+                let g: Vec<_> = (1..=7).map(|i| j!({"id": i, "name": format!("G{i}")})).collect();
+                json(200, j!({"success": true, "data": g}))
+            } else if url.contains("/logos/game/2") {
+                Response { status: 500, body: vec![] }
+            } else if let Some(n) = url.split("/logos/game/").nth(1).and_then(|n| n.split('?').next()) {
+                json(200, j!({"success": true, "data": [{"id": 100 + n.parse::<i64>().unwrap(), "url": "https://cdn/l.png", "thumb": "https://cdn/t.png", "width": 600, "height": 200}]}))
+            } else {
+                Response { status: 404, body: vec![] }
+            }
+        });
+        let sgdb = Sgdb::new(&api, "key".into());
+        let c = search_logos(&sgdb, "Zelda").unwrap();
+        assert_eq!(c.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["101", "103", "104", "105"]);
+        assert_eq!(c[0].label, "G1 · 600×200");
+        assert!(search_logos(&sgdb, "  ").unwrap().is_empty());
     }
 }

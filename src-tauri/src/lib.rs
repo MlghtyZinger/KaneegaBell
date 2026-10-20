@@ -391,6 +391,8 @@ pub fn run() {
             commands::set_collection_hidden,
             commands::set_collection_logo,
             commands::set_collection_logo_file,
+            commands::collection_logo_candidates,
+            commands::set_collection_logo_url,
             commands::fetch_wikidata,
             commands::set_wd_enabled,
             updates::check_for_update,

@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
-import { api, artUrl, errorText, type Collection, type CollectionRules, type GameRow } from "../api";
+import { api, artUrl, errorText, type Collection, type CollectionRules, type CoverCandidate, type GameRow } from "../api";
 import { collections } from "../state/collections";
 import { library } from "../state/library";
 import { osk } from "../state/osk";
@@ -164,7 +164,10 @@ export function CollectionBanner(props: { c: Collection; focused: string | null;
  * games' order, its place in the list and deleting it; series can be hidden.
  */
 export function CollectionEditor(props: { c: Collection; onClose: () => void; onDeleted?: () => void }) {
-  const [picking, setPicking] = createSignal<"logo" | "cover" | null>(null);
+  const [picking, setPicking] = createSignal<"logo" | "cover" | "search" | null>(null);
+  const [query, setQuery] = createSignal("");
+  const [found, setFound] = createSignal<CoverCandidate[] | null>(null);
+  const [searching, setSearching] = createSignal(false);
   const [browsing, setBrowsing] = createSignal(false);
   const [confirmDelete, setConfirmDelete] = createSignal(false);
   const [editingRules, setEditingRules] = createSignal(false);
@@ -186,6 +189,25 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
     }
   }
   const setLogo = (choice: string) => run(() => api.setCollectionLogo(c().key, choice)).then(() => setPicking(null));
+  async function searchLogos() {
+    setError(null);
+    setSearching(true);
+    setFound(null);
+    try {
+      setFound(await api.collectionLogoCandidates(query().trim()));
+    } catch (e) {
+      setError(errorText(e));
+    }
+    setSearching(false);
+  }
+  const openSearch = () => {
+    if (picking() === "search") return setPicking(null);
+    setQuery(c().name);
+    setFound(null);
+    setPicking("search");
+    void searchLogos();
+  };
+  const pickFound = (url: string) => run(() => api.setCollectionLogoUrl(c().key, url)).then(() => setPicking(null));
   const logoChoice = () => {
     const l = c().logo;
     return !l ? "auto" : l.type === "file" ? "file" : `${l.type}:${l.id}`;
@@ -214,8 +236,43 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           <button class="btn" classList={{ selected: logoChoice() === "file" }} onClick={() => setBrowsing(true)}>
             Your image…
           </button>
+          <button class="btn" classList={{ selected: picking() === "search" }} onClick={openSearch}>
+            Search logos…
+          </button>
         </div>
-        <Show when={picking()}>
+        <Show when={picking() === "search"}>
+          <div class="row">
+            <input
+              class="input"
+              value={query()}
+              placeholder="Search SteamGridDB"
+              onInput={(e) => setQuery(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && void searchLogos()}
+            />
+            <button class="btn" onClick={() => void searchLogos()}>
+              Search
+            </button>
+          </div>
+          <Show when={searching()}>
+            <p class="dim">Searching SteamGridDB…</p>
+          </Show>
+          <Show when={found()}>
+            {(list) => (
+              <div class="col-choices">
+                <Show when={list().length > 0} fallback={<p class="dim">No logos found.</p>}>
+                  <For each={list()}>
+                    {(r) => (
+                      <button class="col-choice logo" title={r.label} onClick={() => void pickFound(r.url)}>
+                        <img src={r.preview ?? r.url} alt={r.label} loading="lazy" decoding="async" />
+                      </button>
+                    )}
+                  </For>
+                </Show>
+              </div>
+            )}
+          </Show>
+        </Show>
+        <Show when={picking() === "logo" ? "logo" : picking() === "cover" ? "cover" : null}>
           {(kind) => {
             const options = () => members().filter((g) => (kind() === "logo" ? (g.logo ?? 0) > 0 : g.art > 0));
             return (
@@ -240,7 +297,7 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
         </Show>
         <p class="dim small">
           Automatic shows a mosaic of its covers{mine() || smart() ? "" : " with the series' first logo"}. Your own image (PNG, JPEG or
-          WebP) is copied into KB's folder.
+          WebP) is copied into KB's folder. Searching logos needs your SteamGridDB key (Settings → Game info).
         </p>
 
         <Show when={mine() || smart()}>

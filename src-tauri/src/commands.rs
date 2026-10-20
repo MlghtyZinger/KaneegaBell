@@ -1300,6 +1300,54 @@ pub fn set_collection_logo_file(state: State<'_, AppState>, key: String, path: S
     crate::collections::set_logo_file(&state.db(), state.data_dir(), &key, Path::new(&path))
 }
 
+/// SteamGridDB logos for a collection (the user's own key); `query` is typed by the user (the page prefills the collection's name).
+#[tauri::command]
+pub async fn collection_logo_candidates(query: String) -> Result<Vec<art::Candidate>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let http = art::http::Http::new();
+        let key = sgdb_key()?.ok_or_else(|| Error::msg("A SteamGridDB key is needed to search for logos. Add one in Settings → Game info."))?;
+        art::extras::search_logos(&art::sgdb::Sgdb::new(&http, key), &query)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// SteamGridDB's image CDN only: the page hands the URL back, so it is checked here.
+fn is_sgdb_url(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://") else { return false };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    !host.contains(['@', ':']) && (host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
+}
+
+/// A logo picked from the SteamGridDB search, saved as the collection's own image.
+#[tauri::command]
+pub async fn set_collection_logo_url(app: AppHandle, key: String, url: String) -> Result<()> {
+    if !is_sgdb_url(&url) {
+        return Err(Error::msg("That picture isn't from SteamGridDB."));
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = art::http::Http::new().get(&url)?.ok_or_else(|| Error::msg("that image is no longer available"))?;
+        let state = app.state::<AppState>();
+        let done = crate::collections::set_logo_bytes(&state.db(), state.data_dir(), &key, &bytes);
+        done
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+#[cfg(test)]
+mod sgdb_url_tests {
+    use super::is_sgdb_url;
+    #[test]
+    fn only_steamgriddb_https_hosts() {
+        assert!(is_sgdb_url("https://cdn2.steamgriddb.com/logo/a.png"));
+        assert!(!is_sgdb_url("http://cdn2.steamgriddb.com/a.png"));
+        assert!(!is_sgdb_url("https://evilsteamgriddb.com/a.png"));
+        assert!(!is_sgdb_url("https://steamgriddb.com.evil.io/a.png"));
+        assert!(!is_sgdb_url("https://steamgriddb.com@evil.io/a.png"));
+    }
+}
+
 // ---------------------------------------------------------------- Wikidata
 
 /// One Wikidata pass. Emits `wd-progress`, then `wd-finished` / `wd-failed`.

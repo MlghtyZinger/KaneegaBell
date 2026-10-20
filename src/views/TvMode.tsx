@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { api, artUrl, type GameRow } from "../api";
-import { library, type PlatformFilter } from "../state/library";
+import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
+import { collections } from "../state/collections";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
@@ -41,15 +42,28 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const { focused, setFocused } = library;
   const [infoId, setInfoId] = createSignal<number | null>(null);
   const [menuOpen, setMenuOpen] = createSignal(false);
-  const current = () => games()[focused()] as GameRow | undefined;
-  // The Collections overview has no big-screen version yet: start from All.
-  if (library.platform() === "collections") library.setPlatform("all");
+  // The Collections tab lists collections instead of games; opening one is the "col:<key>" tab.
+  const overview = () => library.platform() === "collections" && !library.query();
+  const cols = collections.visible;
+  const [colFocused, setColFocused] = createSignal(0);
+  const currentCol = () => (overview() ? cols()[colFocused()] : undefined);
+  // The overview's background: the focused collection's first game with a background, else a cover.
+  const colGame = () => {
+    const c = currentCol();
+    if (!c) return undefined;
+    const m = collections.gamesOf(c);
+    return m.find((g) => g.hero) ?? m.find((g) => g.art > 0);
+  };
+  const current = () => (overview() ? colGame() : (games()[focused()] as GameRow | undefined));
+  const count = () => (overview() ? cols().length : games().length);
+  const KIND = { mine: "Collection", smart: "Smart collection", series: "Series", franchise: "Franchise" } as const;
 
   // Clamp when the list shrinks; new tab or search starts at the first game.
   createEffect(on([library.platform, library.query, library.filterKey], () => setFocused(0), { defer: true }));
   createEffect(() => {
     const n = games().length;
     if (focused() >= n) setFocused(Math.max(0, n - 1));
+    if (colFocused() >= cols().length) setColFocused(Math.max(0, cols().length - 1));
   });
 
   // ---- shelf geometry: every card shares a height; widths follow the cover.
@@ -65,14 +79,16 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     const h = shelfH();
     // Room for the focused card to grow (scale 1.14) without touching its neighbors.
     const GAP = Math.round(h * 0.14);
-    const x = new Float64Array(list.length + 1);
-    for (let i = 0; i < list.length; i++) x[i + 1] = x[i] + h / aspect(list[i]) + GAP;
+    const x = new Float64Array((overview() ? cols().length : list.length) + 1);
+    // Collection tiles are square.
+    for (let i = 0; i < x.length - 1; i++) x[i + 1] = x[i] + (overview() ? h : h / aspect(list[i])) + GAP;
     return x;
   });
   const windowed = createMemo(() => {
-    const n = games().length;
-    const from = Math.max(0, focused() - WINDOW_BEFORE);
-    const to = Math.min(n, focused() + WINDOW_AFTER);
+    const n = overview() ? cols().length : games().length;
+    const at = overview() ? colFocused() : focused();
+    const from = Math.max(0, at - WINDOW_BEFORE);
+    const to = Math.min(n, at + WINDOW_AFTER);
     return Array.from({ length: to - from }, (_, k) => from + k);
   });
   let shelfEl!: HTMLDivElement;
@@ -131,7 +147,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   // ---- input
   function jumpLetter(dir: 1 | -1) {
     const list = games();
-    if (list.length === 0) return;
+    if (overview() || list.length === 0) return;
     const cur = initial(list[focused()].title);
     if (dir > 0) {
       const i = list.findIndex((g, k) => k > focused() && initial(g.title) !== cur);
@@ -171,8 +187,10 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   }
 
   const step = (d: number) => {
-    const n = games().length;
-    if (n > 0) setFocused(Math.min(n - 1, Math.max(0, focused() + d)));
+    const n = count();
+    if (n === 0) return;
+    if (overview()) setColFocused(Math.min(n - 1, Math.max(0, colFocused() + d)));
+    else setFocused(Math.min(n - 1, Math.max(0, focused() + d)));
   };
 
   const onAction = (a: Action): boolean => {
@@ -182,13 +200,18 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       case "up":
       case "down":
         return true;
-      case "prevPlatform": library.cyclePlatform(-1, library.tvTabs()); return true;
-      case "nextPlatform": library.cyclePlatform(1, library.tvTabs()); return true;
+      case "prevPlatform": library.cyclePlatform(-1, library.platformTabs()); return true;
+      case "nextPlatform": library.cyclePlatform(1, library.platformTabs()); return true;
       case "prevLetter": jumpLetter(-1); return true;
       case "nextLetter": jumpLetter(1); return true;
-      case "favorite": void toggleFavorite(); return true;
+      case "favorite": if (!overview()) void toggleFavorite(); return true;
       case "secondary": openSearch(); return true;
       case "select": {
+        if (overview()) {
+          const c = currentCol();
+          if (c) library.setPlatform(`col:${c.key}`);
+          return true;
+        }
         const g = current();
         if (g) setInfoId(g.id);
         return true;
@@ -196,6 +219,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       case "back":
         if (library.query()) library.setQuery("");
         else if (library.activeFilter()) library.clearFilter();
+        else if (collectionKeyOf(library.platform())) library.setPlatform("collections");
         return true;
       case "menu": setMenuOpen(true); return true;
       case "toggleTv": props.onExit(); return true;
@@ -212,6 +236,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     if (id === "all") return "All games";
     if (id === "favorites") return "Favorites";
     if (id === "recent") return "Recently played";
+    if (id === "collections") return "Collections";
     return library.platforms().find((x) => x.id === id)?.shortName ?? id;
   };
 
@@ -248,9 +273,9 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
             when={!library.query()}
             fallback={<span class="tv-tab active">Search: “{library.query()}”</span>}
           >
-            <For each={library.tvTabs()}>
+            <For each={library.platformTabs()}>
               {(id) => (
-                <button class="tv-tab" classList={{ active: library.platform() === id }} onClick={() => library.setPlatform(id)}>
+                <button class="tv-tab" classList={{ active: library.platform() === id || (id === "collections" && !!collectionKeyOf(library.platform())) }} onClick={() => library.setPlatform(id)}>
                   {tabLabel(id)}
                 </button>
               )}
@@ -260,11 +285,30 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         <span class="tv-clock">{now().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
       </header>
 
+      <Show when={currentCol()} keyed>
+        {(c) => {
+          const pic = () => collections.chosenPicture(c);
+          const logo = () => (pic()?.kind === "logo" ? pic()!.url : !pic() ? collections.autoLogo(c) : null);
+          return (
+            <section class="tv-info" aria-live="polite">
+              <div class="tv-info-inner">
+                <Show when={logo()} fallback={<h1 class="tv-title">{c.name}</h1>}>
+                  <img class="tv-logo" src={logo()!} alt={c.name} decoding="async" />
+                </Show>
+                <p class="tv-meta">
+                  <span class="tv-platform">{KIND[c.kind]}</span>
+                  <span>  ·  {collections.gamesOf(c).length} games</span>
+                </p>
+              </div>
+            </section>
+          );
+        }}
+      </Show>
       <Show
-        when={current()}
+        when={!overview() && current()}
         fallback={
-          <div class="tv-empty">
-            <h1>{library.loaded() ? (library.query() ? `Nothing matches “${library.query()}”` : "No games here") : "Loading…"}</h1>
+          <div class="tv-empty" hidden={overview() && cols().length > 0}>
+            <h1>{overview() ? "No collections yet. Make one on the desktop." : library.loaded() ? (library.query() ? `Nothing matches “${library.query()}”` : "No games here") : "Loading…"}</h1>
           </div>
         }
       >
@@ -314,7 +358,36 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
           queueMicrotask(measure);
         }}
       >
-        <Show when={games().length > 0}>
+        <Show when={overview() && cols().length > 0}>
+          <div class="tv-track" style={{ transform: `translate3d(${-(offsets()[colFocused()] ?? 0)}px, 0, 0)`, height: `${shelfH()}px` }}>
+            <For each={windowed()}>
+              {(i) => {
+                const c = () => cols()[i];
+                const cover = () => {
+                  const p = c() && collections.chosenPicture(c()!);
+                  return p?.kind === "cover" ? p.url : c() ? collections.mosaic(c()!)[0] : undefined;
+                };
+                return (
+                  <Show when={c()}>
+                    <div
+                      class="tv-card"
+                      classList={{ focused: i === colFocused(), "has-art": !!cover() }}
+                      style={{ width: `${shelfH()}px`, height: `${shelfH()}px`, transform: `translate3d(${offsets()[i]}px, 0, 0)` }}
+                      onClick={() => (i === colFocused() ? library.setPlatform(`col:${c()!.key}`) : setColFocused(i))}
+                    >
+                      <div class="tv-card-face">
+                        <Show when={cover()} fallback={<span class="tv-card-title">{c()!.name}</span>}>
+                          <img src={cover()!} alt="" loading="lazy" decoding="async" draggable={false} />
+                        </Show>
+                      </div>
+                    </div>
+                  </Show>
+                );
+              }}
+            </For>
+          </div>
+        </Show>
+        <Show when={!overview() && games().length > 0}>
           {/* Keyed by tab/search so a new list slides in. */}
           <Show when={`${library.platform()}|${library.query()}|${library.filterKey()}`} keyed>
             <div
@@ -353,9 +426,11 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       </div>
 
       <footer class="tv-hints">
-        <Hint action="select" label="Details" />
+        <Hint action="select" label={overview() ? "Open" : "Details"} />
         <Hint action="secondary" label="Search" />
-        <Hint action="favorite" label="Favorite" />
+        <Show when={!overview()}>
+          <Hint action="favorite" label="Favorite" />
+        </Show>
         <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
         <Hint action="menu" label="Menu" />
         {/* Clickable too, for the mouse. */}
@@ -363,7 +438,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
           <Hint action="toggleTv" label="Desktop mode" />
         </button>
         <span class="tv-count">
-          {games().length > 0 ? `${focused() + 1} / ${games().length}` : ""}
+          {count() > 0 ? `${(overview() ? colFocused() : focused()) + 1} / ${count()}` : ""}
         </span>
       </footer>
 

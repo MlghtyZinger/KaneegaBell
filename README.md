@@ -715,6 +715,10 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.10
+- New: search SteamGridDB for a collection's logo (needs your SteamGridDB key).
+- New: TV Mode has a Collections tab; open a collection to browse its games.
+
 ### 0.3.9
 - New: filter your games by platform, genre, developer, publisher, release year, play time, whether you've played them, and favorites. Save a filter as a smart collection that updates as your library changes.
 - New: edit a smart collection's rules from its collection tile; its games always follow the saved filter.

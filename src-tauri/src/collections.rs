@@ -561,9 +561,14 @@ pub fn set_logo(conn: &Connection, data_dir: &Path, key: &str, choice: &str) -> 
 /// Uses an image file as the logo: copied (resized, transparency kept) into
 /// KB's folder, so the original can move or go.
 pub fn set_logo_file(conn: &Connection, data_dir: &Path, key: &str, file: &Path) -> Result<()> {
-    let path = logo_path(data_dir, key).ok_or_else(|| Error::msg("unknown collection"))?;
     let bytes = std::fs::read(file).map_err(|e| Error::msg(format!("Couldn't read that file: {e}")))?;
-    crate::art::images::store_logo_at(&path, &bytes)?;
+    set_logo_bytes(conn, data_dir, key, &bytes)
+}
+
+/// Stores image bytes as the collection's own logo file.
+pub fn set_logo_bytes(conn: &Connection, data_dir: &Path, key: &str, bytes: &[u8]) -> Result<()> {
+    let path = logo_path(data_dir, key).ok_or_else(|| Error::msg("unknown collection"))?;
+    crate::art::images::store_logo_at(&path, bytes)?;
     conn.execute(
         "INSERT INTO collection_looks (key, logo, logo_version) VALUES (?1, 'file', 1)
          ON CONFLICT(key) DO UPDATE SET logo = 'file', logo_version = logo_version + 1",

@@ -211,9 +211,6 @@ function createLibraryStore() {
     setLoaded(true);
   }
 
-  /** TV Mode's tabs: no Collections overview (it has no big-screen version yet). */
-  const tvTabs = createMemo(() => platformTabs().filter((t) => t !== "collections"));
-
   function cyclePlatform(delta: number, tabs = platformTabs()) {
     setQuery("");
     // Inside a collection, the Collections tab is the current one (TV Mode: from the start).
@@ -376,7 +373,6 @@ function createLibraryStore() {
     lastSgdb,
     sgdbError,
     setCollectionLookup,
-    tvTabs,
   };
 }
 
