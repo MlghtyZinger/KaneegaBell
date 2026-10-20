@@ -413,6 +413,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       3D jewel case opens, the disc spins on its tray while the game loads). Plan: original CSS 3D (transform/opacity
       only, no copied assets), per media type (CD jewel case, DVD/Blu-ray keep case, cartridge), runs only while the
       emulator starts; mockup first.
+      **Decided (owner, 2026-10-20, artifact "KB Launch Animations"):** the launch animation plays on the desktop and in
+      TV Mode, each with its own on/off option. LaunchBox disc pictures on the disc when they exist, else the cover.
+      The TV shelf becomes 3D cases now (Claude's call, owner delegated; flat covers stay as an option), not in 0.3.13.
+      Start-up intros: several, randomizable like the Steam Deck's boot videos: Random / one fixed / Off, desktop and
+      TV separately. Six drawn so far: Ember, Horns, Forge, Disc, Power on, Your games (owner to pick which stay).
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
