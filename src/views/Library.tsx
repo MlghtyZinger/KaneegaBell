@@ -135,22 +135,19 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (!tile || !key || e.button !== 0 || !reorderable(key)) return;
     const [x0, y0] = [e.clientX, e.clientY];
     let active = false;
-    const timer = setTimeout(() => {
-      active = true;
-      tile.classList.add("dragging");
-      setHeldKey(key);
-    }, 250);
     const move = (m: PointerEvent) => {
       if (!active) {
-        if (Math.hypot(m.clientX - x0, m.clientY - y0) > 6) end(false); // a swipe, not a hold
-        return;
+        // Pressing and moving a little starts the drag (no waiting needed).
+        if (Math.hypot(m.clientX - x0, m.clientY - y0) < 8) return;
+        active = true;
+        tile.classList.add("dragging");
+        setHeldKey(key);
       }
       tile.style.transform = `translate(${m.clientX - x0}px, ${m.clientY - y0}px) scale(1.04)`;
       const over = document.elementFromPoint(m.clientX, m.clientY)?.closest<HTMLElement>("[data-col-key]")?.dataset.colKey;
       setDropKey(over && over !== key && over.startsWith("c:") ? over : null);
     };
     const end = (drop: boolean) => {
-      clearTimeout(timer);
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", up);
       removeEventListener("pointercancel", cancel);
@@ -697,8 +694,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                 open={sortOpen()}
                 onOpenChange={setSortOpen}
               />
+              <Show when={collections.sort() !== "mine"}>
+                <span class="dim small">To drag collections into your own order, choose “My order”.</span>
+              </Show>
               <Show when={collections.sort() === "mine"}>
-                <span class="dim small">Hold a tile and drag it, or press <Hint action="toggleGroups" label="pick up" /> and use the D-pad.</span>
+                <span class="dim small">Drag a tile to move it, or press <Hint action="toggleGroups" label="pick up" /> and use the D-pad.</span>
               </Show>
             </div>
             <div class="grid-wrap" onWheel={onWheel} onPointerDown={startDrag}>
