@@ -434,6 +434,10 @@ Each milestone is runnable and tested, and passes the perf gate.
       six, Assassin's Creed, THX, Game Boy, N64, Saturn. The emblem may be recoloured per intro. **Sound: the owner rejected
       every synthesized sound ("fake video games").** Proposed: real recordings the owner makes from their own emulators
       and BIOS (in KB: one sound file per intro in `data\`), CC0 sound packs for UI/case sounds only with the owner's OK.
+      **Done instead (owner, 2026-10-21: "download any free sound library"):** every sound is mixed with ffmpeg from real
+      CC0 recordings: VSCO 2 Community Edition (Versilian Studios; glockenspiel, marimba, piano, timpani, strings, horns,
+      gong, cymbals) and The Free Firearm Sound Library (OpenGameArt; S&W 642 revolver, Marlin 336). Credit both in the
+      README when this ships. The mixer script is `build_sounds.py` (scratchpad for now; move into `tools/` when building).
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
