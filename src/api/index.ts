@@ -242,6 +242,23 @@ export interface Services {
   sgdb: boolean;
 }
 
+/** One style in the picker: `swatches` are its background, accent and focus colors. */
+export interface ThemeSummary {
+  id: string;
+  name: string;
+  focusLook: string;
+  swatches: [string, string, string];
+}
+
+/** A style's CSS variables (`:root{...}`) and how it marks the focused cover. */
+export interface AppliedTheme {
+  id: string;
+  css: string;
+  focusLook: string;
+  /** Which bull icon the style uses. */
+  icon: string;
+}
+
 export interface AppInfo {
   version: string;
   /** Running from a build folder: no automatic update checks. */
@@ -722,6 +739,10 @@ export const api = {
   tvLeave: () => invoke<void>("tv_leave"),
   /** Re-fit the page zoom (after the Interface size setting changes). */
   refreshZoom: () => invoke<void>("refresh_zoom"),
+  /** The built-in styles, and the id of the one in use. */
+  listThemes: () => invoke<[ThemeSummary[], string]>("list_themes"),
+  /** Saves the style; the window icon changes with it. Apply the result with `applyTheme`. */
+  setTheme: (id: string) => invoke<AppliedTheme>("set_theme", { id }),
   getStorage: () => invoke<Storage>("get_storage"),
   /** Deletes downloaded art/info/achievement data and fetches it again; returns bytes freed. */
   clearDownloaded: () => invoke<number>("clear_downloaded"),

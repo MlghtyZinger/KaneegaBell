@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Ember",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.3.11",
+  "scheme": "dark",
+  "radius": 6,
+  "focusLook": "brackets",
+  "icon": "ember",
+  "colors": {
+    "bg": "#0d0a09", "bg-raised": "#17110e", "bg-sunken": "#070504",
+    "surface": "#221915", "surface-hover": "#2d211b", "border": "#33261f",
+    "text": "#f2e8d8", "text-dim": "#bfae97", "text-faint": "#8a7a68",
+    "accent": "#e2582b", "accent-strong": "#ff8a5c", "on-accent": "#140805",
+    "focus": "#f2e8d8", "gold": "#d9a52b", "danger": "#ff6a5a", "ok": "#8fcf7a"
+  }
+}

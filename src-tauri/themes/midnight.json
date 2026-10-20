@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Midnight",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.3.11",
+  "scheme": "dark",
+  "radius": 10,
+  "focusLook": "glow",
+  "icon": "midnight",
+  "colors": {
+    "bg": "#0e1014", "bg-raised": "#171a21", "bg-sunken": "#0a0b0e",
+    "surface": "#1f232c", "surface-hover": "#272c37", "border": "#2c313c",
+    "text": "#eef0f4", "text-dim": "#a3a9b6", "text-faint": "#6b7280",
+    "accent": "#5b9dff", "accent-strong": "#8ab8ff", "on-accent": "#08101f",
+    "focus": "#ffd75e", "gold": "#d4a017", "danger": "#ff6b6b", "ok": "#5fd38d"
+  }
+}

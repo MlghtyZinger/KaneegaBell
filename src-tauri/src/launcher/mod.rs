@@ -302,6 +302,33 @@ impl Launcher {
             }
         }
 
+        // The emulator often opens behind everything (KB was just minimized and
+        // this process no longer owns the foreground), so a controller-only
+        // player would never see it: bring each new game window to the front.
+        #[cfg(windows)]
+        {
+            let session = session.clone();
+            let _ = std::thread::Builder::new().name("game-focus".into()).spawn(move || {
+                let mut seen: Vec<isize> = Vec::new();
+                for _ in 0..40 {
+                    std::thread::sleep(Duration::from_millis(500));
+                    if session.exiting.load(Ordering::Acquire) {
+                        return;
+                    }
+                    let now = session.tracker.windows();
+                    if now.is_empty() && !session.tracker.is_running() {
+                        return;
+                    }
+                    // shortcut: raises every new window once, even a splash, for 20 s; a window the user raised themselves isn't tracked.
+                    let fresh: Vec<isize> = now.into_iter().filter(|h| !seen.contains(h)).collect();
+                    for h in fresh {
+                        seen.push(h);
+                        window::focus_game(windows::Win32::Foundation::HWND(h as *mut std::ffi::c_void));
+                    }
+                }
+            });
+        }
+
         let me = self.clone();
         let app = app.clone();
         std::thread::Builder::new()

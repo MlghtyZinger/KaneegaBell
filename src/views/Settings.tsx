@@ -13,6 +13,7 @@ import { ScanReport, summarizeChanges } from "../components/ScanReport";
 import { device } from "../input/actions";
 import { editWithOsk } from "../state/osk";
 import { EmulatorBadge } from "../components/Icons";
+import { applyTheme, FOCUS_LOOKS } from "../state/theme";
 
 type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
@@ -45,6 +46,7 @@ const INFO: Record<string, Info> = {
   igdb: { section: "services", title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
   sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
   ra: { section: "services", title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
+  style: { section: "general", title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
   exitCombo: { section: "general", title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
   listView: { section: "general", title: "List view", words: "display layout rows steam list sections grid r3 v", detail: "Shows games as rows with a details panel on the right (cover, background, achievements, links) instead of the cover grid. Switch from the library with R3 or V." },
   fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
@@ -1692,8 +1694,28 @@ function GeneralSection(props: { s: Settings; run: Run }) {
     return props.run(() => api.setSetting("exitCombo", { ...combo(), buttons }));
   };
 
+  const [themes, { mutate }] = createResource(() => api.listThemes());
+  const current = () => themes()?.[0].find((t) => t.id === themes()?.[1]);
+
   return (
     <section class="card-section set-list">
+      <Row k="style" status={current() ? `${current()!.name} · ${FOCUS_LOOKS[current()!.focusLook] ?? ""} focus` : ""}>
+        <Show when={themes()}>
+          {(list) => (
+            <Picker
+              title="Style"
+              value={list()[1]}
+              options={list()[0].map((t) => ({ value: t.id, label: t.name }))}
+              onChange={(id) =>
+                props.run(async () => {
+                  applyTheme(await api.setTheme(id));
+                  mutate([list()[0], id]);
+                })
+              }
+            />
+          )}
+        </Show>
+      </Row>
       <Row
         k="exitCombo"
         detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}

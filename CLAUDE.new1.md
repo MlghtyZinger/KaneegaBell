@@ -394,6 +394,13 @@ Each milestone is runnable and tested, and passes the perf gate.
 - [ ] o. Themes: format + built-ins → import/export → community gallery → optional AI generator
       **Owner (2026-10-18): model the app's look around the icon** (concept L: black, ember red-orange, cream, gold)
       when themes come; likely the default or a built-in theme.
+      **Plan decided (owner, 2026-10-20):** 0.3.11 = theme format + built-in styles the user switches between any time;
+      0.3.12 = users make their own themes **in app** (token editor, live preview, save/export). Gallery download parked.
+      **Styles (claude.ai artifact "KB Built-in Styles"):** Ember (**default**, cream focus), Midnight (today's look),
+      Daylight, High contrast, Moss, Storm. Each style has its own **focus look** (Ember brackets, Midnight glow, Daylight
+      gap ring, High contrast spotlight, Moss lift, Storm bar) and its own **bull icon colors** (window/taskbar icon
+      follows the style; the exe's icon stays Ember). The per-style focus color choices in the artifact are offered as
+      options in 0.3.12's customization.
 - [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are

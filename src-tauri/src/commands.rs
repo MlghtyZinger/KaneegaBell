@@ -1610,6 +1610,17 @@ pub fn refresh_zoom(app: AppHandle) {
     crate::display::apply_zoom(&app);
 }
 
+/// The styles to pick from, and the one in use.
+#[tauri::command]
+pub fn list_themes(state: State<'_, AppState>) -> (Vec<crate::themes::Summary>, String) {
+    (crate::themes::list(), crate::themes::current(&state.db()).0)
+}
+
+#[tauri::command]
+pub fn set_theme(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<crate::themes::Applied> {
+    crate::themes::choose(&app, &state.db(), &id)
+}
+
 // ---------------------------------------------------------------- web links
 
 /// Sites the UI may open in the browser (game pages on Backloggd and

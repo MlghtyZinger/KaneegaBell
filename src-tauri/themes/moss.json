@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Moss",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.3.11",
+  "scheme": "dark",
+  "radius": 12,
+  "focusLook": "lift",
+  "icon": "moss",
+  "colors": {
+    "bg": "#0e1411", "bg-raised": "#141c18", "bg-sunken": "#090e0b",
+    "surface": "#1b2520", "surface-hover": "#233029", "border": "#28352e",
+    "text": "#e8efe9", "text-dim": "#a3b3a8", "text-faint": "#6e7f74",
+    "accent": "#6fbf8f", "accent-strong": "#9ad8b1", "on-accent": "#06120b",
+    "focus": "#f1e08a", "gold": "#d1a83a", "danger": "#ff7a6b", "ok": "#8fe0a8"
+  }
+}

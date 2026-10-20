@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "High contrast",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.3.11",
+  "scheme": "dark",
+  "radius": 4,
+  "focusLook": "spotlight",
+  "icon": "contrast",
+  "colors": {
+    "bg": "#000000", "bg-raised": "#0b0b0b", "bg-sunken": "#000000",
+    "surface": "#141414", "surface-hover": "#222222", "border": "#5a5a5a",
+    "text": "#ffffff", "text-dim": "#e0e0e0", "text-faint": "#b5b5b5",
+    "accent": "#00c8ff", "accent-strong": "#6fe2ff", "on-accent": "#000000",
+    "focus": "#00ffd0", "gold": "#ffcc00", "danger": "#ff5c5c", "ok": "#4dff88"
+  }
+}

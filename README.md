@@ -557,6 +557,15 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   [Simple Icons](https://simpleicons.org) (CC0).
 - The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
 
+## Styles
+
+Settings → General → **Style** switches KB's look at once: colors, corner shape, how the
+focused game is marked, and the bull's colors in the window and taskbar (the exe and
+installer keep Ember's). Ember is the default; Midnight is the look of 0.3.10 and earlier.
+Styles are data only, checked for readable text and a visible focus ring before use. The
+format is documented in [docs/themes.md](docs/themes.md) (with a JSON Schema). After changing a
+style's icon colors in `tools/theme-icons.mjs`, run `node tools/theme-icons.mjs`.
+
 ## Adding a platform
 
 1. Add a `PlatformDef` to `PLATFORMS` in `src-tauri/src/platforms.rs` (id, names, emulator,
@@ -714,6 +723,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.11
+- New: styles. Pick one in Settings → General → Style: Ember (the new default), Midnight (the old look), Daylight, High contrast, Moss or Storm.
+- New: each style marks the focused game its own way (brackets, glow, a ring, a lift, a bar or a spotlight).
+- New: the bull icon in the window and taskbar takes the style's colors.
+- Fixed: a game's window now comes to the front on its own, so you no longer have to click it in the taskbar.
 
 ### 0.3.10
 - New: search SteamGridDB for a collection's logo (needs your SteamGridDB key).

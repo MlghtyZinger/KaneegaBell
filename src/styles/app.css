@@ -78,7 +78,7 @@
 
 .tab.active {
   background: var(--accent);
-  color: #08101f;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -185,6 +185,11 @@
     hsl(var(--card-hue) 30% 14%) 100%
   );
   border: 1px solid hsl(var(--card-hue) 25% 30% / 0.6);
+  /* Covers and their dark tints look the same in every style, so the text on
+     them stays light (a light style's dark text would vanish). */
+  --text: #f4f1ec;
+  --text-dim: #cfc9c0;
+  color: var(--text);
   cursor: pointer;
   /* The ring itself switches instantly: a fading ring trails a card behind
      when a direction is held. Only the small zoom eases. */
@@ -196,6 +201,76 @@
   box-shadow: var(--focus-ring);
   transform: scale(1.04);
   z-index: 1;
+}
+
+/* Each style marks the focused cover its own way (html[data-focus-look]; glow
+   is the rule above). Other controls always get the ring. Only transform,
+   opacity and box-shadow change, so holding a direction stays smooth. */
+:is(.card, .col-tile, .tv-card-face)::after {
+  content: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+html[data-focus-look="ring"] :is(.card, .col-tile).focused,
+html[data-focus-look="ring"] .tv-card.focused .tv-card-face {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 7px var(--focus);
+}
+html[data-focus-look="lift"] :is(.card, .col-tile).focused {
+  transform: translateY(-6px) scale(1.06);
+  box-shadow: 0 16px 32px rgb(0 0 0 / 0.5), 0 0 0 2px var(--focus);
+}
+html[data-focus-look="lift"] .tv-card.focused .tv-card-face {
+  box-shadow: 0 0 0 2px var(--focus), 0 24px 60px rgb(0 0 0 / 0.75);
+}
+html[data-focus-look="brackets"] :is(.card, .col-tile).focused,
+html[data-focus-look="bar"] :is(.card, .col-tile).focused {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 12px 26px rgb(0 0 0 / 0.5);
+}
+html[data-focus-look="brackets"] .tv-card.focused .tv-card-face,
+html[data-focus-look="bar"] .tv-card.focused .tv-card-face {
+  position: relative;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.7);
+}
+html[data-focus-look="brackets"] :is(.card, .col-tile).focused::after,
+html[data-focus-look="brackets"] .tv-card.focused .tv-card-face::after {
+  --l: 26%;
+  --w: 5px;
+  content: "";
+  background:
+    linear-gradient(var(--focus) 0 0) top left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--focus) 0 0) top left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--focus) 0 0) top right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--focus) 0 0) top right / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--focus) 0 0) bottom left / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--focus) 0 0) bottom left / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--focus) 0 0) bottom right / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--focus) 0 0) bottom right / var(--w) var(--l) no-repeat;
+}
+html[data-focus-look="bar"] :is(.card, .col-tile).focused::after,
+html[data-focus-look="bar"] .tv-card.focused .tv-card-face::after {
+  content: "";
+  top: auto;
+  height: 6px;
+  background: var(--focus);
+}
+html[data-focus-look="spotlight"] :is(.card, .col-tile).focused {
+  box-shadow: 0 0 0 3px var(--focus);
+  transform: scale(1.05);
+}
+html[data-focus-look="spotlight"] :is(.card, .col-tile) {
+  transition: transform 70ms ease-out, opacity 70ms;
+}
+html[data-focus-look="spotlight"] .lib-main:not(.focus-away):has(.card.focused, .col-tile.focused) :is(.card, .col-tile):not(.focused) {
+  opacity: 0.45;
+}
+html[data-focus-look="spotlight"] .tv-card-face {
+  opacity: 0.4;
+}
+html[data-focus-look="spotlight"] .tv-card.focused .tv-card-face {
+  box-shadow: 0 0 0 4px var(--focus), 0 18px 50px rgb(0 0 0 / 0.7);
 }
 
 /* Box art: shown whole (covers come in many shapes), on a darkened tint. */
@@ -261,7 +336,7 @@
   height: 22px;
   border-radius: 6px;
   object-fit: cover;
-  background: #111;
+  background: var(--bg-sunken);
 }
 
 .card-title {
@@ -295,12 +370,18 @@
   font-size: var(--fs-xs);
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgb(0 0 0 / 0.6);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
   color: var(--text-dim);
+}
+.card .badge {
+  background: rgb(0 0 0 / 0.6);
+}
+.card .badge.fav {
+  color: color-mix(in srgb, var(--gold), #fff 35%);
 }
 
 .badge.fav {
-  color: var(--focus);
+  color: var(--gold);
 }
 
 .hints {
@@ -381,7 +462,7 @@ kbd {
 .btn.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #08101f;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -620,7 +701,7 @@ input[type="checkbox"].switch:checked {
 
 input[type="checkbox"].switch:checked::after {
   transform: translateX(18px);
-  background: #08101f;
+  background: var(--on-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -723,13 +804,13 @@ input[type="checkbox"].switch:checked::after {
 }
 
 .banner.error {
-  background: rgb(255 107 107 / 0.12);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   border: 1px solid var(--danger);
-  color: #ffd0d0;
+  color: var(--text);
 }
 
 .banner.ok {
-  background: rgb(95 211 141 / 0.1);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
   border: 1px solid var(--ok);
 }
 
@@ -792,12 +873,12 @@ input[type="checkbox"].switch:checked::after {
   font-weight: 500;
   padding: 2px 10px;
   border-radius: 999px;
-  background: rgb(255 107 107 / 0.15);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
   color: var(--danger);
 }
 
 .status.ok {
-  background: rgb(95 211 141 / 0.15);
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
   color: var(--ok);
 }
 
@@ -949,10 +1030,10 @@ html.nav-mode input[type="checkbox"]:focus {
 }
 
 /* PlayStation face-button colors. */
-kbd.ps-select { color: #7cb2ff; }
-kbd.ps-back { color: #ff6b81; }
-kbd.ps-secondary { color: #f39ce0; }
-kbd.ps-favorite { color: #4fe0c0; }
+kbd.ps-select { color: color-mix(in srgb, #7cb2ff 75%, var(--text)); }
+kbd.ps-back { color: color-mix(in srgb, #ff6b81 75%, var(--text)); }
+kbd.ps-secondary { color: color-mix(in srgb, #f39ce0 75%, var(--text)); }
+kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 
 /* ------------------------------------------------------------ picker */
 
@@ -1134,12 +1215,12 @@ kbd.ps-favorite { color: #4fe0c0; }
 .osk-key.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #08101f;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
 .fav-on {
-  color: var(--focus);
+  color: var(--gold);
 }
 
 /* ------------------------------------------------------------ overlay */
@@ -1412,14 +1493,14 @@ kbd.ps-favorite { color: #4fe0c0; }
 }
 
 .played-mark {
-  background: rgb(14 16 20 / 0.85);
-  color: #8fe0a8;
-  border: 1px solid rgb(143 224 168 / 0.6);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 60%, transparent);
 }
 
 .next-mark {
   background: var(--series, var(--accent));
-  color: #0e1014;
+  color: var(--on-accent);
   padding-left: 1px;
 }
 
@@ -1471,7 +1552,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 
 .ach-bar > div {
   height: 100%;
-  background: linear-gradient(90deg, #d4a017, #ffd75e);
+  background: linear-gradient(90deg, var(--gold), color-mix(in srgb, var(--gold) 55%, #fff));
 }
 
 .ach-list {
@@ -1495,7 +1576,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 
 .ach-item.earned {
   background: var(--surface);
-  border-color: rgb(255 215 94 / 0.25);
+  border-color: color-mix(in srgb, var(--gold) 30%, transparent);
 }
 
 .ach-item img {
@@ -1529,7 +1610,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 .ach-points {
   margin-left: 8px;
   font-size: var(--fs-xs);
-  color: var(--focus);
+  color: var(--gold);
   font-weight: 400;
 }
 
@@ -1577,7 +1658,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 }
 
 .ach-patch {
-  color: var(--focus);
+  color: var(--gold);
 }
 
 .match-list {
@@ -1786,8 +1867,8 @@ kbd.ps-favorite { color: #4fe0c0; }
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #05060a;
-  color: #fff;
+  background: var(--bg-sunken);
+  color: var(--text);
   display: grid;
   grid-template-rows: auto 1fr auto auto;
   user-select: none;
@@ -1828,9 +1909,9 @@ kbd.ps-favorite { color: #4fe0c0; }
 
 .tv-shade {
   background:
-    linear-gradient(90deg, rgb(5 6 10 / 0.92) 0%, rgb(5 6 10 / 0.55) 45%, rgb(5 6 10 / 0.1) 75%),
-    linear-gradient(0deg, rgb(5 6 10 / 0.97) 0%, rgb(5 6 10 / 0.6) 38%, rgb(5 6 10 / 0) 60%),
-    linear-gradient(180deg, rgb(5 6 10 / 0.7) 0%, rgb(5 6 10 / 0) 18%);
+    linear-gradient(90deg, color-mix(in srgb, var(--bg-sunken) 92%, transparent) 0%, color-mix(in srgb, var(--bg-sunken) 55%, transparent) 45%, color-mix(in srgb, var(--bg-sunken) 10%, transparent) 75%),
+    linear-gradient(0deg, color-mix(in srgb, var(--bg-sunken) 97%, transparent) 0%, color-mix(in srgb, var(--bg-sunken) 60%, transparent) 38%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-sunken) 70%, transparent) 0%, transparent 18%);
 }
 
 @keyframes tv-fade-in {
@@ -1862,7 +1943,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 .tv-tab {
   background: none;
   border: none;
-  color: rgb(255 255 255 / 0.55);
+  color: color-mix(in srgb, var(--text) 55%, transparent);
   font: inherit;
   font-size: calc(var(--tv-text) * clamp(18px, 2.3vh, 34px));
   font-weight: 600;
@@ -1874,7 +1955,7 @@ kbd.ps-favorite { color: #4fe0c0; }
 }
 
 .tv-tab.active {
-  color: #fff;
+  color: var(--text);
 }
 
 /* The underline shows the active tab; a focused tab (after a click) just
@@ -1886,7 +1967,7 @@ html.nav-mode .tv-tab:focus {
 }
 
 .tv-tab:focus-visible {
-  color: #fff;
+  color: var(--text);
 }
 
 .tv-tab.active::after {
@@ -1897,7 +1978,7 @@ html.nav-mode .tv-tab:focus {
   bottom: 0;
   height: 3px;
   border-radius: 2px;
-  background: var(--focus);
+  background: var(--accent);
   animation: tv-underline 0.25s ease-out both;
 }
 
@@ -1908,7 +1989,7 @@ html.nav-mode .tv-tab:focus {
 
 .tv-clock {
   font-size: calc(var(--tv-text) * clamp(18px, 2.3vh, 34px));
-  color: rgb(255 255 255 / 0.8);
+  color: color-mix(in srgb, var(--text) 80%, transparent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1947,12 +2028,12 @@ html.nav-mode .tv-tab:focus {
   font-size: calc(var(--tv-text) * clamp(36px, 6vh, 96px));
   line-height: 1.05;
   margin: 0 0 1.2vh;
-  text-shadow: 0 4px 24px rgb(0 0 0 / 0.7);
+  text-shadow: 0 4px 24px color-mix(in srgb, var(--bg-sunken) 70%, transparent);
 }
 
 .tv-variant {
   margin: 0 0 0.6vh;
-  color: rgb(255 255 255 / 0.7);
+  color: color-mix(in srgb, var(--text) 70%, transparent);
   font-size: calc(var(--tv-text) * clamp(16px, 2vh, 28px));
 }
 
@@ -1960,24 +2041,24 @@ html.nav-mode .tv-tab:focus {
 .tv-play {
   margin: 0.4vh 0;
   font-size: calc(var(--tv-text) * clamp(16px, 2.1vh, 30px));
-  color: rgb(255 255 255 / 0.85);
+  color: color-mix(in srgb, var(--text) 85%, transparent);
   white-space: pre-wrap;
 }
 
 .tv-platform {
-  color: var(--focus);
+  color: var(--accent-strong);
   font-weight: 600;
 }
 
 .tv-play {
-  color: rgb(255 255 255 / 0.65);
+  color: color-mix(in srgb, var(--text) 65%, transparent);
 }
 
 .tv-desc {
   margin: 1.4vh 0 0;
   font-size: calc(var(--tv-text) * clamp(15px, 1.9vh, 26px));
   line-height: 1.45;
-  color: rgb(255 255 255 / 0.75);
+  color: color-mix(in srgb, var(--text) 75%, transparent);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -2027,7 +2108,7 @@ html.nav-mode .tv-tab:focus {
   height: 100%;
   border-radius: 10px;
   overflow: hidden;
-  background: hsl(220 15% 18%);
+  background: var(--surface);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
   transform-origin: center bottom;
   transition:
@@ -2068,7 +2149,7 @@ html.nav-mode .tv-tab:focus {
   gap: 2vw;
   padding: 2.4vh var(--tv-pad-x) calc(3vh + var(--tv-pad-y));
   font-size: calc(var(--tv-text) * clamp(14px, 1.8vh, 24px));
-  color: rgb(255 255 255 / 0.75);
+  color: color-mix(in srgb, var(--text) 75%, transparent);
 }
 
 .tv-count {
@@ -2088,7 +2169,7 @@ html.nav-mode .tv-tab:focus {
   min-width: min(480px, 80vw);
   padding: 3vh 2.5vw;
   border-radius: 18px;
-  background: rgb(20 22 30 / 0.95);
+  background: color-mix(in srgb, var(--bg-raised) 95%, transparent);
   box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
   animation: tv-rise 0.25s ease-out both;
 }
@@ -2097,7 +2178,7 @@ html.nav-mode .tv-tab:focus {
   background: transparent;
   border: none;
   border-radius: 12px;
-  color: #fff;
+  color: var(--text);
   font: inherit;
   font-size: calc(var(--tv-text) * clamp(20px, 2.8vh, 38px));
   text-align: left;
@@ -2107,7 +2188,7 @@ html.nav-mode .tv-tab:focus {
 
 .tv-menu-item:hover,
 .tv-menu-item:focus {
-  background: rgb(255 255 255 / 0.1);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 html.nav-mode .tv-menu-item:focus {
@@ -2238,7 +2319,7 @@ html.nav-mode .tv-menu-item:focus {
   font-size: var(--fs-xs);
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgb(91 157 255 / 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent-strong);
 }
 
@@ -2272,28 +2353,28 @@ html.nav-mode .tv-menu-item:focus {
   font-weight: 600;
   padding: 1px 8px;
   border-radius: 6px;
-  background: rgb(255 255 255 / 0.08);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
   color: var(--text-dim);
 }
 
 .wn-new {
-  background: rgb(91 157 255 / 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent-strong);
 }
 
 .wn-fixed {
-  background: rgb(80 200 120 / 0.16);
-  color: #8fe0a8;
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
 }
 
 .wn-improved {
-  background: rgb(60 200 200 / 0.15);
-  color: #84dede;
+  background: color-mix(in srgb, #3cc8c8 15%, transparent);
+  color: color-mix(in srgb, #3cc8c8 65%, var(--text));
 }
 
 .wn-changed {
-  background: rgb(255 190 80 / 0.16);
-  color: #ffd08a;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: color-mix(in srgb, var(--gold) 65%, var(--text));
 }
 /* ------------------------------------------------------------ Collections */
 
@@ -2349,7 +2430,7 @@ html.nav-mode .tv-menu-item:focus {
 .col-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgb(10 11 14 / 0.15) 0%, rgb(10 11 14 / 0.55) 45%, rgb(10 11 14 / 0.92) 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-sunken) 15%, transparent) 0%, color-mix(in srgb, var(--bg-sunken) 55%, transparent) 45%, color-mix(in srgb, var(--bg-sunken) 92%, transparent) 100%);
 }
 
 .col-label {
@@ -2769,7 +2850,7 @@ html.nav-mode .tv-menu-item:focus {
 
 .rail-row.active {
   background: var(--accent);
-  color: #0e1014;
+  color: var(--on-accent);
 }
 
 .rail-row.focused {
@@ -2805,7 +2886,7 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 .rail-row.active .rail-count {
-  color: #0e1014;
+  color: var(--on-accent);
 }
 
 .rail-divider {
@@ -2843,17 +2924,17 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 /* Platform icons, tinted by maker family. */
-.fam-nintendo { color: #ff7a7a; }
-.fam-sony { color: #79acff; }
-.fam-sega { color: #5fd6d6; }
-.fam-microsoft { color: #7fd36a; }
+.fam-nintendo { color: color-mix(in srgb, #ff7a7a 75%, var(--text)); }
+.fam-sony { color: color-mix(in srgb, #79acff 75%, var(--text)); }
+.fam-sega { color: color-mix(in srgb, #5fd6d6 75%, var(--text)); }
+.fam-microsoft { color: color-mix(in srgb, #7fd36a 75%, var(--text)); }
 /* Platform pictures: a white mask painted with the maker's color. */
 .platform-icon.picture {
   background-color: currentColor;
   -webkit-mask: var(--picture) center / contain no-repeat;
   mask: var(--picture) center / contain no-repeat;
 }
-.rail-row.active .platform-icon { color: #0e1014; }
+.rail-row.active .platform-icon { color: var(--on-accent); }
 
 /* Controller focus on an open collection's banner buttons (up from the covers). */
 .col-banner .btn.nav-focus {
@@ -2872,7 +2953,7 @@ html.nav-mode .tv-menu-item:focus {
   height: 34px;
   border-radius: 50%;
   border: 1px solid var(--border);
-  background: rgb(14 16 20 / 0.85);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
   color: var(--text);
   font-size: var(--fs-sm);
   cursor: pointer;
@@ -2920,8 +3001,11 @@ html.nav-mode .tv-menu-item:focus {
    buttons, the card it came from keeps only a faint marker (one focus at a time). */
 .lib-main.focus-away .card.focused,
 .lib-main.focus-away .col-tile.focused {
-  box-shadow: 0 0 0 2px rgb(255 215 94 / 0.35);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 35%, transparent);
   transform: none;
+}
+html .lib-main.focus-away :is(.card, .col-tile).focused::after {
+  content: none;
 }
 
 /* The sidebar's focus ring sits inside the row: its edges and scroll box can't crop it. */
@@ -3049,7 +3133,7 @@ html.nav-mode .tv-menu-item:focus {
 
 .side-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .side-heading-copy { min-width: 0; }
-.side-icon { width: 56px; height: 56px; flex: none; object-fit: cover; border-radius: 10px; background: #111; }
+.side-icon { width: 56px; height: 56px; flex: none; object-fit: cover; border-radius: 10px; background: var(--bg-sunken); }
 .side-icon.monogram {
   display: grid; place-items: center; font-size: 28px; font-weight: 700;
   background: linear-gradient(150deg, hsl(var(--card-hue) 35% 26%), hsl(var(--card-hue) 30% 14%));
@@ -3157,12 +3241,12 @@ html.nav-mode .tv-menu-item:focus {
 }
 
 .lrow:hover {
-  background: rgb(255 255 255 / 0.04);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
 }
 
 /* The chosen row lights up as a whole, with the focus ring around it. */
 .lrow.focused {
-  background: rgb(255 215 94 / 0.13);
+  background: color-mix(in srgb, var(--focus) 13%, transparent);
   box-shadow: var(--focus-ring);
 }
 
@@ -3172,7 +3256,7 @@ html.nav-mode .tv-menu-item:focus {
   height: 28px;
   border-radius: 6px;
   object-fit: cover;
-  background: #111;
+  background: var(--bg-sunken);
 }
 
 .lrow-icon.monogram {
@@ -3204,7 +3288,7 @@ html.nav-mode .tv-menu-item:focus {
   flex: none;
   width: 1.2em;
   text-align: center;
-  color: #ffd75e;
+  color: var(--gold);
 }
 
 /* The play time keeps its own slot, so titles shorten before running into it
@@ -3393,8 +3477,8 @@ html.nav-mode .tv-menu-item:focus {
 }
 /* A bar on the side where the dragged tile will go in; the tiles after it move along. */
 .col-tile.drop-before {
-  box-shadow: -6px 0 0 var(--accent, #4ea1ff);
+  box-shadow: -6px 0 0 var(--accent);
 }
 .col-tile.drop-after {
-  box-shadow: 6px 0 0 var(--accent, #4ea1ff);
+  box-shadow: 6px 0 0 var(--accent);
 }
