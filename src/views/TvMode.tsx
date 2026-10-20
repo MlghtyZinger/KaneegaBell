@@ -299,6 +299,9 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
                   <span class="tv-platform">{KIND[c.kind]}</span>
                   <span>  ·  {collections.gamesOf(c).length} games</span>
                 </p>
+                <Show when={collections.statsLine(c)}>
+                  <p class="tv-play">{collections.statsLine(c)}</p>
+                </Show>
               </div>
             </section>
           );

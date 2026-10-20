@@ -218,6 +218,9 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
       <NavScope class="panel col-editor" modal onBack={props.onClose}>
         <span class="col-kind">{KIND_LABEL[c().kind]}</span>
         <h2>{c().name}</h2>
+        <Show when={collections.statsLine(c())}>
+          <p class="dim small">{collections.statsLine(c())}</p>
+        </Show>
         <div class="col-editor-preview">
           <CollectionTile c={c()} focused={() => false} />
         </div>

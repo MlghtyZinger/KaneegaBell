@@ -2,6 +2,7 @@ import { createMemo, createRoot, createSignal } from "solid-js";
 import { api, artUrl, collectionLogoUrl, events, type Collection, type GameRow } from "../api";
 import { library } from "./library";
 import { matchesRules } from "./smartFilter";
+import { formatLastPlayed, formatPlayTime } from "./session";
 
 /** A picture to show for a collection: a logo (shown whole) or a cover (fills). */
 export interface CollectionPicture {
@@ -64,6 +65,16 @@ function createCollections() {
     return g ? artUrl(g.id, g.logo!, "l") : null;
   }
 
+  /** "12 h played · 3 of 4 games · last played yesterday", or "" when nothing was played. */
+  function statsLine(c: Collection): string {
+    const games = gamesOf(c);
+    const played = games.filter((g) => g.playSeconds > 0);
+    if (played.length === 0) return "";
+    const seconds = played.reduce((n, g) => n + g.playSeconds, 0);
+    const last = Math.max(...played.map((g) => g.lastPlayed ?? 0));
+    return `${formatPlayTime(seconds)} played · ${played.length} of ${games.length} games · last played ${formatLastPlayed(last || null)}`;
+  }
+
   /** Up to four covers for the mosaic. */
   const mosaic = (c: Collection): string[] =>
     gamesOf(c)
@@ -79,7 +90,7 @@ function createCollections() {
     void events.onScanFinished(() => void reload());
   }
 
-  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic };
+  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic, statsLine };
 }
 
 export const collections = createRoot(createCollections);
