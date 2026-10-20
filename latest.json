@@ -1,11 +1,11 @@
 {
-  "version": "0.3.10",
-  "notes": "- New: search SteamGridDB for a collection's logo (needs your SteamGridDB key).\n- New: TV Mode has a Collections tab; open a collection to browse its games.\n- New: collections show their total play time, how many games you've played and when.\n- New: pick a background for a collection in TV Mode from SteamGridDB (needs your key).\n- New: sort the Collections tab (A–Z, release date, play time, size, genre, or your own order).\n- New: drag your collections and series into your own order (drop on a tile's left or right half; the others shift along), or pick one up with the controller and move it with the D-pad.",
-  "pub_date": "2026-10-20T04:33:19Z",
+  "version": "0.3.11",
+  "notes": "- New: styles. Pick one in Settings → General → Style: Ember (the new default), Midnight (the old look), Daylight, High contrast, Moss or Storm.\n- New: each style marks the focused game its own way (brackets, glow, a ring, a lift, a bar or a spotlight).\n- New: the bull icon in the window and taskbar takes the style's colors.\n- Fixed: a game's window now comes to the front on its own, so you no longer have to click it in the taskbar.",
+  "pub_date": "2026-10-20T06:22:32Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZWR6NjNXNEZsd1VsLzdRTVVBU2ZkMEE1aGpGQkpPM214a1VzY0RDM3RwNk52Zk5JdCtIeGNHRHlUdnJsR3U4bG1VYUY5VGZEMjA0WTBqUVkzelVKUXdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNDcwNzg3CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjEwX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTAKZndYanB3Sk5IR3ZId21zVW1XK0tFbzFmR2hWTkUvQnNWbjZqNXNZSWRmV2VKc2EwYmZJcVE5Yk50VWJuL0haZ0NhU3F6NHo4ZHYrNzFEc2FXb0hXQ0E9PQo=",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.10_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVI1Q0lQOTF4ZjJubTlPSXRwTDEwUFNJSVU1NldGV3M2SmJMRENYVVRESDU4SHRrZko3ZXBCNjJSQWRjckxLakFvai9Vb3FGbXY4QnJicGlOSXBUeWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNDc3MjY5CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjExX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTEKajV6UTBNZ0dGN1h2NFBWd2tlOERIVWRoK1BVLzZ4UlY3b0dmVUo1Szd4Vml0eXZoUFVVSmVjeUxTd3E4Y2ZJQTB4S0FxbnJJR24rUXFNcWRITlErREE9PQo=",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.11_x64-setup.exe?ref=updates"
     }
   }
 }
