@@ -244,7 +244,7 @@ pub fn run() {
             // its own files in the data folder too, instead of AppData.
             trim_web_cache(&conn, &dir);
             remove_unused_web_components(&conn, &dir.join("webview"));
-            let (theme_id, theme) = themes::current(&conn, &dir);
+            let (theme_id, theme) = themes::current(&conn);
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
                     tauri::WebviewWindowBuilder::from_config(app.handle(), cfg)?
@@ -259,7 +259,7 @@ pub fn run() {
             if let Some(w) = &window {
                 display::restore(w, &conn);
             }
-            themes::set_window_icon(app.handle(), &theme.theme);
+            themes::set_window_icon(app.handle(), &theme);
             let start_fullscreen = db::queries::get_setting::<bool>(&conn, "tvMode")? == Some(true);
             let start_in_tv = db::queries::get_setting::<bool>(&conn, "startInTv")? == Some(true);
 
@@ -375,12 +375,6 @@ pub fn run() {
             commands::refresh_zoom,
             commands::list_themes,
             commands::set_theme,
-            commands::get_theme,
-            commands::check_theme,
-            commands::save_theme,
-            commands::delete_theme,
-            commands::export_theme,
-            commands::import_theme,
             commands::lb_status,
             commands::fetch_launchbox,
             commands::set_lb_enabled,

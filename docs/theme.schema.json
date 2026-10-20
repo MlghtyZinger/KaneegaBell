@@ -39,13 +39,6 @@
         "ok": { "$ref": "#/$defs/color" }
       }
     },
-    "background": {
-      "description": "Present when the theme has a picture (background.webp, .png or .jpg in the .kbtheme). dim is how much of the bg color is laid over it, in percent.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["dim"],
-      "properties": { "dim": { "type": "integer", "minimum": 0, "maximum": 90 } }
-    },
     "tv": {
       "description": "Colors that differ in TV Mode: any of the names in colors.",
       "type": "object",

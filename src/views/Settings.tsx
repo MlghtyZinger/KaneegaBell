@@ -8,7 +8,6 @@ import { buttonLabel, COMBO_BUTTONS, session } from "../state/session";
 import { NavScope } from "../components/NavScope";
 import { Picker } from "../components/Picker";
 import { FileBrowser } from "../components/FileBrowser";
-import { ThemeEditor } from "../components/ThemeEditor";
 import { Hint } from "../components/Hints";
 import { ScanReport, summarizeChanges } from "../components/ScanReport";
 import { device } from "../input/actions";
@@ -1695,121 +1694,28 @@ function GeneralSection(props: { s: Settings; run: Run }) {
     return props.run(() => api.setSetting("exitCombo", { ...combo(), buttons }));
   };
 
-  const [themes, { mutate, refetch }] = createResource(() => api.listThemes());
+  const [themes, { mutate }] = createResource(() => api.listThemes());
   const current = () => themes()?.[0].find((t) => t.id === themes()?.[1]);
-  const [editor, setEditor] = createSignal<{ base: string; edit: string | null } | null>(null);
-  const [fileFor, setFileFor] = createSignal<"import" | "export" | null>(null);
-  const [confirmDelete, setConfirmDelete] = createSignal(false);
-  const use = async (id: string) => {
-    applyTheme(await api.setTheme(id));
-    mutate([themes()![0], id]);
-  };
 
   return (
     <section class="card-section set-list">
-      <Row
-        k="style"
-        status={current() ? `${current()!.name} · ${FOCUS_LOOKS[current()!.focusLook] ?? ""} focus` : ""}
-        open="Manage…"
-        sub={
-          <Show when={themes()}>
-            {(list) => (
-              <div class="col">
-                <div class="row">
-                  <span>Style</span>
-                  <Picker
-                    title="Style"
-                    value={list()[1]}
-                    options={list()[0].map((t) => ({ value: t.id, label: t.custom ? `${t.name} (yours)` : t.name }))}
-                    onChange={(id) => props.run(() => use(id))}
-                  />
-                </div>
-                <div class="row">
-                  <button class="btn" onClick={() => setEditor({ base: list()[1], edit: null })}>
-                    New style from this one…
-                  </button>
-                  <Show when={current()?.custom}>
-                    <button class="btn" onClick={() => setEditor({ base: list()[1], edit: list()[1] })}>
-                      Edit…
-                    </button>
-                    <button
-                      class="btn"
-                      onClick={() =>
-                        confirmDelete()
-                          ? props.run(async () => {
-                              applyTheme(await api.deleteTheme(list()[1]));
-                              setConfirmDelete(false);
-                              await refetch();
-                            })
-                          : setConfirmDelete(true)
-                      }
-                      onBlur={() => setConfirmDelete(false)}
-                    >
-                      {confirmDelete() ? "Really delete?" : "Delete"}
-                    </button>
-                  </Show>
-                </div>
-                <div class="row">
-                  <button class="btn" onClick={() => setFileFor("import")}>
-                    Import a .kbtheme…
-                  </button>
-                  <button class="btn" onClick={() => setFileFor("export")}>
-                    Export this style…
-                  </button>
-                </div>
-              </div>
-            )}
-          </Show>
-        }
-      >
+      <Row k="style" status={current() ? `${current()!.name} · ${FOCUS_LOOKS[current()!.focusLook] ?? ""} focus` : ""}>
         <Show when={themes()}>
           {(list) => (
             <Picker
               title="Style"
               value={list()[1]}
-              options={list()[0].map((t) => ({ value: t.id, label: t.custom ? `${t.name} (yours)` : t.name }))}
-              onChange={(id) => props.run(() => use(id))}
+              options={list()[0].map((t) => ({ value: t.id, label: t.name }))}
+              onChange={(id) =>
+                props.run(async () => {
+                  applyTheme(await api.setTheme(id));
+                  mutate([list()[0], id]);
+                })
+              }
             />
           )}
         </Show>
       </Row>
-      <Show when={editor()}>
-        {(e) => (
-          <ThemeEditor
-            baseId={e().base}
-            editId={e().edit}
-            originalId={themes()![1]}
-            onClose={(saved) => {
-              setEditor(null);
-              void Promise.resolve(refetch()).then((l) => l && saved && mutate([l[0], saved]));
-            }}
-          />
-        )}
-      </Show>
-      <Show when={fileFor()}>
-        <FileBrowser
-          title={fileFor() === "import" ? "Choose a .kbtheme file" : "Export to which folder?"}
-          mode={fileFor() === "import" ? "file" : "folder"}
-          extensions={["kbtheme"]}
-          onPick={(p) => {
-            const kind = fileFor();
-            setFileFor(null);
-            void props.run(
-              async () => {
-                if (kind === "import") {
-                  const id = await api.importTheme(p);
-                  await refetch();
-                  await use(id);
-                } else {
-                  await api.exportTheme(themes()![1], p);
-                }
-              },
-              { notice: kind === "import" ? "Imported. It's now your style." : "Exported to that folder." },
-            );
-          }}
-          onClose={() => setFileFor(null)}
-        />
-      </Show>
       <Row
         k="exitCombo"
         detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}

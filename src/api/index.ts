@@ -248,28 +248,7 @@ export interface ThemeSummary {
   name: string;
   focusLook: string;
   swatches: [string, string, string];
-  /** Made or imported by the user: can be edited and deleted. */
-  custom: boolean;
 }
-
-/** A style's settings (the `theme.json` of a `.kbtheme`). */
-export interface ThemeData {
-  format: number;
-  name: string;
-  author: string;
-  version: string;
-  minAppVersion: string;
-  scheme: "dark" | "light";
-  radius: number;
-  focusLook: string;
-  icon: string;
-  colors: Record<string, string>;
-  tv?: Record<string, string>;
-  background?: { dim: number };
-}
-
-/** What the editor does with a style's background picture. */
-export type PictureChange = { kind: "keep" } | { kind: "remove" } | { kind: "set"; path: string };
 
 /** A style's CSS variables (`:root{...}`) and how it marks the focused cover. */
 export interface AppliedTheme {
@@ -764,17 +743,6 @@ export const api = {
   listThemes: () => invoke<[ThemeSummary[], string]>("list_themes"),
   /** Saves the style; the window icon changes with it. Apply the result with `applyTheme`. */
   setTheme: (id: string) => invoke<AppliedTheme>("set_theme", { id }),
-  getTheme: (id: string) => invoke<ThemeData>("get_theme", { id }),
-  /** Problems with an unsaved style (empty list = fine) and its CSS for the live preview. */
-  checkTheme: (id: string | null, theme: ThemeData, picture: PictureChange) =>
-    invoke<{ problems: string[]; css: string }>("check_theme", { id, theme, picture }),
-  saveTheme: (id: string | null, theme: ThemeData, picture: PictureChange) =>
-    invoke<string>("save_theme", { id, theme, picture }),
-  /** Removes one of the user's styles; returns what to apply (the default if it was in use). */
-  deleteTheme: (id: string) => invoke<AppliedTheme>("delete_theme", { id }),
-  /** Writes a .kbtheme into the folder; returns its path. */
-  exportTheme: (id: string, folder: string) => invoke<string>("export_theme", { id, folder }),
-  importTheme: (path: string) => invoke<string>("import_theme", { path }),
   getStorage: () => invoke<Storage>("get_storage"),
   /** Deletes downloaded art/info/achievement data and fetches it again; returns bytes freed. */
   clearDownloaded: () => invoke<number>("clear_downloaded"),

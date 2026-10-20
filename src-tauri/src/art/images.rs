@@ -47,7 +47,7 @@ pub fn looks_like_disc(img: &DynamicImage) -> bool {
     corners.iter().all(|&c| near(c, corners[0])) && near(center, corners[0])
 }
 
-pub(crate) fn webp(img: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
+fn webp(img: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
     let rgba = img.to_rgba8();
     let enc = webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height());
     Ok(enc.encode(quality).to_vec())

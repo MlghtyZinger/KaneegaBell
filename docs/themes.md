@@ -8,16 +8,8 @@ into the CSS variables its stylesheets already use (`src/styles/tokens.css`).
 The built-in styles are in [`src-tauri/themes/`](../src-tauri/themes/) and follow this exact
 format. The schema is [`theme.schema.json`](theme.schema.json).
 
-## Making, sharing and importing
-
-- **Make one:** Settings → General → Style → Manage… → *New style from this one…*. Change the
-  name, look, focus marker, icon, corners and colors; the whole app is the live preview, and Save
-  stays off until the theme passes the checks below. *Edit…* changes one of your own later.
-- **Share one:** *Export this style…* writes a `.kbtheme` file (a zip of `theme.json` and the
-  picture, if any) to a folder. *Import a .kbtheme…* adds one to your styles.
-- Your styles live in `data	hemes\` next to the exe. A `.kbtheme` may hold only `theme.json`
-  (16 KB at most) and one `background.webp`/`.png`/`.jpg` (8 MB at most); anything else makes the
-  file invalid. The picture is resized to 1920x1080 at most and re-encoded as WebP on import.
+KB 0.3.11 ships the built-in styles only. Making and importing your own themes in the app
+comes in 0.3.12.
 
 ## Example
 
@@ -55,7 +47,6 @@ format. The schema is [`theme.schema.json`](theme.schema.json).
 | `icon` | The bull used for the window and taskbar: `ember`, `midnight`, `daylight`, `contrast`, `moss` or `storm`. |
 | `colors` | All 16 colors below, each `#rrggbb`. |
 | `tv` | Optional. Colors that differ in TV Mode, any of the 16. |
-| `background` | Optional, `{ "dim": 0-90 }`. Set when the theme has a picture: it fills the window behind everything, with the `bg` color laid over it at `dim` percent. Panels that aren't see-through cover it. |
 
 | Color | Used for |
 |---|---|
