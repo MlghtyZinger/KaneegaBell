@@ -403,7 +403,12 @@ Each milestone is runnable and tested, and passes the perf gate.
       options in 0.3.12's customization.
       **Scrapped (owner, 2026-10-20): no in-app theme editor, no theme customization (colors, borders), no .kbtheme
       import/export for now.** The six built-in styles stay as they are; the editor code is in git history (8847eaa).
-- [ ] p. Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
+- [ ] p. **Split (owner, 2026-10-20): animations first as 0.3.12 (with the waiting panel fixes), the TV Mode touch-up
+      after it as its own release (0.3.13).** Animations decided (owner): two pickers, Desktop and TV Mode, both
+      **default Full**; **(changed)** Windows' "Show animations" is ignored (KB only reads it, never changes PC settings;
+      users pick Off in KB instead), which overrides section 9's default and Windows rule. First an interactive mockup
+      (artifact) to try Full / Reduced / Off on sample cards and panels, then build.
+      Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
       covered by the UI (info panel, tabs, shelf). Look for a layout/composition that shows the
