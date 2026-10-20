@@ -429,6 +429,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       console layouts inside p across several releases (0.3.13 = layout system + the first ones with the touch-up), then
       u, then v.** Claude redraws everything by hand to look near-identical (layout, colours, motion, sound character);
       no extracted console files (logos, system sound/music recordings) are bundled. Mockups when the owner gets to it.
+      **Intro lineup (owner, 2026-10-20, fix these before adding more):** Konami (Metal Gear), Rockstar (RDR2: the emblem
+      is shot), Game Boy Advance, GameCube, PlayStation, PlayStation 2, Xbox (green emblem), Switch. Removed: Claude's own
+      six, Assassin's Creed, THX, Game Boy, N64, Saturn. The emblem may be recoloured per intro. **Sound: the owner rejected
+      every synthesized sound ("fake video games").** Proposed: real recordings the owner makes from their own emulators
+      and BIOS (in KB: one sound file per intro in `data\`), CC0 sound packs for UI/case sounds only with the owner's OK.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
