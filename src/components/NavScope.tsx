@@ -52,7 +52,11 @@ export function NavScope(props: Props) {
       case "down":
       case "left":
       case "right":
-        moveFocus(el, a);
+        // Nothing focusable that way: scroll the scope, so text and boxes without
+        // a button (description, achievements) can still be read with a pad.
+        if (!moveFocus(el, a) && (a === "up" || a === "down")) {
+          el.scrollBy({ top: (a === "down" ? 1 : -1) * el.clientHeight * 0.8 });
+        }
         return true;
       case "select": {
         const active = document.activeElement;

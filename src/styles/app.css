@@ -3036,8 +3036,8 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   min-height: 0;
   background: var(--bg-raised);
   border-left: 1px solid var(--border);
-  overflow-y: auto;
-  scrollbar-width: thin;
+  /* Never scrolls: the background shrinks and the description is cut to what fits. */
+  overflow: hidden;
 }
 
 @media (max-width: 1100px) {
@@ -3059,7 +3059,9 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
 /* The background (or the cover) with the logo over its lower edge. */
 .side-hero {
   position: relative;
-  flex: none;
+  /* Gives up height first (high shrink), so the text below keeps its room. */
+  flex: 0 8 auto;
+  min-height: 64px;
   aspect-ratio: 16 / 9;
   background: var(--bg-sunken);
   overflow: hidden;
@@ -3125,6 +3127,9 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
 }
 
 .side-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -3145,6 +3150,25 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent-strong);
+}
+
+/* The series / collection name is a button that opens the collection. */
+button.side-series {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.side-series:hover {
+  text-decoration: underline;
 }
 
 .side-title {
@@ -3198,10 +3222,14 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--text-dim);
-  display: -webkit-box;
-  -webkit-line-clamp: 8;
-  -webkit-box-orient: vertical;
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
+}
+
+/* Set by Clipped when the text doesn't all fit: the last line fades out. */
+.side-desc.cut {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2.2em), transparent);
 }
 
 .side-hints {
@@ -3209,6 +3237,7 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   flex-wrap: wrap;
   gap: 4px 14px;
   margin-top: auto;
+  flex: none;
   padding: 10px var(--gap);
   border-top: 1px solid var(--border);
   font-size: var(--fs-sm);
@@ -3324,10 +3353,6 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   padding: 7px 14px;
 }
 
-.game-side.docked .side-desc {
-  -webkit-line-clamp: 6;
-}
-
 .game-side.docked .side-hero {
   aspect-ratio: 21 / 9;
 }
@@ -3338,6 +3363,7 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   align-items: flex-start;
   padding: 0 var(--gap);
   margin-top: -44px;
+  flex: none;
   position: relative;
   z-index: 1;
 }
@@ -3345,7 +3371,7 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
 .dock-cover {
   flex: none;
   width: clamp(84px, 7vw, 124px);
-  max-height: 190px;
+  max-height: 18vh;
   object-fit: contain;
   border-radius: 8px;
   background: var(--bg-sunken);
@@ -3361,17 +3387,70 @@ html .lib-main.focus-away :is(.card, .col-tile).focused::after {
   padding-top: 50px;
 }
 
-/* Boxes sit side by side once the panel is wide enough (about 600 px for two). */
+/* One box under the other, each as tall as its content; About takes what's left. */
 .dock-boxes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 10px var(--gap) var(--gap);
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.dock-boxes > :first-child,
-.dock-boxes > :last-child {
-  grid-column: 1 / -1;
+/* The last box (About) takes whatever height is left. */
+/* About keeps its full text while the background and the achievements list can give way
+   (they shrink harder); once they have, it is cut to whole sentences (see Clipped). */
+.dock-boxes > .dock-about {
+  flex: 0 1 auto;
+  min-height: 7em;
+  overflow: hidden;
+}
+
+.dock-about .side-desc {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.dock-boxes > .dock-ach {
+  flex: 0 6 auto;
+  min-height: 6.5em; /* label, summary and bar */
+  overflow: hidden;
+}
+
+/* Short windows: three achievements instead of five (rows are the 4th div on). */
+@media (max-height: 1000px) {
+  .dock-ach .dock-ach-row:nth-of-type(n + 7) {
+    display: none;
+  }
+}
+
+/* Very short windows: the summary and bar only. */
+@media (max-height: 800px) {
+  .dock-ach .dock-ach-row {
+    display: none;
+  }
+}
+
+/* Collections and Links: a label with its buttons on one line. */
+.dock-box.dock-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.dock-inline .genre-row {
+  margin: 0;
+}
+
+.dock-inline .link-btn {
+  width: auto;
+  gap: 6px;
+  border: 1px solid var(--border);
+}
+
+.dock-boxes > * {
+  flex: none;
 }
 
 .dock-box {

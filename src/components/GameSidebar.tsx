@@ -1,4 +1,4 @@
-import { createEffect, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, raMediaUrl } from "../api";
 import { library } from "../state/library";
 import { collections } from "../state/collections";
@@ -8,6 +8,7 @@ import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
 import { hue } from "./GameCard";
 import { openCollection } from "./Collections";
+import { lead, sentences } from "../state/summary";
 import { formatEarned } from "./Achievements";
 import { LaunchWith, playWarning } from "./EmulatorChoice";
 
@@ -78,6 +79,8 @@ export function GameSidebar(props: {
     return m ? mainSeries(m) : null;
   };
   const inCollections = () => collections.visible().filter((c) => c.games.includes(id()));
+  /** The line above the title: its series, else the first collection it is in; a click opens it. */
+  const tag = () => series() ?? inCollections()[0] ?? null;
   const open = (url: string) => void api.openUrl(url).catch(() => {});
 
   const [launching, setLaunching] = createSignal(false);
@@ -174,7 +177,13 @@ export function GameSidebar(props: {
                     <img class="side-icon" src={artUrl(g().id, g().icon!, "i")} alt="" />
                   </Show>
                   <div class="side-heading-copy">
-                    <Show when={series()}>{(s) => <div class="side-series">{s().name}</div>}</Show>
+                    <Show when={tag()}>
+                      {(s) => (
+                        <button class="side-series" title="Open this collection" onClick={() => openCollection(s().key)}>
+                          {s().name}
+                        </button>
+                      )}
+                    </Show>
                     <h2 class="side-title">{g().title}</h2>
                   </div>
                 </div>
@@ -203,7 +212,7 @@ export function GameSidebar(props: {
                   )}
                 </Show>
                 <Show when={meta()?.description}>
-                  <p class="side-desc">{meta()!.description}</p>
+                  <Clipped text={meta()!.description!} />
                 </Show>
               </div>
             }
@@ -213,7 +222,13 @@ export function GameSidebar(props: {
                 <img class="dock-cover" src={artUrl(g().id, g().art, "f")} alt="" decoding="async" />
               </Show>
               <div class="dock-title">
-                <Show when={series()}>{(s) => <div class="side-series">{s().name}</div>}</Show>
+                <Show when={tag()}>
+                      {(s) => (
+                        <button class="side-series" title="Open this collection" onClick={() => openCollection(s().key)}>
+                          {s().name}
+                        </button>
+                      )}
+                    </Show>
                 <h2 class="side-title">{g().title}</h2>
                 <p class="side-meta">{[platform(), year(), meta()?.developer].filter(Boolean).join(" · ")}</p>
                 <Show when={(meta()?.genres.length ?? 0) > 0}>
@@ -248,21 +263,7 @@ export function GameSidebar(props: {
                   </button>
                 )}
               </Show>
-              <Show when={inCollections().length > 0}>
-                <section class="dock-box">
-                  <div class="dock-label">Collections</div>
-                  <div class="genre-row">
-                    <For each={inCollections()}>
-                      {(c) => (
-                        <button class="link-btn" onClick={() => openCollection(c.key)}>
-                          {c.name}
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                </section>
-              </Show>
-              <section class="dock-box">
+              <section class="dock-box dock-inline">
                 <div class="dock-label">Links</div>
                 <div class="genre-row">
                   <button class="link-btn" title="Opens in your browser" onClick={() => open(backloggdUrl(meta()?.title ?? g().title, meta()?.slug))}>
@@ -285,9 +286,9 @@ export function GameSidebar(props: {
                 </div>
               </section>
               <Show when={meta()?.description}>
-                <section class="dock-box">
+                <section class="dock-box dock-about">
                   <div class="dock-label">About</div>
-                  <p class="side-desc">{meta()!.description}</p>
+                  <Clipped text={meta()!.description!} />
                 </section>
               </Show>
             </div>
@@ -335,4 +336,49 @@ function SideHero(props: { src: string }) {
       />
     </>
   );
+}
+
+/**
+ * The description: in full when it fits the room it has, else as many of its first
+ * whole sentences as fit (the full text is the tooltip). The panel is re-measured
+ * whenever it changes size.
+ */
+function Clipped(props: { text: string }) {
+  let el!: HTMLParagraphElement;
+  const [cut, setCut] = createSignal(false);
+  const fit = () => {
+    el.style.height = "";
+    el.style.flex = "";
+    const brief = lead(props.text);
+    el.textContent = brief ? brief.join(" ") : props.text;
+    el.title = brief ? props.text : "";
+    const room = el.clientHeight;
+    setCut(false);
+    if (el.scrollHeight <= room + 1) return;
+    el.title = props.text;
+    el.style.height = `${room}px`; // keep the room while trying shorter texts
+    el.style.flex = "none";
+    const all = brief ?? sentences(props.text);
+    let lo = 1;
+    let hi = all.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      el.textContent = all.slice(0, mid).join(" ");
+      if (el.scrollHeight <= room + 1) lo = mid;
+      else hi = mid - 1;
+    }
+    el.textContent = all.slice(0, lo).join(" ");
+    setCut(el.scrollHeight > room + 1); // even the first sentence is too long: it fades
+  };
+  onMount(() => {
+    const panel = el.closest(".game-side") ?? el;
+    const ro = new ResizeObserver(fit);
+    ro.observe(panel);
+    onCleanup(() => ro.disconnect());
+  });
+  createEffect(() => {
+    props.text;
+    queueMicrotask(fit);
+  });
+  return <p ref={el} class="side-desc" classList={{ cut: cut() }} />;
 }

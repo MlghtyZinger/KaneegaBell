@@ -724,6 +724,13 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.12
+- Changed: the series name above a game's title opens its collection (the separate Collections box is gone), and short windows show 3 achievements instead of 5 (none on very short ones).
+- Improved: long descriptions (800 characters or more) are cut to their opening sentences (400 to 800 characters) in the side panels and TV Mode, skipping release dates, ports, patches and franchise history; the full text is on hover and on the details screen. Short ones show whole.
+- Changed: the right-hand panel no longer scrolls, the background shrinks first so the text stays readable, and its Play and Links boxes are slimmer. The description shows as much as fits (the rest is on the details screen).
+- Fixed: the sidebar and the list view's panel now show a game's achievements without opening its details screen first.
+- Fixed: with a controller, Up and Down now scroll a panel when there is nothing left to select in it.
+
 ### 0.3.11
 - New: styles. Pick one in Settings → General → Style: Ember (the new default), Midnight (the old look), Daylight, High contrast, Moss or Storm.
 - New: each style marks the focused game its own way (brackets, glow, a ring, a lift, a bar or a spotlight).

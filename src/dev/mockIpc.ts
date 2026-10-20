@@ -281,7 +281,9 @@ export function installMockIpc() {
           meta: genre
             ? {
                 title: g.title,
-                description: `${g.title} is a made-up game for layout work.\nIt has a second paragraph, too.`,
+                description: new URLSearchParams(location.search).get("long")
+                  ? Array.from({ length: 14 }, (_, n) => `Sentence ${n + 1} of ${g.title}, a made-up description to test how much fits.`).join(" ")
+                  : `${g.title} is a made-up game for layout work.\nIt has a second paragraph, too.`,
                 releaseDate: 1_158_019_200,
                 developer: "Mock Studio",
                 publisher: "Mock Publishing",

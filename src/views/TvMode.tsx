@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { lead } from "../state/summary";
 import { api, artUrl, type Collection, type GameRow } from "../api";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections } from "../state/collections";
@@ -354,7 +355,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
                     : "Never played"}
                 </p>
                 <Show when={detail()?.id === g().id && detail()?.meta.description}>
-                  <p class="tv-desc">{detail()!.meta.description}</p>
+                  <p class="tv-desc">{brief(detail()!.meta.description!)}</p>
                 </Show>
               </div>
             </Show>
@@ -497,4 +498,9 @@ function TvMenu(props: { onClose: () => void; onSearch: () => void; onSettings: 
       </NavScope>
     </div>
   );
+}
+
+/** A long description cut to its opening sentences (see summary.ts). */
+function brief(text: string) {
+  return lead(text)?.join(" ") ?? text;
 }

@@ -1800,14 +1800,25 @@ pub async fn get_achievements(app: AppHandle, id: i64, refresh: bool) -> Result<
     .map_err(|e| Error::msg(e.to_string()))?
 }
 
-/// The game details sidebar's achievement line: cached progress only (never
-/// online, never hashing), None without RetroAchievements or a cached fetch.
+/// The game details sidebar's achievement line: cached progress, fetched once
+/// for an identified game that has none yet (never hashing). None without RetroAchievements.
 #[tauri::command]
 pub async fn achievement_glance(app: AppHandle, id: i64) -> Result<Option<achievements::Glance>> {
     tauri::async_runtime::spawn_blocking(move || {
         let Some(user) = secrets::get(RA_USER)? else { return Ok(None) };
         let state = app.state::<AppState>();
         let conn = db::open(&state.db_path)?;
+        if let Some(g) = achievements::glance(&conn, &user, id)? {
+            return Ok(Some(g));
+        }
+        // Identified but never fetched (the background pass only hashes): fetch once, then it's cached.
+        let identified = queries::ra_state(&conn, id)?.3.is_some_and(|r| r > 0);
+        if !identified {
+            return Ok(None);
+        }
+        let http = art::http::Http::new();
+        let Some(client) = ra_login()?.map(|c| achievements::ra::Ra::new(&http, c)) else { return Ok(None) };
+        let _ = achievements::for_game(&conn, Some(&client), id, false); // offline: stay hidden
         achievements::glance(&conn, &user, id)
     })
     .await
