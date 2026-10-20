@@ -145,10 +145,23 @@ fn logos_can_be_a_game_s_logo_a_cover_or_your_own_image() {
     assert_eq!(look_logo(&conn, "s:526700").as_deref(), Some(format!("game:{game}").as_str()));
     assert!(set_logo(&conn, dir.path(), "x:1", "auto").is_err());
 
-    // Deleting the collection removes its image too.
+    // A background of its own: versioned, removable, and deleted with the collection.
+    assert_eq!(find(&list(&conn).unwrap(), &key).hero, None);
+    set_hero_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(1600, 600)).unwrap();
+    set_hero_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(1600, 600)).unwrap();
+    let hero = hero_path(dir.path(), &key).unwrap();
+    assert!(hero.is_file());
+    assert_eq!(find(&list(&conn).unwrap(), &key).hero, Some(2));
+    remove_hero(&conn, dir.path(), &key).unwrap();
+    assert!(!hero.exists());
+    assert_eq!(find(&list(&conn).unwrap(), &key).hero, None);
+    set_hero_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(1600, 600)).unwrap();
+
+    // Deleting the collection removes its images too.
     set_logo_file(&conn, dir.path(), &key, &webp_file).unwrap();
     delete(&conn, dir.path(), &key).unwrap();
     assert!(!stored.exists());
+    assert!(!hero.exists());
 }
 
 #[test]

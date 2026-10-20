@@ -165,6 +165,7 @@ export function CollectionBanner(props: { c: Collection; focused: string | null;
  */
 export function CollectionEditor(props: { c: Collection; onClose: () => void; onDeleted?: () => void }) {
   const [picking, setPicking] = createSignal<"logo" | "cover" | "search" | null>(null);
+  const [searchKind, setSearchKind] = createSignal<"logo" | "hero">("logo");
   const [query, setQuery] = createSignal("");
   const [found, setFound] = createSignal<CoverCandidate[] | null>(null);
   const [searching, setSearching] = createSignal(false);
@@ -189,25 +190,60 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
     }
   }
   const setLogo = (choice: string) => run(() => api.setCollectionLogo(c().key, choice)).then(() => setPicking(null));
-  async function searchLogos() {
+  async function searchImages() {
     setError(null);
     setSearching(true);
     setFound(null);
     try {
-      setFound(await api.collectionLogoCandidates(query().trim()));
+      setFound(await api.collectionImageCandidates(query().trim(), searchKind()));
     } catch (e) {
       setError(errorText(e));
     }
     setSearching(false);
   }
-  const openSearch = () => {
-    if (picking() === "search") return setPicking(null);
+  const openSearch = (kind: "logo" | "hero") => {
+    if (picking() === "search" && searchKind() === kind) return setPicking(null);
+    setSearchKind(kind);
     setQuery(c().name);
     setFound(null);
     setPicking("search");
-    void searchLogos();
+    void searchImages();
   };
-  const pickFound = (url: string) => run(() => api.setCollectionLogoUrl(c().key, url)).then(() => setPicking(null));
+  const pickFound = (url: string) => run(() => api.setCollectionImageUrl(c().key, url, searchKind())).then(() => setPicking(null));
+  const searchPanel = (kind: "logo" | "hero") => (
+        <Show when={picking() === "search" && searchKind() === kind}>
+          <div class="row">
+            <input
+              class="input"
+              value={query()}
+              placeholder="Search SteamGridDB"
+              onInput={(e) => setQuery(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && void searchImages()}
+            />
+            <button class="btn" onClick={() => void searchImages()}>
+              Search
+            </button>
+          </div>
+          <Show when={searching()}>
+            <p class="dim">Searching SteamGridDB…</p>
+          </Show>
+          <Show when={found()}>
+            {(list) => (
+              <div class="col-choices">
+                <Show when={list().length > 0} fallback={<p class="dim">Nothing found.</p>}>
+                  <For each={list()}>
+                    {(r) => (
+                      <button class="col-choice" classList={{ logo: kind === "logo" }} title={r.label} onClick={() => void pickFound(r.url)}>
+                        <img src={r.preview ?? r.url} alt={r.label} loading="lazy" decoding="async" />
+                      </button>
+                    )}
+                  </For>
+                </Show>
+              </div>
+            )}
+          </Show>
+        </Show>
+  );
   const logoChoice = () => {
     const l = c().logo;
     return !l ? "auto" : l.type === "file" ? "file" : `${l.type}:${l.id}`;
@@ -239,42 +275,11 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           <button class="btn" classList={{ selected: logoChoice() === "file" }} onClick={() => setBrowsing(true)}>
             Your image…
           </button>
-          <button class="btn" classList={{ selected: picking() === "search" }} onClick={openSearch}>
+          <button class="btn" classList={{ selected: picking() === "search" && searchKind() === "logo" }} onClick={() => openSearch("logo")}>
             Search logos…
           </button>
         </div>
-        <Show when={picking() === "search"}>
-          <div class="row">
-            <input
-              class="input"
-              value={query()}
-              placeholder="Search SteamGridDB"
-              onInput={(e) => setQuery(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && void searchLogos()}
-            />
-            <button class="btn" onClick={() => void searchLogos()}>
-              Search
-            </button>
-          </div>
-          <Show when={searching()}>
-            <p class="dim">Searching SteamGridDB…</p>
-          </Show>
-          <Show when={found()}>
-            {(list) => (
-              <div class="col-choices">
-                <Show when={list().length > 0} fallback={<p class="dim">No logos found.</p>}>
-                  <For each={list()}>
-                    {(r) => (
-                      <button class="col-choice logo" title={r.label} onClick={() => void pickFound(r.url)}>
-                        <img src={r.preview ?? r.url} alt={r.label} loading="lazy" decoding="async" />
-                      </button>
-                    )}
-                  </For>
-                </Show>
-              </div>
-            )}
-          </Show>
-        </Show>
+        {searchPanel("logo")}
         <Show when={picking() === "logo" ? "logo" : picking() === "cover" ? "cover" : null}>
           {(kind) => {
             const options = () => members().filter((g) => (kind() === "logo" ? (g.logo ?? 0) > 0 : g.art > 0));
@@ -302,6 +307,18 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           Automatic shows a mosaic of its covers{mine() || smart() ? "" : " with the series' first logo"}. Your own image (PNG, JPEG or
           WebP) is copied into KB's folder. Searching logos needs your SteamGridDB key (Settings → Game info).
         </p>
+
+        <h3>Background (TV Mode)</h3>
+        <div class="row">
+          <button class="btn" classList={{ selected: !c().hero }} onClick={() => void run(() => api.removeCollectionHero(c().key))}>
+            Automatic
+          </button>
+          <button class="btn" classList={{ selected: picking() === "search" && searchKind() === "hero" }} onClick={() => openSearch("hero")}>
+            Search backgrounds…
+          </button>
+        </div>
+        {searchPanel("hero")}
+        <p class="dim small">Automatic uses the background of its first game that has one. Searching needs your SteamGridDB key.</p>
 
         <Show when={mine() || smart()}>
           <h3>{smart() ? "Smart collection" : "Collection"}</h3>

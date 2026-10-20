@@ -163,6 +163,12 @@ pub fn store_logo_at(path: &Path, bytes: &[u8]) -> Result<()> {
     write_atomic(path, &webp(&fit(&img, LOGO_MAX), 90.0)?)
 }
 
+/// Stores a collection's own background at `path` (resized like game heroes).
+pub fn store_hero_at(path: &Path, bytes: &[u8]) -> Result<()> {
+    let img = decode(bytes)?;
+    write_atomic(path, &webp(&fit(&img, HERO_MAX), FULL_QUALITY)?)
+}
+
 pub fn remove_extra(data_dir: &Path, extra: Extra, game_id: i64) {
     let _ = fs::remove_file(extra_path(data_dir, extra, game_id));
 }

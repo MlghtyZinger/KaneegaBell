@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
-import { api, artUrl, type GameRow } from "../api";
+import { api, artUrl, type Collection, type GameRow } from "../api";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections } from "../state/collections";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
@@ -99,19 +99,28 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   // ---- background: crossfade to the focused game's hero once focus settles.
   const [layers, setLayers] = createSignal<Layer[]>([]);
   const [settled, setSettled] = createSignal<GameRow | undefined>(undefined);
+  const [settledCol, setSettledCol] = createSignal<Collection | undefined>(undefined);
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
   createEffect(
-    on(current, (g) => {
+    on([current, currentCol], ([g, c]) => {
       clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => setSettled(g), SETTLE_MS);
+      settleTimer = setTimeout(() => {
+        setSettled(g);
+        setSettledCol(c);
+      }, SETTLE_MS);
     }),
   );
   onCleanup(() => clearTimeout(settleTimer));
   let layerKey = 0;
   createEffect(
-    on(settled, (g) => {
-      if (!g) return;
-      const layer: Layer | null = g.hero
+    on([settled, settledCol], ([g, c]) => {
+      const own = c && collections.ownHero(c);
+      if (!g && !own) return;
+      const layer: Layer | null = own
+        ? { key: ++layerKey, url: own, blur: false }
+        : !g
+          ? null
+          : g.hero
         ? { key: ++layerKey, url: artUrl(g.id, g.hero, "h"), blur: false }
         : g.art > 0
           ? { key: ++layerKey, url: artUrl(g.id, g.art, "f"), blur: true }

@@ -17,6 +17,8 @@ pub enum Asset {
     Icon(i64),
     /// A collection's ('c') or series' ('s') own logo image.
     Collection(char, i64),
+    /// A collection's or series' own TV Mode background.
+    CollectionHero(char, i64),
 }
 
 /// Parses the request path ("/t/12", "/f/12"; query string ignored).
@@ -32,6 +34,8 @@ pub fn parse(path: &str) -> Option<Asset> {
         "i" => Some(Asset::Icon(id)),
         "cc" => Some(Asset::Collection('c', id)),
         "cs" => Some(Asset::Collection('s', id)),
+        "ch" => Some(Asset::CollectionHero('c', id)),
+        "sh" => Some(Asset::CollectionHero('s', id)),
         _ => None,
     }
 }
@@ -44,6 +48,7 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
         Asset::Logo(id) => images::extra_path(data_dir, images::Extra::Logo, *id),
         Asset::Icon(id) => images::icon_path(data_dir, *id),
         Asset::Collection(kind, id) => data_dir.join("art").join("c").join(format!("{kind}-{id}.webp")),
+        Asset::CollectionHero(kind, id) => data_dir.join("art").join("c").join(format!("{kind}-{id}-hero.webp")),
     }
 }
 

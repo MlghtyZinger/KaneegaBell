@@ -719,6 +719,7 @@ window, so they're written for players.
 - New: search SteamGridDB for a collection's logo (needs your SteamGridDB key).
 - New: TV Mode has a Collections tab; open a collection to browse its games.
 - New: collections show their total play time, how many games you've played and when.
+- New: pick a background for a collection in TV Mode from SteamGridDB (needs your key).
 
 ### 0.3.9
 - New: filter your games by platform, genre, developer, publisher, release year, play time, whether you've played them, and favorites. Save a filter as a smart collection that updates as your library changes.

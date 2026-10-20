@@ -201,13 +201,13 @@ pub fn candidates(conn: &Connection, sgdb: &Sgdb, game_id: i64, kind: Kind, quer
         .collect())
 }
 
-/// Logos for a collection: SteamGridDB's first 5 games for the words, each one's logos.
-pub fn search_logos(sgdb: &Sgdb, query: &str) -> Result<Vec<Candidate>> {
+/// Logos or backgrounds for a collection: SteamGridDB's first 5 games for the words, each one's images.
+pub fn search_images(sgdb: &Sgdb, kind: Kind, query: &str) -> Result<Vec<Candidate>> {
     let mut out = Vec::new();
     let (mut asked, mut last_err) = (0, None);
     for game in sgdb.search(query)?.into_iter().take(5) {
         asked += 1;
-        match sgdb.images(Kind::Logo, game.id) {
+        match sgdb.images(kind, game.id) {
             Ok(images) => out.extend(images.into_iter().map(|img| Candidate {
                 source: "sgdb".into(),
                 name: img.id.to_string(),
@@ -219,7 +219,7 @@ pub fn search_logos(sgdb: &Sgdb, query: &str) -> Result<Vec<Candidate>> {
                 },
             })),
             Err(e) => {
-                log::warn!("SteamGridDB logos for {}: {e}", game.name);
+                log::warn!("SteamGridDB images for {}: {e}", game.name);
                 last_err = Some(e);
             }
         }
@@ -366,6 +366,21 @@ mod tests {
     }
 
     #[test]
+    fn collection_background_search_asks_for_heroes() {
+        let api = FakePost::new(|url: &str, _: &[(&str, &str)], _: &str| {
+            if url.contains("/search/autocomplete/") {
+                json(200, j!({"success": true, "data": [{"id": 9, "name": "Okami"}]}))
+            } else if url.contains("/heroes/game/9") {
+                json(200, j!({"success": true, "data": [{"id": 5, "url": "https://cdn/h.png", "thumb": "https://cdn/t.png"}]}))
+            } else {
+                Response { status: 404, body: vec![] }
+            }
+        });
+        let c = search_images(&Sgdb::new(&api, "key".into()), Kind::Hero, "Okami").unwrap();
+        assert_eq!(c.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["5"]);
+    }
+
+    #[test]
     fn collection_logo_search_takes_five_games_and_skips_failures() {
         let api = FakePost::new(|url: &str, _: &[(&str, &str)], _: &str| {
             if url.contains("/search/autocomplete/") {
@@ -380,9 +395,9 @@ mod tests {
             }
         });
         let sgdb = Sgdb::new(&api, "key".into());
-        let c = search_logos(&sgdb, "Zelda").unwrap();
+        let c = search_images(&sgdb, Kind::Logo, "Zelda").unwrap();
         assert_eq!(c.iter().map(|c| c.name.as_str()).collect::<Vec<_>>(), ["101", "103", "104", "105"]);
         assert_eq!(c[0].label, "G1 · 600×200");
-        assert!(search_logos(&sgdb, "  ").unwrap().is_empty());
+        assert!(search_images(&sgdb, Kind::Logo, "  ").unwrap().is_empty());
     }
 }

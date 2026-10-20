@@ -1,5 +1,5 @@
 import { createMemo, createRoot, createSignal } from "solid-js";
-import { api, artUrl, collectionLogoUrl, events, type Collection, type GameRow } from "../api";
+import { api, artUrl, collectionHeroUrl, collectionLogoUrl, events, type Collection, type GameRow } from "../api";
 import { library } from "./library";
 import { matchesRules } from "./smartFilter";
 import { formatLastPlayed, formatPlayTime } from "./session";
@@ -75,6 +75,9 @@ function createCollections() {
     return `${formatPlayTime(seconds)} played · ${played.length} of ${games.length} games · last played ${formatLastPlayed(last || null)}`;
   }
 
+  /** The collection's own TV Mode background, if the user picked one. */
+  const ownHero = (c: Collection): string | null => (c.hero ? collectionHeroUrl(c.key, c.hero) : null);
+
   /** Up to four covers for the mosaic. */
   const mosaic = (c: Collection): string[] =>
     gamesOf(c)
@@ -90,7 +93,7 @@ function createCollections() {
     void events.onScanFinished(() => void reload());
   }
 
-  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic, statsLine };
+  return { list, reload, listen, byKey, visible, mine, smart, hiddenCount, showHidden, setShowHidden, gamesOf, chosenPicture, autoLogo, mosaic, statsLine, ownHero };
 }
 
 export const collections = createRoot(createCollections);

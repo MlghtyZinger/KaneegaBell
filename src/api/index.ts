@@ -107,6 +107,8 @@ export interface Collection {
   /** The games in it, in its order (empty for a smart collection; the UI follows its rules). */
   games: number[];
   logo: CollectionLogo | null;
+  /** Version of its own TV Mode background, when it has one. */
+  hero?: number | null;
   /** Series hidden from the Collections tab. */
   hidden: boolean;
   /** The user's collections: how its games are ordered. */
@@ -120,6 +122,13 @@ export function collectionLogoUrl(key: string, version: number): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   const [kind, id] = key.split(":");
   return `${base}/${kind === "s" ? "cs" : "cc"}/${id}?v=${version}`;
+}
+
+/** A collection's or series' own TV Mode background. */
+export function collectionHeroUrl(key: string, version: number): string {
+  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
+  const [kind, id] = key.split(":");
+  return `${base}/${kind === "s" ? "sh" : "ch"}/${id}?v=${version}`;
 }
 
 /** A series or franchise a game belongs to (Wikidata). */
@@ -679,8 +688,9 @@ export const api = {
   /** "auto", "game:<id>" (its clear logo) or "cover:<id>". */
   setCollectionLogo: (key: string, choice: string) => invoke<void>("set_collection_logo", { key, choice }),
   setCollectionLogoFile: (key: string, path: string) => invoke<void>("set_collection_logo_file", { key, path }),
-  collectionLogoCandidates: (query: string) => invoke<CoverCandidate[]>("collection_logo_candidates", { query }),
-  setCollectionLogoUrl: (key: string, url: string) => invoke<void>("set_collection_logo_url", { key, url }),
+  collectionImageCandidates: (query: string, kind: "logo" | "hero") => invoke<CoverCandidate[]>("collection_image_candidates", { query, kind }),
+  setCollectionImageUrl: (key: string, url: string, kind: "logo" | "hero") => invoke<void>("set_collection_image_url", { key, url, kind }),
+  removeCollectionHero: (key: string) => invoke<void>("remove_collection_hero", { key }),
   /** A cover's main color (`#rrggbb`), to tint its series; null without one. */
   coverAccent: (id: number) => invoke<string | null>("cover_accent", { id }),
   /** A Wikidata pass; `force` asks about every platform again ("Update now"). */

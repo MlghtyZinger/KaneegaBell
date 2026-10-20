@@ -1300,16 +1300,26 @@ pub fn set_collection_logo_file(state: State<'_, AppState>, key: String, path: S
     crate::collections::set_logo_file(&state.db(), state.data_dir(), &key, Path::new(&path))
 }
 
-/// SteamGridDB logos for a collection (the user's own key); `query` is typed by the user (the page prefills the collection's name).
+/// SteamGridDB logos or backgrounds (`kind`) for a collection (the user's own key);
+/// `query` is typed by the user (the page prefills the collection's name).
 #[tauri::command]
-pub async fn collection_logo_candidates(query: String) -> Result<Vec<art::Candidate>> {
+pub async fn collection_image_candidates(query: String, kind: String) -> Result<Vec<art::Candidate>> {
     tauri::async_runtime::spawn_blocking(move || {
         let http = art::http::Http::new();
-        let key = sgdb_key()?.ok_or_else(|| Error::msg("A SteamGridDB key is needed to search for logos. Add one in Settings → Game info."))?;
-        art::extras::search_logos(&art::sgdb::Sgdb::new(&http, key), &query)
+        let (kind, what) = collection_image_kind(&kind)?;
+        let key = sgdb_key()?.ok_or_else(|| Error::msg(format!("A SteamGridDB key is needed to search for {what}. Add one in Settings → Game info.")))?;
+        art::extras::search_images(&art::sgdb::Sgdb::new(&http, key), kind, &query)
     })
     .await
     .map_err(|e| Error::msg(e.to_string()))?
+}
+
+fn collection_image_kind(kind: &str) -> Result<(art::sgdb::Kind, &'static str)> {
+    match kind {
+        "logo" => Ok((art::sgdb::Kind::Logo, "logos")),
+        "hero" => Ok((art::sgdb::Kind::Hero, "backgrounds")),
+        other => Err(Error::msg(format!("unknown picture kind {other}"))),
+    }
 }
 
 /// SteamGridDB's image CDN only: the page hands the URL back, so it is checked here.
@@ -1319,16 +1329,21 @@ fn is_sgdb_url(url: &str) -> bool {
     !host.contains(['@', ':']) && (host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
 }
 
-/// A logo picked from the SteamGridDB search, saved as the collection's own image.
+/// A logo or background picked from the SteamGridDB search, saved as the collection's own image.
 #[tauri::command]
-pub async fn set_collection_logo_url(app: AppHandle, key: String, url: String) -> Result<()> {
+pub async fn set_collection_image_url(app: AppHandle, key: String, url: String, kind: String) -> Result<()> {
     if !is_sgdb_url(&url) {
         return Err(Error::msg("That picture isn't from SteamGridDB."));
     }
+    let hero = collection_image_kind(&kind)?.0 == art::sgdb::Kind::Hero;
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = art::http::Http::new().get(&url)?.ok_or_else(|| Error::msg("that image is no longer available"))?;
         let state = app.state::<AppState>();
-        let done = crate::collections::set_logo_bytes(&state.db(), state.data_dir(), &key, &bytes);
+        let done = if hero {
+            crate::collections::set_hero_bytes(&state.db(), state.data_dir(), &key, &bytes)
+        } else {
+            crate::collections::set_logo_bytes(&state.db(), state.data_dir(), &key, &bytes)
+        };
         done
     })
     .await
@@ -1346,6 +1361,12 @@ mod sgdb_url_tests {
         assert!(!is_sgdb_url("https://steamgriddb.com.evil.io/a.png"));
         assert!(!is_sgdb_url("https://steamgriddb.com@evil.io/a.png"));
     }
+}
+
+/// Back to the first game's background.
+#[tauri::command]
+pub fn remove_collection_hero(state: State<'_, AppState>, key: String) -> Result<()> {
+    crate::collections::remove_hero(&state.db(), state.data_dir(), &key)
 }
 
 // ---------------------------------------------------------------- Wikidata

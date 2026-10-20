@@ -24,6 +24,8 @@ pub struct Collection {
     /// The games in it, in its order (present games only).
     pub games: Vec<i64>,
     pub logo: Option<Logo>,
+    /// Version of the collection's own TV Mode background, if it has one.
+    pub hero: Option<i64>,
     pub hidden: bool,
     /// The user's collections: "added" | "title" | "release".
     pub game_order: Option<String>,
@@ -133,6 +135,12 @@ pub fn logo_path(data_dir: &Path, key: &str) -> Option<PathBuf> {
     Some(data_dir.join("art").join("c").join(format!("{kind}-{id}.webp")))
 }
 
+/// Where a collection's own background lives (next to its logo).
+pub fn hero_path(data_dir: &Path, key: &str) -> Option<PathBuf> {
+    let (kind, id) = parse_key(key)?;
+    Some(data_dir.join("art").join("c").join(format!("{kind}-{id}-hero.webp")))
+}
+
 /// "c:12" -> ('c', 12); "s:526700" -> ('s', 526700).
 fn parse_key(key: &str) -> Option<(char, i64)> {
     let (kind, id) = key.split_once(':')?;
@@ -154,12 +162,13 @@ fn mine_id(key: &str) -> Result<i64> {
 struct Look {
     logo: Option<String>,
     version: i64,
+    hero: i64,
     hidden: bool,
 }
 
 fn looks(conn: &Connection) -> Result<HashMap<String, Look>> {
-    let mut stmt = conn.prepare("SELECT key, logo, logo_version, hidden FROM collection_looks")?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, Look { logo: r.get(1)?, version: r.get(2)?, hidden: r.get(3)? })))?;
+    let mut stmt = conn.prepare("SELECT key, logo, logo_version, hidden, hero_version FROM collection_looks")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, Look { logo: r.get(1)?, version: r.get(2)?, hidden: r.get(3)?, hero: r.get(4)? })))?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
@@ -194,6 +203,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
         out.push(Collection {
             games: if smart { Vec::new() } else { games_of(conn, id, &order)? },
             logo: logo_of(look),
+            hero: look.map(|l| l.hero).filter(|v| *v > 0),
             hidden: false,
             game_order: (!smart).then_some(order),
             rules,
@@ -265,6 +275,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
         out.push(Collection {
             games,
             logo: logo_of(look),
+            hero: look.map(|l| l.hero).filter(|v| *v > 0),
             hidden: look.is_some_and(|l| l.hidden),
             game_order: None,
             rules: None,
@@ -427,7 +438,7 @@ pub fn rename(conn: &Connection, key: &str, name: &str) -> Result<()> {
 pub fn delete(conn: &Connection, data_dir: &Path, key: &str) -> Result<()> {
     conn.execute("DELETE FROM collections WHERE id = ?1", [mine_id(key)?])?;
     conn.execute("DELETE FROM collection_looks WHERE key = ?1", [key])?;
-    if let Some(p) = logo_path(data_dir, key) {
+    for p in [logo_path(data_dir, key), hero_path(data_dir, key)].into_iter().flatten() {
         let _ = std::fs::remove_file(p);
     }
     Ok(())
@@ -574,6 +585,27 @@ pub fn set_logo_bytes(conn: &Connection, data_dir: &Path, key: &str, bytes: &[u8
          ON CONFLICT(key) DO UPDATE SET logo = 'file', logo_version = logo_version + 1",
         [key],
     )?;
+    Ok(())
+}
+
+/// Stores image bytes as the collection's own TV Mode background.
+pub fn set_hero_bytes(conn: &Connection, data_dir: &Path, key: &str, bytes: &[u8]) -> Result<()> {
+    let path = hero_path(data_dir, key).ok_or_else(|| Error::msg("unknown collection"))?;
+    crate::art::images::store_hero_at(&path, bytes)?;
+    conn.execute(
+        "INSERT INTO collection_looks (key, hero_version) VALUES (?1, 1)
+         ON CONFLICT(key) DO UPDATE SET hero_version = hero_version + 1",
+        [key],
+    )?;
+    Ok(())
+}
+
+/// Back to the first game's background.
+pub fn remove_hero(conn: &Connection, data_dir: &Path, key: &str) -> Result<()> {
+    if let Some(p) = hero_path(data_dir, key) {
+        let _ = std::fs::remove_file(p);
+    }
+    conn.execute("UPDATE collection_looks SET hero_version = 0 WHERE key = ?1", [key])?;
     Ok(())
 }
 

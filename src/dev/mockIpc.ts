@@ -140,6 +140,7 @@ export function installMockIpc() {
     name: string;
     kind: "mine" | "series" | "franchise" | "smart";
     games: number[];
+    hero?: number | null;
     logo: unknown;
     hidden: boolean;
     gameOrder: string | null;
@@ -224,10 +225,16 @@ export function installMockIpc() {
         return null;
       }
       case "set_collection_logo_file":
-      case "set_collection_logo_url":
         col(a.key as string).logo = { type: "file", version: 1 };
         return null;
-      case "collection_logo_candidates": {
+      case "set_collection_image_url":
+        if (a.kind === "hero") col(a.key as string).hero = 1;
+        else col(a.key as string).logo = { type: "file", version: 1 };
+        return null;
+      case "remove_collection_hero":
+        col(a.key as string).hero = null;
+        return null;
+      case "collection_image_candidates": {
         const q = String(a.query ?? "").trim();
         if (!q) return [];
         return [1, 2, 3, 4, 5, 6].map((n) => {
