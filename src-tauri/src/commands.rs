@@ -1279,8 +1279,8 @@ pub fn set_collection_order(state: State<'_, AppState>, key: String, order: Stri
 }
 
 #[tauri::command]
-pub fn move_collection(state: State<'_, AppState>, key: String, delta: i64) -> Result<()> {
-    crate::collections::move_by(&mut state.db(), &key, delta)
+pub fn set_collection_order_all(state: State<'_, AppState>, keys: Vec<String>) -> Result<()> {
+    crate::collections::set_order(&mut state.db(), &keys)
 }
 
 #[tauri::command]

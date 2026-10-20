@@ -721,7 +721,7 @@ window, so they're written for players.
 - New: collections show their total play time, how many games you've played and when.
 - New: pick a background for a collection in TV Mode from SteamGridDB (needs your key).
 - New: sort the Collections tab (A–Z, release date, play time, size, genre, or your own order).
-- New: drag your collections into your own order, or pick one up with the controller and move it with the D-pad.
+- New: drag your collections and series into your own order (drop on a tile's left or right half; the others shift along), or pick one up with the controller and move it with the D-pad.
 
 ### 0.3.9
 - New: filter your games by platform, genre, developer, publisher, release year, play time, whether you've played them, and favorites. Save a filter as a smart collection that updates as your library changes.

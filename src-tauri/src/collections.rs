@@ -26,6 +26,8 @@ pub struct Collection {
     pub logo: Option<Logo>,
     /// Version of the collection's own TV Mode background, if it has one.
     pub hero: Option<i64>,
+    /// Its place in "My order", if the user placed it.
+    pub pos: Option<i64>,
     pub hidden: bool,
     /// The user's collections: "added" | "title" | "release".
     pub game_order: Option<String>,
@@ -163,12 +165,13 @@ struct Look {
     logo: Option<String>,
     version: i64,
     hero: i64,
+    pos: Option<i64>,
     hidden: bool,
 }
 
 fn looks(conn: &Connection) -> Result<HashMap<String, Look>> {
-    let mut stmt = conn.prepare("SELECT key, logo, logo_version, hidden, hero_version FROM collection_looks")?;
-    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, Look { logo: r.get(1)?, version: r.get(2)?, hidden: r.get(3)?, hero: r.get(4)? })))?;
+    let mut stmt = conn.prepare("SELECT key, logo, logo_version, hidden, hero_version, pos FROM collection_looks")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, Look { logo: r.get(1)?, version: r.get(2)?, hidden: r.get(3)?, hero: r.get(4)?, pos: r.get(5)? })))?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
@@ -204,6 +207,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
             games: if smart { Vec::new() } else { games_of(conn, id, &order)? },
             logo: logo_of(look),
             hero: look.map(|l| l.hero).filter(|v| *v > 0),
+            pos: look.and_then(|l| l.pos),
             hidden: false,
             game_order: (!smart).then_some(order),
             rules,
@@ -276,6 +280,7 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
             games,
             logo: logo_of(look),
             hero: look.map(|l| l.hero).filter(|v| *v > 0),
+            pos: look.and_then(|l| l.pos),
             hidden: look.is_some_and(|l| l.hidden),
             game_order: None,
             rules: None,
@@ -517,21 +522,17 @@ pub fn set_game_order(conn: &Connection, key: &str, order: &str) -> Result<()> {
     Ok(())
 }
 
-/// Moves one of the user's collections earlier (-1) or later (+1) in the list.
-pub fn move_by(conn: &mut Connection, key: &str, delta: i64) -> Result<()> {
-    let id = mine_id(key)?;
+/// Saves "My order": every key in the order the user placed it (1, 2, 3 ...).
+pub fn set_order(conn: &mut Connection, keys: &[String]) -> Result<()> {
+    for k in keys {
+        check_key(k)?;
+    }
     let tx = conn.transaction()?;
-    let mut ids: Vec<i64> = {
-        let mut stmt = tx.prepare("SELECT id FROM collections ORDER BY sort_order, id")?;
-        let ids = stmt.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-        ids
-    };
-    let Some(i) = ids.iter().position(|&x| x == id) else { return Ok(()) };
-    let j = (i as i64 + delta).clamp(0, ids.len() as i64 - 1) as usize;
-    let moved = ids.remove(i);
-    ids.insert(j, moved);
-    for (n, id) in ids.iter().enumerate() {
-        tx.execute("UPDATE collections SET sort_order = ?2 WHERE id = ?1", params![id, n as i64 + 1])?;
+    for (n, key) in keys.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO collection_looks (key, pos) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET pos = excluded.pos",
+            params![key, n as i64 + 1],
+        )?;
     }
     tx.commit()?;
     Ok(())

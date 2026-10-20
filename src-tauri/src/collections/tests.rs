@@ -63,10 +63,11 @@ fn your_collections_hold_games_in_the_order_you_choose() {
 
     // Reordering the collections themselves.
     assert_eq!(list.iter().map(|c| c.key.clone()).collect::<Vec<_>>(), vec![faves.clone(), rpg.clone()]);
-    move_by(&mut conn, &rpg, -1).unwrap();
-    move_by(&mut conn, &rpg, -1).unwrap(); // already first
-    let keys: Vec<String> = super::list(&conn).unwrap().into_iter().map(|c| c.key).collect();
-    assert_eq!(keys, vec![rpg.clone(), faves.clone()]);
+    set_order(&mut conn, &[rpg.clone(), "s:526700".into(), faves.clone()]).unwrap();
+    let list = super::list(&conn).unwrap();
+    let pos = |k: &str| find(&list, k).pos;
+    assert_eq!((pos(&rpg), pos(&faves)), (Some(1), Some(3)));
+    assert!(set_order(&mut conn, &["bogus".into()]).is_err());
 
     // Deleting a collection keeps the games; deleting a game empties it from collections.
     let dir = tempfile::tempdir().unwrap();

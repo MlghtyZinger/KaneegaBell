@@ -109,6 +109,8 @@ export interface Collection {
   logo: CollectionLogo | null;
   /** Version of its own TV Mode background, when it has one. */
   hero?: number | null;
+  /** Its place in "My order" (set once the user has placed it). */
+  pos?: number | null;
   /** Series hidden from the Collections tab. */
   hidden: boolean;
   /** The user's collections: how its games are ordered. */
@@ -683,7 +685,7 @@ export const api = {
   deleteCollection: (key: string) => invoke<void>("delete_collection", { key }),
   setInCollection: (key: string, gameId: number, member: boolean) => invoke<void>("set_in_collection", { key, gameId, member }),
   setCollectionOrder: (key: string, order: "added" | "title" | "release") => invoke<void>("set_collection_order", { key, order }),
-  moveCollection: (key: string, delta: number) => invoke<void>("move_collection", { key, delta }),
+  setCollectionOrderAll: (keys: string[]) => invoke<void>("set_collection_order_all", { keys }),
   setCollectionHidden: (key: string, hidden: boolean) => invoke<void>("set_collection_hidden", { key, hidden }),
   /** "auto", "game:<id>" (its clear logo) or "cover:<id>". */
   setCollectionLogo: (key: string, choice: string) => invoke<void>("set_collection_logo", { key, choice }),

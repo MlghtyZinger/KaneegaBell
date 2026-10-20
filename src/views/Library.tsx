@@ -115,20 +115,25 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   // Reordering your collections (sort "My order"): drag a tile, or pick it up with the controller.
   const [heldKey, setHeldKey] = createSignal<string | null>(null);
   const [dropKey, setDropKey] = createSignal<string | null>(null);
-  const reorderable = (key: string) => collections.sort() === "mine" && key.startsWith("c:");
-  async function moveCollectionBy(key: string, delta: number) {
-    const from = collections.visible().findIndex((c) => c.key === key);
-    const last = collections.visible().filter((c) => c.kind === "mine" || c.kind === "smart").length - 1;
-    const to = Math.min(last, Math.max(0, from + delta));
+  const [dropAfter, setDropAfter] = createSignal(false);
+  const reorderable = (key: string) => collections.sort() === "mine" && /^[cs]:/.test(key);
+  /** Puts `key` at `index` of the shown order; the tiles from there on move one place along. */
+  async function placeCollection(key: string, index: number) {
+    const keys = collections.visible().map((c) => c.key);
+    const from = keys.indexOf(key);
+    const to = Math.min(keys.length - 1, Math.max(0, index));
     if (from < 0 || to === from) return;
+    keys.splice(to, 0, ...keys.splice(from, 1));
     try {
-      await api.moveCollection(key, to - from);
+      await api.setCollectionOrderAll(keys);
       await collections.reload();
       setFocused(to + 1); // tile 0 is "New collection"
     } catch (e) {
       setCollectionError(errorText(e));
     }
   }
+  const moveCollectionBy = (key: string, delta: number) =>
+    placeCollection(key, collections.visible().findIndex((c) => c.key === key) + delta);
   function startDrag(e: PointerEvent) {
     const tile = (e.target as HTMLElement).closest<HTMLElement>("[data-col-key]");
     const key = tile?.dataset.colKey;
@@ -144,14 +149,20 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         setHeldKey(key);
       }
       tile.style.transform = `translate(${m.clientX - x0}px, ${m.clientY - y0}px) scale(1.04)`;
-      const over = document.elementFromPoint(m.clientX, m.clientY)?.closest<HTMLElement>("[data-col-key]")?.dataset.colKey;
-      setDropKey(over && over !== key && over.startsWith("c:") ? over : null);
+      const over = document.elementFromPoint(m.clientX, m.clientY)?.closest<HTMLElement>("[data-col-key]");
+      const overKey = over?.dataset.colKey;
+      setDropKey(over && overKey && overKey !== key ? overKey : null);
+      if (over) {
+        const r = over.getBoundingClientRect();
+        setDropAfter(m.clientX > r.left + r.width / 2);
+      }
     };
     const end = (drop: boolean) => {
       removeEventListener("pointermove", move);
       removeEventListener("pointerup", up);
       removeEventListener("pointercancel", cancel);
       const target = dropKey();
+      const after = dropAfter();
       tile.classList.remove("dragging");
       tile.style.transform = "";
       setHeldKey(null);
@@ -159,8 +170,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       if (active) {
         // The click that ends a drag must not open the collection.
         addEventListener("click", (c) => c.stopPropagation(), { capture: true, once: true });
-        const list = collections.visible();
-        if (drop && target) void moveCollectionBy(key, list.findIndex((c) => c.key === target) - list.findIndex((c) => c.key === key));
+        if (drop && target) {
+          // Left half of a tile: go in before it; right half: after it. The tiles from there shift along.
+          const keys = collections.visible().map((c) => c.key).filter((k) => k !== key);
+          void placeCollection(key, keys.indexOf(target) + (after ? 1 : 0));
+        }
       }
     };
     const up = () => end(true);
@@ -725,7 +739,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                     }
                   >
                     {(c) => (
-                      <CollectionTile c={c()} focused={isFocused} held={heldKey() === c().key} drop={dropKey() === c().key} onEdit={() => setEditKey(c().key)} />
+                      <CollectionTile c={c()} focused={isFocused} held={heldKey() === c().key} drop={dropKey() === c().key ? (dropAfter() ? "after" : "before") : undefined} onEdit={() => setEditKey(c().key)} />
                     )}
                   </Show>
                 )}

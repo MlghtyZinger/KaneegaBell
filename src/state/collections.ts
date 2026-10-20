@@ -90,7 +90,8 @@ function createCollections() {
       if (y === null) return -1;
       return (x - y) * dir || byName(a, b);
     };
-    if (s === "mine") return items.map((i) => i.c); // your collections first (in your order), then series by name
+    // Placed ones in their order, then the rest as the backend lists them (yours, then series).
+    if (s === "mine") return items.map((i, n) => ({ i, n })).sort((a, b) => (a.i.c.pos ?? Infinity) - (b.i.c.pos ?? Infinity) || a.n - b.n).map((x) => x.i.c);
     const cmp =
       s === "newest" ? num((i) => i.newest, -1)
       : s === "oldest" ? num((i) => i.oldest, 1)

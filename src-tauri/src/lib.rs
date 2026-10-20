@@ -387,7 +387,7 @@ pub fn run() {
             commands::delete_collection,
             commands::set_in_collection,
             commands::set_collection_order,
-            commands::move_collection,
+            commands::set_collection_order_all,
             commands::set_collection_hidden,
             commands::set_collection_logo,
             commands::set_collection_logo_file,

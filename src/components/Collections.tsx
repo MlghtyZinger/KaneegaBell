@@ -29,11 +29,11 @@ function Emblem(props: { c: Collection; class?: string }) {
  * A tile in the Collections tab: a cover mosaic (or the chosen cover) with its
  * logo or name. `onEdit` adds a pencil (shown on hover and focus).
  */
-export function CollectionTile(props: { c: Collection; focused: () => boolean; onEdit?: () => void; held?: boolean; drop?: boolean }) {
+export function CollectionTile(props: { c: Collection; focused: () => boolean; onEdit?: () => void; held?: boolean; drop?: "before" | "after" }) {
   const chosen = () => collections.chosenPicture(props.c);
   const covers = () => collections.mosaic(props.c);
   return (
-    <div class="col-tile" data-col-key={props.c.key} classList={{ focused: props.focused(), hidden: props.c.hidden, held: props.held, "drop-target": props.drop }}>
+    <div class="col-tile" data-col-key={props.c.key} classList={{ focused: props.focused(), hidden: props.c.hidden, held: props.held, "drop-before": props.drop === "before", "drop-after": props.drop === "after" }}>
       <Show
         when={chosen()?.kind === "cover"}
         fallback={
@@ -325,12 +325,6 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
           <div class="row">
             <button class="btn" onClick={() => renameCollection(c())}>
               Rename…
-            </button>
-            <button class="btn" onClick={() => void run(() => api.moveCollection(c().key, -1))}>
-              Move earlier
-            </button>
-            <button class="btn" onClick={() => void run(() => api.moveCollection(c().key, 1))}>
-              Move later
             </button>
           </div>
           <Show when={smart()}>

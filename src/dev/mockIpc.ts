@@ -214,10 +214,9 @@ export function installMockIpc() {
       case "set_collection_order":
         col(a.key as string).gameOrder = a.order as string;
         return null;
-      case "move_collection": {
-        const i = cols.findIndex((c) => c.key === a.key);
-        const j = Math.min(cols.filter((c) => c.kind === "mine" || c.kind === "smart").length - 1, Math.max(0, i + Number(a.delta)));
-        cols.splice(j, 0, ...cols.splice(i, 1));
+      case "set_collection_order_all": {
+        const keys = a.keys as string[];
+        cols.sort((x, y) => (keys.indexOf(x.key) + 1 || 999) - (keys.indexOf(y.key) + 1 || 999));
         return null;
       }
       case "set_collection_hidden":
