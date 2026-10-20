@@ -408,6 +408,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       **default Full**; **(changed)** Windows' "Show animations" is ignored (KB only reads it, never changes PC settings;
       users pick Off in KB instead), which overrides section 9's default and Windows rule. First an interactive mockup
       (artifact) to try Full / Reduced / Off on sample cards and panels, then build.
+      **Mockup approved (owner, 2026-10-20, claude.ai artifact "KB Animation Levels"): "they look good, save them for
+      later".** Owner then asked for a start-up animation and a game-launch animation like SwanStationPS5's (darkxex, GPL;
+      3D jewel case opens, the disc spins on its tray while the game loads). Plan: original CSS 3D (transform/opacity
+      only, no copied assets), per media type (CD jewel case, DVD/Blu-ray keep case, cartridge), runs only while the
+      emulator starts; mockup first.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are
