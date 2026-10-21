@@ -41,9 +41,10 @@ pub const IMAGE_BASE: &str = "https://images.launchbox-app.com/";
 const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
 /// Image types kept (LaunchBox has ~30; KB shows these). Disc and back
 /// pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
-const IMAGE_KINDS: &[&str] = &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back"];
+const IMAGE_KINDS: &[&str] =
+    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed"];
 /// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
-const IMAGE_KINDS_VERSION: u32 = 1;
+const IMAGE_KINDS_VERSION: u32 = 2;
 const STAMP_KEY: &str = "launchbox";
 
 /// What KB remembers about the last download (settings, `launchbox`).
@@ -537,12 +538,13 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
 /// The disc and back cover for a game's 3D case, once each (`art\d`, `art\b`);
 /// none is fine, the case then draws its own.
 fn fetch_case_art(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, db_id: i64, region: Option<&str>) -> Result<()> {
-    for (kind, case) in [("Disc", images::Case::Disc), ("Box - Back", images::Case::Back)] {
+    // A reconstructed back only comes after the real scans (as with covers).
+    for (kinds, case) in [(&["Disc"][..], images::Case::Disc), (&["Box - Back", "Box - Back - Reconstructed"][..], images::Case::Back)] {
         let path = images::case_path(data_dir, case, game_id);
         if path.exists() {
             continue;
         }
-        for (file, _) in images_for(conn, db_id, &[kind], region)?.into_iter().take(2) {
+        for (file, _) in images_for(conn, db_id, kinds, region)?.into_iter().take(2) {
             let Some(bytes) = fetch.get(&image_url(&file))? else { continue };
             if images::store_case(data_dir, case, game_id, &bytes).is_ok() {
                 break;

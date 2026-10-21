@@ -65,7 +65,7 @@ html[data-anim="reduced"] :is(.game-side:not(.docked), .overlay, .overlay > .pan
 html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 
 /* ------------------------------------------------------------------ 3D models */
-.m3 .art-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.m3 .art-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
 .m3 .disc-img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .m3 .art, .m3 .bart { color: #f4f1ec; }
 /* 3D models: a box of six faces, built at real proportions */
@@ -91,8 +91,8 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.open .lid { transform: translateZ(calc(var(--d) / 2 + .5px)) rotateY(-122deg); }
 .m3 .lb { transform: rotateY(180deg); }
 .m3 .tray { position: absolute; inset: 0; transform: translateZ(calc(var(--d) / 2 - 1px)); display: grid; place-items: center; backface-visibility: hidden; transform-style: preserve-3d; }
-.m3 .dwrap { position: relative; width: 84%; aspect-ratio: 1; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
-.m3 .dwrap.mini { width: 56%; }
+.m3 .dwrap { position: relative; width: min(84%, calc(var(--h) * .84)); aspect-ratio: 1; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.m3 .dwrap.mini { width: min(56%, calc(var(--h) * .56)); }
 .m3 .disc { position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(from 20deg, #c9ccd2, #f3f4f6, #a9adb5, #e6e8eb, #b8bcc3, #f1f2f4, #c9ccd2);
   -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); }
@@ -153,7 +153,14 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 /* Inspecting: the focused case turns with the pointer and springs back; a sheen moves across the front */
 .m3.spring { transition: transform .5s cubic-bezier(.2,.8,.2,1); }
 .m3 .sheen { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .22) 50%, transparent 65%); transform: translateX(calc(var(--ry, 0) * -1%)); }
-.m3 .spine { position: absolute; inset: 0; display: grid; place-items: center; writing-mode: vertical-rl; font: 700 calc(var(--d) * .5)/1 var(--display); color: rgb(255 255 255 / .8); white-space: nowrap; overflow: hidden; letter-spacing: .04em; }
+/* Spines: a band with the platform's name, then the title, on both sides (a case on the right of the shelf shows its other edge). */
+.m3 .spine { position: absolute; inset: 0; background: var(--spine, hsl(var(--hue) 38% 16%)); color: #f4f1ec; overflow: hidden; font-family: var(--display); }
+.m3 .sband { position: absolute; left: 0; right: 0; top: 0; height: 18%; display: grid; place-items: center; background: var(--band, hsl(var(--hue) 45% 30%)); writing-mode: vertical-rl;
+  font: 700 calc(var(--d) * .36)/1 var(--display); font-style: normal; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.m3 .stitle { position: absolute; left: 0; right: 0; top: 18%; bottom: 0; display: grid; place-items: center; writing-mode: vertical-rl; padding: 4% 0;
+  font-family: var(--display); font-weight: 700; line-height: 1; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m3.pf-wii .spine, .m3.pf-n3ds .spine, .m3.pf-nds .spine { color: #2a2f36; }
+.m3.pf-wii .sband, .m3.pf-n3ds .sband, .m3.pf-nds .sband, .m3.pf-xbox .sband, .m3.pf-switch .sband, .m3.pf-n64 .sband, .m3.pf-gba .sband, .m3.pf-ps2 .sband { color: #fff; }
 .m3 .bart { position: absolute; inset: 0; padding: 9%; display: flex; flex-direction: column; gap: 5%; color: #e9e2d6; font-size: calc(var(--w) * .055);
   background: linear-gradient(170deg, hsl(var(--hue) 35% 22%), hsl(var(--hue) 40% 9%)); }
 .m3 .bart b { font: 700 calc(var(--w) * .1)/1 var(--display); }
