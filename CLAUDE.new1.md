@@ -473,6 +473,11 @@ Each milestone is runnable and tested, and passes the perf gate.
       stretched + platform band + title), backs missing (backs download in the background; a miss is retried), non-English
       backs (English regions first for backs and spines; "Back cover…", "Spine…", "Disc…" pickers in the details screen,
       user picks marked `<id>.manual` and kept by "Clear downloaded data"). `IMAGE_KINDS_VERSION` 3 (one more download).
+      **Second source for backs/spines (owner, 2026-10-21: ScreenScraper dropped, "find another free website without a headache"):**
+      GameTDB's full covers (`coverfullHQ` / `coverfull`, back | spine | front; Wii/GC png, PS3/DS/3DS jpg; English regions
+      first), cut by per-platform spine spans (`gametdb::spine_span`), fill only what LaunchBox lacks (once per game, marker
+      `art\<id>.tdb`, retried after "Clear downloaded data"), offered in the Back cover… / Spine… pickers, a pass triggered once
+      (setting `gametdbCaseArt`). Not covered: PSP, Switch, Xbox 360 (no IDs), PSN titles.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are

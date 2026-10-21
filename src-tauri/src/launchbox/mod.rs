@@ -45,6 +45,8 @@ const IMAGE_KINDS: &[&str] =
     &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine"];
 /// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
 const IMAGE_KINDS_VERSION: u32 = 3;
+/// Raised when GameTDB's full covers should be tried again for every game (setting `gametdbCaseArt`).
+const GAMETDB_CASE_VERSION: u32 = 1;
 const STAMP_KEY: &str = "launchbox";
 
 /// What KB remembers about the last download (settings, `launchbox`).
@@ -204,6 +206,10 @@ pub fn wanted(conn: &Connection) -> Result<bool> {
     }
     let st = stamp(conn)?;
     if !uncovered_platforms(conn, &st)?.is_empty() || (st.imported_at.is_some() && st.kinds < IMAGE_KINDS_VERSION) {
+        return Ok(true);
+    }
+    // GameTDB's full covers haven't been tried yet (a pass fills missing backs and spines; no download of LaunchBox's file).
+    if st.imported_at.is_some() && queries::get_setting::<u32>(conn, "gametdbCaseArt")?.unwrap_or(0) < GAMETDB_CASE_VERSION {
         return Ok(true);
     }
     Ok(conn
@@ -711,6 +717,9 @@ pub fn run(
         if let Err(e) = fetch_case_art(conn, data_dir, fetch, g.id, db_id, g.region.as_deref()) {
             log::warn!("LaunchBox disc/back for game {}: {e}", g.id);
         }
+        // What LaunchBox lacks: the back and spine from GameTDB's full cover (Wii, GameCube, PS3, DS, 3DS).
+        let serial: Option<String> = conn.query_row("SELECT serial FROM games WHERE id = ?1", [g.id], |r| r.get(0)).optional()?.flatten();
+        crate::art::gametdb::fill_case_art(data_dir, fetch, g.id, &g.platform_id, serial.as_deref());
         let manual: bool = conn.query_row("SELECT extras_manual FROM games WHERE id = ?1", [g.id], |r| r.get(0))?;
         if !manual {
             for (extra, count) in [(Extra::Hero, &mut s.heroes), (Extra::Logo, &mut s.logos)] {
@@ -723,6 +732,9 @@ pub fn run(
         }
     }
     progress(Progress { phase: "images", done: total, total });
+    if !s.cancelled {
+        queries::set_setting(conn, "gametdbCaseArt", &serde_json::Value::from(GAMETDB_CASE_VERSION))?;
+    }
     log::info!("LaunchBox: {s:?}");
     Ok(s)
 }

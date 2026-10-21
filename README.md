@@ -765,6 +765,7 @@ window, so they're written for players.
 - New: when you start a game, its case opens and the disc spins, or the cartridge goes into its console. Back cancels it. Turn it off for the desktop or TV Mode in Settings.
 - New: TV Mode's shelf shows 3D game cases. Turn them with the right stick, tilt them, and flip them to see the back. Flat covers are still an option.
 - New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
+- New: games LaunchBox has no back cover or spine for get them from GameTDB's full covers (Wii, GameCube, PS3, DS and 3DS games it knows), cut out of the full picture; no account needed.
 - New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
 - Fixed: 3D cases take their cover's own shape, so covers are no longer cropped; a back cover that wasn't downloaded yet when you first looked is shown the next time.
 - New: sounds for moving, choosing, going back and starting a game, in three styles: Tactile, Console and Retro console. Each mode has its own switch and volume.

@@ -638,9 +638,23 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
             PickerKind::Cover => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
             PickerKind::Back | PickerKind::Disc | PickerKind::Spine => {
                 let case = case_of(extra_kind(kind.as_deref())?);
-                let out = crate::launchbox::case_picker(&conn, id, case)?;
+                let mut out = crate::launchbox::case_picker(&conn, id, case)?;
+                // GameTDB's full cover (back and spine are cut out of it when picked), where it has one.
+                if case != art::images::Case::Disc {
+                    let (platform, serial): (String, Option<String>) =
+                        conn.query_row("SELECT platform_id, serial FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+                    if let Some((url, _)) = art::gametdb::find_wrap(&http, &platform, serial.as_deref()) {
+                        out.push(art::Candidate {
+                            source: "gametdb".into(),
+                            name: "full cover".into(),
+                            preview: Some(url.clone()),
+                            url,
+                            label: "GameTDB full cover (the part is cut out of it)".into(),
+                        });
+                    }
+                }
                 if out.is_empty() {
-                    return Err(Error::msg("LaunchBox has no pictures of this kind for this game. You can still use an image file of your own."));
+                    return Err(Error::msg("No pictures of this kind found for this game. You can still use an image file of your own."));
                 }
                 Ok(out)
             }
@@ -689,7 +703,15 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
             PickerKind::Cover => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
             k @ (PickerKind::Back | PickerKind::Disc | PickerKind::Spine) => {
                 let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that picture is no longer available"))? };
-                art::images::store_case_manual(state.data_dir(), case_of(k), id, &bytes)
+                let case = case_of(k);
+                if source == "gametdb" {
+                    // A full cover: the back or the spine is cut out of it.
+                    let platform: String = conn.query_row("SELECT platform_id FROM games WHERE id = ?1", [id], |r| r.get(0))?;
+                    let (back, spine) = art::gametdb::split_wrap(&platform, &bytes)?;
+                    art::images::store_case_image_manual(state.data_dir(), case, id, if case == art::images::Case::Spine { &spine } else { &back })
+                } else {
+                    art::images::store_case_manual(state.data_dir(), case, id, &bytes)
+                }
             }
             PickerKind::Icon => {
                 let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that icon is no longer available"))? };

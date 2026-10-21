@@ -187,18 +187,33 @@ fn case_marker(data_dir: &Path, case: Case, game_id: i64) -> PathBuf {
 /// Resizes and stores a disc (keeps its transparency), back cover or spine.
 pub fn store_case(data_dir: &Path, case: Case, game_id: i64, bytes: &[u8]) -> Result<()> {
     let img = image::load_from_memory(bytes).map_err(|e| Error::msg(format!("bad image: {e}")))?;
+    store_case_image(data_dir, case, game_id, &img)
+}
+
+pub fn store_case_image(data_dir: &Path, case: Case, game_id: i64, img: &DynamicImage) -> Result<()> {
     let max = match case {
         Case::Disc => (600, 600),
         Case::Back => (800, 1100),
         Case::Spine => (1400, 1400),
     };
-    write_atomic(&case_path(data_dir, case, game_id), &webp(&fit(&img, max), THUMB_QUALITY)?)
+    write_atomic(&case_path(data_dir, case, game_id), &webp(&fit(img, max), THUMB_QUALITY)?)
 }
 
 /// The user's own pick: stored like the download, and remembered as theirs.
 pub fn store_case_manual(data_dir: &Path, case: Case, game_id: i64, bytes: &[u8]) -> Result<()> {
     store_case(data_dir, case, game_id, bytes)?;
     write_atomic(&case_marker(data_dir, case, game_id), b"")
+}
+
+/// Same, from an image already decoded (a part cut out of a full cover).
+pub fn store_case_image_manual(data_dir: &Path, case: Case, game_id: i64, img: &DynamicImage) -> Result<()> {
+    store_case_image(data_dir, case, game_id, img)?;
+    write_atomic(&case_marker(data_dir, case, game_id), b"")
+}
+
+/// Notes that GameTDB's full cover was already tried for a game (found or not), so it isn't asked again.
+pub fn tried_marker(data_dir: &Path, game_id: i64) -> PathBuf {
+    data_dir.join("art").join("b").join(format!("{game_id}.tdb"))
 }
 
 /// Deletes the downloaded discs, backs and spines, keeping the user's picks.
