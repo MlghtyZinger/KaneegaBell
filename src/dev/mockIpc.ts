@@ -29,7 +29,6 @@ const PLATFORMS = [
   ["ps2", "PlayStation 2", "PS2"],
   ["psp", "PlayStation Portable", "PSP"],
   ["ps3", "PlayStation 3", "PS3"],
-  ["switch", "Nintendo Switch", "Switch"],
 ] as const;
 
 const WORDS =
@@ -54,7 +53,7 @@ const PUBLISHERS = ["Nintendo", "Sony", "Capcom", "Konami", "Sega", "Bandai Namc
 // Typical cover shapes (height / width), for ?art=1 layout tests.
 const ASPECTS: Record<string, number> = {
   snes: 0.72, n64: 0.73, gba: 1, gc: 1.4, nds: 0.9, wii: 1.4, "3ds": 0.88,
-  segacd: 1, ps1: 1, ps2: 1.4, psp: 1.72, ps3: 1.16, switch: 0.62,
+  segacd: 1, ps1: 1, ps2: 1.4, psp: 1.72, ps3: 1.16,
 };
 
 function makeLibrary(n: number): Library {

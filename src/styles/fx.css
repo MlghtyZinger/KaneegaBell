@@ -47,9 +47,9 @@ html[data-anim="reduced"] :is(.game-side:not(.docked), .overlay, .overlay > .pan
 .launch-stage { position: absolute; left: 50%; top: 50%; height: 540px; transform: translate(-50%, -50%) scale(var(--s, 1)); display: grid; place-items: center; perspective: 1100px; }
 .launch-fx .lc { transform-style: preserve-3d; transform: translateY(-14px) scale(1.4) rotateY(-30deg) rotateX(5deg); transition: transform .75s cubic-bezier(.2,.8,.2,1); }
 .launch-fx .lc.settled { transform: translateY(-14px) scale(1.6) rotateY(-12deg) rotateX(5deg); }
-.launch-fx .lc.cartlc.settled { transform: translateY(-40px) scale(0.95) rotateY(-18deg) rotateX(-18deg); }
+.launch-fx .lc.cartlc.settled { transform: translateY(-40px) scale(1.4) rotateY(-10deg) rotateX(6deg); }
 .launch-fx.tv .lc.settled { transform: translateY(-14px) scale(1.95) rotateY(-12deg) rotateX(5deg); }
-.launch-fx.tv .lc.cartlc.settled { transform: translateY(-40px) scale(1.15) rotateY(-18deg) rotateX(-18deg); }
+.launch-fx.tv .lc.cartlc.settled { transform: translateY(-40px) scale(1.6) rotateY(-10deg) rotateX(6deg); }
 .launch-fx .ltext { position: absolute; left: 0; right: 0; bottom: 40px; display: grid; justify-items: center; gap: 4px; color: var(--text); }
 .launch-fx .ltext b { font: 700 30px/1 var(--display); }
 .launch-fx .lmsg { color: var(--text-dim); font-size: 16px; opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s; }
@@ -230,29 +230,21 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3 .cart-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 10px rgb(0 0 0 / .45)); }
 .m3 .cartridge.drawn > .hw { position: absolute; inset: 0; }
 .m3 .hw > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-/* The console (a 3D model, ConsoleModel.tsx): its slot lines up with the cartridge's plane, so the cartridge goes in behind its raised parts. */
-.m3 .slot.model { --k: calc(var(--w) / 100); left: 50%; width: 0; height: 0; top: var(--ct); background: none; box-shadow: none; border-radius: 0; transform-style: preserve-3d; }
-.m3 .slot.model::before, .m3 .slot.model::after { display: none; }
-.m3 .cm { position: absolute; left: 0; top: 0; transform-style: preserve-3d; transform: translateZ(calc(var(--k) * var(--cz))); }
-.m3 .cb { position: absolute; transform-style: preserve-3d; }
-.m3 .cf, .m3 .lay { position: absolute; inset: 0; display: block; backface-visibility: hidden; }
-.m3 .lay { backface-visibility: visible; }
-.m3 .cf.fl, .m3 .cf.fr { inset: 0 auto; filter: brightness(.82); }
-.m3 .cf.ft, .m3 .cf.fu { inset: auto 0; }
-.m3 .cf.ft { filter: brightness(1.05); }
-.m3 .cf.fu { filter: brightness(.6); }
-.m3 .cf.fb { filter: brightness(.7); }
-.m3 .pt { position: absolute; display: block; }
-.m3.pf-snes .slot.model { --ct: 54%; --cz: 11; }
-.m3.pf-n64 .slot.model { --ct: 62%; --cz: 28; }
-.m3.pf-gba .slot.model { --ct: 64%; --cz: 15; }
-.m3.pf-nds .slot.model, .m3.pf-n3ds .slot.model { --ct: 62%; --cz: 16; }
-.m3.pf-switch .slot.model { --ct: 64%; --cz: 9; }
+/* The real console (a photo): the cartridge goes in behind its top edge, so its lower part is hidden. */
+.m3 .slot.photo { height: auto; background: none; box-shadow: none; border-radius: 0; }
+.m3 .slot.photo::before, .m3 .slot.photo::after { display: none; }
+.m3 .console-img { display: block; width: 100%; height: auto; filter: drop-shadow(0 10px 14px rgb(0 0 0 / .5)); }
+.m3.pf-snes .slot.photo { left: -12.5%; width: 125%; top: 56%; }
+.m3.pf-n64 .slot.photo { left: -12.5%; width: 125%; top: 52%; }
+.m3.pf-gba .slot.photo { left: -27%; width: 154%; top: 68%; }
+.m3.pf-nds .slot.photo { left: -25%; width: 150%; top: 68%; }
+.m3.pf-n3ds .slot.photo { left: -30%; width: 160%; top: 68%; }
+.m3.pf-switch .slot.photo { left: -86%; width: 272%; top: 69%; }
 .m3 .cartridge.drawn .clabel { border-radius: 3px; }
 .m3.pf-snes { --out: -126%; --ins: 16%; }
 .m3.pf-snes .cartridge.drawn { left: 14%; width: 72%; top: 12%; height: 76%; }
 .m3.pf-snes .cartridge.drawn .clabel { inset: 9.4% 8.3% 44.4% 8.3%; }
-.m3.pf-n64 { --out: -143%; --ins: 4%; }
+.m3.pf-n64 { --out: -143%; --ins: 23%; }
 .m3.pf-n64 .cartridge.drawn { left: 17%; width: 66%; top: 20%; height: 60%; }
 .m3.pf-n64 .cartridge.drawn .clabel { inset: 9.3% 8.6% 34.7% 8.6%; }
 .m3.pf-gba { --out: -190%; --ins: 47%; }
@@ -264,7 +256,7 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-n3ds { --out: -195%; --ins: 53%; }
 .m3.pf-n3ds .cartridge.drawn { left: 27.5%; width: 45%; top: 30%; height: 35.5%; }
 .m3.pf-n3ds .cartridge.drawn .clabel { inset: 25.8% 14.5% 4.5% 6.6%; }
-.m3.pf-switch { --out: -221%; --ins: 36%; }
+.m3.pf-switch { --out: -221%; --ins: 58%; }
 .m3.pf-switch .cartridge.drawn { left: 33%; width: 34%; top: 34%; height: 30.6%; }
 .m3.pf-switch .cartridge.drawn .clabel { inset: 19.4% 9.5% 4.8% 9.5%; }
 
