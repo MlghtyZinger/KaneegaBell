@@ -162,6 +162,9 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 /* LaunchBox's spine picture fills the side; a wide one (a horizontal box's top edge) is turned to read down the side. */
 .m3 .spine-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
 .m3 .spine-img.wide { inset: auto; left: 50%; top: 50%; width: var(--h); height: var(--d); transform: translate(-50%, -50%) rotate(90deg); }
+/* Top and bottom faces: solid (the platform's spine colour behind the stretched cover rows), a little darker than the front. */
+.m3 .edge { position: absolute; inset: 0; background-color: var(--spine, hsl(var(--hue) 38% 16%)); background-size: 100% 1500%; background-repeat: no-repeat; }
+.m3 .edge::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .32); }
 /* No spine picture: the cover's left edge stretched over it, so the colours carry on from the front. */
 .m3 .spine.drawn { background: hsl(var(--hue) 38% 16%); }
 .m3 .sedge { position: absolute; inset: 0; background-size: 1200% 100%; background-position: left center; opacity: .9; }

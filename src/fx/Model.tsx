@@ -87,6 +87,16 @@ export function Model(props: {
       setSpineOk(true);
     }
   });
+  // The top and bottom faces: the cover's own top / bottom rows stretched across, so the colours carry on from the front.
+  const Edge = (p: { at: "top" | "bottom" }) => (
+    <div
+      class="edge"
+      style={{
+        "background-image": props.game.art > 0 ? `url(${artUrl(props.game.id, props.game.art, "t")})` : undefined,
+        "background-position": `center ${p.at}`,
+      }}
+    />
+  );
   // Spine title size: as large as the spine's width allows, smaller when the title is long.
   const spineFont = () => {
     const [, h, d] = dims();
@@ -155,8 +165,8 @@ export function Model(props: {
       </div>
       <div class="f sl"><Spine /></div>
       <div class="f sr"><Spine /></div>
-      <div class="f st" />
-      <div class="f sb" />
+      <div class="f st"><Edge at="top" /></div>
+      <div class="f sb"><Edge at="bottom" /></div>
       <Show when={front}>
         <div class="f bf">
           <Art big={props.launch} />
