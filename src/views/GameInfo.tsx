@@ -1,3 +1,4 @@
+import { launchAnimation, launchDone } from "../fx/LaunchFx";
 import { createEffect, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, events, type GameDetail, type Series } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
@@ -213,9 +214,13 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     setLaunching(true);
     setLaunchError(null);
     try {
-      await api.launchGame(id());
-      props.onClose(); // the Now Playing screen takes over
+      // The case opens (or the cartridge goes in) first; Back there cancels.
+      if (await launchAnimation(id())) {
+        await api.launchGame(id());
+        props.onClose(); // the Now Playing screen takes over
+      }
     } catch (e) {
+      launchDone();
       setLaunchError(errorText(e));
     } finally {
       setLaunching(false);

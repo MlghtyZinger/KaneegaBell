@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, events } from "./api";
 import { library } from "./state/library";
 import { session } from "./state/session";
-import { dispatchFromGamepad, installKeyboard, pushHandler, type Action } from "./input/actions";
+import { dispatchFromGamepad, installKeyboard, pushHandler, setActionTap, type Action } from "./input/actions";
 import { LibraryView } from "./views/Library";
 import { TvMode } from "./views/TvMode";
 // Loaded the first time Settings opens, so starting KB doesn't parse it.
@@ -16,7 +16,12 @@ import { updates } from "./state/updates";
 import { WhatsNew } from "./components/WhatsNew";
 import { whatsNew } from "./state/whatsNew";
 import { collections } from "./state/collections";
+import { fx } from "./state/fx";
+import { Intros } from "./fx/Intro";
+import { LaunchHost } from "./fx/LaunchFx";
+import { sfx, warmUp } from "./fx/audio";
 import "./styles/app.css";
+import "./styles/fx.css";
 
 type View = "library" | "settings";
 
@@ -24,6 +29,19 @@ export default function App() {
   const [view, setView] = createSignal<View>("library");
   // TV Mode replaces the desktop library (Settings opens over either).
   const [tv, setTv] = createSignal(false);
+  // Animation level and sounds follow the mode KB is in.
+  createEffect(() => fx.setTv(tv()));
+  // Menu sounds: a move, a choice or going back that a screen used.
+  let lastSound = 0;
+  setActionTap((a) => {
+    const role = a === "select" ? "select" : a === "back" ? "back" : ["up", "down", "left", "right", "prevPlatform", "nextPlatform"].includes(a) ? "move" : null;
+    const now = performance.now();
+    // Held directions repeat fast; one tick per 45 ms is plenty.
+    if (!role || (role === "move" && now - lastSound < 45)) return;
+    lastSound = now;
+    sfx(role);
+  });
+  createEffect(() => fx.loaded() && warmUp());
   const win = getCurrentWindow();
   // A one-time message (the library moving to KaneegaBell's folder, the TV
   // display not being connected).
@@ -146,6 +164,8 @@ export default function App() {
       <OskHost />
       {/* Settings shows the full report itself. */}
       <ScanToast hidden={view() === "settings"} />
+      <LaunchHost />
+      <Intros />
     </main>
   );
 }

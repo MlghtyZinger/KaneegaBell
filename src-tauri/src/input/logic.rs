@@ -32,6 +32,9 @@ pub enum Action {
     Filter,
     /// Left stick click: TV Mode on / off.
     ToggleTv,
+    /// Right stick left / right: turns the focused case in TV Mode's 3D shelf.
+    TurnLeft,
+    TurnRight,
 }
 
 impl Action {
@@ -55,6 +58,8 @@ impl Action {
             Action::ToggleGroups => "toggleGroups",
             Action::Filter => "filter",
             Action::ToggleTv => "toggleTv",
+            Action::TurnLeft => "turnLeft",
+            Action::TurnRight => "turnRight",
         }
     }
 

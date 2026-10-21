@@ -1,0 +1,261 @@
+/* Animations (milestone p, 0.3.12): the animation levels, the 3D game cases
+   (TV shelf and launch animation) and the launch scene. The cases are ported
+   from the approved mockup ("KB Launch Animations", 2026-10-21) and drawn in
+   stage px (see Stage.tsx); only transform and opacity animate. */
+
+/* ---------------------------------------------------------------- levels
+   html[data-anim] is the level for the mode KB is in (Settings → General).
+   Full: today's motion plus the desktop extras below. Reduced: fades only.
+   Off: nothing moves (the intro and the launch animation have their own switches). */
+html[data-anim="off"] :where(*:not(.intro, .intro *, .launch-fx, .launch-fx *)),
+html[data-anim="off"] :where(*:not(.intro, .intro *, .launch-fx, .launch-fx *))::before,
+html[data-anim="off"] :where(*:not(.intro, .intro *, .launch-fx, .launch-fx *))::after {
+  animation: none !important;
+  transition: none !important;
+}
+html[data-anim="reduced"] :is(.tv-bg-layer img) { animation: none; }
+html[data-anim="reduced"] :is(.tv-info-inner > *, .tv-menu) { animation-name: tv-fade-in; }
+html[data-anim="reduced"] .tv-track { animation-name: tv-fade-in; }
+html[data-anim="reduced"] .tv-card.focused .tv-card-face { transform: none; }
+
+/* Full, desktop: the sidebar slides in, dialogs grow in, toasts rise, covers fade in as they load. */
+@keyframes fx-fade { from { opacity: 0; } }
+@keyframes fx-slide { from { opacity: 0; transform: translateX(36px); } }
+@keyframes fx-grow { from { opacity: 0; transform: scale(.96) translateY(8px); } }
+@keyframes fx-rise { from { opacity: 0; translate: 0 14px; } }
+html[data-anim="full"] .game-side:not(.docked) { animation: fx-slide .28s cubic-bezier(.2,.8,.2,1) both; }
+html[data-anim="full"] .overlay { animation: fx-fade .2s ease-out both; }
+html[data-anim="full"] .overlay > .panel { animation: fx-grow .28s cubic-bezier(.2,.8,.2,1) both; }
+html[data-anim="full"] .toast { animation: fx-rise .28s cubic-bezier(.2,.8,.2,1) both; }
+html[data-anim="full"] .card-art { animation: fx-fade .2s ease-out both; }
+html[data-anim="reduced"] :is(.game-side:not(.docked), .overlay, .overlay > .panel, .toast) { animation: fx-fade .16s ease-out both; }
+
+/* ----------------------------------------------------------- the launch scene */
+.launch-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  overflow: hidden;
+  perspective: 1100px;
+  background: color-mix(in srgb, var(--bg-sunken) 88%, transparent);
+  animation: fx-fade .35s ease-out both;
+  --display: "Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", sans-serif;
+  --body: var(--font);
+  cursor: progress;
+}
+.launch-fx.tv { background: color-mix(in srgb, var(--bg-sunken) 94%, transparent); }
+.launch-stage { position: absolute; left: 50%; top: 50%; height: 540px; transform: translate(-50%, -50%) scale(var(--s, 1)); display: grid; place-items: center; perspective: 1100px; }
+.launch-fx .lc { transform-style: preserve-3d; transform: translateY(-14px) scale(1.4) rotateY(-30deg) rotateX(5deg); transition: transform .75s cubic-bezier(.2,.8,.2,1); }
+.launch-fx .lc.settled { transform: translateY(-14px) scale(1.6) rotateY(-12deg) rotateX(5deg); }
+.launch-fx .lc.cartlc.settled { transform: translateY(-40px) scale(1.4) rotateY(-10deg) rotateX(6deg); }
+.launch-fx.tv .lc.settled { transform: translateY(-14px) scale(1.95) rotateY(-12deg) rotateX(5deg); }
+.launch-fx.tv .lc.cartlc.settled { transform: translateY(-40px) scale(1.6) rotateY(-10deg) rotateX(6deg); }
+.launch-fx .ltext { position: absolute; left: 0; right: 0; bottom: 40px; display: grid; justify-items: center; gap: 4px; color: var(--text); }
+.launch-fx .ltext b { font: 700 30px/1 var(--display); }
+.launch-fx .lmsg { color: var(--text-dim); font-size: 16px; opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s; }
+.launch-fx .lmsg.on { opacity: 1; transform: none; }
+
+/* --------------------------------------------------------------- 3D TV shelf */
+.tv-shelf3d { position: absolute; inset: 0; perspective: 1100px; perspective-origin: 50% 62%; }
+.tv-shelf3d .si { position: absolute; left: 50%; bottom: 8%; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .35s; cursor: pointer; }
+.tv-shelf3d .si::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -14px; height: 14px; border-radius: 50%; background: radial-gradient(rgb(0 0 0 / .7), transparent 70%); transform: translateZ(-20px); }
+.tv-shelf3d .m3-turn { transform-style: preserve-3d; }
+.tv-shelf3d .si.focused .m3 { cursor: grab; }
+.tv-shelf3d { --display: "Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", sans-serif; --body: var(--font); }
+html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
+
+/* ------------------------------------------------------------------ 3D models */
+.m3 .art-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.m3 .disc-img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.m3 .art, .m3 .bart { color: #f4f1ec; }
+/* 3D models: a box of six faces, built at real proportions */
+.m3 { position: relative; width: var(--w); height: var(--h); transform-style: preserve-3d; }
+.m3 .box { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .5s cubic-bezier(.4,0,.6,1), opacity .45s; }
+.m3 .f { position: absolute; inset: 0; backface-visibility: hidden; }
+.m3 .back { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); }
+.m3 .sl, .m3 .sr { inset: 0 auto; width: var(--d); left: calc((var(--w) - var(--d)) / 2); }
+.m3 .sl { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.m3 .sr { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.m3 .st, .m3 .sb { inset: auto 0; height: var(--d); top: calc((var(--h) - var(--d)) / 2); }
+.m3 .st { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); }
+.m3 .sb { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
+.m3 .bf { transform: translateZ(calc(var(--d) / 2)); }
+
+.m3 .art { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 9%; overflow: hidden; }
+.m3 .art b { font: 700 calc(var(--w) * .12)/1 var(--display); text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
+.m3 .art i { position: absolute; left: 9%; top: 6%; font: 600 calc(var(--w) * .055)/1 var(--body); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: rgb(255 255 255 / .75); }
+
+/* lid (front cover) on a hinge at the left edge, the tray with the disc behind it */
+.m3 .lid { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: left center;
+  transform: translateZ(calc(var(--d) / 2 + .5px)); transition: transform .95s cubic-bezier(.3,.7,.2,1); }
+.m3.open .lid { transform: translateZ(calc(var(--d) / 2 + .5px)) rotateY(-122deg); }
+.m3 .lb { transform: rotateY(180deg); }
+.m3 .tray { position: absolute; inset: 0; transform: translateZ(calc(var(--d) / 2 - 1px)); display: grid; place-items: center; backface-visibility: hidden; transform-style: preserve-3d; }
+.m3 .dwrap { position: relative; width: 84%; aspect-ratio: 1; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
+.m3 .dwrap.mini { width: 56%; }
+.m3 .disc { position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 20deg, #c9ccd2, #f3f4f6, #a9adb5, #e6e8eb, #b8bcc3, #f1f2f4, #c9ccd2);
+  -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); }
+.m3 .print { position: absolute; inset: 3%; border-radius: 50%; display: flex; justify-content: center; padding-top: 16%;
+  -webkit-mask: radial-gradient(circle, transparent 0 22%, #000 22.6%); mask: radial-gradient(circle, transparent 0 22%, #000 22.6%); }
+.m3 .print b { font: 700 calc(var(--w) * .07)/1 var(--display); text-shadow: 0 1px 4px rgb(0 0 0 / .6); }
+.m3 .dwrap.mini .print b { font-size: calc(var(--w) * .055); }
+.m3 .dwrap::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: linear-gradient(130deg, rgb(255 255 255 / .38), transparent 38%, transparent 62%, rgb(255 255 255 / .16));
+  -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); mask: radial-gradient(circle, transparent 0 7%, #000 7.6%); }
+.m3.spinning .dwrap { transform: translateZ(9px); }
+.m3.spinning .disc { animation: spinup 1s cubic-bezier(.55,0,1,.45) forwards, spin .3s linear 1s infinite; }
+@keyframes spinup { to { transform: rotate(720deg); } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* CD jewel case: clear plastic, black tray, dark hinge */
+.m3.cd .back { background: #0d0e10; }
+.m3.cd .sl { background: linear-gradient(90deg, #1b1c20, #33353b); }
+.m3.cd .sr, .m3.cd .st, .m3.cd .sb { background: rgb(190 200 215 / .3); }
+.m3.cd .tray { background: radial-gradient(circle, #2a2c31 0 9%, transparent 9.5%), #0f1012; }
+.m3.cd .lf { box-shadow: inset 0 0 0 2px rgb(220 230 240 / .4); }
+.m3.cd .lf::after, .m3.dvd .lf::after, .m3.bd .lf::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, rgb(255 255 255 / .2), transparent 32%); }
+.m3 .lb { background: repeating-linear-gradient(0deg, #ddd3bf 0 7px, #cfc4ae 7px 8px); }
+/* DVD keep case: black plastic, clear sleeve over the cover */
+.m3.dvd .box .f, .m3.bd .box .f { background: #141518; }
+.m3.dvd .sl, .m3.bd .sl { background: #0c0d0f !important; }
+.m3.dvd .tray, .m3.bd .tray { background: radial-gradient(circle, #2c2d33 0 10%, #18191c 10.5% 12%, transparent 12.5%), #141518; }
+.m3.dvd .lf { box-shadow: inset 0 0 0 3px #141518; }
+.m3.dvd .lb, .m3.bd .lb { background: linear-gradient(90deg, #1d1e22, #26272c); }
+/* Blu-ray case: blue plastic, blue band over the cover */
+.m3.bd .box .f { background: rgb(36 86 190 / .85); }
+.m3.bd .sl { background: #183f8f !important; }
+.m3.bd .lf { box-shadow: inset 0 0 0 3px rgb(36 86 190); }
+.m3.bd .lf::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 9%; background: rgb(36 86 190); z-index: 1; }
+/* Cartridge in its cardboard box */
+.m3.cart .back, .m3.cart .sb { background: #2a231d; }
+.m3.cart .sl, .m3.cart .sr { background: #3b2f26; }
+.m3.cart .st { background: #4a3c30; }
+.m3 .cartridge { position: absolute; left: 11%; width: 78%; top: 7%; height: 86%; transition: transform .7s cubic-bezier(.3,.7,.2,1);
+  background: linear-gradient(#a2a4ab, #7d7f86); border-radius: 12px 12px 4px 4px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .25); }
+.m3 .cartridge::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 17%; border-radius: 0 0 4px 4px;
+  background: repeating-linear-gradient(90deg, #6c6e74 0 3px, #8a8c92 3px 7px); }
+.m3 .clabel { position: absolute; inset: 9% 10% 24%; border-radius: 4px; display: flex; align-items: flex-end; padding: 6%; }
+.m3 .clabel b { font: 700 calc(var(--w) * .09)/1 var(--display); text-shadow: 0 1px 5px rgb(0 0 0 / .6); }
+.m3 .slot { position: absolute; left: -30%; width: 160%; top: 70%; height: 62%; border-radius: 12px; opacity: 0;
+  transform: translateZ(16px) translateY(40px); transition: transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s;
+  background: linear-gradient(#2c2d32, #17181b); box-shadow: inset 0 3px 0 #44454c; }
+.m3 .slot::before { content: ""; position: absolute; top: 0; left: 17%; right: 17%; height: 9px; background: #040404; border-radius: 0 0 4px 4px; }
+.m3 .led { position: absolute; right: 9%; top: 40%; width: 9px; height: 9px; border-radius: 50%; background: #3a1a14; transition: background .2s, box-shadow .2s; }
+.m3.cart.out .cartridge { transform: translateY(-80%); }
+.m3.cart.drop .box { transform: translateY(75%) translateZ(-60px); opacity: 0; }
+.m3.cart.drop .slot { opacity: 1; transform: translateZ(16px); }
+.m3.cart.insert .cartridge { transform: translateY(24%); transition: transform .42s cubic-bezier(.55,0,.85,.35); }
+.m3.cart.seated { animation: seat .28s ease-out; }
+.m3.cart.seated .led { background: #ff4a2e; box-shadow: 0 0 12px #ff4a2e; }
+@keyframes seat { 40% { transform: translateY(4px); } }
+
+/* Inspecting: the focused case turns with the pointer and springs back; a sheen moves across the front */
+.m3.spring { transition: transform .5s cubic-bezier(.2,.8,.2,1); }
+.m3 .sheen { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .22) 50%, transparent 65%); transform: translateX(calc(var(--ry, 0) * -1%)); }
+.m3 .spine { position: absolute; inset: 0; display: grid; place-items: center; writing-mode: vertical-rl; font: 700 calc(var(--d) * .5)/1 var(--display); color: rgb(255 255 255 / .8); white-space: nowrap; overflow: hidden; letter-spacing: .04em; }
+.m3 .bart { position: absolute; inset: 0; padding: 9%; display: flex; flex-direction: column; gap: 5%; color: #e9e2d6; font-size: calc(var(--w) * .055);
+  background: linear-gradient(170deg, hsl(var(--hue) 35% 22%), hsl(var(--hue) 40% 9%)); }
+.m3 .bart b { font: 700 calc(var(--w) * .1)/1 var(--display); }
+.m3 .bart .shots { display: flex; gap: 4%; }
+.m3 .bart .shots i { flex: 1; aspect-ratio: 4 / 3; background: hsl(var(--hue) 30% 32% / .8); border-radius: 2px; }
+.m3 .bart .lines i { display: block; height: calc(var(--w) * .025); margin: 3% 0; background: rgb(255 255 255 / .18); border-radius: 2px; }
+.m3 .bart small { margin-top: auto; opacity: .55; font-size: calc(var(--w) * .045); }
+
+/* Disc cases by platform */
+.m3.pf-ps2 .box .f:not(.back) { background: #101012; }
+.m3.pf-gc .box .f:not(.back) { background: #1b1b21; } .m3.pf-gc .lf { box-shadow: inset 0 0 0 3px #1b1b21; }
+.m3.pf-wii .box .f:not(.back), .m3.pf-wii .sl { background: #eef0f2 !important; } .m3.pf-wii .lf { box-shadow: inset 0 0 0 3px #eef0f2; }
+.m3.pf-wii .lb { background: #f4f5f6; } .m3.pf-wii .tray { background: radial-gradient(circle, #d6d8db 0 10%, transparent 10.5%), #e6e8ea; }
+.m3.pf-wii .spine { color: #555a60; }
+.m3.pf-xbox .box .f:not(.back), .m3.pf-xbox .sl { background: rgb(34 96 38 / .92) !important; } .m3.pf-xbox .lf { box-shadow: inset 0 0 0 3px rgb(34 96 38); }
+.m3.pf-x360 .box .f:not(.back), .m3.pf-x360 .sl { background: rgb(64 158 56 / .92) !important; } .m3.pf-x360 .lf { box-shadow: inset 0 0 0 3px rgb(64 158 56); }
+.m3.pf-psp .box .f:not(.back), .m3.pf-psp .sl { background: rgb(205 215 225 / .32) !important; } .m3.pf-psp .lf { box-shadow: inset 0 0 0 3px rgb(215 225 235 / .55); }
+.m3.pf-psp .tray { background: radial-gradient(circle, #2a2c31 0 9%, transparent 9.5%), #111216; }
+/* a UMD: a small disc inside its own clear shell */
+.m3 .dwrap.umd { width: 64%; }
+.m3 .dwrap.umd::before { content: ""; position: absolute; inset: -8% -8% -18% -8%; border-radius: 20% 20% 10% 10%; background: rgb(230 235 240 / .14); border: 2px solid rgb(230 235 240 / .45); }
+
+/* Cartridge boxes and cases by platform */
+.m3.pf-nds .box .f:not(.back), .m3.pf-nds .sl { background: rgb(210 220 230 / .38) !important; } .m3.pf-nds .bf { box-shadow: inset 0 0 0 3px rgb(220 230 240 / .55); }
+.m3.pf-n3ds .box .f:not(.back), .m3.pf-n3ds .sl { background: #eceef1 !important; } .m3.pf-n3ds .bf { box-shadow: inset 0 0 0 3px #eceef1; } .m3.pf-n3ds .spine { color: #555a60; }
+.m3.pf-switch .box .f:not(.back), .m3.pf-switch .sl { background: #d6102a !important; } .m3.pf-switch .bf { box-shadow: inset 0 0 0 3px #d6102a; }
+.m3.pf-switch .bf::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8%; background: #d6102a; z-index: 1; }
+.m3.pf-gba .box .f:not(.back), .m3.pf-gba .sl { background: #3b2f26 !important; }
+
+/* Cartridges and cards by platform: shape, size, colour, and how far they travel */
+.m3.cart.out .cartridge { transform: translateY(var(--out, -80%)); }
+.m3.cart.insert .cartridge { transform: translateY(var(--ins, 24%)); }
+.m3.pf-snes { --out: -95%; --ins: 22%; }
+.m3.pf-snes .cartridge { left: 10%; width: 80%; top: 14%; height: 72%; background: linear-gradient(#bdbec5, #9c9ea6); border-radius: 22px 22px 6px 6px / 14px 14px 6px 6px; }
+.m3.pf-snes .cartridge::before { content: ""; position: absolute; left: 4%; right: 4%; top: 6%; height: 14%; border-radius: 8px; background: repeating-linear-gradient(90deg, rgb(0 0 0 / .13) 0 2px, transparent 2px 6px); }
+.m3.pf-snes .clabel { inset: 26% 12% 22%; }
+.m3.pf-n64 { --out: -62%; --ins: 15%; }
+.m3.pf-n64 .cartridge { left: 21%; width: 58%; top: 4%; height: 92%; background: linear-gradient(#5a5c62, #3f4146); border-radius: 30% 30% 6px 6px / 15% 15% 6px 6px; }
+.m3.pf-n64 .clabel { inset: 7% 11% 42%; }
+.m3.pf-n64 .cartridge::after { background: repeating-linear-gradient(90deg, #303237 0 3px, #45474d 3px 7px); }
+.m3.pf-gba { --out: -115%; --ins: 40%; }
+.m3.pf-gba .cartridge { left: 24%; width: 52%; top: 22%; height: 56%; border-radius: 6px; background: linear-gradient(#a3a5ac, #87898f); clip-path: polygon(0 0, 80% 0, 100% 15%, 100% 100%, 0 100%); }
+.m3.pf-gba .clabel { inset: 12% 10% 30%; }
+.m3.pf-nds, .m3.pf-n3ds { --out: -135%; --ins: 46%; }
+.m3.pf-nds .cartridge { left: 30%; width: 40%; top: 26%; height: 46%; border-radius: 4px 10px 4px 4px; background: #3d3f45; }
+.m3.pf-n3ds .cartridge { left: 30%; width: 40%; top: 26%; height: 46%; border-radius: 4px 10px 4px 4px; background: #d8dadf; overflow: visible; }
+.m3.pf-n3ds .cartridge::before { content: ""; position: absolute; right: -9%; top: 8%; width: 11%; height: 22%; background: #d8dadf; border-radius: 0 4px 4px 0; }
+.m3.pf-nds .cartridge::after, .m3.pf-n3ds .cartridge::after, .m3.pf-switch .cartridge::after { height: 12%; background: repeating-linear-gradient(90deg, #c8a24a 0 3px, transparent 3px 6px); }
+.m3.pf-nds .clabel, .m3.pf-n3ds .clabel { inset: 10% 8% 24%; }
+.m3.pf-switch { --out: -175%; --ins: 62%; }
+.m3.pf-switch .cartridge { left: 36%; width: 28%; top: 32%; height: 34%; border-radius: 3px 8px 3px 3px; background: #2b2c30; }
+.m3.pf-switch .clabel { inset: 8% 8% 22%; }
+.m3.pf-gba .clabel b, .m3.pf-nds .clabel b, .m3.pf-n3ds .clabel b, .m3.pf-switch .clabel b { font-size: calc(var(--w) * .05); }
+
+/* The slot each one goes into */
+.m3.pf-snes .slot { background: linear-gradient(#cacbd1, #a6a8af); box-shadow: inset 0 3px 0 #e0e1e5; }
+.m3.pf-snes .slot::before { left: 13%; right: 13%; height: 12px; background: #19191c; }
+.m3.pf-snes .slot::after { content: ""; position: absolute; top: 12px; left: 13%; right: 13%; height: 7px; background: linear-gradient(90deg, #8f9198 50%, #7e8087 50%); }
+.m3.pf-n64 .slot { background: linear-gradient(#3a3b40, #202125); }
+.m3.pf-n64 .slot::before { left: 25%; right: 25%; height: 12px; }
+.m3.pf-gba .slot { left: 6%; width: 88%; border-radius: 34px 34px 18px 18px; background: linear-gradient(#5b509f, #3c3379); box-shadow: inset 0 3px 0 #7a70bb; }
+.m3.pf-gba .slot::before { left: 26%; right: 26%; }
+.m3.pf-nds .slot { left: 2%; width: 96%; background: linear-gradient(#f2f3f5, #cdd0d4); box-shadow: inset 0 3px 0 #fff; }
+.m3.pf-nds .slot::before, .m3.pf-n3ds .slot::before { left: 31%; right: 31%; height: 7px; background: #222327; }
+.m3.pf-n3ds .slot { left: 2%; width: 96%; background: linear-gradient(#2c2d32, #141518); }
+.m3.pf-switch .slot { left: -10%; width: 120%; background: linear-gradient(#2f3034, #151619); }
+.m3.pf-switch .slot::before { left: 37%; right: 37%; height: 6px; background: #050505; }
+
+/* Cartridges and cards drawn from the real ones, and the console part each goes into */
+.m3.cart .cartridge.drawn { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.m3.cart .cartridge.drawn::before, .m3.cart .cartridge.drawn::after { display: none; }
+.m3 .cartridge.drawn > .hw, .m3 .slot.drawn > .hw { position: absolute; inset: 0; }
+.m3 .hw > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.m3 .slot.drawn { background: none; box-shadow: none; border-radius: 0; }
+.m3 .slot.drawn::before, .m3 .slot.drawn::after { display: none; }
+.m3 .cartridge.drawn .clabel { border-radius: 3px; }
+.m3.pf-snes { --out: -126%; --ins: 16%; }
+.m3.pf-snes .cartridge.drawn { left: 14%; width: 72%; top: 12%; height: 76%; }
+.m3.pf-snes .cartridge.drawn .clabel { inset: 9.4% 8.3% 44.4% 8.3%; }
+.m3.pf-n64 { --out: -143%; --ins: 23%; }
+.m3.pf-n64 .cartridge.drawn { left: 17%; width: 66%; top: 20%; height: 60%; }
+.m3.pf-n64 .cartridge.drawn .clabel { inset: 9.3% 8.6% 34.7% 8.6%; }
+.m3.pf-gba { --out: -190%; --ins: 47%; }
+.m3.pf-gba .cartridge.drawn { left: 15%; width: 70%; top: 30%; height: 37.5%; }
+.m3.pf-gba .cartridge.drawn .clabel { inset: 22.9% 6.1% 5.7% 6.1%; }
+.m3.pf-nds { --out: -195%; --ins: 53%; }
+.m3.pf-nds .cartridge.drawn { left: 29%; width: 42%; top: 30%; height: 35.5%; }
+.m3.pf-nds .cartridge.drawn .clabel { inset: 25.8% 7.1% 4.5% 7.1%; }
+.m3.pf-n3ds { --out: -195%; --ins: 53%; }
+.m3.pf-n3ds .cartridge.drawn { left: 27.5%; width: 45%; top: 30%; height: 35.5%; }
+.m3.pf-n3ds .cartridge.drawn .clabel { inset: 25.8% 14.5% 4.5% 6.6%; }
+.m3.pf-switch { --out: -221%; --ins: 58%; }
+.m3.pf-switch .cartridge.drawn { left: 33%; width: 34%; top: 34%; height: 30.6%; }
+.m3.pf-switch .cartridge.drawn .clabel { inset: 19.4% 9.5% 4.8% 9.5%; }
+/* handhelds are drawn whole, sized from their real proportions, with the card slot lined up with the card */
+.m3.pf-gba .slot.drawn { left: -45%; width: 190%; height: 95%; }
+.m3.pf-nds .slot.drawn, .m3.pf-n3ds .slot.drawn { left: -30.5%; width: 161%; height: 80%; }
+.m3.pf-switch .slot.drawn { left: -154%; width: 408%; height: 71%; }
+.m3.pf-gba .slot.drawn .led { left: 10.5%; right: auto; top: 18%; }
+.m3.pf-nds .slot.drawn .led { left: 89%; right: auto; top: 5%; }
+.m3.pf-n3ds .slot.drawn .led { left: 95%; right: auto; top: 48%; }
+.m3.pf-switch .slot.drawn .led { display: none; }
+
+/* Platforms KB has no drawing for yet: a plain dark keep case. */
+.m3.pf-other .box .f:not(.back) { background: #141518; }

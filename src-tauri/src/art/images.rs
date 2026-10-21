@@ -156,6 +156,31 @@ pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) ->
     Ok((img.width(), img.height()))
 }
 
+/// The pictures a game's 3D case uses besides its cover (LaunchBox's).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Case {
+    Disc,
+    Back,
+}
+
+pub fn case_path(data_dir: &Path, case: Case, game_id: i64) -> PathBuf {
+    let dir = match case {
+        Case::Disc => "d",
+        Case::Back => "b",
+    };
+    data_dir.join("art").join(dir).join(format!("{game_id}.webp"))
+}
+
+/// Resizes and stores a disc (keeps its transparency) or back cover.
+pub fn store_case(data_dir: &Path, case: Case, game_id: i64, bytes: &[u8]) -> Result<()> {
+    let img = image::load_from_memory(bytes).map_err(|e| Error::msg(format!("bad image: {e}")))?;
+    let max = match case {
+        Case::Disc => (600, 600),
+        Case::Back => (800, 1100),
+    };
+    write_atomic(&case_path(data_dir, case, game_id), &webp(&fit(&img, max), THUMB_QUALITY)?)
+}
+
 /// Stores a user's logo image at `path` (PNG, JPEG or WebP; resized like the
 /// game logos, transparency kept).
 pub fn store_logo_at(path: &Path, bytes: &[u8]) -> Result<()> {

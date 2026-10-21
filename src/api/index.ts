@@ -443,7 +443,7 @@ export interface ArtSummary {
  * URL of a game's cached artwork, served by the app's `thumb` protocol
  * (Windows webviews address custom protocols as http://<scheme>.localhost).
  */
-export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" = "t"): string {
+export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" | "d" | "b" = "t"): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   return `${base}/${size}/${gameId}?v=${version}`;
 }
@@ -671,6 +671,9 @@ export const api = {
     invoke<DirListing>("list_dir", { path, extensions }),
   getSetting: <T,>(key: string) => invoke<T | null>("get_setting", { key }),
   setSetting: (key: string, value: unknown) => invoke<void>("set_setting", { key, value }),
+  getSettingValues: (keys: string[]) => invoke<Record<string, unknown>>("get_setting_values", { keys }),
+  /** The user's own sound file for a start-up intro (data\intros), empty when there's none. */
+  introSound: (key: string) => invoke<ArrayBuffer>("intro_sound", { key }),
   startScan: () => invoke<boolean>("start_scan"),
   cancelScan: () => invoke<void>("cancel_scan"),
   fetchArt: () => invoke<boolean>("fetch_art"),

@@ -193,6 +193,7 @@ the panel. With the mouse, clicking another cover shows that game. On narrow win
 opens over the grid. Favorites are set from the sidebar or the full details.
 | Bigger / smaller cards | right stick up / down | right stick up / down | `+` / `-`, Ctrl + wheel |
 | Platform sections on / off (All, Favorites, search) | R3 | RS (click) | V |
+| TV Mode 3D shelf: turn / tilt / flip the focused case | right stick / right stick up, down / R3 | right stick / right stick up, down / RS | `[` `]` / `+` `-` / V |
 | Genre filter (with IGDB) | Share | View | G |
 | **Exit the running game** | **hold Share + Options 1 s** | **hold View + Menu 1 s** | |
 
@@ -434,6 +435,33 @@ Settings → General → TV Mode:
 - **Text size**: Small / Medium / Large / Extra large.
 - **Overscan margin**: Off / 2.5 / 5 / 7.5%, for TVs that cut off the picture's edges.
 
+## Animations, intros and sounds
+
+Settings → General:
+- **Animations**: Full / Reduced / Off, for the desktop and TV Mode separately (both start at Full;
+  Windows' "Show animations" setting isn't used, KB only has its own). Full adds the sidebar
+  sliding in, dialogs growing in, toasts rising and covers fading in on the desktop; Reduced only
+  fades; Off keeps everything still. Only `transform` and `opacity` animate, nothing loops on the
+  desktop, and everything stops while a game runs.
+- **Launch animation** (desktop and TV Mode, each on/off): when you press Play, the game's case
+  opens and the disc spins up, or the cartridge goes into its console, then the emulator starts.
+  Each platform has its own case (CD jewel case, DVD/Blu-ray keep cases, the GameCube mini disc,
+  the PSP's UMD) or cartridge and console (SNES, N64, GBA, DS, 3DS, Switch). The disc and the back
+  cover use LaunchBox's pictures when it has them, else the cover. Back cancels it.
+- **TV shelf**: 3D cases (turn them with the right stick or by dragging, tilt with right stick
+  up/down, flip to the back with R3/V) or flat covers.
+- **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
+  of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption 2), Game Boy Advance,
+  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. Any button skips.
+  **Your own sound for an intro:** put a file named after it (`konami`, `rockstar`, `gba`,
+  `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `xbox360` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
+  or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
+  uses longer timings made for full-length recordings. These files are yours and are never shipped.
+- **Sounds**: three profiles (Tactile, the default: real buttons and latches; Console: soft system
+  tones; Retro console: warm filtered beeps and chunky switches) for moving, choosing, going back
+  and starting a disc or cartridge game. On/off and volume for the desktop and TV Mode separately;
+  silent while a game runs.
+
 ## Screens, scaling and monitors
 
 - Works from a 960×540 window up to 4K, ultrawide (21:9) and super-ultrawide (32:9), at Windows
@@ -556,6 +584,12 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   facet lines and the PSP were redrawn from them). Saturn: the logo from
   [Simple Icons](https://simpleicons.org) (CC0).
 - The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
+- Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
+  (no logos).
+- Sounds (`src/assets/sounds`, made with `tools/sounds`): mixed from CC0 recordings:
+  [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
+  [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
+  and [Kenney](https://kenney.nl)'s Interface Sounds and UI Audio.
 
 ## Styles
 
@@ -725,6 +759,13 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.12
+- New: animations. Pick Full, Reduced or Off for the desktop and for TV Mode in Settings → General → Animations.
+- New: start-up intros. Ten of them (Konami, Rockstar, Game Boy Advance, GameCube, PlayStation, PS2, PS3, PSP, Xbox 360 and Switch), at random, always the same one, or off. Any button skips.
+- New: put your own sound for an intro in KB's `data\intros` folder and it plays with that intro.
+- New: when you start a game, its case opens and the disc spins, or the cartridge goes into its console. Back cancels it. Turn it off for the desktop or TV Mode in Settings.
+- New: TV Mode's shelf shows 3D game cases. Turn them with the right stick, tilt them, and flip them to see the back. Flat covers are still an option.
+- New: discs and back covers come from the LaunchBox Games Database when it has them.
+- New: sounds for moving, choosing, going back and starting a game, in three styles: Tactile, Console and Retro console. Each mode has its own switch and volume.
 - Changed: the series name above a game's title opens its collection (the separate Collections box is gone), and short windows show 3 achievements instead of 5 (none on very short ones).
 - Improved: long descriptions (800 characters or more) are cut to their opening sentences (400 to 800 characters) in the side panels and TV Mode, skipping release dates, ports, patches and franchise history; the full text is on hover and on the details screen. Short ones show whole.
 - Changed: the right-hand panel no longer scrolls, the background shrinks first so the text stays readable, and its Play and Links boxes are slimmer. The description shows as much as fits (the rest is on the details screen).

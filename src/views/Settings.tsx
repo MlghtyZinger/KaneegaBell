@@ -14,6 +14,9 @@ import { device } from "../input/actions";
 import { editWithOsk } from "../state/osk";
 import { EmulatorBadge } from "../components/Icons";
 import { applyTheme, FOCUS_LOOKS } from "../state/theme";
+import { fx, INTROS, type AnimLevel, type IntroKey, type IntroPick, type SoundProfile } from "../state/fx";
+import { playIntro } from "../fx/Intro";
+import { sfx } from "../fx/audio";
 
 type Section = "library" | "emulators" | "platforms" | "services" | "general";
 const SECTIONS: [Section, string][] = [
@@ -52,6 +55,9 @@ const INFO: Record<string, Info> = {
   fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
   startTv: { section: "general", title: "Start in TV Mode", words: "big picture tv mode l3 f10", detail: "Opens KB in TV Mode, the big-screen view with backgrounds and logos. Switch any time with L3, F10 or the TV Mode button." },
   size: { section: "general", title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
+  anim: { section: "general", title: "Animations", words: "motion reduced off launch animation case cartridge 3d shelf flat covers inspect", detail: "Full moves the most, Reduced only fades, Off keeps everything still; desktop and TV Mode each have their own. The launch animation opens the game's case (or puts the cartridge in its console) before the emulator starts; Back cancels it. The TV shelf shows 3D cases you can turn and flip, or flat covers." },
+  intro: { section: "general", title: "Start-up intro", words: "boot animation splash konami rockstar playstation xbox gamecube switch random sound file intros folder", detail: "An intro plays when KB starts: one at random, always the same one, or none. Any button skips it. To use your own sound for one, put a file named after it (konami, rockstar, gba, gamecube, ps1, ps2, ps3, psp, xbox360 or switch, as .ogg, .mp3 or .wav) in the intros folder inside KB's data folder." },
+  sounds: { section: "general", title: "Sounds", words: "sound effects audio volume mute tactile console retro profile menu clicks", detail: "Short sounds for moving, choosing, going back and starting a game. Tactile sounds like real buttons, Console like a system menu, Retro console like CRT-era hardware. Desktop and TV Mode each have their own switch and volume; KB is silent while a game runs." },
   tv: { section: "general", title: "TV Mode display", words: "tv monitor display text size overscan margin", detail: "With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving brings the window back. Raise the overscan margin if your TV cuts off the edges (the clock or hints are missing)." },
   updates: { section: "general", title: "Updates", words: "version check what's new access code", detail: "Updates install only when you choose to, never while a game runs, and KB refuses any download that isn't signed. The access code lets this copy read KaneegaBell's private releases." },
   storage: { section: "general", title: "Storage and reset", words: "clear downloaded data reset backup cache space", detail: "Clear downloaded data deletes the covers, info and achievement data KB downloaded, then fetches them again. Reset goes back to the first start (a copy of the old library is kept). Neither touches your games, emulators or saves." },
@@ -1794,6 +1800,9 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         />
       </Row>
 
+      <AnimBlock />
+      <IntroBlock />
+      <SoundBlock />
       <TvModeBlock s={props.s} run={props.run} />
 
       <UpdatesBlock s={props.s} run={props.run} />
@@ -2016,6 +2025,127 @@ function StorageBlock(props: { s: Settings; run: Run }) {
         )}
       </Show>
     </>
+  );
+}
+
+const LEVELS: { value: AnimLevel; label: string }[] = [
+  { value: "full", label: "Full" },
+  { value: "reduced", label: "Reduced" },
+  { value: "off", label: "Off" },
+];
+const levelName = (v: AnimLevel) => LEVELS.find((l) => l.value === v)?.label ?? v;
+
+function AnimBlock() {
+  return (
+    <Row
+      k="anim"
+      status={`Desktop ${levelName(fx.get("animDesktop"))} · TV Mode ${levelName(fx.get("animTv"))} · ${fx.get("tvShelf") === "3d" ? "3D shelf" : "flat shelf"}`}
+      open="Change…"
+      sub={
+        <div class="form-grid">
+          <label>Desktop</label>
+          <Picker title="Desktop animations" value={fx.get("animDesktop")} options={LEVELS} onChange={(v) => fx.set("animDesktop", v)} />
+          <label>TV Mode</label>
+          <Picker title="TV Mode animations" value={fx.get("animTv")} options={LEVELS} onChange={(v) => fx.set("animTv", v)} />
+          <label>TV shelf</label>
+          <Picker
+            title="TV Mode shelf"
+            value={fx.get("tvShelf")}
+            options={[
+              { value: "3d", label: "3D cases" },
+              { value: "flat", label: "Flat covers" },
+            ]}
+            onChange={(v) => fx.set("tvShelf", v)}
+          />
+          <label>Launch animation on the desktop</label>
+          <OnOff label="Launch animation on the desktop" checked={fx.get("launchFxDesktop")} onChange={(on) => fx.set("launchFxDesktop", on)} />
+          <label>Launch animation in TV Mode</label>
+          <OnOff label="Launch animation in TV Mode" checked={fx.get("launchFxTv")} onChange={(on) => fx.set("launchFxTv", on)} />
+        </div>
+      }
+    />
+  );
+}
+
+const ONE_INTRO = (Object.entries(INTROS) as [IntroKey, { name: string }][]).map(([value, i]) => ({ value, label: i.name }));
+const INTRO_PICKS: { value: IntroPick; label: string }[] = [{ value: "random", label: "Random" }, ...ONE_INTRO, { value: "off", label: "Off" }];
+const introName = (v: IntroPick) => INTRO_PICKS.find((p) => p.value === v)?.label ?? v;
+
+function IntroBlock() {
+  const [preview, setPreview] = createSignal<IntroKey>("konami");
+  return (
+    <Row
+      k="intro"
+      status={`Desktop ${introName(fx.get("introDesktop"))} · TV Mode ${introName(fx.get("introTv"))}`}
+      open="Change…"
+      sub={
+        <div class="form-grid">
+          <label>Desktop</label>
+          <Picker title="Start-up intro on the desktop" value={fx.get("introDesktop")} options={INTRO_PICKS} onChange={(v) => fx.set("introDesktop", v)} />
+          <label>TV Mode</label>
+          <Picker title="Start-up intro in TV Mode" value={fx.get("introTv")} options={INTRO_PICKS} onChange={(v) => fx.set("introTv", v)} />
+          <label>Watch one</label>
+          <div class="row wrap">
+            <Picker title="Intro to watch" value={preview()} options={ONE_INTRO} onChange={setPreview} />
+            <button class="btn" onClick={() => playIntro(preview())}>
+              Play
+            </button>
+          </div>
+        </div>
+      }
+    />
+  );
+}
+
+const PROFILES: { value: SoundProfile; label: string }[] = [
+  { value: "tactile", label: "Tactile" },
+  { value: "console", label: "Console" },
+  { value: "retro", label: "Retro console" },
+];
+const VOLUMES = Array.from({ length: 10 }, (_, i) => ({ value: String((i + 1) * 10), label: `${(i + 1) * 10}%` }));
+
+function SoundBlock() {
+  const where = (on: boolean, vol: number) => (on ? `${vol}%` : "off");
+  const volume = (k: "volumeDesktop" | "volumeTv") => (v: string) => {
+    fx.set(k, Number(v));
+    sfx("select");
+  };
+  return (
+    <Row
+      k="sounds"
+      status={`${PROFILES.find((p) => p.value === fx.get("soundProfile"))?.label} · desktop ${where(fx.get("soundDesktop"), fx.get("volumeDesktop"))} · TV Mode ${where(fx.get("soundTv"), fx.get("volumeTv"))}`}
+      open="Change…"
+      sub={
+        <div class="form-grid">
+          <label>Profile</label>
+          <Picker
+            title="Sound profile"
+            value={fx.get("soundProfile")}
+            options={PROFILES}
+            onChange={(v) => {
+              fx.set("soundProfile", v);
+              sfx("select");
+            }}
+          />
+          <label>On the desktop</label>
+          <OnOff label="Sounds on the desktop" checked={fx.get("soundDesktop")} onChange={(on) => fx.set("soundDesktop", on)} />
+          <label>Desktop volume</label>
+          <Picker title="Desktop volume" value={String(fx.get("volumeDesktop"))} options={VOLUMES} onChange={volume("volumeDesktop")} />
+          <label>In TV Mode</label>
+          <OnOff label="Sounds in TV Mode" checked={fx.get("soundTv")} onChange={(on) => fx.set("soundTv", on)} />
+          <label>TV Mode volume</label>
+          <Picker title="TV Mode volume" value={String(fx.get("volumeTv"))} options={VOLUMES} onChange={volume("volumeTv")} />
+          <label>Try them</label>
+          <div class="row wrap">
+            <button class="btn" onClick={() => sfx("move")}>Move</button>
+            <button class="btn" onClick={() => sfx("select")}>Choose</button>
+            <button class="btn" onClick={() => sfx("back")}>Back</button>
+            <button class="btn" onClick={() => sfx("disc")}>Disc game</button>
+            <button class="btn" onClick={() => sfx("cart")}>Cartridge</button>
+          </div>
+        </div>
+      }
+    />
   );
 }
 

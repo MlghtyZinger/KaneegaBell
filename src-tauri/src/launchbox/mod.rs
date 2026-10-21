@@ -39,8 +39,11 @@ pub const ZIP_URL: &str = "https://gamesdb.launchbox-app.com/Metadata.zip";
 pub const IMAGE_BASE: &str = "https://images.launchbox-app.com/";
 /// How often LaunchBox's file is checked for changes (a HEAD request).
 const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
-/// Image types kept (LaunchBox has ~30; KB shows these).
-const IMAGE_KINDS: &[&str] = &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background"];
+/// Image types kept (LaunchBox has ~30; KB shows these). Disc and back
+/// pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
+const IMAGE_KINDS: &[&str] = &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back"];
+/// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
+const IMAGE_KINDS_VERSION: u32 = 1;
 const STAMP_KEY: &str = "launchbox";
 
 /// What KB remembers about the last download (settings, `launchbox`).
@@ -58,6 +61,9 @@ pub struct Stamp {
     /// file to change, and one LaunchBox doesn't list isn't downloaded again.
     #[serde(default)]
     pub platforms: Vec<String>,
+    /// `IMAGE_KINDS_VERSION` of the last download.
+    #[serde(default)]
+    pub kinds: u32,
 }
 
 /// Where the zip comes from (the network, or a test).
@@ -195,7 +201,8 @@ pub fn wanted(conn: &Connection) -> Result<bool> {
     if !enabled(conn)? {
         return Ok(false);
     }
-    if !uncovered_platforms(conn, &stamp(conn)?)?.is_empty() {
+    let st = stamp(conn)?;
+    if !uncovered_platforms(conn, &st)?.is_empty() || (st.imported_at.is_some() && st.kinds < IMAGE_KINDS_VERSION) {
         return Ok(true);
     }
     Ok(conn
@@ -527,6 +534,24 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
     Ok(false)
 }
 
+/// The disc and back cover for a game's 3D case, once each (`art\d`, `art\b`);
+/// none is fine, the case then draws its own.
+fn fetch_case_art(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, db_id: i64, region: Option<&str>) -> Result<()> {
+    for (kind, case) in [("Disc", images::Case::Disc), ("Box - Back", images::Case::Back)] {
+        let path = images::case_path(data_dir, case, game_id);
+        if path.exists() {
+            continue;
+        }
+        for (file, _) in images_for(conn, db_id, &[kind], region)?.into_iter().take(2) {
+            let Some(bytes) = fetch.get(&image_url(&file))? else { continue };
+            if images::store_case(data_dir, case, game_id, &bytes).is_ok() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- the job
 
 /// One LaunchBox pass (see the module docs). `force` downloads even when
@@ -568,7 +593,7 @@ pub fn run(
     let missing_details = games.iter().filter(|g| matched(g)).try_fold(false, |acc, g| -> Result<bool> {
         Ok(acc || !has_details(conn, g.lb_id.unwrap_or_default())?)
     })?;
-    let mut need = force || !have_names || missing_details || !uncovered_platforms(conn, &st)?.is_empty();
+    let mut need = force || !have_names || missing_details || !uncovered_platforms(conn, &st)?.is_empty() || st.kinds < IMAGE_KINDS_VERSION;
     if !need && check_due(conn)? {
         progress(Progress { phase: "checking", done: 0, total: 1 });
         let (lm, etag, _) = source.head()?;
@@ -590,7 +615,7 @@ pub fn run(
         store(conn, &imp)?;
         let now = queries::now();
         let platforms = platform_map(conn)?.into_values().collect();
-        st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now), platforms };
+        st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now), platforms, kinds: IMAGE_KINDS_VERSION };
         save_stamp(conn, &st)?;
         s.downloaded = true;
         games = library_games(conn)?;
@@ -614,6 +639,9 @@ pub fn run(
         apply_genres(conn, g.id, db_id)?;
         if queue_cover(conn, g.id, db_id, g.region.as_deref())? {
             s.covers_queued += 1;
+        }
+        if let Err(e) = fetch_case_art(conn, data_dir, fetch, g.id, db_id, g.region.as_deref()) {
+            log::warn!("LaunchBox disc/back for game {}: {e}", g.id);
         }
         let manual: bool = conn.query_row("SELECT extras_manual FROM games WHERE id = ?1", [g.id], |r| r.get(0))?;
         if !manual {

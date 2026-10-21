@@ -32,3 +32,9 @@ Thumbs.db
 # Release builds (tools/release/release.ps1) and signing keys
 /release/
 *.key
+
+# The owner's own recordings and scratch files (never committed)
+/audio files/
+/tmp/
+# Downloaded sound libraries for tools/sounds
+tools/sounds/snd/

@@ -1,0 +1,336 @@
+/* Start-up intros (milestone p, 0.3.12). Ported from the approved mockup
+   ("KB Launch Animations", 2026-10-21): each intro is drawn on a 540 px tall stage
+   as wide as the window and scaled to its height. `.custom` retimes an intro to the user's own sound file
+   (data\intros); without one the built-in CC0 sound and these timings play. */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #000;
+  overflow: hidden;
+  cursor: none;
+  --display: "Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", sans-serif;
+  --body: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --accent: #e2582b;
+}
+.intro.leave { animation: out .35s ease-in forwards; }
+/* Waiting for the saved settings (a few ms): covers the window so the library doesn't flash first. */
+.intro-wait { position: fixed; inset: 0; z-index: 100; background: var(--bg); }
+.intro-stage { position: absolute; left: 50%; top: 50%; height: 540px; transform: translate(-50%, -50%) scale(var(--s, 1)); }
+.intro .iv { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 16px; }
+
+.intro .emb { width: 128px; height: 128px; opacity: 0; }
+.intro .emb svg { width: 100%; height: 100%; display: block; }
+.intro .iv .name { font: 700 50px/1 var(--display); letter-spacing: .03em; opacity: 0; }
+.intro .iv .rule { width: 190px; height: 2px; background: var(--accent); transform: scaleX(0); }
+.intro.on .name { animation: rise2 .5s cubic-bezier(.2,.8,.2,1) var(--nd, .35s) forwards; }
+.intro.on .rule { animation: rule .6s cubic-bezier(.2,.8,.2,1) calc(var(--nd, .35s) + .2s) forwards; }
+@keyframes rise2 { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes rule { to { transform: scaleX(1); } }
+@keyframes out { to { opacity: 0; } }
+@keyframes fadeIn { to { opacity: 1; } }
+@keyframes pop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+
+/* Konami (Metal Gear): four sharp notes light four bars, the wordmark flashes in on the fourth */
+.intro .konami { gap: 20px; }
+.intro .kwm { position: relative; overflow: hidden; padding: 4px 22px; }
+.intro .kw, .intro .kwf { display: block; font: italic 700 96px/1 var(--display); letter-spacing: .02em; opacity: 0; }
+.intro .kw { color: #e2582b; }
+.intro .kwf { position: absolute; left: 22px; top: 4px; color: #fff; }
+.intro.on .kw { animation: fadeIn .04s linear .79s forwards; }
+.intro.on .kwf { animation: kflash .55s ease-out .79s forwards; }
+@keyframes kflash { from { opacity: 1; } to { opacity: 0; } }
+.intro .shine { position: absolute; top: 0; bottom: 0; left: 0; width: 80px; background: linear-gradient(90deg, transparent, rgb(255 240 220 / .9), transparent); transform: translateX(-160px) skewX(-20deg); mix-blend-mode: screen; }
+.intro.on .shine { animation: shine .7s ease-in-out 1.15s forwards; }
+@keyframes shine { to { transform: translateX(640px) skewX(-20deg); } }
+.intro .kseg { display: flex; gap: 10px; }
+.intro .kseg span { width: 116px; height: 6px; background: #e2582b; opacity: 0; }
+.intro.on .kseg span { animation: kseg .2s linear var(--t) forwards; }
+@keyframes kseg { from { opacity: 1; background: #fff; } to { opacity: 1; background: #e2582b; } }
+
+/* Rockstar (Red Dead Redemption 2): dusk, a revolver is cocked, the emblem itself is shot */
+.intro .rockstar { background: linear-gradient(#150f0b 0%, #2c1b11 45%, #6b3d1d 74%, #8a4f22 80%, #1a110b 100%); }
+.intro .ridge { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: #120c08; clip-path: polygon(0 40%, 12% 22%, 25% 38%, 40% 10%, 52% 30%, 66% 18%, 80% 36%, 92% 24%, 100% 34%, 100% 100%, 0 100%); }
+.intro .target { position: relative; width: 200px; height: 200px; opacity: 0; margin-top: -30px; }
+.intro .rockstar { --aim: .85s; }
+.intro.on .target { animation: fadeIn .6s ease-out .1s forwards, push var(--aim) cubic-bezier(.3,.2,.3,1) forwards; }
+@keyframes push { from { transform: scale(.84); } to { transform: none; } }
+/* the sight drifts over the scene and settles on the emblem just before the shot */
+.intro .reticle { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -53px -38px; border-radius: 50%; border: 2px solid rgb(240 210 170 / .85); opacity: 0; z-index: 2;
+  background: linear-gradient(rgb(240 210 170 / .85) 0 0) center / 2px 100% no-repeat, linear-gradient(rgb(240 210 170 / .85) 0 0) center / 100% 2px no-repeat; }
+.intro.on .reticle { animation: aim var(--aim) cubic-bezier(.3,.1,.3,1) forwards, rfade .15s linear var(--aim) forwards; }
+@keyframes aim { 0% { opacity: 0; transform: translate(-220px, 110px) scale(1.5); } 15% { opacity: .9; } 50% { transform: translate(60px, -40px) scale(1.2); } 78% { transform: translate(-14px, 10px) scale(1); } 100% { opacity: .95; transform: scale(.8); } }
+@keyframes rfade { to { opacity: 0; } }
+.intro .dust { position: absolute; inset: 0; pointer-events: none; }
+.intro .dust i { position: absolute; left: -40px; top: var(--y); width: var(--s); height: var(--s); border-radius: 50%; background: rgb(230 190 140 / .5); }
+.intro.on .dust i { animation: dust var(--md) linear var(--dl) forwards; }
+@keyframes dust { to { transform: translate(1040px, -30px); } }
+.intro .target .emb { opacity: 1; width: 200px; height: 200px; filter: drop-shadow(0 18px 30px rgb(0 0 0 / .6)); }
+.intro .tgt-in { position: absolute; inset: 0; }
+.intro.on .tgt-in.jolt { animation: jolt .22s ease-out; }
+.intro.on .tgt-in.knock { animation: knock .9s cubic-bezier(.3,.6,.3,1) forwards; }
+@keyframes jolt { 30% { transform: translate(5px, -3px) rotate(1.5deg); } 60% { transform: translate(-2px, 1px) rotate(-.6deg); } }
+@keyframes knock { 25% { transform: translate(16px, -8px) rotate(10deg); } 60% { transform: translate(8px, 0) rotate(5deg); } 100% { transform: translate(10px, 2px) rotate(6deg); } }
+.intro .bh { position: absolute; width: 34px; height: 34px; margin: -17px; border-radius: 50%;
+  background: radial-gradient(closest-side, #050302 0 34%, #2a1d12 44%, rgb(255 236 200 / .8) 52%, rgb(255 236 200 / .25) 64%, transparent 72%), repeating-conic-gradient(from 8deg, rgb(20 12 6 / .85) 0 4deg, transparent 4deg 37deg);
+  -webkit-mask: radial-gradient(closest-side, #000 60%, transparent 100%); mask: radial-gradient(closest-side, #000 60%, transparent 100%); animation: holeIn .08s ease-out; }
+@keyframes holeIn { from { transform: scale(1.8); opacity: 0; } }
+.intro .chip { position: absolute; width: 4px; height: 4px; margin: -2px; background: #3a2a1a; animation: chip .55s ease-out forwards; }
+@keyframes chip { to { transform: translate(var(--cx), var(--cy)) rotate(220deg); opacity: 0; } }
+.intro .rname { font: 400 46px/1 "Rye", Georgia, serif; color: #f2e2c4; letter-spacing: .05em; opacity: 0; text-shadow: 0 2px 10px rgb(0 0 0 / .7); }
+.intro.on .rname { animation: fadeIn .9s ease-out 2.7s forwards; }
+
+/* Game Boy Advance: letters fly in from the right, a blue sweep, a sparkle */
+.intro .gba { background: #fff; gap: 10px; }
+.intro .gbaw { position: relative; display: flex; overflow: hidden; padding: 6px 12px; }
+.intro .gbaw span { font: 800 84px/1 var(--body); color: #2b2a8c; opacity: 0; transform: translateY(-280px); transform-origin: 50% 100%; }
+.intro.on .gbaw span { animation: gbaIn .7s linear var(--dl) forwards; }
+@keyframes gbaIn { 0% { opacity: 1; transform: translateY(-280px); animation-timing-function: cubic-bezier(.5,0,1,.6); }
+  40% { transform: translateY(0) scale(1.15, .8); animation-timing-function: cubic-bezier(0,.4,.5,1); }
+  58% { transform: translateY(-34px) scale(.96, 1.05); animation-timing-function: cubic-bezier(.5,0,1,.6); }
+  74% { transform: translateY(0) scale(1.06, .92); }
+  86% { transform: translateY(-8px) scale(1); }
+  100% { opacity: 1; transform: none; } }
+.intro .gbaw .sweep { position: absolute; top: 0; bottom: 0; left: 0; width: 150px; opacity: 1; background: linear-gradient(90deg, transparent, rgb(90 120 255 / .55), transparent); transform: translateX(-220px) skewX(-25deg); }
+.intro.on .gbaw .sweep { animation: sweepX .55s ease-in-out 1.55s forwards; }
+@keyframes sweepX { to { transform: translateX(780px) skewX(-25deg); } }
+.intro .gbasub { font: 700 22px var(--body); letter-spacing: .55em; text-indent: .55em; color: #6a68b8; opacity: 0; }
+.intro.on .gbasub { animation: fadeIn .4s ease-out 1.8s forwards; }
+
+/* GameCube: on black, a small cube tumbles round a square and draws it, the logo lands inside */
+.intro .gamecube { background: #000; gap: 34px; }
+.intro .gcp { position: relative; width: 150px; height: 150px; margin-top: -10px; }
+.intro .gcp .tr { position: absolute; background: #6a5ad8; box-shadow: 0 0 12px rgb(122 106 240 / .55); }
+.intro .gcp .t1 { left: 0; top: 0; width: 100%; height: 24px; transform: scaleX(0); transform-origin: left; }
+.intro .gcp .t2 { right: 0; top: 0; width: 24px; height: 100%; transform: scaleY(0); transform-origin: top; }
+.intro .gcp .t3 { left: 0; bottom: 0; width: 100%; height: 24px; transform: scaleX(0); transform-origin: right; }
+.intro .gcp .t4 { left: 0; bottom: 0; width: 24px; height: 62%; transform: scaleY(0); transform-origin: bottom; }
+.intro .gcp .t5 { left: 50%; top: 50%; width: 50%; height: 24px; margin-top: -12px; transform: scaleX(0); transform-origin: right; }
+.intro.on .gcp .t1 { animation: gcx .32s linear .05s forwards; }
+.intro.on .gcp .t2 { animation: gcy .32s linear .37s forwards; }
+.intro.on .gcp .t3 { animation: gcx .32s linear .69s forwards; }
+.intro.on .gcp .t4 { animation: gcy .22s linear 1.01s forwards; }
+.intro.on .gcp .t5 { animation: gcx .22s linear 1.28s forwards; }
+@keyframes gcx { to { transform: scaleX(1); } }
+@keyframes gcy { to { transform: scaleY(1); } }
+.intro .gcb { position: absolute; left: 0; top: 0; width: 24px; height: 24px; background: #9a8cff; border-radius: 3px; box-shadow: 0 0 14px #9a8cff; }
+.intro.on .gcb { animation: gcbox 1.5s linear forwards; }
+@keyframes gcbox { 0% { transform: translate(0, 0) rotate(0deg); } 21% { transform: translate(126px, 0) rotate(360deg); } 43% { transform: translate(126px, 126px) rotate(720deg); }
+  64% { transform: translate(0, 126px) rotate(1080deg); } 79% { transform: translate(0, 57px) rotate(1260deg); } 81% { transform: translate(0, 57px) rotate(1260deg); }
+  97% { transform: translate(63px, 63px) rotate(1440deg); opacity: 1; } 100% { transform: translate(63px, 63px) rotate(1440deg); opacity: 0; } }
+.intro .gcp .emb { position: absolute; left: 50%; top: 50%; width: 92px; height: 92px; margin: -46px; opacity: 0; }
+.intro.on .gcp .emb { animation: gcland .55s cubic-bezier(.3,1.6,.5,1) 1.55s forwards; }
+@keyframes gcland { from { opacity: 0; transform: scale(.2) rotate(-90deg); } to { opacity: 1; transform: none; } }
+.intro .gcname { font: 800 38px/1 var(--body); color: #fff; letter-spacing: .06em; opacity: 0; }
+.intro .gcname small { display: block; font-size: 15px; letter-spacing: .5em; text-indent: .5em; color: #9a8cff; margin-top: 8px; text-align: center; }
+.intro.on .gcname { animation: pop .5s cubic-bezier(.2,.8,.2,1) 2.05s forwards; }
+
+/* PlayStation: the white screen with the diamond, then the black licence screen */
+.intro .ps1 { background: #fff; }
+.intro .ps1a, .intro .ps1b { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 30px; }
+.intro .ps1b { background: #000; opacity: 0; gap: 14px; }
+.intro.on .ps1b { animation: fadeIn .5s ease-in 2.6s forwards; }
+.intro .dia { position: relative; width: 150px; height: 150px; transform: rotate(45deg); }
+.intro .dia span { position: absolute; width: 50%; height: 50%; opacity: 0; }
+.intro .dia span:nth-child(1) { left: 0; top: 0; background: #e2582b; --fx: -260px; --fy: -60px; }
+.intro .dia span:nth-child(2) { right: 0; top: 0; background: #efb446; --fx: 200px; --fy: -200px; }
+.intro .dia span:nth-child(3) { left: 0; bottom: 0; background: #17181d; --fx: -200px; --fy: 200px; }
+.intro .dia span:nth-child(4) { right: 0; bottom: 0; background: #d9cdb0; --fx: 260px; --fy: 60px; }
+.intro.on .dia span { animation: dia .9s cubic-bezier(.2,.8,.2,1) var(--d, .2s) forwards; }
+@keyframes dia { from { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(90deg); } to { opacity: 1; transform: none; } }
+.intro .sce { font: 600 34px/1.15 var(--body); color: #2a2a2a; text-align: center; opacity: 0; }
+.intro .sce small { display: block; font-size: 20px; color: #777; letter-spacing: .04em; }
+.intro.on .sce { animation: fadeIn .8s ease-out 1.1s forwards; }
+.intro .ps1b .emb { width: 140px; height: 140px; }
+.intro.on .ps1b .emb { animation: pop .6s ease-out 3.0s forwards; }
+.intro .lic { font: 500 16px var(--body); letter-spacing: .3em; color: #9a9a9a; opacity: 0; margin-top: 10px; }
+.intro .lname { font: 700 34px/1 var(--display); color: #fff; opacity: 0; }
+.intro.on .lic { animation: fadeIn .6s ease-out 3.25s forwards; }
+.intro.on .lname { animation: fadeIn .6s ease-out 3.35s forwards; }
+
+/* PlayStation 2: glassy towers rise out of a blue haze */
+.intro .ps2 { background: radial-gradient(ellipse at 50% 80%, #0b1f4a, #01040c 70%); perspective: 700px; }
+.intro .towers { position: absolute; inset: 0; transform-style: preserve-3d; transform: translateZ(-200px) rotateX(18deg); }
+.intro.on .towers { animation: drift 4s linear forwards; }
+@keyframes drift { to { transform: translateZ(60px) rotateX(10deg); } }
+.intro .towers i { position: absolute; bottom: 28%; left: var(--x); width: var(--w); height: var(--h); transform-origin: bottom; transform: translateZ(var(--z)) scaleY(0);
+  background: linear-gradient(rgb(160 200 255 / .55), rgb(60 110 220 / .12)); border: 1px solid rgb(170 210 255 / .35); box-shadow: 0 0 18px rgb(80 140 255 / .35); }
+.intro.on .towers i { animation: tower 1.6s cubic-bezier(.2,.8,.2,1) var(--dl) forwards; }
+@keyframes tower { to { transform: translateZ(var(--z)) scaleY(1); } }
+.intro .ps2 .fog { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 70%, rgb(70 120 255 / .28), transparent 60%); opacity: 0; }
+.intro.on .ps2 .fog { animation: fadeIn 2s ease-in .8s forwards; }
+.intro .p2name { position: relative; font: 300 44px/1 var(--body); letter-spacing: .5em; text-indent: .5em; color: #eaf2ff; text-shadow: 0 0 18px rgb(90 150 255 / .9); opacity: 0; }
+.intro.on .p2name { animation: fadeIn 1.2s ease-out 2.4s forwards; }
+.intro .p2black { position: absolute; inset: 0; background: #000; opacity: 0; }
+.intro.on .p2black { animation: fadeIn .35s ease-in 2.05s forwards; }
+
+/* Xbox: a green orb and swirling light, a flash, the emblem glows green */
+.intro .xbox { background: #000; }
+.intro .orb { position: absolute; left: 50%; top: 45%; width: 220px; height: 220px; margin: -110px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #d8ffb0, #6fd12a 30%, #1e6b0c 62%, transparent 72%); opacity: 0; }
+.intro.on .orb { animation: orb 2.4s ease-in-out forwards; }
+@keyframes orb { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: .9; } 60% { transform: scale(1.05); } 80% { opacity: 1; transform: scale(.95); } 100% { opacity: 0; transform: scale(1.6); } }
+.intro .blobs { position: absolute; left: 50%; top: 45%; width: 0; height: 0; }
+.intro.on .blobs { animation: spinB 2.4s linear forwards; }
+@keyframes spinB { to { transform: rotate(540deg); } }
+.intro .blobs i { position: absolute; width: 90px; height: 40px; margin: -20px -45px; border-radius: 50%; background: radial-gradient(#9cff5a, transparent 70%); opacity: 0; transform: rotate(var(--a)) translateX(150px); }
+.intro.on .blobs i { animation: blob 2.4s ease-in-out forwards; }
+@keyframes blob { 30% { opacity: .9; } 80% { opacity: .8; transform: rotate(var(--a)) translateX(20px); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(0); } }
+.intro .xbflash { position: absolute; inset: 0; background: #d8ffb0; opacity: 0; }
+.intro.on .xbflash { animation: xf .6s ease-out 2.3s forwards; }
+@keyframes xf { from { opacity: .8; } to { opacity: 0; } }
+.intro .xbox .emb { width: 150px; height: 150px; filter: drop-shadow(0 0 26px #6fd12a); }
+.intro.on .xbox .emb { animation: pop .6s ease-out 2.35s forwards; }
+.intro .xbname { font: 700 38px/1 var(--body); color: #c8ff9a; letter-spacing: .12em; opacity: 0; text-shadow: 0 0 14px #3c9a14; }
+.intro.on .xbname { animation: fadeIn .6s ease-out 2.6s forwards; }
+
+/* Switch: two halves snap together with a click on red */
+.intro .nsw { background: #e60012; gap: 30px; }
+.intro .jc { display: flex; gap: 8px; }
+.intro .jc i { position: relative; display: block; width: 64px; height: 124px; border: 9px solid #fff; }
+.intro .jc .jl { border-radius: 42px 0 0 42px; border-right: 0; transform: translateY(-300px); }
+.intro .jc .jr { border-radius: 0 42px 42px 0; border-left: 0; background: #fff; transform: translateY(300px); }
+.intro .jc .jl::after { content: ""; position: absolute; left: 13px; top: 20px; width: 20px; height: 20px; border-radius: 50%; background: #fff; }
+.intro .jc .jr::after { content: ""; position: absolute; right: 13px; bottom: 26px; width: 20px; height: 20px; border-radius: 50%; background: #e60012; }
+.intro.on .jc i { animation: snap .45s cubic-bezier(.6,0,.9,.6) .15s forwards; }
+@keyframes snap { 85% { transform: translateY(0); } 92% { transform: translateY(-3px); } 100% { transform: none; } }
+.intro .swname { font: 700 40px/1 var(--body); color: #fff; opacity: 0; }
+.intro.on .swname { animation: fadeIn .5s ease-out .8s forwards; }
+
+/* PlayStation, redone: two halves swing up and down on their edges and close into a turning diamond */
+.intro .ps1 { perspective: 700px; --dd: .3s; }
+.intro .dia3 { position: relative; width: 170px; height: 170px; transform-style: preserve-3d; transform: rotateX(18deg) rotateY(-70deg) scale(.8); }
+.intro.on .dia3 { animation: diaTurn 1.3s cubic-bezier(.2,.8,.2,1) var(--dd) forwards; }
+@keyframes diaTurn { to { transform: rotateX(8deg) rotateY(-14deg); } }
+.intro .dt { position: absolute; left: 0; width: 100%; height: 50%; }
+.intro .dt.top { top: 0; background: linear-gradient(135deg, #f2c14e, #e2582b); clip-path: polygon(50% 0, 100% 100%, 0 100%); transform-origin: 50% 100%; transform: rotateX(-100deg); }
+.intro .dt.bot { bottom: 0; background: linear-gradient(135deg, #b23a18, #5a140a); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: 50% 0; transform: rotateX(100deg); }
+.intro.on .dt { animation: dtSwing .9s cubic-bezier(.3,1.3,.5,1) var(--dd) forwards; }
+@keyframes dtSwing { to { transform: none; } }
+
+/* PlayStation 2, redone: thin glass towers with glowing tops, motes of light drifting up */
+.intro .towers i::after { content: ""; position: absolute; left: -2px; right: -2px; top: -3px; height: 6px; border-radius: 2px; background: #d6e6ff; box-shadow: 0 0 14px 4px rgb(120 170 255 / .7); }
+.intro .motes { position: absolute; inset: 0; pointer-events: none; }
+.intro .motes i { position: absolute; left: var(--x); bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: #c4d8ff; box-shadow: 0 0 6px #7fa8ff; opacity: 0; }
+.intro.on .motes i { animation: mote var(--md) linear var(--dl) forwards; }
+@keyframes mote { 10% { opacity: .9; } 100% { transform: translateY(-440px); opacity: 0; } }
+
+/* PlayStation 3: dark blue, slow waves of light, then the name glows in */
+.intro .ps3 { background: radial-gradient(ellipse at 50% 60%, #0f1a33, #02040a 75%); }
+.intro .waves { position: absolute; inset: 0; opacity: 0; overflow: hidden; }
+.intro.on .waves { animation: fadeIn 1.6s ease-out .2s forwards; }
+.intro .waves i { position: absolute; left: -50%; width: 200%; height: 200px; top: 38%; border-radius: 50%; border-top: 2px solid rgb(190 210 255 / .55); box-shadow: 0 -10px 30px rgb(120 150 255 / .18); }
+.intro .waves .w2 { top: 44%; height: 240px; border-top-color: rgb(160 190 255 / .35); }
+.intro .waves .w3 { top: 50%; height: 180px; border-top-color: rgb(210 225 255 / .25); }
+.intro.on .waves .w1 { animation: wave 4.4s ease-in-out forwards; }
+.intro.on .waves .w2 { animation: wave 4.4s ease-in-out reverse forwards; }
+.intro.on .waves .w3 { animation: wave 5.2s ease-in-out forwards; }
+@keyframes wave { from { transform: translateX(-12%) rotate(-3deg); } to { transform: translateX(10%) rotate(2deg); } }
+.intro .p3glow { position: absolute; width: 600px; height: 160px; border-radius: 50%; background: radial-gradient(closest-side, rgb(200 215 255 / .45), transparent); opacity: 0; }
+.intro.on .p3glow { animation: p3g 1.6s ease-out 2.6s forwards; }
+@keyframes p3g { 0% { opacity: 0; transform: scaleX(.3); } 40% { opacity: 1; } 100% { opacity: .5; transform: none; } }
+.intro .ps3 .p3name { justify-self: end; margin-right: 11%; }
+.intro .ps3 .p3glow { right: 2%; }
+.intro .p3name { position: relative; font: 300 54px/1 var(--body); letter-spacing: .14em; color: #f4f7ff; text-shadow: 0 0 20px rgb(160 190 255 / .9); opacity: 0; }
+.intro.on .p3name { animation: fadeIn 1.2s ease-out 2.7s forwards; }
+
+/* Xbox 360: green ribbons sweep round a pale screen and close into a glossy orb */
+.intro .xbox { background: radial-gradient(circle at 50% 45%, #ffffff, #e3eae3 45%, #a3b2a3 100%); }
+.intro .ribbons { position: absolute; left: 50%; top: 45%; width: 0; height: 0; }
+.intro .ribbons i { position: absolute; width: 520px; height: 200px; margin: -100px -260px; border-radius: 50%; border-top: 10px solid rgb(90 190 40 / .75); opacity: 0; transform: rotate(var(--a)) scale(1.6); }
+.intro .ribbons i:nth-child(1) { --a: 0deg; } .ribbons i:nth-child(2) { --a: 72deg; border-top-color: rgb(140 220 70 / .6); }
+.intro .ribbons i:nth-child(3) { --a: 144deg; } .ribbons i:nth-child(4) { --a: 216deg; border-top-color: rgb(60 150 30 / .7); }
+.intro .ribbons i:nth-child(5) { --a: 288deg; border-top-color: rgb(170 230 120 / .6); }
+.intro.on .ribbons i { animation: ribbon 2.4s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes ribbon { 0% { opacity: 0; transform: rotate(var(--a)) scale(1.6); } 30% { opacity: .9; } 85% { opacity: .9; transform: rotate(calc(var(--a) + 260deg)) scale(.25); } 100% { opacity: 0; transform: rotate(calc(var(--a) + 300deg)) scale(.1); } }
+.intro .xorb { position: relative; width: 170px; height: 170px; border-radius: 50%; display: grid; place-items: center; margin-top: -20px; opacity: 0; transform: scale(.4);
+  background: radial-gradient(circle at 38% 32%, #ffffff, #e9f5e1 35%, #b9d6ac 70%, #8fb27d); box-shadow: 0 10px 40px rgb(60 120 30 / .35), inset 0 -8px 20px rgb(60 110 30 / .25); }
+.intro.on .xorb { animation: xorb .5s cubic-bezier(.3,1.4,.5,1) 2.25s forwards; }
+@keyframes xorb { to { opacity: 1; transform: none; } }
+.intro .xorb .emb { position: relative; width: 84px; height: 84px; filter: drop-shadow(0 2px 6px rgb(30 70 10 / .5)); }
+/* two beams of green light cross in a big X behind the orb as it lands */
+.intro .xx { position: absolute; left: 50%; top: 45%; width: 0; height: 0; opacity: 0; }
+.intro .xx i { position: absolute; left: -230px; top: -7px; width: 460px; height: 14px; border-radius: 14px; background: linear-gradient(90deg, transparent, rgb(120 220 60 / .9) 30%, #f4ffe8 50%, rgb(120 220 60 / .9) 70%, transparent); box-shadow: 0 0 24px rgb(110 210 50 / .55); }
+.intro .xx i:first-child { transform: rotate(40deg); } .xx i:last-child { transform: rotate(-40deg); }
+.intro.on .xx { animation: xxIn .7s cubic-bezier(.2,.8,.2,1) 2.2s forwards; }
+@keyframes xxIn { 0% { opacity: 0; transform: scale(.3); } 35% { opacity: 1; } 100% { opacity: .7; transform: none; } }
+.intro .xbox .xbflash { background: #fff; }
+.intro .xbox .xbname { font: 300 32px/1 var(--body); letter-spacing: .4em; text-indent: .4em; color: #586858; text-shadow: none; }
+
+/* PSP: a line of light draws across the dark and opens into the blue wave screen; on the final riff the screen goes white with grey text */
+.intro .psp { background: #000; --p1: .15s; --p2: 2.3s; }
+.intro .pline { position: absolute; left: 10%; right: 10%; top: 50%; height: 2px; background: linear-gradient(90deg, transparent, #fff, transparent); box-shadow: 0 0 12px #fff; transform: scaleX(0); }
+.intro.on .pline { animation: pline 1.1s cubic-bezier(.2,.8,.2,1) var(--p1) forwards; }
+@keyframes pline { 0% { transform: scaleX(0); opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+.intro .pwave { position: absolute; left: 0; top: 40%; width: 100%; height: 200px; opacity: 0; }
+.intro .pwave path { fill: none; stroke: rgb(235 242 255 / .85); stroke-width: 2; }
+.intro .pwave .pw2 { stroke: rgb(200 220 255 / .45); stroke-width: 3; } .pwave .pw3 { stroke: rgb(255 255 255 / .3); }
+.intro .pblue { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, #2a6fe0, #0b2a72 60%, #04102e); opacity: 0; }
+.intro.on .pblue { animation: fadeIn .8s ease-out calc(var(--p1) + .7s) forwards; }
+.intro .pwhite { position: absolute; inset: 0; background: #fff; opacity: 0; }
+.intro.on .pwhite { animation: fadeIn .18s ease-out var(--p2) forwards; }
+.intro.on .pwave { animation: pwave 2.2s ease-out calc(var(--p1) + .8s) forwards; }
+@keyframes pwave { 0% { opacity: 0; transform: scaleY(.1); } 40% { opacity: 1; } 100% { opacity: .55; transform: translateX(-3%); } }
+.intro .pspname { position: relative; font: 300 60px/1 var(--body); letter-spacing: .32em; text-indent: .32em; color: #8b9099; opacity: 0; }
+.intro .prefl { position: absolute; left: 0; right: 0; top: 100%; transform: scaleY(-1); opacity: .22; -webkit-mask: linear-gradient(transparent 30%, #000); mask: linear-gradient(transparent 30%, #000); opacity: .16; }
+.intro.on .pspname { animation: pspIn .5s ease-out var(--p2) forwards; }
+@keyframes pspIn { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+.intro .pflare { position: absolute; left: 50%; top: 50%; width: 600px; height: 3px; margin: -1.5px -300px; background: radial-gradient(closest-side, #fff, transparent); opacity: 0; }
+.intro.on .pflare { animation: pflare .7s ease-out var(--p2) forwards; }
+@keyframes pflare { 0% { opacity: 1; transform: scaleX(.2); } 100% { opacity: 0; transform: scaleX(1.6); } }
+
+/* Timed to the user's own sound files (the owner's recordings; segments cut to match). */
+.intro.custom .konami .kseg span:nth-child(1) { --t: .1s !important; }
+.intro.custom .konami .kseg span:nth-child(2) { --t: .8s !important; }
+.intro.custom .konami .kseg span:nth-child(3) { --t: 1.5s !important; }
+.intro.custom .konami .kseg span:nth-child(4) { --t: 2.2s !important; }
+.intro.custom .gbaw span:nth-child(1) { --dl: 0.27s !important; }
+.intro.custom .gbaw span:nth-child(2) { --dl: 0.34s !important; }
+.intro.custom .gbaw span:nth-child(3) { --dl: 0.41s !important; }
+.intro.custom .gbaw span:nth-child(4) { --dl: 0.48s !important; }
+.intro.custom .gbaw span:nth-child(5) { --dl: 0.55s !important; }
+.intro.custom .gbaw span:nth-child(6) { --dl: 0.62s !important; }
+.intro.custom .gbaw span:nth-child(7) { --dl: 0.69s !important; }
+.intro.custom .gbaw span:nth-child(8) { --dl: 0.76s !important; }
+.intro.custom .gbaw span:nth-child(9) { --dl: 0.83s !important; }
+.intro.custom .gbaw span:nth-child(10) { --dl: 0.90s !important; }
+.intro.custom .gbaw span:nth-child(11) { --dl: 0.97s !important; }
+.intro.custom.on .kw, .intro.custom.on .kwf { animation-delay: 2.8s; }
+.intro.custom.on .shine { animation-delay: 3.1s; }
+.intro.custom.on .rname { animation-delay: 4.8s; }
+.intro.custom .rockstar { --aim: 4.0s; }
+.intro.custom.on .gcb { animation-duration: 3.6s; }
+.intro.custom.on .gcp .t1 { animation-delay: .12s; animation-duration: .77s; }
+.intro.custom.on .gcp .t2 { animation-delay: .89s; animation-duration: .77s; }
+.intro.custom.on .gcp .t3 { animation-delay: 1.66s; animation-duration: .77s; }
+.intro.custom.on .gcp .t4 { animation-delay: 2.42s; animation-duration: .53s; }
+.intro.custom.on .gcp .t5 { animation-delay: 3.07s; animation-duration: .53s; }
+.intro.custom.on .gcp .emb { animation-delay: 4.05s; }
+.intro.custom.on .gcname { animation-delay: 4.5s; }
+.intro.custom .ps1 .dia span:nth-child(1) { --d: 1.75s !important; }
+.intro.custom .ps1 .dia span:nth-child(2) { --d: 1.78s !important; }
+.intro.custom .ps1 .dia span:nth-child(3) { --d: 1.81s !important; }
+.intro.custom .ps1 .dia span:nth-child(4) { --d: 1.84s !important; }
+.intro.custom.on .sce { animation-delay: 2.8s; }
+.intro.custom.on .ps1b { animation-delay: 4.25s; }
+.intro.custom.on .ps1b .emb { animation-delay: 4.55s; }
+.intro.custom.on .lic { animation-delay: 4.85s; }
+.intro.custom.on .lname { animation-delay: 4.95s; }
+.intro.custom.on .towers { animation-duration: 6.4s; }
+.intro.custom.on .p2black { animation-delay: 3.8s; }
+.intro.custom.on .p2name { animation-delay: 4.05s; animation-duration: .8s; }
+.intro.custom.on .gbaw .sweep { animation-delay: 2.85s; }
+.intro.custom.on .gbasub { animation-delay: 2.95s; }
+.intro.custom.on .ribbons i { animation-duration: 3.2s; }
+.intro.custom.on .xorb { animation-delay: 3.0s; }
+.intro.custom.on .xx { animation-delay: 3.05s; }
+.intro.custom .psp { --p1: .2s; --p2: 3.1s; }
+.intro.custom.on .xbflash { animation-delay: 3.05s; }
+.intro.custom.on .xbox .emb { animation-delay: 3.1s; }
+.intro.custom.on .xbname { animation-delay: 4.4s; }
+.intro.custom.on .waves i { animation-duration: 6.2s; }
+.intro.custom.on .p3glow { animation-delay: 3.9s; }
+.intro.custom.on .p3name { animation-delay: 4.0s; }
+
+/* Fonts KB has on every Windows PC instead of the mockup's web fonts; smaller holes for a shotgun's pellets. */
+.intro .bh.small { width: 22px; height: 22px; margin: -11px; }
+.intro .rname { font-family: "Rockwell Extra Bold", "Rockwell", Georgia, serif; }

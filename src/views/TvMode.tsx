@@ -9,6 +9,9 @@ import { pushHandler, type Action } from "../input/actions";
 import { GameInfo } from "./GameInfo";
 import { NavScope } from "../components/NavScope";
 import { Hint } from "../components/Hints";
+import { fx } from "../state/fx";
+import { Model } from "../fx/Model";
+import { sfx } from "../fx/audio";
 
 /** Cards either side of the focused one that exist in the DOM. */
 const WINDOW_BEFORE = 10;
@@ -92,6 +95,51 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     const to = Math.min(n, at + WINDOW_AFTER);
     return Array.from({ length: to - from }, (_, k) => from + k);
   });
+  // ---- 3D shelf (Settings → General → TV Mode): cases in a row, the focused one turned to face you.
+  const shelf3d = () => fx.shelf3d() && !overview();
+  /** Model px per stage px: the focused case fills most of the shelf's height. */
+  const k3 = () => shelfH() / 170;
+  const near = createMemo(() => windowed().filter((i) => Math.abs(i - focused()) <= 5));
+  const place = (i: number) => {
+    const d = i - focused();
+    const a = Math.abs(d);
+    const s = Math.sign(d);
+    const x = (d === 0 ? 0 : s * (150 + (a - 1) * 66)) * k3();
+    const r = d === 0 ? -12 : -s * 58;
+    const z = (d === 0 ? 70 : -30) * k3();
+    return `translateX(calc(-50% + ${x}px)) translateZ(${z}px) rotateY(${r}deg) scale(${d === 0 ? 1.18 : 0.9})`;
+  };
+  // Inspecting the focused case: turn it (right stick, [ ], or drag it), tilt it (right stick up/down), flip it (R3 / V).
+  const [insp, setInsp] = createSignal({ ry: 0, rx: 0, flipped: false, spring: true });
+  createEffect(on(focused, () => setInsp({ ry: 0, rx: 0, flipped: false, spring: true }), { defer: true }));
+  const inspStyle = () => {
+    const v = insp();
+    return { transform: `rotateX(${v.rx}deg) rotateY(${v.ry + (v.flipped ? 180 : 0)}deg)`, "--ry": String(v.ry), transition: v.spring ? "transform .5s cubic-bezier(.2,.8,.2,1)" : "none" };
+  };
+  const turn = (dy: number, dx = 0) =>
+    setInsp((v) => ({ ...v, spring: true, ry: Math.max(-80, Math.min(80, v.ry + dy)), rx: Math.max(-25, Math.min(25, v.rx + dx)) }));
+  let drag: { x: number; y: number; ry: number; rx: number; moved: boolean } | null = null;
+  let dragged = false;
+  const onDragMove = (e: PointerEvent) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    setInsp((v) => ({ ...v, spring: false, ry: Math.max(-80, Math.min(80, drag!.ry + dx * 0.6)), rx: Math.max(-25, Math.min(25, drag!.rx - dy * 0.3)) }));
+  };
+  const onDragEnd = () => {
+    if (!drag) return;
+    dragged = drag.moved;
+    drag = null;
+    setInsp((v) => ({ ...v, spring: true, ry: 0, rx: 0 }));
+  };
+  addEventListener("pointermove", onDragMove);
+  addEventListener("pointerup", onDragEnd);
+  onCleanup(() => {
+    removeEventListener("pointermove", onDragMove);
+    removeEventListener("pointerup", onDragEnd);
+  });
+
   let shelfEl!: HTMLDivElement;
   const measure = () => shelfEl && setShelfH(Math.round(shelfEl.clientHeight * 0.78));
   const ro = new ResizeObserver(measure);
@@ -230,6 +278,16 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         if (library.query()) library.setQuery("");
         else if (library.activeFilter()) library.clearFilter();
         else if (collectionKeyOf(library.platform())) library.setPlatform("collections");
+        return true;
+      case "turnLeft": if (shelf3d()) turn(-20); return true;
+      case "turnRight": if (shelf3d()) turn(20); return true;
+      case "zoomIn": if (shelf3d()) turn(0, 10); return true;
+      case "zoomOut": if (shelf3d()) turn(0, -10); return true;
+      case "toggleGroups":
+        if (shelf3d()) {
+          setInsp((v) => ({ ...v, spring: true, ry: 0, flipped: !v.flipped }));
+          sfx("select");
+        }
         return true;
       case "menu": setMenuOpen(true); return true;
       case "toggleTv": props.onExit(); return true;
@@ -400,7 +458,39 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
             </For>
           </div>
         </Show>
-        <Show when={!overview() && games().length > 0}>
+        <Show when={shelf3d() && games().length > 0}>
+          <div class="tv-shelf3d">
+            <For each={near()}>
+              {(i) => {
+                const g = () => games()[i];
+                return (
+                  <Show when={g()}>
+                    <div
+                      class="si"
+                      classList={{ focused: i === focused() }}
+                      style={{ transform: place(i), opacity: Math.abs(i - focused()) > 4 ? 0 : 1, "z-index": 20 - Math.abs(i - focused()) }}
+                      onPointerDown={(e) => {
+                        if (i !== focused()) return;
+                        const v = insp();
+                        drag = { x: e.clientX, y: e.clientY, ry: v.ry, rx: v.rx, moved: false };
+                      }}
+                      onClick={() => {
+                        if (dragged) return void (dragged = false);
+                        if (i === focused()) setInfoId(g()!.id);
+                        else setFocused(i);
+                      }}
+                    >
+                      <div style={i === focused() ? inspStyle() : undefined} class="m3-turn">
+                        <Model game={g()!} platformName={platformName(g()!.platformId)} scale={k3()} detail={i === focused()} />
+                      </div>
+                    </div>
+                  </Show>
+                );
+              }}
+            </For>
+          </div>
+        </Show>
+        <Show when={!shelf3d() && !overview() && games().length > 0}>
           {/* Keyed by tab/search so a new list slides in. */}
           <Show when={`${library.platform()}|${library.query()}|${library.filterKey()}`} keyed>
             <div
@@ -443,6 +533,10 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         <Hint action="secondary" label="Search" />
         <Show when={!overview()}>
           <Hint action="favorite" label="Favorite" />
+        </Show>
+        <Show when={shelf3d()}>
+          <Hint actions={["turnLeft", "turnRight"]} label="Turn" />
+          <Hint action="toggleGroups" label="Flip" />
         </Show>
         <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
         <Hint action="menu" label="Menu" />

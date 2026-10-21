@@ -437,7 +437,27 @@ Each milestone is runnable and tested, and passes the perf gate.
       **Done instead (owner, 2026-10-21: "download any free sound library"):** every sound is mixed with ffmpeg from real
       CC0 recordings: VSCO 2 Community Edition (Versilian Studios; glockenspiel, marimba, piano, timpani, strings, horns,
       gong, cymbals) and The Free Firearm Sound Library (OpenGameArt; S&W 642 revolver, Marlin 336). Credit both in the
-      README when this ships. The mixer script is `build_sounds.py` (scratchpad for now; move into `tools/` when building).
+      README when this ships. The mixer script is `build_sounds.py` (now in `tools/sounds`).
+      **Later decisions (owner, 2026-10-21):** lineup is now ten: Konami, Rockstar (one double-barrel shotgun blast with
+      the owner's sound, a spread of pellet holes), GBA, GameCube, PlayStation (the old diamond version), PS2 (name on
+      black), PS3 (name on the right), PSP (line → blue waves → white screen, grey text on the last riff), Xbox 360 (a
+      big X behind the orb), Switch. Menu sounds: three profiles, **Tactile (default)**, Console, Retro console, each
+      with move/select/back + disc start + cartridge start (Kenney CC0 clicks + generated tones, `make_profiles.py`).
+      Cartridges, consoles and handhelds drawn from the real hardware as SVG (no logos; handhelds whole: GBA front,
+      DS Lite and 3DS closed, Switch with Joy-Con). TV shelf cases can be inspected (turn ±80°, tilt, flip to the back).
+      **The owner's own intro recordings** (`C:\Emulator files\audio files`, never committed): the owner calls them
+      royalty-free; Claude's position, unchanged: KB ships only its CC0-based sounds, and a user's own files go in
+      `data\intros\<intro>.ogg|mp3|wav|m4a|flac` (played from the start, with longer "custom" timings made for them).
+      The owner's files were cut to the approved cues into the dev copy's `data\intros` (local only); the owner copies
+      that folder into the installed copy themselves.
+      **Built 2026-10-21 (0.3.12):** `src/state/fx.ts` (settings, defaults above, `html[data-anim]`), `src/fx/`
+      (`audio.ts` Web Audio, `Intro.tsx`, `LaunchFx.tsx`, `Model.tsx` 3D cases, `hardware.ts` SVGs, `Stage.tsx`),
+      `src/styles/fx.css` + `intro.css` (ported from the mockup), Settings → General: Animations, Start-up intro,
+      Sounds; right stick X = new actions turnLeft/turnRight (keys `[` `]`), R3/V flips in TV Mode; `intro_sound` and
+      `get_setting_values` commands; WebView2 `--autoplay-policy=no-user-gesture-required` (the intro's sound);
+      LaunchBox keeps "Disc" and "Box - Back" images (stamp `kinds`, one extra download for older lists) stored as
+      `art\d`, `art\b` and served as `thumb://…/d|b/<id>`; the launch animation plays before `launch_game`
+      (KB minimizes at spawn), Back cancels it.
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are

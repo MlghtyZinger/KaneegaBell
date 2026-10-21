@@ -104,6 +104,7 @@ struct Pad {
     held: HashSet<Button>,
     lx: AxisLatch,
     ly: AxisLatch,
+    rx: AxisLatch,
     ry: AxisLatch,
     lt: AxisLatch,
     rt: AxisLatch,
@@ -205,6 +206,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                                 held: HashSet::new(),
                                 lx: AxisLatch::default(),
                                 ly: AxisLatch::default(),
+                                rx: AxisLatch::default(),
                                 ry: AxisLatch::default(),
                                 lt: AxisLatch::default(),
                                 rt: AxisLatch::default(),
@@ -246,10 +248,10 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                         Axis::LeftX => (&mut p.lx, STICK_PRESS, STICK_RELEASE, Some(Action::Left), Some(Action::Right)),
                         // SDL's Y axis is positive downward.
                         Axis::LeftY => (&mut p.ly, STICK_PRESS, STICK_RELEASE, Some(Action::Up), Some(Action::Down)),
+                        Axis::RightX => (&mut p.rx, STICK_PRESS, STICK_RELEASE, Some(Action::TurnLeft), Some(Action::TurnRight)),
                         Axis::RightY => (&mut p.ry, STICK_PRESS, STICK_RELEASE, Some(Action::ZoomIn), Some(Action::ZoomOut)),
                         Axis::TriggerLeft => (&mut p.lt, TRIGGER_PRESS, TRIGGER_RELEASE, None, Some(Action::PrevLetter)),
                         Axis::TriggerRight => (&mut p.rt, TRIGGER_PRESS, TRIGGER_RELEASE, None, Some(Action::NextLetter)),
-                        _ => continue,
                     };
                     for edge in latch.update(value, press, release) {
                         match edge {

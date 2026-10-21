@@ -147,7 +147,7 @@ pub fn forget_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
 /// remaining game uses). Hidden games keep everything.
 pub fn prune_leftovers(conn: &Connection, data_dir: &Path) -> Result<()> {
     let keep = ids(conn, "SELECT id FROM games")?;
-    for d in ["t", "f", "h", "l", "i"] {
+    for d in ["t", "f", "h", "l", "i", "d", "b"] {
         prune_images(&data_dir.join("art").join(d), &keep)?;
     }
     crate::achievements::prune_removed(conn, data_dir)?;
@@ -197,6 +197,9 @@ pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
     prune_images(&art.join("h"), &extras)?;
     prune_images(&art.join("l"), &extras)?;
     prune_images(&art.join("i"), &icons)?;
+    // Discs and back covers are always downloaded ones.
+    remove_dir(&art.join("d"))?;
+    remove_dir(&art.join("b"))?;
     remove_dir(&data_dir.join("ra"))?;
     // Give the space back (best effort: another connection may be reading).
     if let Err(e) = conn.execute_batch("VACUUM") {

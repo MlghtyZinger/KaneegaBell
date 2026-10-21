@@ -82,6 +82,8 @@ fn webview_args() -> String {
         "--force-gpu-mem-discardable-limit-mb=16".to_string(),
         format!("--disk-cache-size={WEB_CACHE_BYTES}"),
         "--disable-component-update".to_string(),
+        // The start-up intro plays its sound before anyone has pressed anything.
+        "--autoplay-policy=no-user-gesture-required".to_string(),
     ];
     if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
@@ -338,6 +340,8 @@ pub fn run() {
             commands::update_source,
             commands::remove_source,
             commands::get_setting,
+            commands::get_setting_values,
+            commands::intro_sound,
             commands::set_setting,
             commands::start_scan,
             commands::cancel_scan,

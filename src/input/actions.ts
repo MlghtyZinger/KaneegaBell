@@ -20,7 +20,10 @@ export type Action =
   | "zoomOut"
   | "toggleGroups"
   | "filter"
-  | "toggleTv";
+  | "toggleTv"
+  /** Right stick left / right: turns the case in TV Mode's 3D shelf. */
+  | "turnLeft"
+  | "turnRight";
 
 const KEYMAP: Record<string, Action> = {
   ArrowUp: "up",
@@ -45,6 +48,8 @@ const KEYMAP: Record<string, Action> = {
   v: "toggleGroups",
   g: "filter",
   F10: "toggleTv",
+  "[": "turnLeft",
+  "]": "turnRight",
 };
 
 export type Device = "pointer" | "keyboard" | "gamepad";
@@ -74,8 +79,18 @@ export function pushHandler(h: Handler): () => void {
   };
 }
 
+/** Told about every action a screen used (the menu sounds). */
+let tap: ((action: Action) => void) | null = null;
+export function setActionTap(f: ((action: Action) => void) | null) {
+  tap = f;
+}
+
 export function dispatch(action: Action): boolean {
-  for (let i = stack.length - 1; i >= 0; i--) if (stack[i](action)) return true;
+  for (let i = stack.length - 1; i >= 0; i--)
+    if (stack[i](action)) {
+      tap?.(action);
+      return true;
+    }
   return false;
 }
 

@@ -502,6 +502,34 @@ pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<ser
     queries::get_setting(&state.db(), &key)
 }
 
+/// Several settings at once (the animation and sound settings read at start-up).
+#[tauri::command]
+pub fn get_setting_values(state: State<'_, AppState>, keys: Vec<String>) -> Result<std::collections::HashMap<String, serde_json::Value>> {
+    let conn = state.db();
+    let mut out = std::collections::HashMap::new();
+    for k in keys {
+        if let Some(v) = queries::get_setting(&conn, &k)? {
+            out.insert(k, v);
+        }
+    }
+    Ok(out)
+}
+
+/// The user's own sound for a start-up intro: `data\intros\<intro>.ogg|mp3|wav|m4a|flac`.
+/// Empty when there's none (the intro plays KB's own sound).
+#[tauri::command]
+pub fn intro_sound(state: State<'_, AppState>, key: String) -> tauri::ipc::Response {
+    tauri::ipc::Response::new(intro_file(state.data_dir(), &key).and_then(|p| std::fs::read(p).ok()).unwrap_or_default())
+}
+
+fn intro_file(data_dir: &Path, key: &str) -> Option<PathBuf> {
+    // Intro names only (no paths).
+    if key.is_empty() || !key.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+    ["ogg", "mp3", "wav", "m4a", "flac"].iter().map(|ext| data_dir.join("intros").join(format!("{key}.{ext}"))).find(|p| p.is_file())
+}
+
 #[tauri::command]
 pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::Value) -> Result<()> {
     let value = match (key.as_str(), value) {
@@ -1348,6 +1376,21 @@ pub async fn set_collection_image_url(app: AppHandle, key: String, url: String, 
     })
     .await
     .map_err(|e| Error::msg(e.to_string()))?
+}
+
+#[cfg(test)]
+mod intro_file_tests {
+    use super::intro_file;
+    #[test]
+    fn finds_the_intros_file_and_refuses_paths() {
+        let t = tempfile::tempdir().unwrap();
+        std::fs::create_dir(t.path().join("intros")).unwrap();
+        std::fs::write(t.path().join("intros").join("ps2.mp3"), b"x").unwrap();
+        assert_eq!(intro_file(t.path(), "ps2"), Some(t.path().join("intros").join("ps2.mp3")));
+        assert_eq!(intro_file(t.path(), "ps1"), None);
+        assert_eq!(intro_file(t.path(), "../ps2"), None);
+        assert_eq!(intro_file(t.path(), ""), None);
+    }
 }
 
 #[cfg(test)]

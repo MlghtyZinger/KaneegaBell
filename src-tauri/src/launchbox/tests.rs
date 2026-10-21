@@ -114,6 +114,37 @@ fn a_pass_matches_keeps_only_the_library_and_applies_art_and_info() {
 }
 
 #[test]
+fn disc_and_back_pictures_come_with_one_more_download_for_older_lists() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::test_db();
+    let jak = add_game(&conn, "Jak & Daxter - The Precursor Legacy (USA)");
+    let xml = SAMPLE.replace(
+        "</LaunchBox>",
+        "  <GameImage><DatabaseID>101</DatabaseID><FileName>cccc-01.png</FileName><Type>Disc</Type></GameImage>
+  <GameImage><DatabaseID>101</DatabaseID><FileName>dddd-01.jpg</FileName><Type>Box - Back</Type></GameImage>
+</LaunchBox>",
+    );
+    let source = FakeSource::new(&xml);
+    let mut http = FakeHttp::default();
+    http.pages.insert(image_url("cccc-01.png"), images::test_png(300, 300));
+    http.pages.insert(image_url("dddd-01.jpg"), images::test_png(300, 420));
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert!(images::case_path(dir.path(), images::Case::Disc, jak).is_file());
+    assert!(images::case_path(dir.path(), images::Case::Back, jak).is_file());
+    assert_eq!(source.opens(), 1);
+
+    // A list saved before discs and backs were kept: downloaded once more, then not again.
+    let mut st = stamp(&conn).unwrap();
+    st.kinds = 0;
+    save_stamp(&conn, &st).unwrap();
+    assert!(wanted(&conn).unwrap());
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), 2);
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), 2);
+}
+
+#[test]
 fn the_weekly_check_downloads_only_when_launchbox_changed() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();
