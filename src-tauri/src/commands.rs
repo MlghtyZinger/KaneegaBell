@@ -1309,7 +1309,6 @@ pub fn lb_search(state: State<'_, AppState>, id: i64, query: Option<String>) -> 
 pub fn lb_browse(app: AppHandle, state: State<'_, AppState>, db_ids: Vec<i64>) -> Result<()> {
     crate::launchbox::add_browse(&state.db(), &db_ids)?;
     state.lb_pending.store(true, Ordering::Release);
-    state.lb_force.fetch_or(true, Ordering::AcqRel);
     kick_worker(app, &state);
     Ok(())
 }

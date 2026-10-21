@@ -391,3 +391,50 @@ fn release_dates_and_years() {
     assert_eq!(release_secs(&g(None, Some(2005))), Some(1_104_537_600));
     assert_eq!(release_secs(&g(Some("garbage"), None)), None);
 }
+
+/// How fast the real download streams through the parser (the network, not a file).
+/// `cargo test --release --lib launchbox_web_speed -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn launchbox_web_speed() {
+    let t0 = std::time::Instant::now();
+    let mut n = 0usize;
+    let body = Web::new().open().unwrap();
+    stream::records(stream::open_entry(body).unwrap(), |_| {
+        n += 1;
+        Ok(())
+    })
+    .unwrap();
+    println!("streamed {n} records from LaunchBox in {:.1} s", t0.elapsed().as_secs_f32());
+}
+
+/// Times a browse pass (as the picker's "load its pictures" starts one) on a copy of a real library.
+/// `LB_DB=<library.db copy> cargo test --release --lib launchbox_browse_timing -- --ignored --nocapture`
+#[test]
+#[ignore]
+fn launchbox_browse_timing() {
+    let dir = tempfile::tempdir().unwrap();
+    let copy = dir.path().join("library.db");
+    std::fs::copy(std::env::var("LB_DB").expect("set LB_DB"), &copy).unwrap();
+    let mut conn = db::open(&copy).unwrap();
+    let ids: Vec<i64> = conn
+        .prepare("SELECT db_id FROM lb_names WHERE name LIKE '%Mario 64%' AND is_alt = 0 LIMIT 20")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<_>>()
+        .unwrap();
+    println!("{} names, browsing {} entries", count(&conn, "SELECT COUNT(*) FROM lb_names"), ids.len());
+    add_browse(&conn, &ids).unwrap();
+    let t0 = std::time::Instant::now();
+    let last = Mutex::new(("start", std::time::Instant::now()));
+    let s = run(&mut conn, dir.path(), &Web::new(), &crate::art::http::Http::new(), false, &|p| {
+        let mut l = last.lock().unwrap();
+        if l.0 != p.phase {
+            println!("{:>6.1} s  {} -> {}", t0.elapsed().as_secs_f32(), l.0, p.phase);
+            *l = (p.phase, std::time::Instant::now());
+        }
+    }, &AtomicBool::new(false))
+    .unwrap();
+    println!("{:>6.1} s  done: {s:?}", t0.elapsed().as_secs_f32());
+}

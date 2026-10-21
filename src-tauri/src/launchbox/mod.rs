@@ -736,7 +736,10 @@ pub fn run(
     let missing_details = games.iter().filter(|g| matched(g)).try_fold(false, |acc, g| -> Result<bool> {
         Ok(acc || !has_details(conn, g.lb_id.unwrap_or_default())?)
     })?;
-    let mut need = force || !have_names || missing_details || browse_missing(conn)? || !uncovered_platforms(conn, &st)?.is_empty() || st.kinds < IMAGE_KINDS_VERSION;
+    let uncovered = !uncovered_platforms(conn, &st)?.is_empty();
+    // Only entries the user asked to look through are missing: keep them and stop (the library's pictures are already applied).
+    let browse_only = !force && have_names && !missing_details && !uncovered && st.kinds >= IMAGE_KINDS_VERSION && browse_missing(conn)?;
+    let mut need = force || !have_names || missing_details || browse_missing(conn)? || uncovered || st.kinds < IMAGE_KINDS_VERSION;
     if !need && check_due(conn)? {
         progress(Progress { phase: "checking", done: 0, total: 1 });
         let (lm, etag, _) = source.head()?;
@@ -761,6 +764,9 @@ pub fn run(
         st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now), platforms, kinds: IMAGE_KINDS_VERSION };
         save_stamp(conn, &st)?;
         s.downloaded = true;
+        if browse_only {
+            return Ok(s);
+        }
         games = library_games(conn)?;
     }
 
