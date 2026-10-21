@@ -140,11 +140,13 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
   transform: translateZ(16px) translateY(40px); transition: transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s;
   background: linear-gradient(#2c2d32, #17181b); box-shadow: inset 0 3px 0 #44454c; }
 .m3 .slot::before { content: ""; position: absolute; top: 0; left: 17%; right: 17%; height: 9px; background: #040404; border-radius: 0 0 4px 4px; }
+.m3 .led { position: absolute; right: 9%; top: 40%; width: 9px; height: 9px; border-radius: 50%; background: #3a1a14; transition: background .2s, box-shadow .2s; }
 .m3.cart.out .cartridge { transform: translateY(-80%); }
 .m3.cart.drop .box { transform: translateY(75%) translateZ(-60px); opacity: 0; }
 .m3.cart.drop .slot { opacity: 1; transform: translateZ(16px); }
 .m3.cart.insert .cartridge { transform: translateY(24%); transition: transform .42s cubic-bezier(.55,0,.85,.35); }
 .m3.cart.seated { animation: seat .28s ease-out; }
+.m3.cart.seated .led { background: #ff4a2e; box-shadow: 0 0 12px #ff4a2e; }
 @keyframes seat { 40% { transform: translateY(4px); } }
 
 /* Inspecting: the focused case turns with the pointer and springs back; a sheen moves across the front */
@@ -221,6 +223,20 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-switch .clabel { inset: 8% 8% 22%; }
 .m3.pf-gba .clabel b, .m3.pf-nds .clabel b, .m3.pf-n3ds .clabel b, .m3.pf-switch .clabel b { font-size: calc(var(--w) * .05); }
 
+/* The slot each one goes into */
+.m3.pf-snes .slot { background: linear-gradient(#cacbd1, #a6a8af); box-shadow: inset 0 3px 0 #e0e1e5; }
+.m3.pf-snes .slot::before { left: 13%; right: 13%; height: 12px; background: #19191c; }
+.m3.pf-snes .slot::after { content: ""; position: absolute; top: 12px; left: 13%; right: 13%; height: 7px; background: linear-gradient(90deg, #8f9198 50%, #7e8087 50%); }
+.m3.pf-n64 .slot { background: linear-gradient(#3a3b40, #202125); }
+.m3.pf-n64 .slot::before { left: 25%; right: 25%; height: 12px; }
+.m3.pf-gba .slot { left: 6%; width: 88%; border-radius: 34px 34px 18px 18px; background: linear-gradient(#5b509f, #3c3379); box-shadow: inset 0 3px 0 #7a70bb; }
+.m3.pf-gba .slot::before { left: 26%; right: 26%; }
+.m3.pf-nds .slot { left: 2%; width: 96%; background: linear-gradient(#f2f3f5, #cdd0d4); box-shadow: inset 0 3px 0 #fff; }
+.m3.pf-nds .slot::before, .m3.pf-n3ds .slot::before { left: 31%; right: 31%; height: 7px; background: #222327; }
+.m3.pf-n3ds .slot { left: 2%; width: 96%; background: linear-gradient(#2c2d32, #141518); }
+.m3.pf-switch .slot { left: -10%; width: 120%; background: linear-gradient(#2f3034, #151619); }
+.m3.pf-switch .slot::before { left: 37%; right: 37%; height: 6px; background: #050505; }
+
 /* Cartridges and cards drawn from the real ones, and the console part each goes into */
 .m3.cart .cartridge.drawn { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
 .m3.cart .cartridge.drawn::before, .m3.cart .cartridge.drawn::after { display: none; }
@@ -228,18 +244,10 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.cart .cartridge.real { background: none; box-shadow: none; border-radius: 0; overflow: visible; clip-path: none; }
 .m3.cart .cartridge.real::before, .m3.cart .cartridge.real::after { display: none; }
 .m3 .cart-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 10px rgb(0 0 0 / .45)); }
-.m3 .cartridge.drawn > .hw { position: absolute; inset: 0; }
+.m3 .cartridge.drawn > .hw, .m3 .slot.drawn > .hw { position: absolute; inset: 0; }
 .m3 .hw > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-/* The real console (a photo): the cartridge goes in behind its top edge, so its lower part is hidden. */
-.m3 .slot.photo { height: auto; background: none; box-shadow: none; border-radius: 0; }
-.m3 .slot.photo::before, .m3 .slot.photo::after { display: none; }
-.m3 .console-img { display: block; width: 100%; height: auto; filter: drop-shadow(0 10px 14px rgb(0 0 0 / .5)); }
-.m3.pf-snes .slot.photo { left: -12.5%; width: 125%; top: 56%; }
-.m3.pf-n64 .slot.photo { left: -12.5%; width: 125%; top: 52%; }
-.m3.pf-gba .slot.photo { left: -27%; width: 154%; top: 68%; }
-.m3.pf-nds .slot.photo { left: -25%; width: 150%; top: 68%; }
-.m3.pf-n3ds .slot.photo { left: -30%; width: 160%; top: 68%; }
-.m3.pf-switch .slot.photo { left: -86%; width: 272%; top: 69%; }
+.m3 .slot.drawn { background: none; box-shadow: none; border-radius: 0; }
+.m3 .slot.drawn::before, .m3 .slot.drawn::after { display: none; }
 .m3 .cartridge.drawn .clabel { border-radius: 3px; }
 .m3.pf-snes { --out: -126%; --ins: 16%; }
 .m3.pf-snes .cartridge.drawn { left: 14%; width: 72%; top: 12%; height: 76%; }
@@ -259,6 +267,14 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-switch { --out: -221%; --ins: 58%; }
 .m3.pf-switch .cartridge.drawn { left: 33%; width: 34%; top: 34%; height: 30.6%; }
 .m3.pf-switch .cartridge.drawn .clabel { inset: 19.4% 9.5% 4.8% 9.5%; }
+/* handhelds are drawn whole, sized from their real proportions, with the card slot lined up with the card */
+.m3.pf-gba .slot.drawn { left: -45%; width: 190%; height: 95%; }
+.m3.pf-nds .slot.drawn, .m3.pf-n3ds .slot.drawn { left: -30.5%; width: 161%; height: 80%; }
+.m3.pf-switch .slot.drawn { left: -154%; width: 408%; height: 71%; }
+.m3.pf-gba .slot.drawn .led { left: 10.5%; right: auto; top: 18%; }
+.m3.pf-nds .slot.drawn .led { left: 89%; right: auto; top: 5%; }
+.m3.pf-n3ds .slot.drawn .led { left: 95%; right: auto; top: 48%; }
+.m3.pf-switch .slot.drawn .led { display: none; }
 
 /* Platforms KB has no drawing for yet: a plain dark keep case. */
 .m3.pf-other .box .f:not(.back) { background: #141518; }
