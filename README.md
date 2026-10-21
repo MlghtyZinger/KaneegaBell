@@ -584,8 +584,10 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   facet lines and the PSP were redrawn from them). Saturn: the logo from
   [Simple Icons](https://simpleicons.org) (CC0).
 - The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
-- Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
-  (no logos).
+- Game cases in the launch animation and the 3D shelf are drawn for KB (no logos). Cartridge pictures come
+  from the LaunchBox Games Database. The consoles (`src/assets/consoles`, background removed) are photos by
+  [Evan-Amos](https://commons.wikimedia.org/wiki/User:Evan-Amos) from Wikimedia Commons: public domain
+  (SNES, N64, Game Boy Advance, 3DS, Switch) and CC BY-SA 3.0 (DS Lite).
 - Sounds (`src/assets/sounds`, made with `tools/sounds`): mixed from CC0 recordings:
   [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
   [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
@@ -775,6 +777,7 @@ window, so they're written for players.
 - New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
 - New: games LaunchBox has no back cover or spine for get them from GameTDB's full covers (Wii, GameCube, PS3, DS and 3DS games it knows), cut out of the full picture; no account needed.
 - New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
+- Improved: the consoles in the cartridge launch animation (SNES, N64, Game Boy Advance, DS, 3DS and Switch) are now photos of the real consoles.
 - New: cartridge games show their own cartridge (from LaunchBox) in the launch animation, and the animation lasts longer so you can see it go in. The first start downloads LaunchBox's database once more.
 - Improved: a game's spine picture also wraps onto the top and bottom of its 3D case, turned on its side.
 - New: Search… in the back cover, spine and disc pickers finds other LaunchBox entries by name (a differently named edition, a hack's original game). Choosing one that KB hasn't stored loads its pictures, downloading LaunchBox's file once.

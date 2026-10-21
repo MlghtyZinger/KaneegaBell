@@ -2,7 +2,7 @@ import { createEffect, createResource, createSignal, Show } from "solid-js";
 import { api, artUrl, type GameRow } from "../api";
 import { caseRev } from "../state/fx";
 import { hue } from "../components/GameCard";
-import { CART_SVG, SLOT_SVG } from "./hardware";
+import { CART_SVG, CONSOLE_IMG } from "./hardware";
 
 type Media = "cd" | "dvd" | "bd" | "cart";
 /** Each platform's case: media, model key (fx.css), size in stage px [w, h, depth], and disc variant. */
@@ -267,9 +267,8 @@ export function Model(props: {
               <img class="cart-img" src={artUrl(props.game.id, caseRev(), "d")} alt="" draggable={false} onError={() => setCartOk(false)} />
             </div>
           </Show>
-          <div class={`slot ${SLOT_SVG[c().k] ? "drawn" : ""}`}>
-            <Show when={SLOT_SVG[c().k]}>{(svg) => <div class="hw" innerHTML={svg()} />}</Show>
-            <span class="led" />
+          <div class={`slot ${CONSOLE_IMG[c().k] ? "photo" : ""}`}>
+            <Show when={CONSOLE_IMG[c().k]}>{(src) => <img class="console-img" src={src()} alt="" draggable={false} />}</Show>
           </div>
         </Show>
       </Show>
