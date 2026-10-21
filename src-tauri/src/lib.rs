@@ -386,6 +386,7 @@ pub fn run() {
             commands::set_lb_match,
             commands::wd_status,
             commands::cover_accent,
+            commands::cover_edges,
             commands::achievement_glance,
             commands::get_removed,
             commands::forget_removed,

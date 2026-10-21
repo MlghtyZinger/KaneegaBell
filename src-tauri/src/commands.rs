@@ -158,6 +158,12 @@ pub fn cover_accent(state: State<'_, AppState>, id: i64) -> Option<String> {
     art::color::accent(state.data_dir(), id)
 }
 
+/// The colours of a cover's top and bottom edges, for its 3D case.
+#[tauri::command]
+pub fn cover_edges(state: State<'_, AppState>, id: i64) -> Option<(String, String)> {
+    art::color::edges(state.data_dir(), id)
+}
+
 #[tauri::command]
 pub fn get_game(state: State<'_, AppState>, id: i64) -> Result<GameInfo> {
     let conn = state.db();

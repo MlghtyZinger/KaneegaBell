@@ -1,5 +1,5 @@
-import { createEffect, createSignal, Show } from "solid-js";
-import { artUrl, type GameRow } from "../api";
+import { createEffect, createResource, createSignal, Show } from "solid-js";
+import { api, artUrl, type GameRow } from "../api";
 import { hue } from "../components/GameCard";
 import { CART_SVG, SLOT_SVG } from "./hardware";
 
@@ -32,6 +32,17 @@ const SPINES: Record<string, [string, string]> = {
   switch: ["#d6102a", "#a50c20"],
 };
 const OTHER = { m: "dvd" as Media, k: "other", size: [134, 190, 14] as [number, number, number] };
+
+/** Edge colours per cover version, asked for once (the shelf shows the same cases again and again). */
+const edgeCache = new Map<string, Promise<[string, string] | null>>();
+function edgeColours(key: string, id: number) {
+  let p = edgeCache.get(key);
+  if (!p) {
+    p = api.coverEdges(id).catch(() => null);
+    edgeCache.set(key, p);
+  }
+  return p;
+}
 
 export const caseOf = (platformId: string) => CASES[platformId] ?? OTHER;
 
@@ -91,9 +102,14 @@ export function Model(props: {
       setSpineOk(true);
     }
   });
-  // The top and bottom faces: plain plastic in the platform's colour; a horizontal box's top spine picture goes on them.
-  const Edge = () => (
-    <div class="edge">
+  // The top and bottom faces: the cover's own edge colour (else the platform's), like the printed wrap of a real box;
+  // a horizontal box's top spine picture goes on them.
+  const [edges] = createResource(
+    () => (props.game.art > 0 ? `${props.game.id}:${props.game.art}` : null),
+    (key) => edgeColours(key, props.game.id),
+  );
+  const Edge = (p: { at: 0 | 1 }) => (
+    <div class="edge" style={{ "background-color": edges()?.[p.at] }}>
       <Show when={spineOk() && spineWide()}>
         <img class="spine-img" src={artUrl(props.game.id, 0, "s")} alt="" draggable={false} />
       </Show>
@@ -168,8 +184,8 @@ export function Model(props: {
       </div>
       <div class="f sl"><Spine /></div>
       <div class="f sr"><Spine /></div>
-      <div class="f st"><Edge /></div>
-      <div class="f sb"><Edge /></div>
+      <div class="f st"><Edge at={0} /></div>
+      <div class="f sb"><Edge at={1} /></div>
       <Show when={front}>
         <div class="f bf">
           <Art big={props.launch} />

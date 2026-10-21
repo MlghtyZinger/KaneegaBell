@@ -163,7 +163,7 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3 .spine-img.wide { inset: auto; left: 50%; top: 50%; width: var(--h); height: var(--d); transform: translate(-50%, -50%) rotate(90deg); }
 /* Top and bottom faces: plain plastic in the platform's colour, a little darker than the front. */
 .m3 .edge { position: absolute; inset: 0; background-color: var(--spine, hsl(var(--hue) 38% 16%)); overflow: hidden; }
-.m3 .edge::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .32); pointer-events: none; }
+.m3 .edge::after { content: ""; position: absolute; inset: 0; background: rgb(0 0 0 / .18); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14); pointer-events: none; }
 /* No spine picture: the platform's colour with its name and the title. */
 .m3.pf-wii .spine, .m3.pf-n3ds .spine, .m3.pf-nds .spine { color: #2a2f36; }
 .m3.pf-wii .sband, .m3.pf-n3ds .sband, .m3.pf-nds .sband, .m3.pf-xbox .sband, .m3.pf-switch .sband, .m3.pf-n64 .sband, .m3.pf-gba .sband, .m3.pf-ps2 .sband { color: #fff; }

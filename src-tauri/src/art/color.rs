@@ -20,6 +20,36 @@ pub fn accent(data_dir: &Path, game_id: i64) -> Option<String> {
     accent_of(&img, channels)
 }
 
+/// The average colours (`#rrggbb`) of a cover's top and bottom edge rows, for
+/// the top and bottom faces of its 3D case (they carry on from the front).
+pub fn edges(data_dir: &Path, game_id: i64) -> Option<(String, String)> {
+    let bytes = std::fs::read(images::thumb_path(data_dir, game_id)).ok()?;
+    let img = webp::Decoder::new(&bytes).decode()?;
+    let channels = if img.is_alpha() { 4 } else { 3 };
+    let (w, h) = (img.width() as usize, img.height() as usize);
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let band = (h / 25).max(1);
+    let row_avg = |rows: std::ops::Range<usize>| -> Option<String> {
+        let (mut sum, mut n) = ([0u64; 3], 0u64);
+        for y in rows {
+            for x in 0..w {
+                let p = &img[(y * w + x) * channels..(y * w + x) * channels + channels];
+                if channels == 4 && p[3] < 128 {
+                    continue;
+                }
+                for c in 0..3 {
+                    sum[c] += p[c] as u64;
+                }
+                n += 1;
+            }
+        }
+        (n > 0).then(|| format!("#{:02x}{:02x}{:02x}", sum[0] / n, sum[1] / n, sum[2] / n))
+    };
+    Some((row_avg(0..band)?, row_avg(h - band..h)?))
+}
+
 /// The main vivid color of packed RGB/RGBA pixels.
 pub fn accent_of(pixels: &[u8], channels: usize) -> Option<String> {
     let count = pixels.len() / channels;
@@ -165,5 +195,20 @@ mod tests {
         let c = accent(dir.path(), 7).unwrap();
         assert!(hue_of(&c) < 10.0 || hue_of(&c) > 350.0, "red, got {c}");
         assert_eq!(accent(dir.path(), 8), None, "no thumbnail");
+    }
+
+    #[test]
+    fn the_top_and_bottom_edges_have_their_own_colours() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = images::thumb_path(dir.path(), 3);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        // 50 rows: red on top, green below.
+        let rgb = image(&[([250, 0, 0], 40 * 25), ([0, 250, 0], 40 * 25)]);
+        std::fs::write(&path, &*webp::Encoder::from_rgb(&rgb, 40, 50).encode(100.0)).unwrap();
+        let (top, bottom) = edges(dir.path(), 3).unwrap();
+        let v = |c: &str, i: usize| u8::from_str_radix(&c[i..i + 2], 16).unwrap();
+        assert!(v(&top, 1) > 200 && v(&top, 3) < 60, "red top, got {top}");
+        assert!(v(&bottom, 3) > 200 && v(&bottom, 1) < 60, "green bottom, got {bottom}");
+        assert_eq!(edges(dir.path(), 4), None);
     }
 }

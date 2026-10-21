@@ -715,6 +715,8 @@ export const api = {
   removeCollectionHero: (key: string) => invoke<void>("remove_collection_hero", { key }),
   /** A cover's main color (`#rrggbb`), to tint its series; null without one. */
   coverAccent: (id: number) => invoke<string | null>("cover_accent", { id }),
+  /** The colours of a cover's top and bottom edges (its 3D case's top and bottom faces). */
+  coverEdges: (id: number) => invoke<[string, string] | null>("cover_edges", { id }),
   /** A Wikidata pass; `force` asks about every platform again ("Update now"). */
   fetchWikidata: (force: boolean) => invoke<boolean>("fetch_wikidata", { force }),
   setWdEnabled: (enabled: boolean) => invoke<void>("set_wd_enabled", { enabled }),

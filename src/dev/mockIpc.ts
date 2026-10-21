@@ -405,6 +405,8 @@ export function installMockIpc() {
         return { displayMissing: false };
       case "lb_status":
         return { enabled: true, importedAt: 1_791_964_000, matched: 4612, total: 5000, notFound: 371, ambiguous: 17, unmatched: mockUnmatched(12, 2) };
+      case "cover_edges":
+        return [["#c0572b", "#2e6f9e"], ["#3b8f4a", "#7a4aa0"]][(args as { id: number }).id % 2];
       case "cover_accent":
         return ["#f0a050", "#6fb3ff", "#e86a7a", "#7fd88f"][(args as { id: number }).id % 4];
       case "wd_status":
