@@ -76,7 +76,7 @@ export function Model(props: {
     const [w, h, d] = c().size;
     const a = props.game.art > 0 ? props.game.artAspect : null;
     if (!a || (c().m === "cart" && props.launch)) return [w, h, d];
-    const asp = Math.min(1.8, Math.max(0.55, a));
+    const asp = Math.min(2.5, Math.max(0.4, a));
     const hh = Math.sqrt(w * h * asp);
     // A tall spine picture sets how thick the case is (within reason), so it isn't squashed to fit.
     const dd = spineOk() && spineRatio() > 0 && !spineWide() ? Math.min(d * 1.6, Math.max(d * 0.75, hh * spineRatio())) : d;
@@ -205,7 +205,7 @@ export function Model(props: {
   return (
     <div
       ref={props.ref}
-      class={`m3 ${c().m} pf-${c().k} ${props.class ?? ""}`}
+      class={`m3 ${c().m} pf-${c().k} ${props.launch ? "launching" : ""} ${props.class ?? ""}`}
       style={{
         "--w": `${dims()[0] * k()}px`,
         "--h": `${dims()[1] * k()}px`,

@@ -775,7 +775,8 @@ window, so they're written for players.
 - New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
 - New: games LaunchBox has no back cover or spine for get them from GameTDB's full covers (Wii, GameCube, PS3, DS and 3DS games it knows), cut out of the full picture; no account needed.
 - New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
-- Improved: the consoles in the cartridge launch animation (SNES, N64, Game Boy Advance, DS, 3DS and Switch) are redrawn at their real proportions, with their real buttons, ports and slots.
+- Improved: the consoles in the cartridge launch animation (SNES, N64, Game Boy Advance, DS, 3DS and Switch) are redrawn at their real proportions, with their real buttons, ports and slots, logos and printed names. The Switch has its real proportions and its card slot on the right.
+- Fixed: covers in the cartridge launch animation's box, and very wide or tall covers on 3D cases, are no longer stretched or squeezed.
 - New: cartridge games show their own cartridge (from LaunchBox) in the launch animation, and the animation lasts longer so you can see it go in. The first start downloads LaunchBox's database once more.
 - Improved: a game's spine picture also wraps onto the top and bottom of its 3D case, turned on its side.
 - New: Search… in the back cover, spine and disc pickers finds other LaunchBox entries by name (a differently named edition, a hack's original game). Choosing one that KB hasn't stored loads its pictures, downloading LaunchBox's file once.

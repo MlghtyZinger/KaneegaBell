@@ -274,7 +274,7 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-gba .slot.drawn { left: -27%; width: 154%; top: 66%; height: 77%; }
 .m3.pf-nds .slot.drawn { left: -34.5%; width: 169%; top: 68%; height: 85%; }
 .m3.pf-n3ds .slot.drawn { left: -41%; width: 182%; top: 68%; height: 91%; }
-.m3.pf-switch .slot.drawn { left: -115%; width: 330%; top: 67%; height: 61%; }
+.m3.pf-switch .slot.drawn { left: -201%; width: 360%; top: 67%; height: 94%; }
 .m3.pf-snes .slot.drawn .led, .m3.pf-n64 .slot.drawn .led, .m3.pf-switch .slot.drawn .led { display: none; }
 .m3.pf-gba .slot.drawn .led { left: 10.4%; right: auto; top: 18.2%; }
 .m3.pf-nds .slot.drawn .led { left: 86.5%; right: auto; top: 6%; }
@@ -282,3 +282,7 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 
 /* Platforms KB has no drawing for yet: a plain dark keep case. */
 .m3.pf-other .box .f:not(.back) { background: #141518; }
+
+/* A launching cartridge's box keeps the platform's shape, so the cover is fitted into it, never stretched or squeezed */
+.m3.launching .bf { background: #2a231d; }
+.m3.launching .bf .art-img { object-fit: contain; }
