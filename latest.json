@@ -1,11 +1,11 @@
 {
-  "version": "0.3.11",
-  "notes": "- New: styles. Pick one in Settings → General → Style: Ember (the new default), Midnight (the old look), Daylight, High contrast, Moss or Storm.\n- New: each style marks the focused game its own way (brackets, glow, a ring, a lift, a bar or a spotlight).\n- New: the bull icon in the window and taskbar takes the style's colors.\n- Fixed: a game's window now comes to the front on its own, so you no longer have to click it in the taskbar.",
-  "pub_date": "2026-10-20T06:22:32Z",
+  "version": "0.3.12",
+  "notes": "- New: animations. Pick Full, Reduced or Off for the desktop and for TV Mode in Settings → General → Animations.\n- New: start-up intros, ten of them (Konami, Rockstar, Game Boy Advance, GameCube, PlayStation, PS2, PS3, PSP, Xbox 360 and Switch), random or fixed. Put your own sound for an intro in KB's `data\\intros` folder.\n- New: starting a game plays a launch animation: the case opens and the disc spins, or the game's own cartridge goes into its console. Turn it off for the desktop or TV Mode in Settings.\n- New: TV Mode's shelf shows 3D game cases you can turn, tilt and flip to see the back.\n- New: menu sounds in three styles (Tactile, Console, Retro console), with their own switch and volume for each mode.\n- New: back covers, spines, discs and cartridges from the LaunchBox Games Database and GameTDB. Pick or search for your own in a game's details. The first start downloads LaunchBox's database once more.\n- Changed: the side panels no longer scroll and show shorter descriptions, and the series name above a title opens its collection.",
+  "pub_date": "2026-10-21T22:45:48Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVI1Q0lQOTF4ZjJubTlPSXRwTDEwUFNJSVU1NldGV3M2SmJMRENYVVRESDU4SHRrZko3ZXBCNjJSQWRjckxLakFvai9Vb3FGbXY4QnJicGlOSXBUeWdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNDc3MjY5CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjExX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTEKajV6UTBNZ0dGN1h2NFBWd2tlOERIVWRoK1BVLzZ4UlY3b0dmVUo1Szd4Vml0eXZoUFVVSmVjeUxTd3E4Y2ZJQTB4S0FxbnJJR24rUXFNcWRITlErREE9PQo=",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.11_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVdocmIwU3R6ZGs3dkh4am1NcDRzM0dua0lhQndZQjdlNDBaSUpiMXhDMmNOVzBCNnlDVnhaWTFYOTFMV2FRbHRRdlZ4NlhqYW5pbXdaSCs1R25oK3drPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjIyNzEwCWZpbGU6S2FuZWVnYUJlbGxfMC4zLjEyX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTIKc0lRbDQvY1BEWGpPeVZtY1dIb3dDV3JSa2tONUtlR3VBSXBLZlBIa0JpT0ZjTnVsdVFFQzQwLzk3TVZTZEVFN1JoRlQwODZuZXF3RXFtM3M0RUFXRFE9PQo=",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.12_x64-setup.exe?ref=updates"
     }
   }
 }
