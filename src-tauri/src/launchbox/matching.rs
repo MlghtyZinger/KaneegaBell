@@ -201,7 +201,11 @@ impl Candidates {
                 }
             })
             .collect();
-        hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.name.cmp(&b.name)));
+        // Equal scores (every title that merely contains the words): the shortest name first, so "Super Mario 64"
+        // comes before the hacks and mods named "... Mario 64 ...".
+        hits.sort_by(|a, b| {
+            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.name.len().cmp(&b.name.len())).then_with(|| a.name.cmp(&b.name))
+        });
         hits.truncate(limit);
         hits
     }
@@ -233,6 +237,19 @@ mod tests {
 
     fn key(s: &str) -> String {
         normalize::search_key(s)
+    }
+
+    #[test]
+    fn search_puts_the_shortest_matching_names_first() {
+        let c = Candidates::new(vec![
+            n(1, "Another Boss Battle Test for Super Mario 64", None),
+            n(2, "Super Mario 64", None),
+            n(3, "Dr. Mario 64", None),
+            n(4, "Aardvark: Mario 64 Hack Collection Deluxe", None),
+        ]);
+        let ids: Vec<i64> = c.search(&key("mario 64"), 10).iter().map(|h| h.db_id).collect();
+        assert_eq!(&ids[..2], [3, 2]);
+        assert_eq!(*ids.last().unwrap(), 1);
     }
 
     #[test]

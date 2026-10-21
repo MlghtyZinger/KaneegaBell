@@ -618,7 +618,7 @@ fn case_label(case: images::Case) -> &'static str {
 pub fn case_search(conn: &Connection, game_id: i64, case: images::Case, query: &str) -> Result<Vec<crate::art::Candidate>> {
     let (kinds, english) = case_kinds(case);
     let mut out = Vec::new();
-    for hit in search(conn, game_id, Some(query))?.into_iter().take(12) {
+    for hit in search(conn, game_id, Some(query))?.into_iter().take(20) {
         if !has_details(conn, hit.db_id)? {
             out.push(crate::art::Candidate {
                 source: "lbgame".into(),
