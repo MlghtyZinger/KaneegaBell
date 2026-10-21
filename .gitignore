@@ -38,3 +38,6 @@ Thumbs.db
 /tmp/
 # Downloaded sound libraries for tools/sounds
 tools/sounds/snd/
+
+# ScreenScraper probe output
+tools/screenscraper/probe-results.json
