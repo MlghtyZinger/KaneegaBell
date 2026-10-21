@@ -44,13 +44,16 @@ html[data-anim="reduced"] :is(.game-side:not(.docked), .overlay, .overlay > .pan
   cursor: progress;
 }
 .launch-fx.tv { background: color-mix(in srgb, var(--bg-sunken) 94%, transparent); }
-.launch-stage { position: absolute; left: 50%; top: 50%; height: 540px; transform: translate(-50%, -50%) scale(var(--s, 1)); display: grid; place-items: center; perspective: 1100px; }
-.launch-fx .lc { transform-style: preserve-3d; transform: translateY(-14px) scale(1.4) rotateY(-30deg) rotateX(5deg); transition: transform .75s cubic-bezier(.2,.8,.2,1); }
-.launch-fx .lc.settled { transform: translateY(-14px) scale(1.6) rotateY(-12deg) rotateX(5deg); }
-.launch-fx .lc.cartlc.settled { transform: translateY(-40px) scale(1.4) rotateY(-10deg) rotateX(6deg); }
-.launch-fx.tv .lc.settled { transform: translateY(-14px) scale(1.95) rotateY(-12deg) rotateX(5deg); }
-.launch-fx.tv .lc.cartlc.settled { transform: translateY(-40px) scale(1.6) rotateY(-10deg) rotateX(6deg); }
-.launch-fx .ltext { position: absolute; left: 0; right: 0; bottom: 40px; display: grid; justify-items: center; gap: 4px; color: var(--text); }
+/* Chrome draws 3D layers inside a perspective at their layout size and then magnifies them, so a scaled scene looks soft.
+   The stage is therefore laid out at its final size with `zoom` (the scene's own scale is 1 when it has settled). */
+.launch-stage { --zs: 1.6; position: absolute; left: 50%; top: 50%; height: 540px; transform: translate(-50%, -50%); zoom: calc(var(--s, 1) * var(--zs)); display: grid; place-items: center; perspective: calc(1100px / var(--zs)); }
+.launch-fx.tv .launch-stage { --zs: 1.95; }
+.launch-fx .lc { transform-style: preserve-3d; transform: translateY(calc(-14px / var(--zs))) scale(calc(1.4 / var(--zs))) rotateY(-30deg) rotateX(5deg); transition: transform .75s cubic-bezier(.2,.8,.2,1); }
+.launch-fx .lc.settled { transform: translateY(calc(-14px / var(--zs))) scale(calc(1.6 / var(--zs))) rotateY(-12deg) rotateX(5deg); }
+.launch-fx .lc.cartlc.settled { transform: translateY(calc(-40px / var(--zs))) scale(calc(1.4 / var(--zs))) rotateY(-10deg) rotateX(6deg); }
+.launch-fx.tv .lc.settled { transform: translateY(calc(-14px / var(--zs))) scale(calc(1.95 / var(--zs))) rotateY(-12deg) rotateX(5deg); }
+.launch-fx.tv .lc.cartlc.settled { transform: translateY(calc(-40px / var(--zs))) scale(calc(1.6 / var(--zs))) rotateY(-10deg) rotateX(6deg); }
+.launch-fx .ltext { zoom: calc(1 / var(--zs)); position: absolute; left: 0; right: 0; bottom: 40px; display: grid; justify-items: center; gap: 4px; color: var(--text); }
 .launch-fx .ltext b { font: 700 30px/1 var(--display); }
 .launch-fx .lmsg { color: var(--text-dim); font-size: 16px; opacity: 0; transform: translateY(6px); transition: opacity .4s, transform .4s; }
 .launch-fx .lmsg.on { opacity: 1; transform: none; }
