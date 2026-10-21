@@ -268,13 +268,17 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-switch .cartridge.drawn { left: 33%; width: 34%; top: 34%; height: 30.6%; }
 .m3.pf-switch .cartridge.drawn .clabel { inset: 19.4% 9.5% 4.8% 9.5%; }
 /* handhelds are drawn whole, sized from their real proportions, with the card slot lined up with the card */
-.m3.pf-gba .slot.drawn { left: -45%; width: 190%; height: 95%; }
-.m3.pf-nds .slot.drawn, .m3.pf-n3ds .slot.drawn { left: -30.5%; width: 161%; height: 80%; }
-.m3.pf-switch .slot.drawn { left: -154%; width: 408%; height: 71%; }
-.m3.pf-gba .slot.drawn .led { left: 10.5%; right: auto; top: 18%; }
-.m3.pf-nds .slot.drawn .led { left: 89%; right: auto; top: 5%; }
-.m3.pf-n3ds .slot.drawn .led { left: 95%; right: auto; top: 48%; }
-.m3.pf-switch .slot.drawn .led { display: none; }
+/* Each console is drawn at its real proportions next to its cartridge; its top edge sits where the cartridge goes in */
+.m3.pf-snes .slot.drawn { left: -10%; width: 120%; top: 60%; height: 74%; }
+.m3.pf-n64 .slot.drawn { left: -50%; width: 200%; top: 68%; height: 113%; }
+.m3.pf-gba .slot.drawn { left: -27%; width: 154%; top: 66%; height: 77%; }
+.m3.pf-nds .slot.drawn { left: -34.5%; width: 169%; top: 68%; height: 85%; }
+.m3.pf-n3ds .slot.drawn { left: -41%; width: 182%; top: 68%; height: 91%; }
+.m3.pf-switch .slot.drawn { left: -115%; width: 330%; top: 67%; height: 61%; }
+.m3.pf-snes .slot.drawn .led, .m3.pf-n64 .slot.drawn .led, .m3.pf-switch .slot.drawn .led { display: none; }
+.m3.pf-gba .slot.drawn .led { left: 10.4%; right: auto; top: 18.2%; }
+.m3.pf-nds .slot.drawn .led { left: 86.5%; right: auto; top: 6%; }
+.m3.pf-n3ds .slot.drawn .led { left: 92.4%; right: auto; top: 91%; }
 
 /* Platforms KB has no drawing for yet: a plain dark keep case. */
 .m3.pf-other .box .f:not(.back) { background: #141518; }
