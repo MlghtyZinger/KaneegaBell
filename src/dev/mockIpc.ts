@@ -411,6 +411,8 @@ export function installMockIpc() {
         return ["#f0a050", "#6fb3ff", "#e86a7a", "#7fd88f"][(args as { id: number }).id % 4];
       case "wd_status":
         return { enabled: true, checkedAt: 1_791_964_000, total: 5000, matched: 3890, withSeries: 2410, notFound: 1088, ambiguous: 22, unmatched: mockUnmatched(3, 1) };
+      case "lb_browse":
+        return null;
       case "lb_search":
         return [
           { dbId: 1, name: "Okami", alsoKnownAs: "Ookami", score: 1 },

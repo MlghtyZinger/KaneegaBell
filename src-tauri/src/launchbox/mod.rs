@@ -186,6 +186,35 @@ fn has_details(conn: &Connection, db_id: i64) -> Result<bool> {
     Ok(conn.query_row("SELECT 1 FROM lb_games WHERE db_id = ?1", [db_id], |_| Ok(())).optional()?.is_some())
 }
 
+/// How many other LaunchBox entries KB keeps pictures for (the newest ones the user searched for).
+const BROWSE_MAX: usize = 20;
+
+fn browse_ids(conn: &Connection) -> Result<Vec<i64>> {
+    Ok(queries::get_setting::<Vec<i64>>(conn, "lbBrowse")?.unwrap_or_default())
+}
+
+/// Remembers an entry whose pictures the user wants to look through (Search… in the back, spine
+/// and disc pickers); the next pass keeps its details and image list like a library game's.
+pub fn add_browse(conn: &Connection, db_id: i64) -> Result<()> {
+    let mut ids = browse_ids(conn)?;
+    ids.retain(|i| *i != db_id);
+    ids.insert(0, db_id);
+    ids.truncate(BROWSE_MAX);
+    queries::set_setting(conn, "lbBrowse", &serde_json::to_value(ids)?)
+}
+
+/// A remembered entry whose pictures aren't stored yet (and that LaunchBox's name list knows, so a
+/// download can fill it in).
+fn browse_missing(conn: &Connection) -> Result<bool> {
+    for id in browse_ids(conn)? {
+        let known: bool = conn.query_row("SELECT 1 FROM lb_names WHERE db_id = ?1", [id], |_| Ok(())).optional()?.is_some();
+        if known && !has_details(conn, id)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// Whether a LaunchBox pass has work: games never tried, or matched games
 /// whose details aren't stored yet. (The weekly change check is separate.)
 /// Platforms of library games that neither the stored name list nor the last
@@ -205,7 +234,7 @@ pub fn wanted(conn: &Connection) -> Result<bool> {
         return Ok(false);
     }
     let st = stamp(conn)?;
-    if !uncovered_platforms(conn, &st)?.is_empty() || (st.imported_at.is_some() && st.kinds < IMAGE_KINDS_VERSION) {
+    if !uncovered_platforms(conn, &st)?.is_empty() || (st.imported_at.is_some() && st.kinds < IMAGE_KINDS_VERSION) || browse_missing(conn)? {
         return Ok(true);
     }
     // GameTDB's full covers haven't been tried yet (a pass fills missing backs and spines; no download of LaunchBox's file).
@@ -310,6 +339,7 @@ fn download(
 ) -> Result<(Import, (Option<String>, Option<String>))> {
     let (last_modified, etag, size) = source.head().unwrap_or((None, None, None));
     let platforms = platform_map(conn)?;
+    let browse = browse_ids(conn)?;
     let total = size.unwrap_or(0);
     let read = Arc::new(AtomicU64::new(0));
     let body = Counting { inner: source.open()?, read: read.clone() };
@@ -336,6 +366,7 @@ fn download(
             .iter()
             .filter_map(|(_, o)| if let Outcome::Match(id) = o { Some(*id) } else { None })
             .chain(games.iter().filter(|g| g.status == "manual").filter_map(|g| g.lb_id))
+            .chain(browse.iter().copied())
             .collect();
         imp.details = imp.wanted.iter().filter_map(|id| buffered.remove(id)).collect();
         buffered.clear();
@@ -573,6 +604,48 @@ fn case_kinds(case: images::Case) -> (&'static [&'static str], bool) {
     }
 }
 
+fn case_label(case: images::Case) -> &'static str {
+    match case {
+        images::Case::Disc => "LaunchBox disc",
+        images::Case::Back => "LaunchBox back cover",
+        images::Case::Spine => "LaunchBox spine",
+    }
+}
+
+/// Search… in the back, spine and disc pickers: pictures of other LaunchBox entries found by name.
+/// An entry whose pictures aren't stored yet comes back as an "lbgame" option (its `url` is the
+/// LaunchBox id); choosing it asks for them (`add_browse`) and a pass downloads them.
+pub fn case_search(conn: &Connection, game_id: i64, case: images::Case, query: &str) -> Result<Vec<crate::art::Candidate>> {
+    let (kinds, english) = case_kinds(case);
+    let mut out = Vec::new();
+    for hit in search(conn, game_id, Some(query))?.into_iter().take(12) {
+        if !has_details(conn, hit.db_id)? {
+            out.push(crate::art::Candidate {
+                source: "lbgame".into(),
+                name: hit.name.clone(),
+                url: hit.db_id.to_string(),
+                preview: None,
+                label: format!("{} · load its pictures", hit.name),
+            });
+            continue;
+        }
+        for (file, reg) in images_ranked(conn, hit.db_id, kinds, None, english)?.into_iter().take(3) {
+            let url = image_url(&file);
+            out.push(crate::art::Candidate {
+                source: "launchbox".into(),
+                name: file,
+                preview: Some(url.clone()),
+                url,
+                label: match reg {
+                    Some(r) => format!("{} · {r}", hit.name),
+                    None => hit.name.clone(),
+                },
+            });
+        }
+    }
+    Ok(out)
+}
+
 /// Picker options for a case picture (back, disc or spine) from the game's LaunchBox match.
 pub fn case_picker(conn: &Connection, game_id: i64, case: images::Case) -> Result<Vec<crate::art::Candidate>> {
     let row: Option<(Option<i64>, String, Option<String>)> = conn
@@ -583,11 +656,7 @@ pub fn case_picker(conn: &Connection, game_id: i64, case: images::Case) -> Resul
         return Ok(Vec::new());
     }
     let (kinds, english) = case_kinds(case);
-    let label = match case {
-        images::Case::Disc => "LaunchBox disc",
-        images::Case::Back => "LaunchBox back cover",
-        images::Case::Spine => "LaunchBox spine",
-    };
+    let label = case_label(case);
     Ok(images_ranked(conn, db_id, kinds, region.as_deref(), english)?
         .into_iter()
         .map(|(file, reg)| {
@@ -667,7 +736,7 @@ pub fn run(
     let missing_details = games.iter().filter(|g| matched(g)).try_fold(false, |acc, g| -> Result<bool> {
         Ok(acc || !has_details(conn, g.lb_id.unwrap_or_default())?)
     })?;
-    let mut need = force || !have_names || missing_details || !uncovered_platforms(conn, &st)?.is_empty() || st.kinds < IMAGE_KINDS_VERSION;
+    let mut need = force || !have_names || missing_details || browse_missing(conn)? || !uncovered_platforms(conn, &st)?.is_empty() || st.kinds < IMAGE_KINDS_VERSION;
     if !need && check_due(conn)? {
         progress(Progress { phase: "checking", done: 0, total: 1 });
         let (lm, etag, _) = source.head()?;

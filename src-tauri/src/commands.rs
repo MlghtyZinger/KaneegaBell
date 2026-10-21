@@ -638,9 +638,14 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
             PickerKind::Cover => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
             PickerKind::Back | PickerKind::Disc | PickerKind::Spine => {
                 let case = case_of(extra_kind(kind.as_deref())?);
-                let mut out = crate::launchbox::case_picker(&conn, id, case)?;
+                // With a typed name: other LaunchBox entries' pictures (see `launchbox::case_search`).
+                let typed = query.as_deref().map(str::trim).filter(|q| !q.is_empty());
+                let mut out = match typed {
+                    Some(q) => crate::launchbox::case_search(&conn, id, case, q)?,
+                    None => crate::launchbox::case_picker(&conn, id, case)?,
+                };
                 // GameTDB's full cover (back and spine are cut out of it when picked), where it has one.
-                if case != art::images::Case::Disc {
+                if typed.is_none() && case != art::images::Case::Disc {
                     let (platform, serial): (String, Option<String>) =
                         conn.query_row("SELECT platform_id, serial FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
                     if let Ok(Some((url, _))) = art::gametdb::find_wrap(&http, &platform, serial.as_deref()) {
@@ -1296,6 +1301,17 @@ pub fn set_lb_enabled(app: AppHandle, state: State<'_, AppState>, enabled: bool)
 #[tauri::command]
 pub fn lb_search(state: State<'_, AppState>, id: i64, query: Option<String>) -> Result<Vec<crate::launchbox::matching::Hit>> {
     crate::launchbox::search(&state.db(), id, query.as_deref())
+}
+
+/// The back/spine/disc pickers' Search…: the user chose a LaunchBox entry whose pictures aren't
+/// stored yet. A pass downloads LaunchBox's file (once) and keeps them.
+#[tauri::command]
+pub fn lb_browse(app: AppHandle, state: State<'_, AppState>, db_id: i64) -> Result<()> {
+    crate::launchbox::add_browse(&state.db(), db_id)?;
+    state.lb_pending.store(true, Ordering::Release);
+    state.lb_force.fetch_or(true, Ordering::AcqRel);
+    kick_worker(app, &state);
+    Ok(())
 }
 
 /// Fix match: the user's pick. Its details, cover, logo and background

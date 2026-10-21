@@ -1,4 +1,4 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import { api, errorText, type CoverCandidate } from "../api";
 import { osk } from "../state/osk";
 import { NavScope } from "./NavScope";
@@ -46,8 +46,10 @@ export function CoverPicker(props: {
   const kind = () => props.kind ?? "cover";
   const words = () => WORDS[kind()];
   const [query, setQuery] = createSignal<string | null>(null);
+  // Bumped when a LaunchBox entry's pictures have arrived, to list them.
+  const [tick, setTick] = createSignal(0);
   const [candidates] = createResource(
-    () => ({ id: props.gameId, q: query(), k: kind() }),
+    () => ({ id: props.gameId, q: query(), k: kind(), t: tick() }),
     ({ id, q, k }) => api.coverCandidates(id, q, k).catch((e) => Promise.reject(new Error(errorText(e)))),
   );
   const [busy, setBusy] = createSignal<string | null>(null);
@@ -68,6 +70,32 @@ export function CoverPicker(props: {
     }
   }
 
+  // A LaunchBox entry found by name: its pictures are fetched in the background (the first time that
+  // downloads LaunchBox's file, ~100 MB), then they replace the entry in the list.
+  const [loadingGame, setLoadingGame] = createSignal<string | null>(null);
+  let alive = true;
+  onCleanup(() => (alive = false));
+  async function loadGame(c: CoverCandidate) {
+    setError(null);
+    setLoadingGame(c.name);
+    try {
+      await api.lbBrowse(Number(c.url));
+      for (let i = 0; i < 450 && alive; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const now = await api.coverCandidates(props.gameId, query(), kind());
+        if (!now.some((x) => x.source === "lbgame" && x.url === c.url)) {
+          if (alive) setTick((t) => t + 1);
+          return;
+        }
+      }
+      setError("LaunchBox's pictures haven't arrived yet. Check the progress in the footer and try again.");
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setLoadingGame(null);
+    }
+  }
+
   async function remove() {
     if (kind() === "cover") await api.removeCover(props.gameId);
     else await api.removeExtra(props.gameId, kind() as "hero" | "logo" | "icon");
@@ -77,7 +105,9 @@ export function CoverPicker(props: {
 
   function search() {
     osk.open({
-      title: `Search ${words().noun} by name (e.g. the original game for a hack of ${props.title})`,
+      title: CASE_ART.includes(kind())
+        ? `Search ${words().noun} by game name (LaunchBox)`
+        : `Search ${words().noun} by name (e.g. the original game for a hack of ${props.title})`,
       value: query() ?? "",
       onDone: (v) => setQuery(v.trim() || null),
     });
@@ -92,18 +122,16 @@ export function CoverPicker(props: {
 
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={CASE_ART.includes(kind()) ? undefined : search}>
+      <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={search}>
         <h2>{words().title}</h2>
         <p class="dim">
           {props.title}
           {query() ? ` · results for “${query()}”` : ""}
         </p>
         <div class="row">
-          <Show when={!CASE_ART.includes(kind())}>
-            <button class="btn" onClick={search}>
-              Search {words().noun}…
-            </button>
-          </Show>
+          <button class="btn" onClick={search}>
+            Search {words().noun}…
+          </button>
           <Show when={kind() === "cover" || kind() === "icon" || CASE_ART.includes(kind())}>
             <button class="btn" onClick={() => setBrowsing(true)}>
               Use an image file…
@@ -120,6 +148,9 @@ export function CoverPicker(props: {
         </div>
         <Show when={error()}>
           <p class="warn">{error()}</p>
+        </Show>
+        <Show when={loadingGame()}>
+          {(n) => <p class="dim">Loading {n()}'s pictures from LaunchBox… the first time downloads its file (about 100 MB; progress is in the footer).</p>}
         </Show>
         <Show when={candidates.loading}>
           <p class="dim">Looking for {words().noun}…</p>
@@ -139,8 +170,8 @@ export function CoverPicker(props: {
               <button
                 class="cover-option"
                 data-autofocus={i() === 0 ? "" : undefined}
-                disabled={busy() !== null}
-                onClick={() => void choose(c.source, c.name, c.url)}
+                disabled={busy() !== null || loadingGame() !== null}
+                onClick={() => (c.source === "lbgame" ? void loadGame(c) : void choose(c.source, c.name, c.url))}
                 title={c.label}
               >
                 <Show when={c.preview} fallback={<div class="cover-option-icon">🎮</div>}>

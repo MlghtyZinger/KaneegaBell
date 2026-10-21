@@ -384,6 +384,7 @@ pub fn run() {
             commands::set_lb_enabled,
             commands::lb_search,
             commands::set_lb_match,
+            commands::lb_browse,
             commands::wd_status,
             commands::cover_accent,
             commands::cover_edges,

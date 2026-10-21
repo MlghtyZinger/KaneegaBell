@@ -176,6 +176,40 @@ fn back_covers_prefer_english_regions_and_spines_are_kept() {
 }
 
 #[test]
+fn searching_for_a_back_cover_loads_another_entry_s_pictures_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::test_db();
+    let game = add_game(&conn, "Totally Unknown Game (USA)");
+    let xml = SAMPLE.replace(
+        "</LaunchBox>",
+        "  <GameImage><DatabaseID>102</DatabaseID><FileName>okami-back.jpg</FileName><Type>Box - Back</Type><Region>North America</Region></GameImage>
+</LaunchBox>",
+    );
+    let source = FakeSource::new(&xml);
+    let http = FakeHttp::default();
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    let opens = source.opens();
+
+    // Okami isn't in the library: found by name, but its pictures aren't stored yet.
+    let found = case_search(&conn, game, images::Case::Back, "okami").unwrap();
+    assert_eq!((found[0].source.as_str(), found[0].url.as_str()), ("lbgame", "102"));
+    assert!(!wanted(&conn).unwrap());
+    // Choosing it asks for them: the next pass downloads once and keeps them.
+    add_browse(&conn, 102).unwrap();
+    assert!(wanted(&conn).unwrap());
+    assert!(run_pass(&mut conn, dir.path(), &source, &http, false).downloaded);
+    assert_eq!(source.opens(), opens + 1);
+    let found = case_search(&conn, game, images::Case::Back, "okami").unwrap();
+    assert_eq!((found[0].source.as_str(), found[0].name.as_str()), ("launchbox", "okami-back.jpg"));
+    assert!(found[0].label.ends_with("North America"));
+    // Stored, so no more downloads, and later passes keep it.
+    assert!(!wanted(&conn).unwrap());
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), opens + 1);
+    assert_eq!(count(&conn, "SELECT COUNT(*) FROM lb_images WHERE db_id = 102"), 1);
+}
+
+#[test]
 fn the_weekly_check_downloads_only_when_launchbox_changed() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();
