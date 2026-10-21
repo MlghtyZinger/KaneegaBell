@@ -703,6 +703,12 @@ background). A first run failed while a game used ~3.4 cores (cold start 561 ms,
 0.3.5 (Settings touch-up, Settings loaded only when opened): cold start 460 ms, 240 fps (max frame 10.3 ms on the
 first pass), 116 MB in Task Manager at start (−8%), 202 MB after scrolling (−10%), 104 MB while a game runs, 130 MB
 after it (−16%); passed on the first run.
+0.3.12 (animations, intros, sounds, 3D cases; intros, sounds and launch animation switched off in the test library,
+animations at Full): cold start 428 ms median, idle 0.26% of one core, 105 MB in Task Manager at start, 215 MB after
+scrolling, 106 MB while a game runs, 136 MB after it; scrolling 240 fps with p99 4.3 ms and no frame over 4.4 ms.
+Run 2 passed; run 1 tripped on one 20.8 ms frame in the second scroll pass (p99 still 4.3 ms, one start of 930 ms
+as the new exe launched for the first time), not repeated. Private memory is higher than the old baseline (+22–35%)
+but only warns; the Task Manager figures, which the gate uses, are within 4%.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
