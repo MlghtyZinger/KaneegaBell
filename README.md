@@ -764,7 +764,9 @@ window, so they're written for players.
 - New: put your own sound for an intro in KB's `data\intros` folder and it plays with that intro.
 - New: when you start a game, its case opens and the disc spins, or the cartridge goes into its console. Back cancels it. Turn it off for the desktop or TV Mode in Settings.
 - New: TV Mode's shelf shows 3D game cases. Turn them with the right stick, tilt them, and flip them to see the back. Flat covers are still an option.
-- New: discs and back covers come from the LaunchBox Games Database when it has them.
+- New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
+- New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
+- Fixed: 3D cases take their cover's own shape, so covers are no longer cropped; a back cover that wasn't downloaded yet when you first looked is shown the next time.
 - New: sounds for moving, choosing, going back and starting a game, in three styles: Tactile, Console and Retro console. Each mode has its own switch and volume.
 - Changed: the series name above a game's title opens its collection (the separate Collections box is gone), and short windows show 3 achievements instead of 5 (none on very short ones).
 - Improved: long descriptions (800 characters or more) are cut to their opening sentences (400 to 800 characters) in the side panels and TV Mode, skipping release dates, ports, patches and franchise history; the full text is on hover and on the details screen. Short ones show whole.

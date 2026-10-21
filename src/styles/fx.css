@@ -159,6 +159,16 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
   font: 700 calc(var(--d) * .36)/1 var(--display); font-style: normal; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
 .m3 .stitle { position: absolute; left: 0; right: 0; top: 18%; bottom: 0; display: grid; place-items: center; writing-mode: vertical-rl; padding: 4% 0;
   font-family: var(--display); font-weight: 700; line-height: 1; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* LaunchBox's spine picture fills the side; a wide one (a horizontal box's top edge) is turned to read down the side. */
+.m3 .spine-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
+.m3 .spine-img.wide { inset: auto; left: 50%; top: 50%; width: var(--h); height: var(--d); transform: translate(-50%, -50%) rotate(90deg); }
+/* No spine picture: the cover's left edge stretched over it, so the colours carry on from the front. */
+.m3 .spine.drawn { background: hsl(var(--hue) 38% 16%); }
+.m3 .sedge { position: absolute; inset: 0; background-size: 1200% 100%; background-position: left center; opacity: .9; }
+.m3 .spine.drawn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(0 0 0 / .35), rgb(0 0 0 / .15)); }
+.m3 .spine.drawn > * { z-index: 1; }
+.m3 .spine.drawn .sband, .m3 .spine.drawn .stitle { text-shadow: 0 1px 3px rgb(0 0 0 / .7); }
+.m3.pf-wii .spine.drawn, .m3.pf-n3ds .spine.drawn, .m3.pf-nds .spine.drawn { color: #fff; }
 .m3.pf-wii .spine, .m3.pf-n3ds .spine, .m3.pf-nds .spine { color: #2a2f36; }
 .m3.pf-wii .sband, .m3.pf-n3ds .sband, .m3.pf-nds .sband, .m3.pf-xbox .sband, .m3.pf-switch .sband, .m3.pf-n64 .sband, .m3.pf-gba .sband, .m3.pf-ps2 .sband { color: #fff; }
 .m3 .bart { position: absolute; inset: 0; padding: 9%; display: flex; flex-direction: column; gap: 5%; color: #e9e2d6; font-size: calc(var(--w) * .055);

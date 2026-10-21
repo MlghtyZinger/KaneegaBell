@@ -259,6 +259,13 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     </button>
                   </div>
                 </Show>
+                <Show when={g().meta.lbId}>
+                  <div class="row tight">
+                    <button class="btn small" onClick={() => setPicking("back")}>Back cover…</button>
+                    <button class="btn small" onClick={() => setPicking("spine")}>Spine…</button>
+                    <button class="btn small" onClick={() => setPicking("disc")}>Disc…</button>
+                  </div>
+                </Show>
                 <Show when={kept()}>
                   <span class="dim small">You picked this cover, so Refresh keeps it. Change cover… picks another.</span>
                 </Show>

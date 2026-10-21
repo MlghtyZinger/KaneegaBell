@@ -458,6 +458,12 @@ Each milestone is runnable and tested, and passes the perf gate.
       LaunchBox keeps "Disc" and "Box - Back" images (stamp `kinds`, one extra download for older lists) stored as
       `art\d`, `art\b` and served as `thumb://…/d|b/<id>`; the launch animation plays before `launch_game`
       (KB minimizes at spawn), Back cancels it.
+      **Owner's feedback on the first build (2026-10-21), fixed:** covers cropped (cases now take the cover's `artAspect`,
+      same area; a launching cartridge keeps the platform shape), no spines (drawn ones rejected: use LaunchBox's "Box - Spine",
+      `art\s`, tall ones fill the side, wide ones, a horizontal box's top spine, are turned; fallback = the cover's edge
+      stretched + platform band + title), backs missing (backs download in the background; a miss is retried), non-English
+      backs (English regions first for backs and spines; "Back cover…", "Spine…", "Disc…" pickers in the details screen,
+      user picks marked `<id>.manual` and kept by "Clear downloaded data"). `IMAGE_KINDS_VERSION` 3 (one more download).
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected
       2026-10-15):** only the right side of any background is really seen; the middle and left are

@@ -145,6 +145,37 @@ fn disc_and_back_pictures_come_with_one_more_download_for_older_lists() {
 }
 
 #[test]
+fn back_covers_prefer_english_regions_and_spines_are_kept() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::test_db();
+    let jak = add_game(&conn, "Jak & Daxter - The Precursor Legacy (Japan)");
+    let xml = SAMPLE.replace(
+        "</LaunchBox>",
+        "  <GameImage><DatabaseID>101</DatabaseID><FileName>jp-back.jpg</FileName><Type>Box - Back</Type><Region>Japan</Region></GameImage>
+           <GameImage><DatabaseID>101</DatabaseID><FileName>na-back.jpg</FileName><Type>Box - Back</Type><Region>North America</Region></GameImage>
+           <GameImage><DatabaseID>101</DatabaseID><FileName>spine.png</FileName><Type>Box - Spine</Type></GameImage>
+</LaunchBox>",
+    );
+    let source = FakeSource::new(&xml);
+    let mut http = FakeHttp::default();
+    http.pages.insert(image_url("jp-back.jpg"), images::test_png(300, 420));
+    http.pages.insert(image_url("na-back.jpg"), images::test_png(310, 430));
+    http.pages.insert(image_url("spine.png"), images::test_png(40, 400));
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    // The Japanese game still gets the English back first.
+    let backs = images_ranked(&conn, 101, &["Box - Back"], Some("Japan"), true).unwrap();
+    assert_eq!(backs.iter().map(|b| b.0.as_str()).collect::<Vec<_>>(), ["na-back.jpg", "jp-back.jpg"]);
+    let own = images_ranked(&conn, 101, &["Box - Back"], Some("Japan"), false).unwrap();
+    assert_eq!(own[0].0, "jp-back.jpg");
+    let stored = std::fs::read(images::case_path(dir.path(), images::Case::Back, jak)).unwrap();
+    assert_eq!(webp::Decoder::new(&stored).decode().unwrap().width(), 310, "the English back, not the Japanese one");
+    assert!(images::case_path(dir.path(), images::Case::Spine, jak).is_file());
+    // The picker lists both, English first, labelled with their region.
+    let pick = case_picker(&conn, jak, images::Case::Back).unwrap();
+    assert_eq!(pick[0].label, "LaunchBox back cover · North America");
+}
+
+#[test]
 fn the_weekly_check_downloads_only_when_launchbox_changed() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();

@@ -594,7 +594,7 @@ pub fn fetch_art(app: AppHandle, state: State<'_, AppState>) -> bool {
 /// Which picture a picker works on: "cover" (default), or "hero" / "logo"
 /// (TV Mode's background and logo, from SteamGridDB).
 #[derive(Clone, Copy)]
-enum PickerKind { Cover, Hero, Logo, Icon }
+enum PickerKind { Cover, Hero, Logo, Icon, Back, Disc, Spine }
 
 fn extra_kind(kind: Option<&str>) -> Result<PickerKind> {
     match kind.unwrap_or("cover") {
@@ -602,7 +602,18 @@ fn extra_kind(kind: Option<&str>) -> Result<PickerKind> {
         "hero" => Ok(PickerKind::Hero),
         "logo" => Ok(PickerKind::Logo),
         "icon" => Ok(PickerKind::Icon),
+        "back" => Ok(PickerKind::Back),
+        "disc" => Ok(PickerKind::Disc),
+        "spine" => Ok(PickerKind::Spine),
         other => Err(Error::msg(format!("unknown picture kind {other}"))),
+    }
+}
+
+fn case_of(kind: PickerKind) -> art::images::Case {
+    match kind {
+        PickerKind::Disc => art::images::Case::Disc,
+        PickerKind::Spine => art::images::Case::Spine,
+        _ => art::images::Case::Back,
     }
 }
 
@@ -619,6 +630,14 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
         let sgdb = key.map(|k| art::sgdb::Sgdb::new(&http, k));
         match extra_kind(kind.as_deref())? {
             PickerKind::Cover => art::candidates(&conn, &http, sgdb.as_ref(), id, query.as_deref()),
+            PickerKind::Back | PickerKind::Disc | PickerKind::Spine => {
+                let case = case_of(extra_kind(kind.as_deref())?);
+                let out = crate::launchbox::case_picker(&conn, id, case)?;
+                if out.is_empty() {
+                    return Err(Error::msg("LaunchBox has no pictures of this kind for this game. You can still use an image file of your own."));
+                }
+                Ok(out)
+            }
             PickerKind::Icon => {
                 let sgdb = sgdb.ok_or_else(|| Error::msg("A SteamGridDB key is needed to search for icons. KB can crop an icon from the cover instead."))?;
                 art::extras::candidates(&conn, &sgdb, id, art::sgdb::Kind::Icon, query.as_deref())
@@ -662,6 +681,10 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
         let http = art::http::Http::new();
         match extra_kind(kind.as_deref())? {
             PickerKind::Cover => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
+            k @ (PickerKind::Back | PickerKind::Disc | PickerKind::Spine) => {
+                let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that picture is no longer available"))? };
+                art::images::store_case_manual(state.data_dir(), case_of(k), id, &bytes)
+            }
             PickerKind::Icon => {
                 let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that icon is no longer available"))? };
                 art::icons::set_manual(&conn, state.data_dir(), id, &bytes)
@@ -684,6 +707,7 @@ pub fn remove_extra(app: AppHandle, state: State<'_, AppState>, id: i64, kind: S
     match extra_kind(Some(&kind))? {
         PickerKind::Icon => art::icons::reset_to_cover(&state.db(), state.data_dir(), id)?,
         PickerKind::Cover => return Err(Error::msg("use remove_cover for covers")),
+        PickerKind::Back | PickerKind::Disc | PickerKind::Spine => return Err(Error::msg("those can only be changed, not removed")),
         PickerKind::Hero | PickerKind::Logo => {
             let extra = if kind == "hero" { art::images::Extra::Hero } else { art::images::Extra::Logo };
             art::extras::remove(&state.db(), state.data_dir(), id, extra)?;

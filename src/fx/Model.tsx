@@ -77,10 +77,14 @@ export function Model(props: {
   // the next time the case is looked at.
   const [backOk, setBackOk] = createSignal(true);
   const [discOk, setDiscOk] = createSignal(true);
+  const [spineOk, setSpineOk] = createSignal(true);
+  /** The spine picture's shape: LaunchBox's wide ones are for a horizontal box's top edge. */
+  const [spineWide, setSpineWide] = createSignal(false);
   createEffect(() => {
     if (!props.detail) {
       setBackOk(true);
       setDiscOk(true);
+      setSpineOk(true);
     }
   });
   // Spine title size: as large as the spine's width allows, smaller when the title is long.
@@ -88,11 +92,32 @@ export function Model(props: {
     const [, h, d] = dims();
     return Math.min(d * 0.5, (h * 0.7) / (Math.max(props.game.title.length, 6) * 0.55)) * k();
   };
+  // LaunchBox's own spine picture when it has one; else the cover's edge stretched over the spine, with the platform and title.
   const Spine = () => (
-    <div class="spine">
-      <i class="sband">{props.platformName}</i>
-      <b class="stitle" style={{ "font-size": `${spineFont()}px` }}>{props.game.title}</b>
-    </div>
+    <Show
+      when={spineOk()}
+      fallback={
+        <div class="spine drawn">
+          <Show when={props.game.art > 0}>
+            <div class="sedge" style={{ "background-image": `url(${artUrl(props.game.id, props.game.art, "t")})` }} />
+          </Show>
+          <i class="sband">{props.platformName}</i>
+          <b class="stitle" style={{ "font-size": `${spineFont()}px` }}>{props.game.title}</b>
+        </div>
+      }
+    >
+      <div class="spine">
+        <img
+          class="spine-img"
+          classList={{ wide: spineWide() }}
+          src={artUrl(props.game.id, 0, "s")}
+          alt=""
+          draggable={false}
+          onLoad={(e) => setSpineWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
+          onError={() => setSpineOk(false)}
+        />
+      </div>
+    </Show>
   );
   const Art = (p: { big?: boolean }) => (
     <Show

@@ -5,13 +5,18 @@ import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
 
-export type PictureKind = "cover" | "hero" | "logo" | "icon";
+export type PictureKind = "cover" | "hero" | "logo" | "icon" | "back" | "disc" | "spine";
+/** The pictures on a game's 3D case besides the cover: LaunchBox's, or an image file of your own. */
+const CASE_ART: PictureKind[] = ["back", "disc", "spine"];
 
 const WORDS: Record<PictureKind, { title: string; noun: string; use: string }> = {
   cover: { title: "Change cover", noun: "covers", use: "Use this cover" },
   hero: { title: "Change background", noun: "backgrounds", use: "Use this background" },
   logo: { title: "Change logo", noun: "logos", use: "Use this logo" },
   icon: { title: "Change icon", noun: "icons", use: "Use this icon" },
+  back: { title: "Change back cover", noun: "back covers", use: "Use this back cover" },
+  disc: { title: "Change disc", noun: "discs", use: "Use this disc" },
+  spine: { title: "Change spine", noun: "spines", use: "Use this spine" },
 };
 
 /**
@@ -87,17 +92,19 @@ export function CoverPicker(props: {
 
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={search}>
+      <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={CASE_ART.includes(kind()) ? undefined : search}>
         <h2>{words().title}</h2>
         <p class="dim">
           {props.title}
           {query() ? ` · results for “${query()}”` : ""}
         </p>
         <div class="row">
-          <button class="btn" onClick={search}>
-            Search {words().noun}…
-          </button>
-          <Show when={kind() === "cover" || kind() === "icon"}>
+          <Show when={!CASE_ART.includes(kind())}>
+            <button class="btn" onClick={search}>
+              Search {words().noun}…
+            </button>
+          </Show>
+          <Show when={kind() === "cover" || kind() === "icon" || CASE_ART.includes(kind())}>
             <button class="btn" onClick={() => setBrowsing(true)}>
               Use an image file…
             </button>
@@ -105,9 +112,11 @@ export function CoverPicker(props: {
           <Show when={kind() === "icon"}>
             <button class="btn" onClick={async () => { await api.useCoverIcon(props.gameId); props.onChanged(); props.onClose(); }}>Use the cover</button>
           </Show>
-          <button class="btn danger" onClick={() => void remove()}>
-            {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : kind() === "icon" ? "Remove icon" : "No logo"}
-          </button>
+          <Show when={!CASE_ART.includes(kind())}>
+            <button class="btn danger" onClick={() => void remove()}>
+              {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : kind() === "icon" ? "Remove icon" : "No logo"}
+            </button>
+          </Show>
         </div>
         <Show when={error()}>
           <p class="warn">{error()}</p>
@@ -124,7 +133,7 @@ export function CoverPicker(props: {
         <Show when={kind() === "hero"}>
           <p class="dim small">16:9 backgrounds fill the sidebar; wide ones show whole, with blurred bands above and below.</p>
         </Show>
-        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo", icons: kind() === "icon" }}>
+        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo" || kind() === "spine", icons: kind() === "icon" || kind() === "disc" }}>
           <For each={list()}>
             {(c, i) => (
               <button
@@ -165,7 +174,7 @@ export function CoverPicker(props: {
       </NavScope>
       <Show when={browsing()}>
         <FileBrowser
-          title="Choose a cover image"
+          title={CASE_ART.includes(kind()) ? `Choose an image for the ${kind() === "back" ? "back cover" : kind()}` : "Choose a cover image"}
           mode="file"
           extensions={["png", "jpg", "jpeg", "webp"]}
           onPick={(path) => {

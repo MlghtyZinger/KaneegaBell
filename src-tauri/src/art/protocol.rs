@@ -18,6 +18,7 @@ pub enum Asset {
     /// The disc and back cover of a game's 3D case.
     Disc(i64),
     Back(i64),
+    Spine(i64),
     /// A collection's ('c') or series' ('s') own logo image.
     Collection(char, i64),
     /// A collection's or series' own TV Mode background.
@@ -37,6 +38,7 @@ pub fn parse(path: &str) -> Option<Asset> {
         "i" => Some(Asset::Icon(id)),
         "d" => Some(Asset::Disc(id)),
         "b" => Some(Asset::Back(id)),
+        "s" => Some(Asset::Spine(id)),
         "cc" => Some(Asset::Collection('c', id)),
         "cs" => Some(Asset::Collection('s', id)),
         "ch" => Some(Asset::CollectionHero('c', id)),
@@ -54,6 +56,7 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
         Asset::Icon(id) => images::icon_path(data_dir, *id),
         Asset::Disc(id) => images::case_path(data_dir, images::Case::Disc, *id),
         Asset::Back(id) => images::case_path(data_dir, images::Case::Back, *id),
+        Asset::Spine(id) => images::case_path(data_dir, images::Case::Spine, *id),
         Asset::Collection(kind, id) => data_dir.join("art").join("c").join(format!("{kind}-{id}.webp")),
         Asset::CollectionHero(kind, id) => data_dir.join("art").join("c").join(format!("{kind}-{id}-hero.webp")),
     }
@@ -75,11 +78,17 @@ pub fn respond(data_dir: &Path, path: &str) -> tauri::http::Response<Vec<u8>> {
         }
         None => (parse(path).and_then(|a| std::fs::read(file_for(data_dir, &a)).ok()), "image/webp"),
     };
+    // Discs, backs and spines can arrive later or be changed by the user: always ask again.
+    let cache = if matches!(parse(path), Some(Asset::Disc(_) | Asset::Back(_) | Asset::Spine(_))) {
+        "no-cache"
+    } else {
+        "public, max-age=31536000, immutable"
+    };
     match found {
         Some(bytes) => builder
             .status(200)
             .header("Content-Type", mime)
-            .header("Cache-Control", "public, max-age=31536000, immutable")
+            .header("Cache-Control", cache)
             .header("Access-Control-Allow-Origin", "*")
             .body(bytes),
         None => builder.status(404).body(Vec::new()),

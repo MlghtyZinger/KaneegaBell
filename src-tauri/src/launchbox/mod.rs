@@ -42,9 +42,9 @@ const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
 /// Image types kept (LaunchBox has ~30; KB shows these). Disc and back
 /// pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
 const IMAGE_KINDS: &[&str] =
-    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed"];
+    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine"];
 /// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
-const IMAGE_KINDS_VERSION: u32 = 2;
+const IMAGE_KINDS_VERSION: u32 = 3;
 const STAMP_KEY: &str = "launchbox";
 
 /// What KB remembers about the last download (settings, `launchbox`).
@@ -448,6 +448,20 @@ pub fn image_url(file: &str) -> String {
 /// Image files of one kind for a LaunchBox game, best first: the game's own
 /// region, then region-free/"World", then the rest. `kinds` are tried in order.
 pub fn images_for(conn: &Connection, db_id: i64, kinds: &[&str], region: Option<&str>) -> Result<Vec<(String, Option<String>)>> {
+    images_ranked(conn, db_id, kinds, region, false)
+}
+
+/// A region LaunchBox lists for English-language releases (or none given).
+fn english_region(reg: Option<&str>) -> bool {
+    let Some(r) = reg else { return true };
+    let r = r.to_ascii_lowercase();
+    ["north america", "united states", "usa", "united kingdom", "australia", "canada", "new zealand", "ireland", "world"].iter().any(|x| r.contains(x))
+}
+
+/// Like `images_for`; with `english_first` the English-language regions come
+/// before the game's own (a Japanese or Italian back cover is of no use to
+/// someone who reads English), each group still best-fitting region first.
+pub fn images_ranked(conn: &Connection, db_id: i64, kinds: &[&str], region: Option<&str>, english_first: bool) -> Result<Vec<(String, Option<String>)>> {
     let mut stmt = conn.prepare_cached("SELECT kind, region, file FROM lb_images WHERE db_id = ?1")?;
     let rows: Vec<(String, Option<String>, String)> =
         stmt.query_map([db_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?;
@@ -455,7 +469,16 @@ pub fn images_for(conn: &Connection, db_id: i64, kinds: &[&str], region: Option<
         .into_iter()
         .filter_map(|(kind, reg, file)| {
             let k = kinds.iter().position(|x| *x == kind)?;
-            let r = if matching::region_fits(region, reg.as_deref()) {
+            let fits = matching::region_fits(region, reg.as_deref());
+            let r = if english_first {
+                // English regions first (the game's own among them first), then the game's region, then the rest.
+                match (english_region(reg.as_deref()), fits) {
+                    (true, true) => 0,
+                    (true, false) => 1,
+                    (false, true) => 2,
+                    (false, false) => 3,
+                }
+            } else if fits {
                 0
             } else if reg.is_none() || reg.as_deref().is_some_and(|x| x.eq_ignore_ascii_case("world")) {
                 1
@@ -535,16 +558,59 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
     Ok(false)
 }
 
+/// LaunchBox's image types for a case picture, and whether English regions come first (printed text).
+fn case_kinds(case: images::Case) -> (&'static [&'static str], bool) {
+    match case {
+        images::Case::Disc => (&["Disc"], false),
+        images::Case::Back => (&["Box - Back", "Box - Back - Reconstructed"], true),
+        images::Case::Spine => (&["Box - Spine"], true),
+    }
+}
+
+/// Picker options for a case picture (back, disc or spine) from the game's LaunchBox match.
+pub fn case_picker(conn: &Connection, game_id: i64, case: images::Case) -> Result<Vec<crate::art::Candidate>> {
+    let row: Option<(Option<i64>, String, Option<String>)> = conn
+        .query_row("SELECT lb_id, lb_status, region FROM games WHERE id = ?1", [game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+        .optional()?;
+    let Some((Some(db_id), status, region)) = row else { return Ok(Vec::new()) };
+    if status != "ok" && status != "manual" {
+        return Ok(Vec::new());
+    }
+    let (kinds, english) = case_kinds(case);
+    let label = match case {
+        images::Case::Disc => "LaunchBox disc",
+        images::Case::Back => "LaunchBox back cover",
+        images::Case::Spine => "LaunchBox spine",
+    };
+    Ok(images_ranked(conn, db_id, kinds, region.as_deref(), english)?
+        .into_iter()
+        .map(|(file, reg)| {
+            let url = image_url(&file);
+            crate::art::Candidate {
+                source: "launchbox".into(),
+                name: file,
+                preview: Some(url.clone()),
+                url,
+                label: match reg {
+                    Some(r) => format!("{label} · {r}"),
+                    None => label.to_string(),
+                },
+            }
+        })
+        .collect())
+}
+
 /// The disc and back cover for a game's 3D case, once each (`art\d`, `art\b`);
 /// none is fine, the case then draws its own.
 fn fetch_case_art(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, db_id: i64, region: Option<&str>) -> Result<()> {
     // A reconstructed back only comes after the real scans (as with covers).
-    for (kinds, case) in [(&["Disc"][..], images::Case::Disc), (&["Box - Back", "Box - Back - Reconstructed"][..], images::Case::Back)] {
+    for case in [images::Case::Disc, images::Case::Back, images::Case::Spine] {
         let path = images::case_path(data_dir, case, game_id);
         if path.exists() {
             continue;
         }
-        for (file, _) in images_for(conn, db_id, kinds, region)?.into_iter().take(2) {
+        let (kinds, english) = case_kinds(case);
+        for (file, _) in images_ranked(conn, db_id, kinds, region, english)?.into_iter().take(2) {
             let Some(bytes) = fetch.get(&image_url(&file))? else { continue };
             if images::store_case(data_dir, case, game_id, &bytes).is_ok() {
                 break;

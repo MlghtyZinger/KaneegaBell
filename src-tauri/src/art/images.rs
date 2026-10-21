@@ -161,24 +161,59 @@ pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) ->
 pub enum Case {
     Disc,
     Back,
+    Spine,
+}
+
+impl Case {
+    /// Its folder under `art`.
+    pub fn dir(self) -> &'static str {
+        match self {
+            Case::Disc => "d",
+            Case::Back => "b",
+            Case::Spine => "s",
+        }
+    }
 }
 
 pub fn case_path(data_dir: &Path, case: Case, game_id: i64) -> PathBuf {
-    let dir = match case {
-        Case::Disc => "d",
-        Case::Back => "b",
-    };
-    data_dir.join("art").join(dir).join(format!("{game_id}.webp"))
+    data_dir.join("art").join(case.dir()).join(format!("{game_id}.webp"))
 }
 
-/// Resizes and stores a disc (keeps its transparency) or back cover.
+/// Marks a picture the user chose: automatic downloads and "Clear downloaded data" leave it alone.
+fn case_marker(data_dir: &Path, case: Case, game_id: i64) -> PathBuf {
+    data_dir.join("art").join(case.dir()).join(format!("{game_id}.manual"))
+}
+
+/// Resizes and stores a disc (keeps its transparency), back cover or spine.
 pub fn store_case(data_dir: &Path, case: Case, game_id: i64, bytes: &[u8]) -> Result<()> {
     let img = image::load_from_memory(bytes).map_err(|e| Error::msg(format!("bad image: {e}")))?;
     let max = match case {
         Case::Disc => (600, 600),
         Case::Back => (800, 1100),
+        Case::Spine => (1400, 1400),
     };
     write_atomic(&case_path(data_dir, case, game_id), &webp(&fit(&img, max), THUMB_QUALITY)?)
+}
+
+/// The user's own pick: stored like the download, and remembered as theirs.
+pub fn store_case_manual(data_dir: &Path, case: Case, game_id: i64, bytes: &[u8]) -> Result<()> {
+    store_case(data_dir, case, game_id, bytes)?;
+    write_atomic(&case_marker(data_dir, case, game_id), b"")
+}
+
+/// Deletes the downloaded discs, backs and spines, keeping the user's picks.
+pub fn clear_case_art(data_dir: &Path) {
+    for case in [Case::Disc, Case::Back, Case::Spine] {
+        let dir = data_dir.join("art").join(case.dir());
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.extension().is_some_and(|x| x == "manual") || p.with_extension("manual").exists() {
+                continue;
+            }
+            let _ = std::fs::remove_file(p);
+        }
+    }
 }
 
 /// Stores a user's logo image at `path` (PNG, JPEG or WebP; resized like the
@@ -275,6 +310,18 @@ mod tests {
                 bg
             }
         }))
+    }
+
+    #[test]
+    fn a_picked_case_picture_survives_clearing_the_downloads() {
+        let t = tempfile::tempdir().unwrap();
+        store_case(t.path(), Case::Back, 1, &test_png(20, 30)).unwrap();
+        store_case_manual(t.path(), Case::Back, 2, &test_png(20, 30)).unwrap();
+        store_case(t.path(), Case::Spine, 1, &test_png(10, 30)).unwrap();
+        clear_case_art(t.path());
+        assert!(!case_path(t.path(), Case::Back, 1).exists());
+        assert!(!case_path(t.path(), Case::Spine, 1).exists());
+        assert!(case_path(t.path(), Case::Back, 2).is_file());
     }
 
     #[test]
