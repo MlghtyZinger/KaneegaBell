@@ -305,6 +305,15 @@ only entries matching the user's games are kept (a few MB at most in `data\`), t
 stored. Re-download only when LaunchBox's file changed and there are unmatched games, or on
 "Update game info". Images only for the user's games, preferring the box of the dump's region.
 
+**Parked (owner, 2026-10-21): test ScreenScraper as a main metadata provider** (it has backs, spines "box-2D-side", discs/carts and
+manuals, found by ROM hash; the owner plans manuals later). Not a milestone yet and not in the locked release order: needs the
+owner's go for where it goes. API read 2026-10-21 (webapi2.php, partly): needs developer credentials (devid, devpassword,
+softname) requested from ScreenScraper's forum by the app's developer, plus a member login (ssid/sspassword; anonymous use is
+closed, 401); threads and per-minute/daily quotas depend on the account's level (429 threads/rate, 430 daily quota, 431 too many
+unrecognised ROMs), and the scraper must manage quotas itself; API v2 is beta; integrations must be fully free and distributed
+(otherwise prior authorisation). Never embed another app's credentials. Test plan: a throwaway probe script on the dev library's
+games (hash lookups, which media each has, match rate, speed, vs LaunchBox), run with the owner's own login, before any KB code.
+
 **Plan shape:** LaunchBox DB as the new primary keyless source for covers, logos, backgrounds and
 info (libretro/GameTDB stay as fallbacks, IGDB/SGDB picks win when set up), then Wikidata for series,
 then Hasheous hash identification. Settings → Game info shows each source, what it adds and its
