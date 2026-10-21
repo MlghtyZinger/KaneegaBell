@@ -160,6 +160,9 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
   font-family: var(--display); font-weight: 700; line-height: 1; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* LaunchBox's spine picture fills the side; a wide one (a horizontal box's top edge) is turned to read down the side. */
 .m3 .spine-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A tall spine picture wraps onto the top and bottom, turned on its side (the bottom the other way round). */
+.m3 .spine-img.tall { inset: auto; left: 50%; top: 50%; width: var(--d); height: var(--w); object-fit: fill; transform: translate(-50%, -50%) rotate(90deg); }
+.m3 .spine-img.tall.flip { transform: translate(-50%, -50%) rotate(-90deg); }
 .m3 .spine-img.wide { inset: auto; left: 50%; top: 50%; width: var(--h); height: var(--d); transform: translate(-50%, -50%) rotate(90deg); }
 /* Top and bottom faces: plain plastic in the platform's colour, a little darker than the front. */
 .m3 .edge { position: absolute; inset: 0; background-color: var(--spine, hsl(var(--hue) 38% 16%)); overflow: hidden; }

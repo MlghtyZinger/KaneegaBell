@@ -105,7 +105,7 @@ export function Model(props: {
     }
   });
   // The top and bottom faces: the cover's own edge colour (else the platform's), like the printed wrap of a real box;
-  // a horizontal box's top spine picture goes on them.
+  // a horizontal box's top spine picture goes on them, and a tall spine picture wraps round onto them turned on its side.
   const [edges] = createResource(
     () => (props.game.art > 0 ? `${props.game.id}:${props.game.art}` : null),
     (key) => edgeColours(key, props.game.id),
@@ -114,6 +114,9 @@ export function Model(props: {
     <div class="edge" style={{ "background-color": edges()?.[p.at] }}>
       <Show when={spineOk() && spineWide()}>
         <img class="spine-img" src={artUrl(props.game.id, caseRev(), "s")} alt="" draggable={false} />
+      </Show>
+      <Show when={spineOk() && !spineWide() && spineRatio() > 0}>
+        <img class="spine-img tall" classList={{ flip: p.at === 1 }} src={artUrl(props.game.id, caseRev(), "s")} alt="" draggable={false} />
       </Show>
     </div>
   );

@@ -775,6 +775,7 @@ window, so they're written for players.
 - New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
 - New: games LaunchBox has no back cover or spine for get them from GameTDB's full covers (Wii, GameCube, PS3, DS and 3DS games it knows), cut out of the full picture; no account needed.
 - New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
+- Improved: a game's spine picture also wraps onto the top and bottom of its 3D case, turned on its side.
 - New: Search… in the back cover, spine and disc pickers finds other LaunchBox entries by name (a differently named edition, a hack's original game). Choosing one that KB hasn't stored loads its pictures, downloading LaunchBox's file once.
 - Fixed: 3D cases take their cover's own shape, so covers are no longer cropped; a back cover that wasn't downloaded yet when you first looked is shown the next time.
 - New: sounds for moving, choosing, going back and starting a game, in three styles: Tactile, Console and Retro console. Each mode has its own switch and volume.
