@@ -66,7 +66,9 @@ export function Model(props: {
     if (!a || (c().m === "cart" && props.launch)) return [w, h, d];
     const asp = Math.min(1.8, Math.max(0.55, a));
     const hh = Math.sqrt(w * h * asp);
-    return [hh / asp, hh, d];
+    // A tall spine picture sets how thick the case is (within reason), so it isn't squashed to fit.
+    const dd = spineOk() && spineRatio() > 0 && !spineWide() ? Math.min(d * 1.6, Math.max(d * 0.75, hh * spineRatio())) : d;
+    return [hh / asp, hh, dd];
   };
   const spine = () => SPINES[c().k] ?? ["", ""];
   const h = () => hue(props.game.title);
@@ -80,6 +82,8 @@ export function Model(props: {
   const [spineOk, setSpineOk] = createSignal(true);
   /** The spine picture's shape: LaunchBox's wide ones are for a horizontal box's top edge. */
   const [spineWide, setSpineWide] = createSignal(false);
+  /** Width / height of a tall spine picture. */
+  const [spineRatio, setSpineRatio] = createSignal(0);
   createEffect(() => {
     if (!props.detail) {
       setBackOk(true);
@@ -87,30 +91,25 @@ export function Model(props: {
       setSpineOk(true);
     }
   });
-  // The top and bottom faces: the cover's own top / bottom rows stretched across, so the colours carry on from the front.
-  const Edge = (p: { at: "top" | "bottom" }) => (
-    <div
-      class="edge"
-      style={{
-        "background-image": props.game.art > 0 ? `url(${artUrl(props.game.id, props.game.art, "t")})` : undefined,
-        "background-position": `center ${p.at}`,
-      }}
-    />
+  // The top and bottom faces: plain plastic in the platform's colour; a horizontal box's top spine picture goes on them.
+  const Edge = () => (
+    <div class="edge">
+      <Show when={spineOk() && spineWide()}>
+        <img class="spine-img" src={artUrl(props.game.id, 0, "s")} alt="" draggable={false} />
+      </Show>
+    </div>
   );
   // Spine title size: as large as the spine's width allows, smaller when the title is long.
   const spineFont = () => {
     const [, h, d] = dims();
     return Math.min(d * 0.5, (h * 0.7) / (Math.max(props.game.title.length, 6) * 0.55)) * k();
   };
-  // LaunchBox's own spine picture when it has one; else the cover's edge stretched over the spine, with the platform and title.
+  // LaunchBox's own spine picture when it has one; else the platform's colour with its name and the title.
   const Spine = () => (
     <Show
       when={spineOk()}
       fallback={
         <div class="spine drawn">
-          <Show when={props.game.art > 0}>
-            <div class="sedge" style={{ "background-image": `url(${artUrl(props.game.id, props.game.art, "t")})` }} />
-          </Show>
           <i class="sband">{props.platformName}</i>
           <b class="stitle" style={{ "font-size": `${spineFont()}px` }}>{props.game.title}</b>
         </div>
@@ -123,7 +122,11 @@ export function Model(props: {
           src={artUrl(props.game.id, 0, "s")}
           alt=""
           draggable={false}
-          onLoad={(e) => setSpineWide(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
+          onLoad={(e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            setSpineWide(w > h);
+            setSpineRatio(w > h ? 0 : w / h);
+          }}
           onError={() => setSpineOk(false)}
         />
       </div>
@@ -165,8 +168,8 @@ export function Model(props: {
       </div>
       <div class="f sl"><Spine /></div>
       <div class="f sr"><Spine /></div>
-      <div class="f st"><Edge at="top" /></div>
-      <div class="f sb"><Edge at="bottom" /></div>
+      <div class="f st"><Edge /></div>
+      <div class="f sb"><Edge /></div>
       <Show when={front}>
         <div class="f bf">
           <Art big={props.launch} />
