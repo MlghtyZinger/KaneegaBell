@@ -59,14 +59,14 @@ function Launch(props: { run: Run }) {
   at(60, () => setSettled(true));
   if (cart) {
     // The cartridge sound is timed so it seats when the cartridge does.
-    // The cartridge is held out for a moment so it can be looked at, then goes in.
+    // The cartridge comes out, the console slides in under it, and it goes in (a little longer than the first version, without a dead pause).
     at(520, () => {
       add("out");
-      sfx("cart", 2260);
+      sfx("cart", 1410);
     });
-    at(2350, () => add("drop"));
-    at(2850, () => add("insert"));
-    at(3280, () => {
+    at(1500, () => add("drop"));
+    at(2000, () => add("insert"));
+    at(2430, () => {
       add("seated");
       setMsg(true);
     });
@@ -80,7 +80,7 @@ function Launch(props: { run: Run }) {
       setMsg(true);
     });
   }
-  at(cart ? 3800 : 2400, () => {
+  at(cart ? 3300 : 2400, () => {
     started = true;
     props.run.go(true);
   });
