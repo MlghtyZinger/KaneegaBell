@@ -768,26 +768,12 @@ window, so they're written for players.
 
 ### 0.3.12
 - New: animations. Pick Full, Reduced or Off for the desktop and for TV Mode in Settings → General → Animations.
-- New: start-up intros. Ten of them (Konami, Rockstar, Game Boy Advance, GameCube, PlayStation, PS2, PS3, PSP, Xbox 360 and Switch), at random, always the same one, or off. Any button skips.
-- New: put your own sound for an intro in KB's `data\intros` folder and it plays with that intro.
-- New: when you start a game, its case opens and the disc spins, or the cartridge goes into its console. Back cancels it. Turn it off for the desktop or TV Mode in Settings.
-- New: TV Mode's shelf shows 3D game cases. Turn them with the right stick, tilt them, and flip them to see the back. Flat covers are still an option.
-- New: discs, back covers and spines come from the LaunchBox Games Database when it has them (back covers prefer English-language ones). The first start downloads its database once more to get them.
-- New: games LaunchBox has no back cover or spine for get them from GameTDB's full covers (Wii, GameCube, PS3, DS and 3DS games it knows), cut out of the full picture; no account needed.
-- New: pick a game's back cover, spine or disc yourself in its details (LaunchBox's options, or an image file of your own). Your picks stay when you clear downloaded data.
-- Improved: the consoles in the cartridge launch animation (SNES, N64, Game Boy Advance, DS, 3DS and Switch) are redrawn at their real proportions, with their real buttons, ports and slots, logos and printed names. The Switch has its real proportions and its card slot on the right.
-- Fixed: the launch animation (cases, cartridges and consoles) is drawn sharp instead of soft.
-- Fixed: the box in the cartridge launch animation takes the cover's own shape, and very wide or tall covers on 3D cases, so covers are no longer stretched, squeezed or given bars.
-- New: cartridge games show their own cartridge (from LaunchBox) in the launch animation, and the animation lasts longer so you can see it go in. The first start downloads LaunchBox's database once more.
-- Improved: a game's spine picture also wraps onto the top and bottom of its 3D case, turned on its side.
-- New: Search… in the back cover, spine and disc pickers finds other LaunchBox entries by name (a differently named edition, a hack's original game). Choosing one that KB hasn't stored loads its pictures, downloading LaunchBox's file once.
-- Fixed: 3D cases take their cover's own shape, so covers are no longer cropped; a back cover that wasn't downloaded yet when you first looked is shown the next time.
-- New: sounds for moving, choosing, going back and starting a game, in three styles: Tactile, Console and Retro console. Each mode has its own switch and volume.
-- Changed: the series name above a game's title opens its collection (the separate Collections box is gone), and short windows show 3 achievements instead of 5 (none on very short ones).
-- Improved: long descriptions (800 characters or more) are cut to their opening sentences (400 to 800 characters) in the side panels and TV Mode, skipping release dates, ports, patches and franchise history; the full text is on hover and on the details screen. Short ones show whole.
-- Changed: the right-hand panel no longer scrolls, the background shrinks first so the text stays readable, and its Play and Links boxes are slimmer. The description shows as much as fits (the rest is on the details screen).
-- Fixed: the sidebar and the list view's panel now show a game's achievements without opening its details screen first.
-- Fixed: with a controller, Up and Down now scroll a panel when there is nothing left to select in it.
+- New: start-up intros, ten of them (Konami, Rockstar, Game Boy Advance, GameCube, PlayStation, PS2, PS3, PSP, Xbox 360 and Switch), random or fixed. Put your own sound for an intro in KB's `data\intros` folder.
+- New: starting a game plays a launch animation: the case opens and the disc spins, or the game's own cartridge goes into its console. Turn it off for the desktop or TV Mode in Settings.
+- New: TV Mode's shelf shows 3D game cases you can turn, tilt and flip to see the back.
+- New: menu sounds in three styles (Tactile, Console, Retro console), with their own switch and volume for each mode.
+- New: back covers, spines, discs and cartridges from the LaunchBox Games Database and GameTDB. Pick or search for your own in a game's details. The first start downloads LaunchBox's database once more.
+- Changed: the side panels no longer scroll and show shorter descriptions, and the series name above a title opens its collection.
 
 ### 0.3.11
 - New: styles. Pick one in Settings → General → Style: Ember (the new default), Midnight (the old look), Daylight, High contrast, Moss or Storm.
