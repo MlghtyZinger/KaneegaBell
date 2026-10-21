@@ -240,6 +240,10 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 /* Cartridges and cards drawn from the real ones, and the console part each goes into */
 .m3.cart .cartridge.drawn { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
 .m3.cart .cartridge.drawn::before, .m3.cart .cartridge.drawn::after { display: none; }
+/* The game's own cartridge picture (LaunchBox) in place of the drawn one. */
+.m3.cart .cartridge.real { background: none; box-shadow: none; border-radius: 0; overflow: visible; clip-path: none; }
+.m3.cart .cartridge.real::before, .m3.cart .cartridge.real::after { display: none; }
+.m3 .cart-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 10px rgb(0 0 0 / .45)); }
 .m3 .cartridge.drawn > .hw, .m3 .slot.drawn > .hw { position: absolute; inset: 0; }
 .m3 .hw > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .m3 .slot.drawn { background: none; box-shadow: none; border-radius: 0; }

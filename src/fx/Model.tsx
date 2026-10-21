@@ -92,6 +92,8 @@ export function Model(props: {
   const [backOk, setBackOk] = createSignal(true);
   const [discOk, setDiscOk] = createSignal(true);
   const [spineOk, setSpineOk] = createSignal(true);
+  /** The game's own cartridge picture (LaunchBox) for the launch animation; else the drawn cartridge. */
+  const [cartOk, setCartOk] = createSignal(true);
   /** The spine picture's shape: LaunchBox's wide ones are for a horizontal box's top edge. */
   const [spineWide, setSpineWide] = createSignal(false);
   /** Width / height of a tall spine picture. */
@@ -102,6 +104,7 @@ export function Model(props: {
       setBackOk(true);
       setDiscOk(true);
       setSpineOk(true);
+      setCartOk(true);
     }
   });
   // The top and bottom faces: the cover's own edge colour (else the platform's), like the printed wrap of a real box;
@@ -247,14 +250,23 @@ export function Model(props: {
       >
         {box(true)}
         <Show when={props.launch}>
-          <div class={`cartridge ${CART_SVG[c().k] ? "drawn" : ""}`}>
-            <Show when={CART_SVG[c().k]}>{(svg) => <div class="hw" innerHTML={svg()} />}</Show>
-            <div class="clabel" style={{ background: props.game.art > 0 ? undefined : fallback() }}>
-              <Show when={props.game.art > 0} fallback={<b>{props.game.title}</b>}>
-                <img class="art-img" src={artUrl(props.game.id, props.game.art, "t")} alt="" draggable={false} />
-              </Show>
+          <Show
+            when={props.detail && cartOk()}
+            fallback={
+              <div class={`cartridge ${CART_SVG[c().k] ? "drawn" : ""}`}>
+                <Show when={CART_SVG[c().k]}>{(svg) => <div class="hw" innerHTML={svg()} />}</Show>
+                <div class="clabel" style={{ background: props.game.art > 0 ? undefined : fallback() }}>
+                  <Show when={props.game.art > 0} fallback={<b>{props.game.title}</b>}>
+                    <img class="art-img" src={artUrl(props.game.id, props.game.art, "t")} alt="" draggable={false} />
+                  </Show>
+                </div>
+              </div>
+            }
+          >
+            <div class={`cartridge real ${CART_SVG[c().k] ? "drawn" : ""}`}>
+              <img class="cart-img" src={artUrl(props.game.id, caseRev(), "d")} alt="" draggable={false} onError={() => setCartOk(false)} />
             </div>
-          </div>
+          </Show>
           <div class={`slot ${SLOT_SVG[c().k] ? "drawn" : ""}`}>
             <Show when={SLOT_SVG[c().k]}>{(svg) => <div class="hw" innerHTML={svg()} />}</Show>
             <span class="led" />

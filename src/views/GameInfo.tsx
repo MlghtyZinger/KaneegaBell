@@ -12,6 +12,7 @@ import { CollectionPicker } from "../components/Collections";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
+import { caseOf } from "../fx/Model";
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -263,7 +264,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <div class="row tight">
                     <button class="btn small" onClick={() => setPicking("back")}>Back cover…</button>
                     <button class="btn small" onClick={() => setPicking("spine")}>Spine…</button>
-                    <button class="btn small" onClick={() => setPicking("disc")}>Disc…</button>
+                    <button class="btn small" onClick={() => setPicking("disc")}>{caseOf(g().platformId).m === "cart" ? "Cartridge…" : "Disc…"}</button>
                   </div>
                 </Show>
                 <Show when={kept()}>
@@ -451,6 +452,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
             gameId={g().id}
             title={g().title}
             kind={picking()!}
+            cart={caseOf(g().platformId).m === "cart"}
             onClose={() => setPicking(null)}
             onChanged={() => {
               void refetch();

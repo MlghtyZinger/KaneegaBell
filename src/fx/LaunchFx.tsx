@@ -59,13 +59,14 @@ function Launch(props: { run: Run }) {
   at(60, () => setSettled(true));
   if (cart) {
     // The cartridge sound is timed so it seats when the cartridge does.
+    // The cartridge is held out for a moment so it can be looked at, then goes in.
     at(520, () => {
       add("out");
-      sfx("cart", 1160);
+      sfx("cart", 2260);
     });
-    at(1250, () => add("drop"));
-    at(1750, () => add("insert"));
-    at(2180, () => {
+    at(2350, () => add("drop"));
+    at(2850, () => add("insert"));
+    at(3280, () => {
       add("seated");
       setMsg(true);
     });
@@ -79,7 +80,7 @@ function Launch(props: { run: Run }) {
       setMsg(true);
     });
   }
-  at(cart ? 2700 : 2400, () => {
+  at(cart ? 3800 : 2400, () => {
     started = true;
     props.run.go(true);
   });

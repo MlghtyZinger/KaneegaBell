@@ -41,11 +41,13 @@ export function CoverPicker(props: {
   gameId: number;
   title: string;
   kind?: PictureKind;
+  /** A cartridge system: the "disc" is the game's cartridge. */
+  cart?: boolean;
   onClose: () => void;
   onChanged: () => void;
 }) {
   const kind = () => props.kind ?? "cover";
-  const words = () => WORDS[kind()];
+  const words = () => (props.cart && kind() === "disc" ? { title: "Change cartridge", noun: "cartridges", use: "Use this cartridge" } : WORDS[kind()]);
   const [query, setQuery] = createSignal<string | null>(null);
   // Bumped when a LaunchBox entry's pictures have arrived, to list them.
   const [tick, setTick] = createSignal(0);

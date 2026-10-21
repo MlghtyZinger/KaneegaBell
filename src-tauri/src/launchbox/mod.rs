@@ -39,12 +39,12 @@ pub const ZIP_URL: &str = "https://gamesdb.launchbox-app.com/Metadata.zip";
 pub const IMAGE_BASE: &str = "https://images.launchbox-app.com/";
 /// How often LaunchBox's file is checked for changes (a HEAD request).
 const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
-/// Image types kept (LaunchBox has ~30; KB shows these). Disc and back
-/// pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
+/// Image types kept (LaunchBox has ~30; KB shows these). Disc, cartridge, back
+/// and spine pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
 const IMAGE_KINDS: &[&str] =
-    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine"];
+    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine", "Cart - Front"];
 /// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
-const IMAGE_KINDS_VERSION: u32 = 3;
+const IMAGE_KINDS_VERSION: u32 = 4;
 /// Raised when GameTDB's full covers should be tried again for every game (setting `gametdbCaseArt`).
 const GAMETDB_CASE_VERSION: u32 = 1;
 const STAMP_KEY: &str = "launchbox";
@@ -598,7 +598,8 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
 /// LaunchBox's image types for a case picture, and whether English regions come first (printed text).
 fn case_kinds(case: images::Case) -> (&'static [&'static str], bool) {
     match case {
-        images::Case::Disc => (&["Disc"], false),
+        // A cartridge system's "disc" is the cartridge itself.
+        images::Case::Disc => (&["Disc", "Cart - Front"], false),
         images::Case::Back => (&["Box - Back", "Box - Back - Reconstructed"], true),
         images::Case::Spine => (&["Box - Spine"], true),
     }
@@ -606,7 +607,7 @@ fn case_kinds(case: images::Case) -> (&'static [&'static str], bool) {
 
 fn case_label(case: images::Case) -> &'static str {
     match case {
-        images::Case::Disc => "LaunchBox disc",
+        images::Case::Disc => "LaunchBox disc or cartridge",
         images::Case::Back => "LaunchBox back cover",
         images::Case::Spine => "LaunchBox spine",
     }
