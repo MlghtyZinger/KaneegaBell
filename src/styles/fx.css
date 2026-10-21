@@ -282,7 +282,5 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 
 /* Platforms KB has no drawing for yet: a plain dark keep case. */
 .m3.pf-other .box .f:not(.back) { background: #141518; }
-
-/* A launching cartridge's box keeps the platform's shape, so the cover is fitted into it, never stretched or squeezed */
-.m3.launching .bf { background: #2a231d; }
-.m3.launching .bf .art-img { object-fit: contain; }
+/* A launching cartridge's box has the cover's own shape (its --w and --h are set in Model.tsx) */
+.m3 .box.own { inset: auto; left: 50%; top: 50%; width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }

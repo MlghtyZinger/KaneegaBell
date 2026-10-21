@@ -169,8 +169,17 @@ export function Model(props: {
       <img class="art-img" src={artUrl(props.game.id, props.game.art, p.big ? "f" : "t")} alt="" draggable={false} decoding="async" />
     </Show>
   );
+  // A cartridge's launch keeps the platform's shape for the cartridge and the console, but its box takes the cover's own
+  // shape (same area), so the cover fills it with no bars and no stretching.
+  const launchBox = () => {
+    if (!(c().m === "cart" && props.launch) || !(props.game.art > 0)) return undefined;
+    const [w, h] = c().size;
+    const asp = Math.min(2.5, Math.max(0.4, props.game.artAspect ?? 1));
+    const hh = Math.sqrt(w * h * asp);
+    return { "--w": `${(hh / asp) * k()}px`, "--h": `${hh * k()}px` };
+  };
   const box = (front: boolean) => (
-    <div class="box">
+    <div class="box" classList={{ own: !!launchBox() }} style={launchBox()}>
       <div class="f back">
         <Show
           when={props.detail && backOk()}
@@ -205,7 +214,7 @@ export function Model(props: {
   return (
     <div
       ref={props.ref}
-      class={`m3 ${c().m} pf-${c().k} ${props.launch ? "launching" : ""} ${props.class ?? ""}`}
+      class={`m3 ${c().m} pf-${c().k} ${props.class ?? ""}`}
       style={{
         "--w": `${dims()[0] * k()}px`,
         "--h": `${dims()[1] * k()}px`,
