@@ -135,14 +135,15 @@ pub fn split_wrap(platform: &str, bytes: &[u8]) -> crate::error::Result<(image::
     Ok((back, spine))
 }
 
-/// The first full cover GameTDB has for the game, if any.
-pub fn find_wrap(fetch: &dyn super::http::Fetch, platform: &str, serial: Option<&str>) -> Option<(String, Vec<u8>)> {
+/// The first full cover GameTDB has for the game. `Ok(None)` means GameTDB answered and has none;
+/// a network error stops the search and is returned, so it isn't mistaken for "none".
+pub fn find_wrap(fetch: &dyn super::http::Fetch, platform: &str, serial: Option<&str>) -> crate::error::Result<Option<(String, Vec<u8>)>> {
     for url in wrap_urls(platform, serial) {
-        if let Ok(Some(bytes)) = fetch.get(&url) {
-            return Some((url, bytes));
+        if let Some(bytes) = fetch.get(&url)? {
+            return Ok(Some((url, bytes)));
         }
     }
-    None
+    Ok(None)
 }
 
 /// Fills a game's missing back cover and spine (LaunchBox's come first) from GameTDB's full cover; once per game.
@@ -153,7 +154,9 @@ pub fn fill_case_art(data_dir: &std::path::Path, fetch: &dyn super::http::Fetch,
     if marker.exists() || !(missing(Case::Back) || missing(Case::Spine)) || spine_span(platform).is_none() {
         return;
     }
-    if let Some((_, bytes)) = find_wrap(fetch, platform, serial) {
+    // Offline or rate-limited: no marker, so the next pass asks again.
+    let Ok(found) = find_wrap(fetch, platform, serial) else { return };
+    if let Some((_, bytes)) = found {
         if let Ok((back, spine)) = split_wrap(platform, &bytes) {
             for (case, img) in [(Case::Back, back), (Case::Spine, spine)] {
                 if missing(case) {
@@ -234,6 +237,20 @@ mod tests {
         let (back, _) = split_wrap("ps3", &http.pages[&urls[1]]).unwrap();
         let px = back.to_rgb8();
         assert!(px.get_pixel(10, 50)[0] > 200 && px.get_pixel(10, 50)[1] < 60, "red back");
+    }
+
+    #[test]
+    fn a_network_error_leaves_no_marker_so_the_game_is_asked_again() {
+        use crate::art::http::fake::FakeHttp;
+        use crate::art::images;
+        let dir = tempfile::tempdir().unwrap();
+        let offline = FakeHttp { offline: true, ..Default::default() };
+        fill_case_art(dir.path(), &offline, 7, "ps3", Some("BLUS30516"));
+        assert!(!images::tried_marker(dir.path(), 7).exists());
+        // Only the first URL was tried: an error stops the search.
+        assert_eq!(offline.requests.lock().unwrap().len(), 1);
+        fill_case_art(dir.path(), &FakeHttp::default(), 7, "ps3", Some("BLUS30516"));
+        assert!(images::tried_marker(dir.path(), 7).exists());
     }
 
     #[test]

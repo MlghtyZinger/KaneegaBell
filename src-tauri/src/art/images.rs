@@ -102,7 +102,9 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
-    let tmp = path.with_extension("tmp");
+    // A name of its own per write: the background pass and a picker click can write the same file at once.
+    static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let tmp = path.with_extension(format!("{}.tmp", N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
     fs::write(&tmp, bytes)?;
     fs::rename(&tmp, path)?;
     Ok(())

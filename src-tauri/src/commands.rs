@@ -643,7 +643,7 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
                 if case != art::images::Case::Disc {
                     let (platform, serial): (String, Option<String>) =
                         conn.query_row("SELECT platform_id, serial FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-                    if let Some((url, _)) = art::gametdb::find_wrap(&http, &platform, serial.as_deref()) {
+                    if let Ok(Some((url, _))) = art::gametdb::find_wrap(&http, &platform, serial.as_deref()) {
                         out.push(art::Candidate {
                             source: "gametdb".into(),
                             name: "full cover".into(),
@@ -694,6 +694,10 @@ pub async fn cover_candidates(app: AppHandle, id: i64, query: Option<String>, ki
 /// from an image file the user picked (`source` "file", `url` = path).
 #[tauri::command]
 pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, url: String, kind: Option<String>) -> Result<()> {
+    // The page hands the URL back, so it is checked here (a file path only comes from the user's own pick).
+    if !matches!(source.as_str(), "file" | "local") && !is_art_url(&url) {
+        return Err(Error::msg("That picture isn't from a known artwork site."));
+    }
     let app2 = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app2.state::<AppState>();
@@ -1407,6 +1411,28 @@ fn is_sgdb_url(url: &str) -> bool {
     let Some(rest) = url.strip_prefix("https://") else { return false };
     let host = rest.split(['/', '?', '#']).next().unwrap_or("");
     !host.contains(['@', ':']) && (host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
+}
+
+/// The sites KB downloads artwork from (the same ones the page's CSP lets it preview).
+fn is_art_url(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://") else { return false };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    const SITES: [&str; 4] = ["thumbnails.libretro.com", "art.gametdb.com", "images.igdb.com", "images.launchbox-app.com"];
+    !host.contains(['@', ':']) && (SITES.contains(&host) || host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
+}
+
+#[cfg(test)]
+mod art_url_tests {
+    use super::is_art_url;
+    #[test]
+    fn only_the_artwork_sites() {
+        assert!(is_art_url("https://art.gametdb.com/wii/cover/US/RMGE01.png"));
+        assert!(is_art_url("https://cdn2.steamgriddb.com/logo/a.png"));
+        assert!(!is_art_url("http://art.gametdb.com/a.png"));
+        assert!(!is_art_url("https://art.gametdb.com@evil.io/a.png"));
+        assert!(!is_art_url("https://localhost/a.png"));
+        assert!(!is_art_url("C:\\Users\\x\\secret.png"));
+    }
 }
 
 /// A logo or background picked from the SteamGridDB search, saved as the collection's own image.
