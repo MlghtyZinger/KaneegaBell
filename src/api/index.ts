@@ -693,8 +693,8 @@ export const api = {
   setLbEnabled: (enabled: boolean) => invoke<void>("set_lb_enabled", { enabled }),
   lbSearch: (id: number, query: string | null) => invoke<LbHit[]>("lb_search", { id, query }),
   setLbMatch: (id: number, dbId: number) => invoke<void>("set_lb_match", { id, dbId }),
-  /** Has a LaunchBox pass keep that entry's pictures (downloads LaunchBox's file once if needed). */
-  lbBrowse: (dbId: number) => invoke<void>("lb_browse", { dbId }),
+  /** Has a LaunchBox pass keep those entries' pictures (downloads LaunchBox's file once if needed). */
+  lbBrowse: (dbIds: number[]) => invoke<void>("lb_browse", { dbIds }),
   wdStatus: () => invoke<WdStatus>("wd_status"),
   /** Games hidden because their files are gone. */
   getRemoved: () => invoke<{ count: number }>("get_removed"),

@@ -1303,11 +1303,11 @@ pub fn lb_search(state: State<'_, AppState>, id: i64, query: Option<String>) -> 
     crate::launchbox::search(&state.db(), id, query.as_deref())
 }
 
-/// The back/spine/disc pickers' Search…: the user chose a LaunchBox entry whose pictures aren't
+/// The back/spine/disc pickers' Search…: the user chose LaunchBox entries whose pictures aren't
 /// stored yet. A pass downloads LaunchBox's file (once) and keeps them.
 #[tauri::command]
-pub fn lb_browse(app: AppHandle, state: State<'_, AppState>, db_id: i64) -> Result<()> {
-    crate::launchbox::add_browse(&state.db(), db_id)?;
+pub fn lb_browse(app: AppHandle, state: State<'_, AppState>, db_ids: Vec<i64>) -> Result<()> {
+    crate::launchbox::add_browse(&state.db(), &db_ids)?;
     state.lb_pending.store(true, Ordering::Release);
     state.lb_force.fetch_or(true, Ordering::AcqRel);
     kick_worker(app, &state);

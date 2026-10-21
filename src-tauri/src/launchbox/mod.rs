@@ -187,7 +187,7 @@ fn has_details(conn: &Connection, db_id: i64) -> Result<bool> {
 }
 
 /// How many other LaunchBox entries KB keeps pictures for (the newest ones the user searched for).
-const BROWSE_MAX: usize = 20;
+const BROWSE_MAX: usize = 40;
 
 fn browse_ids(conn: &Connection) -> Result<Vec<i64>> {
     Ok(queries::get_setting::<Vec<i64>>(conn, "lbBrowse")?.unwrap_or_default())
@@ -195,10 +195,10 @@ fn browse_ids(conn: &Connection) -> Result<Vec<i64>> {
 
 /// Remembers an entry whose pictures the user wants to look through (Search… in the back, spine
 /// and disc pickers); the next pass keeps its details and image list like a library game's.
-pub fn add_browse(conn: &Connection, db_id: i64) -> Result<()> {
+pub fn add_browse(conn: &Connection, db_ids: &[i64]) -> Result<()> {
     let mut ids = browse_ids(conn)?;
-    ids.retain(|i| *i != db_id);
-    ids.insert(0, db_id);
+    ids.retain(|i| !db_ids.contains(i));
+    ids.splice(0..0, db_ids.iter().copied());
     ids.truncate(BROWSE_MAX);
     queries::set_setting(conn, "lbBrowse", &serde_json::to_value(ids)?)
 }

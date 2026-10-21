@@ -195,7 +195,7 @@ fn searching_for_a_back_cover_loads_another_entry_s_pictures_once() {
     assert_eq!((found[0].source.as_str(), found[0].url.as_str()), ("lbgame", "102"));
     assert!(!wanted(&conn).unwrap());
     // Choosing it asks for them: the next pass downloads once and keeps them.
-    add_browse(&conn, 102).unwrap();
+    add_browse(&conn, &[102]).unwrap();
     assert!(wanted(&conn).unwrap());
     assert!(run_pass(&mut conn, dir.path(), &source, &http, false).downloaded);
     assert_eq!(source.opens(), opens + 1);

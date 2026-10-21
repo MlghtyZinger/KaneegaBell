@@ -1,5 +1,6 @@
 import { createEffect, createResource, createSignal, Show } from "solid-js";
 import { api, artUrl, type GameRow } from "../api";
+import { caseRev } from "../state/fx";
 import { hue } from "../components/GameCard";
 import { CART_SVG, SLOT_SVG } from "./hardware";
 
@@ -96,7 +97,8 @@ export function Model(props: {
   /** Width / height of a tall spine picture. */
   const [spineRatio, setSpineRatio] = createSignal(0);
   createEffect(() => {
-    if (!props.detail) {
+    caseRev();
+    if (!props.detail || caseRev() > 0) {
       setBackOk(true);
       setDiscOk(true);
       setSpineOk(true);
@@ -111,7 +113,7 @@ export function Model(props: {
   const Edge = (p: { at: 0 | 1 }) => (
     <div class="edge" style={{ "background-color": edges()?.[p.at] }}>
       <Show when={spineOk() && spineWide()}>
-        <img class="spine-img" src={artUrl(props.game.id, 0, "s")} alt="" draggable={false} />
+        <img class="spine-img" src={artUrl(props.game.id, caseRev(), "s")} alt="" draggable={false} />
       </Show>
     </div>
   );
@@ -135,7 +137,7 @@ export function Model(props: {
         <img
           class="spine-img"
           classList={{ wide: spineWide() }}
-          src={artUrl(props.game.id, 0, "s")}
+          src={artUrl(props.game.id, caseRev(), "s")}
           alt=""
           draggable={false}
           onLoad={(e) => {
@@ -179,7 +181,7 @@ export function Model(props: {
             </div>
           }
         >
-          <img class="art-img" src={artUrl(props.game.id, 0, "b")} alt="" draggable={false} onError={() => setBackOk(false)} />
+          <img class="art-img" src={artUrl(props.game.id, caseRev(), "b")} alt="" draggable={false} onError={() => setBackOk(false)} />
         </Show>
       </div>
       <div class="f sl"><Spine /></div>
@@ -225,7 +227,7 @@ export function Model(props: {
                       </div>
                     }
                   >
-                    <img class="disc-img" src={artUrl(props.game.id, 0, "d")} alt="" draggable={false} onError={() => setDiscOk(false)} />
+                    <img class="disc-img" src={artUrl(props.game.id, caseRev(), "d")} alt="" draggable={false} onError={() => setDiscOk(false)} />
                   </Show>
                 </div>
               </div>

@@ -479,7 +479,7 @@ Each milestone is runnable and tested, and passes the perf gate.
       `art\<id>.tdb`, retried after "Clear downloaded data"), offered in the Back cover… / Spine… pickers, a pass triggered once
       (setting `gametdbCaseArt`). Not covered: PSP, Switch, Xbox 360 (no IDs), PSN titles.
       **Search… in those pickers (owner, 2026-10-21):** finds other LaunchBox entries by name (`launchbox::case_search`); an entry whose
-      pictures aren't stored loads when chosen (`lb_browse`, setting `lbBrowse`: the newest 20 are kept by later passes; the first load streams
+      pictures aren't stored loads when chosen (`lb_browse`, setting `lbBrowse`: the newest 40 are kept by later passes; the first load streams
       LaunchBox's file once).
       Animations (Full/Reduced/Off) + **TV Mode touch-up** (owner, 2026-10-15: "TV mode needs a
       touch up"; deferred here to avoid getting sidetracked). **Owner's main point (corrected

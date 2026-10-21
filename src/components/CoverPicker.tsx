@@ -1,6 +1,7 @@
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
 import { api, errorText, type CoverCandidate } from "../api";
 import { osk } from "../state/osk";
+import { bumpCaseRev } from "../state/fx";
 import { NavScope } from "./NavScope";
 import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
@@ -61,6 +62,7 @@ export function CoverPicker(props: {
     setError(null);
     try {
       await api.setCover(props.gameId, source, name, url, kind());
+      if (CASE_ART.includes(kind())) bumpCaseRev();
       props.onChanged();
       props.onClose();
     } catch (e) {
@@ -79,11 +81,12 @@ export function CoverPicker(props: {
     setError(null);
     setLoadingGame(c.name);
     try {
-      await api.lbBrowse(Number(c.url));
+      // Every entry in the list is asked for at once: one download covers them all.
+      await api.lbBrowse(list().filter((x) => x.source === "lbgame").map((x) => Number(x.url)));
       for (let i = 0; i < 450 && alive; i++) {
         await new Promise((r) => setTimeout(r, 2000));
         const now = await api.coverCandidates(props.gameId, query(), kind());
-        if (!now.some((x) => x.source === "lbgame" && x.url === c.url)) {
+        if (!now.some((x) => x.source === "lbgame")) {
           if (alive) setTick((t) => t + 1);
           return;
         }
@@ -159,7 +162,7 @@ export function CoverPicker(props: {
           <p class="warn">Couldn't load {words().noun}: {String(candidates.error?.message ?? candidates.error)}</p>
         </Show>
         <Show when={candidates.state === "ready" && list().length === 0}>
-          <p class="dim">No {words().noun} found. Try searching with a different name.</p>
+          <p class="dim">No {words().noun} found. Try searching with a different name{query() && CASE_ART.includes(kind()) ? " (LaunchBox has none for those entries)" : ""}.</p>
         </Show>
         <Show when={kind() === "hero"}>
           <p class="dim small">16:9 backgrounds fill the sidebar; wide ones show whole, with blurred bands above and below.</p>

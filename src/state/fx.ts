@@ -88,3 +88,8 @@ function createFx() {
 }
 
 export const fx = createRoot(createFx);
+
+/** Bumped when a back, spine or disc picture changes, so the 3D cases ask for it again (their URLs carry no version). */
+const [caseRevision, setCaseRevision] = createRoot(() => createSignal(0));
+export const caseRev = caseRevision;
+export const bumpCaseRev = () => setCaseRevision((n) => n + 1);
