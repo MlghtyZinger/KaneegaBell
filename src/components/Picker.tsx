@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { NavScope } from "./NavScope";
 
 export interface PickerOption<T extends string> {
@@ -42,6 +43,8 @@ export function Picker<T extends string>(props: {
         </span>
       </button>
       <Show when={open()}>
+        {/* A portal: a transformed panel (the intro settings) would otherwise trap this fixed overlay inside its box. */}
+        <Portal>
         <div class="overlay" onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
           <NavScope class="panel picker-panel" modal onBack={() => setOpen(false)}>
             <Show when={props.title}>
@@ -65,6 +68,7 @@ export function Picker<T extends string>(props: {
             </div>
           </NavScope>
         </div>
+        </Portal>
       </Show>
     </>
   );
