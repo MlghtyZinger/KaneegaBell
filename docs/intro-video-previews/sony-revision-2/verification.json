@@ -1,0 +1,89 @@
+[
+  {
+    "title": "PS1 corrected colors and shorter timing",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-2\\kb-ps1-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\psx.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        4.3
+      ],
+      [
+        12.7,
+        16.2
+      ]
+    ],
+    "sourceDuration": 7.8,
+    "videoDuration": 7.8,
+    "audioDuration": 7.8,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 356673,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 7.8
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999686394009207
+  },
+  {
+    "title": "PS2 shortened tower and title sequence",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-2\\kb-ps2-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps2-nostalgic-startup.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        5.6
+      ],
+      [
+        14.4,
+        16.4
+      ]
+    ],
+    "sourceDuration": 7.6,
+    "videoDuration": 7.6,
+    "audioDuration": 7.6,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1292783,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 7.6
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999340889849119,
+    "longestInteriorBlackPauseSeconds": 0.2
+  },
+  {
+    "title": "PSP purple-blue waves and gold flare",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-2\\kb-psp-revised.mp4",
+    "audioSource": [
+      "C:\\Emulator files\\audio files\\psp part 1.mp3",
+      "C:\\Emulator files\\audio files\\psp part 2.mp3"
+    ],
+    "sourceDuration": 6.164916666666667,
+    "videoDuration": 6.166667,
+    "audioDuration": 6.165,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 941785,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 6.166667
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999341770633764
+  }
+]

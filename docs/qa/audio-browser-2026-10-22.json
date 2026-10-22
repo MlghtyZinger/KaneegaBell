@@ -1,0 +1,129 @@
+{
+  "results": [
+    {
+      "test": "konami: decoded duration, common start and cleanup",
+      "at": 339.89999999990687,
+      "duration": 10.446125,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 16.24800000016876
+    },
+    {
+      "test": "Shotgun cue",
+      "elapsed": 5085.300000000047,
+      "pellets": 9
+    },
+    {
+      "test": "rockstar: decoded duration, common start and cleanup",
+      "at": 769.0999999998603,
+      "duration": 11.077,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 3.79300000020703
+    },
+    {
+      "test": "gba: decoded duration, common start and cleanup",
+      "at": 6193.199999999953,
+      "duration": 4.760104166666666,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 9.702000000041153
+    },
+    {
+      "test": "gamecube: decoded duration, common start and cleanup",
+      "at": 6554.699999999953,
+      "duration": 10.123916666666666,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 2.4470000000328582
+    },
+    {
+      "test": "Full PlayStation audio before natural exit",
+      "elapsed": 22558.800000000047
+    },
+    {
+      "test": "ps1: decoded duration, common start and cleanup",
+      "at": 7003.399999999907,
+      "duration": 21.890625,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 28.807000000064363
+    },
+    {
+      "test": "ps2: decoded duration, common start and cleanup",
+      "at": 29621.699999999953,
+      "duration": 16.632,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 18.251000000156637
+    },
+    {
+      "test": "ps3: decoded duration, common start and cleanup",
+      "at": 29970.300000000047,
+      "duration": 6.687354166666666,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 3.0499999999374268
+    },
+    {
+      "test": "psp: decoded duration, common start and cleanup",
+      "at": 30324.300000000047,
+      "duration": 6.164916666666667,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 3.2889999999424617
+    },
+    {
+      "test": "xbox360: decoded duration, common start and cleanup",
+      "at": 30671.800000000047,
+      "duration": 7.862875,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 1.669000000023516
+    },
+    {
+      "test": "switch: decoded duration, common start and cleanup",
+      "at": 31056.699999999953,
+      "duration": 0.828,
+      "state": "running",
+      "stopped": null,
+      "animationOffsetMs": 0.1340000000272994
+    },
+    {
+      "test": "Cancelled loading cannot start late audio",
+      "passed": true
+    },
+    {
+      "test": "Controller maker folding and platform selection",
+      "passed": true
+    },
+    {
+      "test": "PS3 music plays and loops at actual end",
+      "src": "http://127.0.0.1:1427/src/assets/sounds/menu_ps3_theme.mp3",
+      "duration": 134.373896,
+      "volume": 0.27,
+      "loop": true
+    },
+    {
+      "test": "PS3 music obeys sound, volume, intro and visibility",
+      "passed": true
+    },
+    {
+      "test": "Menu source switch, TV cleanup and remembered maker state",
+      "passed": true
+    },
+    {
+      "test": "Sidebar layout 1280x720",
+      "passed": true
+    },
+    {
+      "test": "Sidebar layout 1920x1080",
+      "passed": true
+    },
+    {
+      "test": "Sidebar layout 3840x2160",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

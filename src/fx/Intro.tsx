@@ -1,10 +1,10 @@
-import { createRoot, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
+import { createEffect, createRoot, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { Stage } from "./Stage";
 import { api } from "../api";
 import { pushHandler } from "../input/actions";
 import { fx, INTROS, type IntroKey } from "../state/fx";
 import { session } from "../state/session";
-import { hush, load, playBuffer } from "./audio";
+import { hush, load, playBuffer, readyAudio } from "./audio";
 import { emblem } from "./emblem";
 import "../styles/intro.css";
 
@@ -46,9 +46,17 @@ function IntroHost(props: { forced: IntroKey | null }) {
   const [key, setKey] = createSignal<IntroKey | null>(null);
   const [on, setOn] = createSignal(false);
   const [leaving, setLeaving] = createSignal(false);
+  let disposed = false;
+  let frame = 0;
+  let source: AudioBufferSourceNode | undefined;
   const timers: ReturnType<typeof setTimeout>[] = [];
   const at = (ms: number, f: () => void) => timers.push(setTimeout(f, ms));
-  onCleanup(() => timers.forEach(clearTimeout));
+  onCleanup(() => {
+    disposed = true;
+    cancelAnimationFrame(frame);
+    timers.forEach(clearTimeout);
+    source?.stop();
+  });
 
   const finish = () => {
     timers.forEach(clearTimeout);
@@ -56,7 +64,8 @@ function IntroHost(props: { forced: IntroKey | null }) {
     runs.setRun(null);
   };
   const skip = () => {
-    if (state() !== "play") return;
+    if (state() === "wait") return finish();
+    if (state() !== "play" || leaving()) return;
     hush();
     setLeaving(true);
     at(300, finish);
@@ -69,6 +78,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
 
   onMount(async () => {
     if (!props.forced) await fx.load();
+    if (disposed) return;
     const k = props.forced ?? pick();
     if (!k) return finish();
     setKey(k);
@@ -78,15 +88,18 @@ function IntroHost(props: { forced: IntroKey | null }) {
       const own = await api.introSound(k).catch(() => null);
       buf = own && own.byteLength > 0 ? await load(`own_${k}`, own) : null;
       buf ??= await load(`intro_${k}`);
+      await readyAudio();
     }
+    if (disposed) return;
     setState("play");
     const ms = Math.max(INTROS[k].customMs, (buf?.duration ?? 0) * 1000);
-    requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() => {
+      if (disposed) return;
+      source = playBuffer(buf);
       setOn(true);
-      playBuffer(buf);
+      at(ms, () => setLeaving(true));
+      at(ms + 360, finish);
     });
-    at(ms, () => setLeaving(true));
-    at(ms + 360, finish);
   });
 
   return (
@@ -104,7 +117,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
                 </div>
               </Match>
               <Match when={key() === "rockstar"}>
-                <Rockstar custom={true} at={at} />
+                <Rockstar playing={on()} at={at} />
               </Match>
               <Match when={key() === "gba"}>
                 <div class="iv gba">
@@ -203,16 +216,15 @@ function IntroHost(props: { forced: IntroKey | null }) {
 
 /**
  * Rockstar (Red Dead Redemption 2): dusk, the sight settles on the emblem and
- * it's shot: four revolver shots with KB's sound, one shotgun blast (a spread
- * of pellet holes) with the owner's recording.
+ * it's shot: a spread of pellet holes at the blast in the owner's recording.
  */
-function Rockstar(props: { custom: boolean; at: (ms: number, f: () => void) => void }) {
+function Rockstar(props: { playing: boolean; at: (ms: number, f: () => void) => void }) {
   let holes!: HTMLDivElement;
   let target!: HTMLDivElement;
-  const shots = props.custom ? [4.05] : [0.9, 1.35, 1.7, 2.3];
-  shots.forEach((t, i) =>
-    props.at(t * 1000, () => {
-      const pellets = shots.length === 1 ? 9 : 1;
+  createEffect(() => {
+    if (!props.playing) return;
+    props.at(5080, () => {
+      const pellets = 9;
       const cx = 30 + Math.random() * 40;
       const cy = 30 + Math.random() * 40;
       for (let p = 0; p < pellets; p++) {
@@ -234,9 +246,9 @@ function Rockstar(props: { custom: boolean; at: (ms: number, f: () => void) => v
       }
       target.className = "tgt-in";
       void target.offsetWidth; // restart the jolt
-      target.className = `tgt-in ${i === shots.length - 1 ? "knock" : "jolt"}`;
-    }),
-  );
+      target.className = "tgt-in knock";
+    });
+  });
   return (
     <div class="iv rockstar">
       <div class="ridge" />

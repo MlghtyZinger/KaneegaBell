@@ -13,6 +13,7 @@ import { channelWindow, xmbWindow } from "./tvShowcase";
 import { sfx } from "../fx/audio";
 import { introPlaying } from "../fx/Intro";
 import wiiMusic from "../assets/sounds/menu_wii_theme.mp3";
+import ps3Music from "../assets/sounds/menu_ps3_theme.mp3";
 import "../styles/console-menus.css";
 
 export interface ConsoleEntry {
@@ -96,7 +97,12 @@ export function ConsoleMenus(props: Props) {
   });
   onMount(() => {
     const syncMusic = () => {
-      const audible = props.style === "wii" && fx.soundOn() && fx.volume() > 0 && !session.running() && !introPlaying() && !document.hidden;
+      const track = props.style === "wii" ? wiiMusic : ps3Music;
+      if (music.getAttribute("src") !== track) {
+        music.pause();
+        music.src = track;
+      }
+      const audible = fx.soundOn() && fx.volume() > 0 && !session.running() && !introPlaying() && !document.hidden;
       music.volume = fx.volume() * .45;
       if (audible && music.paused) void music.play().catch(() => {});
       else if (!audible) music.pause();
@@ -182,7 +188,7 @@ export function ConsoleMenus(props: Props) {
   const date = () => clock().toLocaleDateString([], { weekday: "short", day: "numeric", month: "numeric" });
 
   return <div ref={surface} class={`console-menu console-${props.style}`} classList={{ "console-paused": !!session.running() }}>
-    <audio ref={music} class="console-menu-music" src={wiiMusic} loop preload="none" />
+    <audio ref={music} class="console-menu-music" loop preload="none" />
     <Show when={props.style === "wii"} fallback={<>
       <svg class="xmb-wave" viewBox="0 0 1440 500" preserveAspectRatio="none" aria-hidden="true">
         <defs><linearGradient id="xmb-ribbon" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b9f4ff" stop-opacity=".04" /><stop offset=".6" stop-color="#b9f4ff" stop-opacity=".18" /><stop offset="1" stop-color="#b9f4ff" stop-opacity="0" /></linearGradient></defs>

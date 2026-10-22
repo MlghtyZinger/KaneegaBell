@@ -1,0 +1,65 @@
+[
+  {
+    "title": "GBA style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\revision-3\\kb-gba-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\game-boy-advance-sp-intro.mp3",
+    "sourceDuration": 4.760104166666666,
+    "videoDuration": 4.766667,
+    "audioDuration": 4.76,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 321903,
+    "decodeCheck": "passed",
+    "audioEnvelopeCorrelation": 0.9999992534985306,
+    "audioOffsetMs": 0,
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 4.766667
+    }
+  },
+  {
+    "title": "GameCube style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\revision-3\\kb-gamecube-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\gamecube intro.mp3",
+    "sourceDuration": 10.123916666666666,
+    "videoDuration": 10.116667,
+    "audioDuration": 10.124,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 353602,
+    "decodeCheck": "passed",
+    "audioEnvelopeCorrelation": 0.9999946223034472,
+    "audioOffsetMs": 0,
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 10.124
+    }
+  },
+  {
+    "title": "PS3 style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\revision-3\\kb-ps3-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps3boot.mp3",
+    "sourceDuration": 6.687354166666666,
+    "videoDuration": 6.683333,
+    "audioDuration": 6.687,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 2307408,
+    "decodeCheck": "passed",
+    "audioEnvelopeCorrelation": 0.999995370168621,
+    "audioOffsetMs": 0,
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 6.687
+    }
+  }
+]

@@ -185,7 +185,13 @@ function Update-UpdatesBranch {
     if ($manifest.version -ne $Version) { Fail "the updates branch shows $($manifest.version), not $Version" }
     $tmp = Join-Path ([IO.Path]::GetTempPath()) "kb-check-$installerName"
     Invoke-WebRequest -Uri $manifest.platforms.'windows-x86_64'.url -Headers $headers -OutFile $tmp -UseBasicParsing
-    $same = (Get-FileHash -LiteralPath $tmp).Hash -eq (Get-FileHash -LiteralPath $installerOut).Hash
+    # Works even when the host does not expose the Get-FileHash cmdlet.
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $downloadHash = [Convert]::ToBase64String($sha.ComputeHash([IO.File]::ReadAllBytes($tmp)))
+        $installerHash = [Convert]::ToBase64String($sha.ComputeHash([IO.File]::ReadAllBytes($installerOut)))
+        $same = $downloadHash -eq $installerHash
+    } finally { $sha.Dispose() }
     [IO.File]::Delete($tmp)
     if (-not $same) { Fail "the installer KB would download doesn't match the release's" }
     Write-Host "Checked: installed copies download exactly this installer." -ForegroundColor Green

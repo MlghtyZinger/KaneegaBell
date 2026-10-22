@@ -1,0 +1,95 @@
+[
+  {
+    "test": "Native konami decoded duration and start",
+    "at": 145.29999999981374,
+    "duration": 10.446125,
+    "state": "running",
+    "animationOffsetMs": 10.883000000241736
+  },
+  {
+    "test": "Native rockstar decoded duration and start",
+    "at": 104,
+    "duration": 11.077,
+    "state": "running",
+    "animationOffsetMs": 3.183999999961088
+  },
+  {
+    "test": "Native gba decoded duration and start",
+    "at": 92.10000000009313,
+    "duration": 4.760104166666666,
+    "state": "running",
+    "animationOffsetMs": 12.016999999766995
+  },
+  {
+    "test": "Native gamecube decoded duration and start",
+    "at": 97.60000000009313,
+    "duration": 10.123916666666666,
+    "state": "running",
+    "animationOffsetMs": 3.862999999873864
+  },
+  {
+    "test": "Native ps1 decoded duration and start",
+    "at": 145.70000000018626,
+    "duration": 21.890625,
+    "state": "running",
+    "animationOffsetMs": 20.773000000037428
+  },
+  {
+    "test": "Native ps2 decoded duration and start",
+    "at": 123.89999999990687,
+    "duration": 16.632,
+    "state": "running",
+    "animationOffsetMs": 20.673000000129832
+  },
+  {
+    "test": "Native ps3 decoded duration and start",
+    "at": 99.39999999990687,
+    "duration": 6.687354166666666,
+    "state": "running",
+    "animationOffsetMs": 3.926000000017666
+  },
+  {
+    "test": "Native psp decoded duration and start",
+    "at": 90.5,
+    "duration": 6.164916666666667,
+    "state": "running",
+    "animationOffsetMs": 3.989999999950669
+  },
+  {
+    "test": "Native xbox360 decoded duration and start",
+    "at": 101.5,
+    "duration": 7.862875,
+    "state": "running",
+    "animationOffsetMs": 4.034000000261585
+  },
+  {
+    "test": "Native switch decoded duration and start",
+    "at": 81.5,
+    "duration": 0.828,
+    "state": "running",
+    "animationOffsetMs": 3.7440000003298337
+  },
+  {
+    "test": "Native PS3 music playback and real end looping",
+    "duration": 134.373896,
+    "src": "http://tauri.localhost/assets/menu_ps3_theme-yGzFV2Bu.mp3",
+    "loop": true,
+    "volume": 0.0675
+  },
+  {
+    "test": "Native four makers, folding and TV source cleanup",
+    "passed": true
+  },
+  {
+    "test": "Native sidebar 1280x720",
+    "passed": true
+  },
+  {
+    "test": "Native sidebar 1920x1080",
+    "passed": true
+  },
+  {
+    "test": "Native sidebar 3840x2160",
+    "passed": true
+  }
+]

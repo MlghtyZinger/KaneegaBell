@@ -45,6 +45,25 @@ Nintendo/Sony recordings retain their respective ownership; the repositories' co
 licenses do not make those recordings CC0. The Wii menu also loops bgm.wav from
 the same danintosh repository, converted to 48 kHz stereo MP3 quality 4 as
 menu_wii_theme.mp3 (74.208 seconds). It follows TV sound/volume and pauses for
-intros, hidden windows, gameplay and other menu styles. PS3 keeps navigation sounds
-without background music, as requested by the owner. No firmware, system code
-or fonts were downloaded or bundled.
+intros, hidden windows, gameplay and other menu styles.
+
+The owner changed the PS3 music preference on 2026-10-22: the same PS3 sound pack's
+`oggs/bgm.ogg` is now converted to 48 kHz stereo MP3 quality 4 as
+`menu_ps3_theme.mp3` (about 134.374 seconds decoded). It is the pack's background
+track, not a claim that the stock PS3 XMB had this music. Switching Wii/PS3 swaps
+tracks; both obey TV volume/mute, intro/visibility/gameplay pauses and TV exit cleanup.
+No firmware, system code or fonts were extracted or bundled.
+
+## Intro synchronization checks
+
+`python tools/sounds/check_intro_audio.py <output-directory>` decodes the ten
+bundled recordings, reports 10 ms energy envelopes and writes a waveform PNG.
+It needs the existing FFmpeg plus numpy/Pillow, and leaves originals untouched.
+The full recordings include leading/trailing silence and Konami's repeated phrase.
+`intro.css` follows those recordings; arbitrary user overrides retain their full
+duration but cannot automatically have their musical cues inferred.
+
+`node tools/perf/intro-audio.mjs <output-directory> [Vite URL]` checks decoded
+durations, audio/animation starts, cancellation, controller folding and menu music
+using a browser-only generated library. Set `KB_PLAYWRIGHT` and `KB_BROWSER` if
+the existing local package/browser paths differ. No real library is opened.

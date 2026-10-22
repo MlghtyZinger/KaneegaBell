@@ -1,0 +1,17 @@
+[
+  {
+    "title": "GameCube style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\gamecube-g-correction\\kb-gamecube-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\gamecube intro.mp3",
+    "sourceDuration": 10.123916666666666,
+    "videoDuration": 10.116667,
+    "audioDuration": 10.124,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 358606,
+    "decodeCheck": "passed",
+    "audioEnvelopeCorrelation": 0.9999946223034472,
+    "audioOffsetMs": 0
+  }
+]

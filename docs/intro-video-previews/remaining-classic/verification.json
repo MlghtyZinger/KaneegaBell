@@ -1,0 +1,152 @@
+[
+  {
+    "title": "PlayStation style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-ps1-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\psx.mp3",
+    "sourceDuration": 21.890625,
+    "videoDuration": 21.883333,
+    "audioDuration": 21.89,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 905844,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 21.89
+    },
+    "audioEnvelopeCorrelation": 0.9999732125918828,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "PS2 style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-ps2-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps2-nostalgic-startup.mp3",
+    "sourceDuration": 16.632,
+    "videoDuration": 16.633333,
+    "audioDuration": 16.632,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 2767947,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 16.633333
+    },
+    "audioEnvelopeCorrelation": 0.9998804479468145,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "PSP boot and game launch with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-psp-classic.mp4",
+    "audioSource": [
+      "C:\\Emulator files\\audio files\\psp part 1.mp3",
+      "C:\\Emulator files\\audio files\\psp part 2.mp3"
+    ],
+    "sourceDuration": 6.164916666666667,
+    "videoDuration": 6.166667,
+    "audioDuration": 6.165,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 494676,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 6.166667
+    },
+    "audioEnvelopeCorrelation": 0.9999341770633764,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "Xbox 360 style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-xbox360-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\xbox-360-startup.mp3",
+    "sourceDuration": 7.862875,
+    "videoDuration": 7.866667,
+    "audioDuration": 7.863,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1794526,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 7.866667
+    },
+    "audioEnvelopeCorrelation": 0.9999884072755721,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "Switch snap with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-switch-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\switch-sound.mp3",
+    "sourceDuration": 0.828,
+    "videoDuration": 0.833333,
+    "audioDuration": 0.828,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 41181,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 0.833333
+    },
+    "audioEnvelopeCorrelation": 0.9999890296490728,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "Konami style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-konami-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\konami.mp3",
+    "sourceDuration": 10.446125,
+    "videoDuration": 10.45,
+    "audioDuration": 10.446,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 662418,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 10.45
+    },
+    "audioEnvelopeCorrelation": 0.9999720683056788,
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "Rockstar shotgun style with KB branding",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\remaining-classic\\kb-rockstar-classic.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\rdr2_shotgun_blast.mp3",
+    "sourceDuration": 11.077,
+    "videoDuration": 11.083333,
+    "audioDuration": 11.077,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1136873,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true,
+      "duration": 11.083333
+    },
+    "audioEnvelopeCorrelation": 0.9999791990620099,
+    "audioOffsetMs": 0
+  }
+]

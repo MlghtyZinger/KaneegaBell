@@ -47,6 +47,12 @@ export function load(name: string, bytes?: ArrayBuffer): Promise<AudioBuffer | n
   return p;
 }
 
+/** Await before starting a visual timeline: a suspended device must not delay its audio. */
+export async function readyAudio(): Promise<void> {
+  const c = audio();
+  if (c?.state === "suspended") await c.resume().catch(() => {});
+}
+
 /** Plays a decoded sound now (or `delayMs` from now), if sound is on. */
 export function playBuffer(buf: AudioBuffer | null, delayMs = 0) {
   const c = audio();
@@ -56,6 +62,7 @@ export function playBuffer(buf: AudioBuffer | null, delayMs = 0) {
   s.buffer = buf;
   s.connect(master);
   s.start(c.currentTime + delayMs / 1000);
+  return s;
 }
 
 export function play(name: string, delayMs = 0) {

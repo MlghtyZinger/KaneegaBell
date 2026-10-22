@@ -1,0 +1,88 @@
+[
+  {
+    "title": "PS1 dimensional KB monogram and revised wordmark",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-3\\kb-ps1-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\psx.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        4.3
+      ],
+      [
+        12.7,
+        16.2
+      ]
+    ],
+    "sourceDuration": 7.8,
+    "videoDuration": 7.8,
+    "audioDuration": 7.8,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 376593,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioMatchesPreviouslyVerifiedTimeline": true,
+    "decodedAudioSha256": "cffa93e1c048542e04552c7012b48d3f18b1f81cef5a7731ce142eece73d1ba3",
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "PS2 camera transition and corrected wordmark",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-3\\kb-ps2-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps2-nostalgic-startup.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        5.6
+      ],
+      [
+        14.4,
+        16.4
+      ]
+    ],
+    "sourceDuration": 7.6,
+    "videoDuration": 7.6,
+    "audioDuration": 7.6,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1615160,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioMatchesPreviouslyVerifiedTimeline": true,
+    "decodedAudioSha256": "6d0e0c4e108c2e22e2983ad706435f0091ab0bf3457492a01c10b95f4b39cc5a",
+    "audioOffsetMs": 0
+  },
+  {
+    "title": "PSP separate waves stage and smooth logo reveal",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-3\\kb-psp-revised.mp4",
+    "audioSource": [
+      "C:\\Emulator files\\audio files\\psp part 1.mp3",
+      "C:\\Emulator files\\audio files\\psp part 2.mp3"
+    ],
+    "sourceDuration": 6.164916666666667,
+    "videoDuration": 6.166667,
+    "audioDuration": 6.165,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 603237,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioMatchesPreviouslyVerifiedTimeline": true,
+    "decodedAudioSha256": "8880fcc92be37dbdf7cc65e35f954f34a71a6993a59bc268c7cbed7a7b59207c",
+    "audioOffsetMs": 0
+  }
+]

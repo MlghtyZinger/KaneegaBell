@@ -1,0 +1,50 @@
+[
+  {
+    "title": "Prism",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\kb-gba-prism.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\game-boy-advance-sp-intro.mp3",
+    "sourceDuration": 4.760104166666666,
+    "videoDuration": 4.766667,
+    "audioDuration": 4.76,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 580961,
+    "decodeCheck": "passed",
+    "audioEnvelopeOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.999999,
+    "browserPlayback": "passed"
+  },
+  {
+    "title": "Orbit",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\kb-gamecube-orbit.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\gamecube intro.mp3",
+    "sourceDuration": 10.123916666666666,
+    "videoDuration": 10.116667,
+    "audioDuration": 10.124,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1008321,
+    "decodeCheck": "passed",
+    "audioEnvelopeOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.999995,
+    "browserPlayback": "passed"
+  },
+  {
+    "title": "Aurora",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\kb-ps3-aurora.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps3boot.mp3",
+    "sourceDuration": 6.687354166666666,
+    "videoDuration": 6.683333,
+    "audioDuration": 6.687,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1730268,
+    "decodeCheck": "passed",
+    "audioEnvelopeOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.999995,
+    "browserPlayback": "passed"
+  }
+]

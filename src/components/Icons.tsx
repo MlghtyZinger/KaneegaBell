@@ -1,4 +1,5 @@
 import { Show, type JSX } from "solid-js";
+import { platformMaker } from "../state/platformGroups";
 
 /**
  * Small line icons drawn for KB (no icon font). The platform ones are
@@ -129,29 +130,10 @@ const PICTURES = import.meta.glob("../assets/platforms/*.png", { eager: true, qu
 >;
 const pictureOf = (id: string) => PICTURES[`../assets/platforms/${id}.png`];
 
-const FAMILY: Record<string, string> = {
-  snes: "nintendo",
-  n64: "nintendo",
-  gba: "nintendo",
-  gc: "nintendo",
-  nds: "nintendo",
-  wii: "nintendo",
-  "3ds": "nintendo",
-  switch: "nintendo",
-  segacd: "sega",
-  saturn: "sega",
-  ps1: "sony",
-  ps2: "sony",
-  psp: "sony",
-  ps3: "sony",
-  xbox: "microsoft",
-  xbox360: "microsoft",
-};
-
 /** A platform's icon: its picture tinted by maker family, or a plain pad when there is none. */
 export function PlatformIcon(props: { id: string; class?: string }) {
   const url = () => pictureOf(props.id);
-  const cls = () => `icon platform-icon fam-${FAMILY[props.id] ?? "other"} ${props.class ?? ""}`;
+  const cls = () => `icon platform-icon fam-${platformMaker(props.id)} ${props.class ?? ""}`;
   return (
     <Show
       when={url()}

@@ -2558,6 +2558,14 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   color: var(--accent-strong);
 }
 
+/* Compact folding maker groups; collapsed rails retain their maker marks. */
+.rail.open .rail-row { height: clamp(30px, 3.6vh, 38px); }
+.rail.open .rail-child { padding-left: 24px; }
+.rail-maker { color: var(--text); }
+.rail-maker-mark { font-size: .8em; font-weight: 700; }
+.rail-fold { display: none; width: 10px; flex: none; text-align: center; }
+.rail.open .rail-fold { display: block; }
+
 /* Emulator monogram badge. */
 .emu-badge {
   display: inline-grid;

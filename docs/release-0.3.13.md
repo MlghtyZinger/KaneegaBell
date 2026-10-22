@@ -1,6 +1,6 @@
 # KaneegaBell 0.3.13 release preparation
 
-Prepared 2026-10-22. **Candidate validated; owner authorized publication with the measured startup deviation after a time-limited investigation. Signing/publication pending.**
+Prepared 2026-10-22. **Published: [v0.3.13](https://github.com/MlghtyZinger/KaneegaBell/releases/tag/v0.3.13). Installer and updater download verified. The owner accepted the measured startup deviation.**
 
 ## PS3 sparkles and Wii music (2026-10-22, subsequent build)
 
@@ -86,19 +86,19 @@ under the absolute 1.5-second target. Run 2 scrolls at 240 fps, p99 4.3 ms, maxi
 game-running CPU 0.92% of one core. Private memory warnings remain (249/444/339/368 MB for
 start/scroll/game/after game); the gate uses Task Manager memory, which passed.
 The baseline is unchanged. The owner subsequently accepted the startup deviation for publication if a five-minute investigation found no quick fix.
-Results: `perf-last.json` (run 2), `perf-0.3.13-run1.json` (run 1) in the isolated data folder.
+Earlier results: `perf-last.json` was subsequently replaced by the final idle rerun; `perf-0.3.13-run1.json` (run 1) in the isolated data folder.
 
-## Candidate and remaining release steps
+## Earlier candidate and publication record
 
 - Executable: `C:\Emulator files\src-tauri\target\release\KaneegaBell.exe`.
 - Unsigned updater candidate: `C:\Emulator files\src-tauri\target\release\bundle\nsis\KaneegaBell_0.3.13_x64-setup.exe`
-  (8,815,607 bytes). No updater signature or release manifest was generated.
+  (earlier unsigned candidate: 8,815,607 bytes). Superseded by the fresh signed release below.
 - Bundle-only retry warned that its bundle-type marker was already absent after the first
   packaging attempt patched the executable. Installer creation succeeded, but updater
   behavior is unverified; use the owner's normal fresh signed build for publication.
-- No commit, push, tag or GitHub release created. Working tree remains uncommitted.
+- Source committed as `cf29965`, pushed to main and tagged `v0.3.13`; GitHub release published.
 - Owner has authorized the release commit and publication following the time-limited startup investigation.
-- Owner then runs `C:\Emulator files\tools\release\release.ps1 -Version 0.3.13 -Publish`
+- Owner completed `C:\Emulator files\tools\release\release.ps1 -Version 0.3.13 -Publish`
   after explicitly authorizing publication, entering the signing password themselves.
   The release script was hardened to preserve working-tree changes on test/build failure and avoid forced temporary-worktree removal.
 - All test app instances were closed. Owner requested PC shutdown after preparation.
@@ -111,3 +111,17 @@ The owner authorized a roughly five-minute investigation followed by publication
 fix emerged. Profiling found fast JS/CSS and library IPC, and substantial cold WebView/first-paint
 overhead; no app-code fix or controlled old-binary comparison was completed in that budget.
 No performance baseline changed. The startup deviation is disclosed and accepted for this release.
+
+## Published installer verification
+
+Signed installer: 9,636,275 bytes, SHA-256
+`e91dec03af230ed4e9ae48a087bb09fd3e1084791e37cb701b5992344f22bea9`.
+GitHub release contains the installer, its `.sig`, and `latest.json`. The updates branch
+manifest reports 0.3.13; an authenticated raw download matches the signed local installer
+byte-for-byte by SHA-256, and its public signature matches the manifest. Main and the release
+tag were confirmed remotely. No installed-owner-library files were modified.
+
+The release script failed only after upload, when its host could not find `Get-FileHash`.
+Verification was completed independently using .NET SHA-256, and the helper now uses that
+API for future releases. This helper/doc correction is a follow-up on main; the release tag
+and signed installer remain unchanged.

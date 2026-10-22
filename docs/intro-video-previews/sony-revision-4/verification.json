@@ -1,0 +1,132 @@
+[
+  {
+    "title": "PS1 established KB emblem and corrected chime attack",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-4\\kb-ps1-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\psx.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        5.2
+      ],
+      [
+        12.25,
+        15.05
+      ]
+    ],
+    "audioFadeOuts": [
+      0.12,
+      0.18
+    ],
+    "cueTimings": [
+      {
+        "event": "final emblem reveal",
+        "sourceTime": 12.37,
+        "audioTime": 5.32,
+        "visualTime": 5.32
+      }
+    ],
+    "sourceDuration": 8,
+    "videoDuration": 8,
+    "audioDuration": 8,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 375018,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999637127624446,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 5.32,
+      "visualHalfRevealSeconds": 5.35,
+      "differenceMs": 30.0,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  },
+  {
+    "title": "PS2 title aligned with the launch chime",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-4\\kb-ps2-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps2-nostalgic-startup.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        5.6
+      ],
+      [
+        14.4,
+        16.4
+      ]
+    ],
+    "cueTimings": [
+      {
+        "event": "title midpoint",
+        "sourceTime": 14.59,
+        "audioTime": 5.79,
+        "visualTime": 5.79
+      }
+    ],
+    "sourceDuration": 7.6,
+    "videoDuration": 7.6,
+    "audioDuration": 7.6,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1613741,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999340889849119,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 5.81,
+      "visualHalfRevealSeconds": 5.8167,
+      "differenceMs": 6.7,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  },
+  {
+    "title": "PSP full-name lettering and corrected reveal timing",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-4\\kb-psp-revised.mp4",
+    "audioSource": [
+      "C:\\Emulator files\\audio files\\psp part 1.mp3",
+      "C:\\Emulator files\\audio files\\psp part 2.mp3"
+    ],
+    "cueTimings": [
+      {
+        "event": "logo midpoint and gold flare",
+        "sourcePart": 2,
+        "sourceTime": 0.51,
+        "audioTime": 3.932,
+        "visualTime": 3.932
+      }
+    ],
+    "sourceDuration": 6.164916666666667,
+    "videoDuration": 6.166667,
+    "audioDuration": 6.165,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 492850,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999341770633764,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 3.95,
+      "visualHalfRevealSeconds": 3.9333,
+      "differenceMs": -16.7,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  }
+]

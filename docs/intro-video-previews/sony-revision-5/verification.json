@@ -1,0 +1,132 @@
+[
+  {
+    "title": "PS1 longer musical phrases with KB emblem",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-5\\kb-ps1-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\psx.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        6.2
+      ],
+      [
+        12.25,
+        16.05
+      ]
+    ],
+    "audioFadeOuts": [
+      0.12,
+      0.18
+    ],
+    "cueTimings": [
+      {
+        "event": "final emblem reveal",
+        "sourceTime": 12.37,
+        "audioTime": 6.32,
+        "visualTime": 6.32
+      }
+    ],
+    "sourceDuration": 10,
+    "videoDuration": 10,
+    "audioDuration": 10,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 435284,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999668982267849,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 6.32,
+      "visualHalfRevealSeconds": 6.35,
+      "differenceMs": 30.0,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  },
+  {
+    "title": "PS2 longer tower sequence with aligned chime",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-5\\kb-ps2-revised.mp4",
+    "audioSource": "C:\\Emulator files\\audio files\\ps2-nostalgic-startup.mp3",
+    "audioEditRanges": [
+      [
+        0,
+        7.6
+      ],
+      [
+        14.4,
+        16.4
+      ]
+    ],
+    "cueTimings": [
+      {
+        "event": "title midpoint",
+        "sourceTime": 14.59,
+        "audioTime": 7.79,
+        "visualTime": 7.79
+      }
+    ],
+    "sourceDuration": 9.6,
+    "videoDuration": 9.6,
+    "audioDuration": 9.6,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 1981898,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999329755090236,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 7.81,
+      "visualHalfRevealSeconds": 7.8167,
+      "differenceMs": 6.7,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  },
+  {
+    "title": "PSP KB with Kaneegabell Computer Entertainment",
+    "file": "C:\\Emulator files\\docs\\intro-video-previews\\sony-revision-5\\kb-psp-revised.mp4",
+    "audioSource": [
+      "C:\\Emulator files\\audio files\\psp part 1.mp3",
+      "C:\\Emulator files\\audio files\\psp part 2.mp3"
+    ],
+    "cueTimings": [
+      {
+        "event": "logo midpoint and gold flare",
+        "sourcePart": 2,
+        "sourceTime": 0.51,
+        "audioTime": 3.932,
+        "visualTime": 3.932
+      }
+    ],
+    "sourceDuration": 6.164916666666667,
+    "videoDuration": 6.166667,
+    "audioDuration": 6.165,
+    "fps": 60,
+    "width": 1920,
+    "height": 1080,
+    "bytes": 493446,
+    "decodeCheck": "passed",
+    "browserCheck": {
+      "playback": "passed",
+      "seek": "passed",
+      "ended": true
+    },
+    "audioOffsetMs": 0,
+    "audioEnvelopeCorrelation": 0.9999341770633764,
+    "measuredCueCheck": {
+      "audioAttackSeconds": 3.95,
+      "visualHalfRevealSeconds": 3.9333,
+      "differenceMs": -16.7,
+      "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+    }
+  }
+]

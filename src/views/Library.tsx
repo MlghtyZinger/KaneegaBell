@@ -14,6 +14,7 @@ import {
 } from "../components/Collections";
 import type { Collection } from "../api";
 import { themeIcon } from "../state/theme";
+import { MAKERS, platformMaker, platformRailRows, type PlatformRailRow } from "../state/platformGroups";
 import { Icon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
 import { countActive } from "../state/smartFilter";
@@ -521,15 +522,17 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     if (id === "collections") return collections.visible().length;
     return library.platforms().find((x) => x.id === id)?.count ?? 0;
   };
-  const firstPlatformTab = () => library.platformTabs().findIndex((t) => library.platforms().some((p) => p.id === t));
+  const firstMakerRow = () => railRows().findIndex((r) => r.kind === "maker");
+  const railLabel = (row: PlatformRailRow) => row.kind === "maker" ? row.maker.name : tabLabel(row.id);
+  const railCount = (row: PlatformRailRow) => row.kind === "maker" ? row.platforms.reduce((n, id) => n + tabCount(id), 0) : tabCount(row.id);
 
   // Where you are, for the top bar (the rail shows only icons most of the time).
   const here = () => {
     // Moving through a closed rail: name the focused tab.
     const rf = railFocus();
     if (rf !== null && railMode() === "closed") {
-      const t = library.platformTabs()[rf];
-      if (t) return { title: tabLabel(t), count: t === "collections" ? "" : `${tabCount(t)} games` };
+      const row = railRows()[rf];
+      if (row) return { title: railLabel(row), count: row.id === "collections" ? "" : `${railCount(row)} games` };
       return { title: `Sidebar: ${RAIL_MODES[railMode()].label}`, count: "A to change" };
     }
     const n = games().length;
@@ -557,6 +560,27 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   const [railHover, setRailHover] = createSignal(false);
   const [railFocus, setRailFocus] = createSignal<number | null>(null);
   const [railMode, setRailModeRaw] = createSignal<RailMode>("hover");
+  const [openMakers, setOpenMakers] = createSignal<string[]>(["nintendo"]);
+  void api.getSetting<string[]>("openPlatformMakers").then((saved) => {
+    if (Array.isArray(saved)) setOpenMakers(saved.filter((id) => MAKERS.some((m) => m.id === id)));
+  }).catch(() => {});
+  const railRows = createMemo(() => platformRailRows(library.platformTabs(), library.platforms().map((p) => p.id), openMakers()));
+  createEffect(on(railRows, (rows, previous) => {
+    const index = railFocus();
+    if (index === null || !previous) return;
+    if (index === previous.length) { setRailFocus(rows.length); return; }
+    const old = previous[index];
+    const next = rows.findIndex((r) => r.id === old?.id);
+    const maker = old?.kind === "tab" ? rows.findIndex((r) => r.id === `maker:${platformMaker(old.id)}`) : -1;
+    setRailFocus(next >= 0 ? next : maker >= 0 ? maker : Math.min(index, rows.length));
+  }));
+  function toggleMaker(row: PlatformRailRow) {
+    if (row.kind !== "maker") return;
+    const id = row.maker.id;
+    const next = openMakers().includes(id) ? openMakers().filter((m) => m !== id) : [...openMakers(), id];
+    setOpenMakers(next);
+    void api.setSetting("openPlatformMakers", next).catch(() => {});
+  }
   void api
     .getSetting<string>("railMode")
     .then(async (v) => {
@@ -573,7 +597,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   // Always closed: icons only, also while the controller moves through them
   // (the top bar names the focused one).
   const railOpen = () => railMode() !== "closed" && (railPinned() || railHover() || railFocus() !== null);
-  const openRail = () => setRailFocus(Math.max(0, library.platformTabs().findIndex(tabActive)));
+  const openRail = () => {
+    const rows = railRows();
+    const tab = rows.findIndex((r) => r.kind === "tab" && tabActive(r.id));
+    setRailFocus(Math.max(0, tab >= 0 ? tab : rows.findIndex((r) => r.kind === "maker" && r.platforms.includes(library.platform()))));
+  };
   const closeRail = () => setRailFocus(null);
   function pickTab(id: PlatformFilter) {
     library.setQuery("");
@@ -583,15 +611,16 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   }
   /** Controller/keyboard while the rail has focus; false = not handled here. */
   function railAction(a: Action): boolean {
-    const tabs = library.platformTabs();
+    const rows = railRows();
     const i = railFocus()!;
     switch (a) {
       case "up": setRailFocus(Math.max(0, i - 1)); return true;
       // One stop past the last tab: the mode button (A cycles the mode).
-      case "down": setRailFocus(Math.min(tabs.length, i + 1)); return true;
+      case "down": setRailFocus(Math.min(rows.length, i + 1)); return true;
       case "select":
-        if (i >= tabs.length) setRailMode(RAIL_MODES[railMode()].next);
-        else pickTab(tabs[i]);
+        if (i >= rows.length) setRailMode(RAIL_MODES[railMode()].next);
+        else if (rows[i].kind === "maker") toggleMaker(rows[i]);
+        else pickTab(rows[i].id);
         return true;
       case "back":
       case "right": closeRail(); return true;
@@ -658,22 +687,24 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         onMouseLeave={() => setRailHover(false)}
       >
         <div class="rail-list" ref={railEl}>
-          <For each={library.platformTabs()}>
-            {(id, i) => (
+          <For each={railRows()}>
+            {(row, i) => (
               <>
-                <Show when={i() === firstPlatformTab()}>
+                <Show when={i() === firstMakerRow()}>
                   <div class="rail-divider" />
                 </Show>
                 <button
                   class="rail-row"
-                  classList={{ active: tabActive(id), focused: railFocus() === i() }}
-                  title={tabLabel(id)}
+                  classList={{ active: row.kind === "tab" ? tabActive(row.id) : !openMakers().includes(row.maker.id) && row.platforms.includes(library.platform()), focused: railFocus() === i(), "rail-child": row.kind === "tab" && row.child, "rail-maker": row.kind === "maker" }}
+                  title={railLabel(row)}
+                  aria-expanded={row.kind === "maker" ? openMakers().includes(row.maker.id) : undefined}
                   tabIndex={-1}
-                  onClick={() => pickTab(id)}
+                  onClick={() => row.kind === "maker" ? toggleMaker(row) : pickTab(row.id)}
                 >
-                  <span class="rail-icon">{tabIcon(id)}</span>
-                  <span class="rail-name">{tabLabel(id)}</span>
-                  <span class="rail-count">{tabCount(id)}</span>
+                  <span class="rail-icon">{row.kind === "maker" ? <span class="rail-maker-mark">{row.maker.mark}</span> : tabIcon(row.id)}</span>
+                  <span class="rail-name">{railLabel(row)}</span>
+                  <span class="rail-count">{railCount(row)}</span>
+                  <Show when={row.kind === "maker"}><span class="rail-fold" aria-hidden="true">{row.kind === "maker" && openMakers().includes(row.maker.id) ? "⌄" : "›"}</span></Show>
                 </button>
               </>
             )}
@@ -681,7 +712,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <button
           class="rail-row rail-pin"
-          classList={{ active: railMode() !== "hover", focused: railFocus() === library.platformTabs().length }}
+          classList={{ active: railMode() !== "hover", focused: railFocus() === railRows().length }}
           tabIndex={-1}
           title={RAIL_MODES[railMode()].tip}
           onClick={() => setRailMode(RAIL_MODES[railMode()].next)}

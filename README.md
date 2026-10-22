@@ -833,6 +833,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.14
+- New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.
+- Fixed: start-up intro effects follow the complete supplied audio recordings, including PSP's second part, PS2's final chime and the Switch click.
+- Fixed: skipping or replacing an intro cancels its pending playback and timers.
+- New: PS3 TV Mode plays the existing PS3 sound pack's background track, following TV volume and pausing for intros, hidden windows and gameplay.
+
 ### 0.3.13
 - New: switch between KB, Wii and PS3 TV menus without restarting; your choice is remembered.
 - Changed: KB TV Mode has a logo list, a large 3D case, short game summaries, and an All platforms filter.
