@@ -22,6 +22,8 @@ param(
     [string]$NotesFile,
     [string]$KeyPath = "$env:USERPROFILE\.tauri\kaneegabell.key",
     [switch]$Publish,
+    # With -Publish, skip the "publish? yes/no" question (the owner's standing OK).
+    [switch]$Yes,
     # Only (re)write the updates branch for an already published version.
     [switch]$Repoint
 )
@@ -203,7 +205,7 @@ if ($Repoint) {
 }
 
 Step "Publish"
-$answer = Read-Host "Publish KaneegaBell $Version on github.com/${repo}? Everyone with KB will be offered it. (yes/no)"
+$answer = if ($Yes) { "yes" } else { Read-Host "Publish KaneegaBell $Version on github.com/${repo}? Everyone with KB will be offered it. (yes/no)" }
 if ($answer.Trim() -notmatch '^(y|yes)$') { Write-Host "Not published. The commit and tag stay local; run the same command again to publish (it won't build again)."; exit 0 }
 Run git @("push", "origin", "main", "v$Version")
 # The release page (installer and .sig, for downloading by hand).
