@@ -833,7 +833,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
-### 0.3.14
+### 0.3.15
 - New: on the Recent tab, Y removes a game from Recent; its play time is kept.
 - Changed: F1 no longer opens Settings or the TV Mode menu; Esc does both.
 - Fixed: the intro and other pickers no longer scroll their title and top options out of view.
