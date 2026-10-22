@@ -315,6 +315,7 @@ pub fn run() {
             commands::get_library,
             commands::get_game,
             commands::set_favorite,
+            commands::forget_recent,
             commands::preview_launch,
             commands::launch_game,
             commands::exit_game,

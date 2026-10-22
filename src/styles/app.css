@@ -1060,8 +1060,12 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   color: var(--accent-strong);
 }
 
-.picker-panel {
+/* Only the list scrolls; scrolling the panel too hid the title and top options. */
+.panel.picker-panel {
   width: min(520px, 92vw);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .picker-list,
@@ -1069,6 +1073,7 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
   max-height: 60vh;
   overflow-y: auto;
   padding: 6px;

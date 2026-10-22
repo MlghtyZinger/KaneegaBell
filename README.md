@@ -183,7 +183,7 @@ emulators and saves are never touched.
 | Full game details | Triangle | Y | F |
 | Previous / next tab (platform, Settings section) | L1 / R1 | LB / RB | Q / E |
 | Previous / next letter | L2 / R2 | LT / RT | Home / End |
-| Settings | Options | Menu | F1 (or Esc with nothing to close) |
+| Settings | Options | Menu | Esc (with nothing to close) |
 
 **Game sidebar:** choosing a game opens a panel on the right with its background and logo,
 platform, year, developer, genres, series, play time, achievement progress (as last fetched; it
@@ -834,6 +834,9 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.14
+- New: on the Recent tab, Y removes a game from Recent; its play time is kept.
+- Changed: F1 no longer opens Settings or the TV Mode menu; Esc does both.
+- Fixed: the intro and other pickers no longer scroll their title and top options out of view.
 - Changed: artwork, screenshots and back covers prefer the USA release, then Japan, when the game's own region doesn't decide.
 - New: in TV Mode, Esc opens the menu, which now has a Turn off PC button (asks you to press it twice).
 - New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.

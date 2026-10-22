@@ -121,6 +121,12 @@ pub fn set_favorite(conn: &Connection, game_id: i64, favorite: bool) -> Result<(
     Ok(())
 }
 
+/// Takes a game off Recent by clearing its last-played time; play time stays. A running game keeps it (it's set on exit).
+pub fn forget_recent(conn: &Connection, game_id: i64) -> Result<()> {
+    conn.execute("UPDATE games SET last_played = NULL WHERE id = ?1 AND running_since IS NULL", [game_id])?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameDetail {

@@ -175,6 +175,11 @@ pub fn set_favorite(state: State<'_, AppState>, id: i64, favorite: bool) -> Resu
     queries::set_favorite(&state.db(), id, favorite)
 }
 
+#[tauri::command]
+pub fn forget_recent(state: State<'_, AppState>, id: i64) -> Result<()> {
+    queries::forget_recent(&state.db(), id)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchPreview {

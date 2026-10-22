@@ -115,6 +115,23 @@ mod tests {
     }
 
     #[test]
+    fn forgetting_recent_keeps_play_time_and_spares_a_running_game() {
+        let conn = super::test_db();
+        conn.execute(
+            "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at, play_seconds, last_played, running_since)
+             VALUES ('gba', 'A', 'a', 'a', 'a.gba', 0, 60, 100, NULL), ('gba', 'B', 'b', 'b', 'b.gba', 0, 0, 100, 200)",
+            [],
+        )
+        .unwrap();
+        super::queries::forget_recent(&conn, 1).unwrap();
+        super::queries::forget_recent(&conn, 2).unwrap();
+        let (last, secs): (Option<i64>, i64) = conn.query_row("SELECT last_played, play_seconds FROM games WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!((last, secs), (None, 60));
+        let running: Option<i64> = conn.query_row("SELECT last_played FROM games WHERE id = 2", [], |r| r.get(0)).unwrap();
+        assert_eq!(running, Some(100), "a running game keeps its last-played time until it exits");
+    }
+
+    #[test]
     fn a_replaced_background_never_gets_the_old_version_back() {
         let conn = super::test_db();
         conn.execute(

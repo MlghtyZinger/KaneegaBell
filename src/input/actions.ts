@@ -41,7 +41,6 @@ const KEYMAP: Record<string, Action> = {
   Home: "prevLetter",
   End: "nextLetter",
   f: "favorite",
-  F1: "menu",
   "+": "zoomIn",
   "=": "zoomIn",
   "-": "zoomOut",

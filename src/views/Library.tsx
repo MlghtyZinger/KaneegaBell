@@ -199,6 +199,10 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     return k ? collections.byKey().get(k) : undefined;
   };
   const [collectionError, setCollectionError] = createSignal<string | null>(null);
+  async function forgetRecent(game: GameRow) {
+    await api.forgetRecent(game.id);
+    await library.reload();
+  }
   async function removeCollectionMember(c: Collection, game: GameRow) {
     if (c.kind === "smart") return;
     setCollectionError(null);
@@ -472,6 +476,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       case "favorite":
         if (overview()) editTile(focused());
         else if (openCol() && openCol()!.kind !== "smart" && games()[focused()]) void removeCollectionMember(openCol()!, games()[focused()]);
+        else if (library.platform() === "recent" && games()[focused()]) void forgetRecent(games()[focused()]);
         else openDetails(focused());
         return true;
       case "secondary": openSearch(); return true;
@@ -894,7 +899,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <footer class="hints">
           <Hint action="select" label="Open" />
-          <Hint action="favorite" label={openCol() && openCol()!.kind !== "smart" ? "Remove from collection" : "Details"} />
+          <Hint action="favorite" label={openCol() && openCol()!.kind !== "smart" ? "Remove from collection" : library.platform() === "recent" ? "Remove from Recent" : "Details"} />
           <Hint action="secondary" label="Search" />
           <Hint action="filter" label="Filter" />
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />

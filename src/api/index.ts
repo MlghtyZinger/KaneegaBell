@@ -636,6 +636,7 @@ export const api = {
   getLibrary: () => invoke<Library>("get_library"),
   getGame: (id: number) => invoke<GameDetail>("get_game", { id }),
   setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),
+  forgetRecent: (id: number) => invoke<void>("forget_recent", { id }),
   previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
   /** `emulator`: this launch only (else the game's pick or the platform's default). */
   launchGame: (id: number) => invoke<RunningGame>("launch_game", { id }),

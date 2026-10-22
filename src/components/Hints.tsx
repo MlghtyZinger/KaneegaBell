@@ -14,7 +14,7 @@ const XBOX: Partial<Record<Action, string>> = {
 };
 const KEYS: Partial<Record<Action, string>> = {
   select: "Enter", back: "Esc", secondary: "/", favorite: "F",
-  prevPlatform: "Q", nextPlatform: "E", prevLetter: "Home", nextLetter: "End", menu: "F1",
+  prevPlatform: "Q", nextPlatform: "E", prevLetter: "Home", nextLetter: "End", menu: "Esc",
   zoomIn: "+", zoomOut: "−", toggleGroups: "V", filter: "G", toggleTv: "F10", turnLeft: "[", turnRight: "]",
 };
 
