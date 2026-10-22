@@ -1,11 +1,11 @@
 {
-  "version": "0.3.14",
-  "notes": "- Changed: artwork, screenshots and back covers prefer the USA release, then Japan, when the game's own region doesn't decide.\n- New: in TV Mode, Esc opens the menu, which now has a Turn off PC button (asks you to press it twice).\n- New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.\n- Fixed: start-up intro effects follow the complete supplied audio recordings, including PSP's second part, PS2's final chime and the Switch click.\n- Fixed: skipping or replacing an intro cancels its pending playback and timers.\n- New: PS3 TV Mode plays the existing PS3 sound pack's background track, following TV volume and pausing for intros, hidden windows and gameplay.",
-  "pub_date": "2026-10-22T21:14:46Z",
+  "version": "0.3.15",
+  "notes": "- New: on the Recent tab, Y removes a game from Recent; its play time is kept.\n- Changed: F1 no longer opens Settings or the TV Mode menu; Esc does both.\n- Fixed: the intro and other pickers no longer scroll their title and top options out of view.\n- Changed: artwork, screenshots and back covers prefer the USA release, then Japan, when the game's own region doesn't decide.\n- New: in TV Mode, Esc opens the menu, which now has a Turn off PC button (asks you to press it twice).\n- New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.\n- Fixed: start-up intro effects follow the complete supplied audio recordings, including PSP's second part, PS2's final chime and the Switch click.\n- Fixed: skipping or replacing an intro cancels its pending playback and timers.\n- New: PS3 TV Mode plays the existing PS3 sound pack's background track, following TV volume and pausing for intros, hidden windows and gameplay.",
+  "pub_date": "2026-10-22T21:32:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVhCOTg5Y0F0NSszMjJhRHdrMVhMWVp3SGM0WGwwVTJNcGxBUGd3c0swRUxXYnFsUzVuRm91TjJCeTBTWXFOeml3RnJMMzlpUnNxdHFSdmxPS00xM0FFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjk4NzU5CWZpbGU6S2FuZWVnYUJlbGxfMC4zLjE0X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTQKQ0tSRjJXLzRyLzZubjZ5Qkk5dU9KTVp6SlN3OHVQSVJrcjg5TWVLMWpRVitkSEVUcmxHb0Z5TWFRNTh6THhHL0lCTVNIQWtaWXdlazlwM2dwYjRnRGc9PQo=",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.14_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVlFbmo4ek9uOC81QWFWREpMK0wwcE1ZdENFZFk1QTNrQnNneTAyYVowbEJ2TmRnQm4rdThiTWRXR0ltQzlGdDhzMXBwQ2lPaFBVbW1sQXd5ZnV4QXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzA0NzEzCWZpbGU6S2FuZWVnYUJlbGxfMC4zLjE1X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTUKeVhzTFZIY21hRjNsdTB2MkxjRy9tU3RveUdaemluZnZUaDI5QmJocjhkdmJtSHJLaWZkTWtsNklNblZzYUc5Z3RCdlhYRktDSytaWGZrL0NQWTg0RGc9PQo=",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.15_x64-setup.exe?ref=updates"
     }
   }
 }
