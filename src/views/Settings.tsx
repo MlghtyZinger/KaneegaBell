@@ -55,7 +55,7 @@ const INFO: Record<string, Info> = {
   fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
   startTv: { section: "general", title: "Start in TV Mode", words: "big picture tv mode l3 f10", detail: "Opens KB in TV Mode, the big-screen view with backgrounds and logos. Switch any time with L3, F10 or the TV Mode button." },
   size: { section: "general", title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
-  anim: { section: "general", title: "Animations", words: "motion reduced off launch animation case cartridge 3d shelf flat covers inspect", detail: "Full moves the most, Reduced only fades, Off keeps everything still; desktop and TV Mode each have their own. The launch animation opens the game's case (or puts the cartridge in its console) before the emulator starts; Back cancels it. The TV shelf shows 3D cases you can turn and flip, or flat covers." },
+  anim: { section: "general", title: "Animations", words: "motion reduced off launch animation case cartridge 3d shelf flat covers inspect", detail: "Full moves the most, Reduced only fades, Off keeps everything still; desktop and TV Mode each have their own. The launch animation opens the game's case (or puts the cartridge in its console) before the emulator starts; Back cancels it. TV Mode shows a large selected case you can turn and flip, or a flat cover." },
   intro: { section: "general", title: "Start-up intro", words: "boot animation splash konami rockstar playstation xbox gamecube switch random sound file intros folder", detail: "An intro plays when KB starts: one at random, always the same one, or none. Any button skips it. To use your own sound for one, put a file named after it (konami, rockstar, gba, gamecube, ps1, ps2, ps3, psp, xbox360 or switch, as .ogg, .mp3 or .wav) in the intros folder inside KB's data folder." },
   sounds: { section: "general", title: "Sounds", words: "sound effects audio volume mute tactile console retro profile menu clicks", detail: "Short sounds for moving, choosing, going back and starting a game. Tactile sounds like real buttons, Console like a system menu, Retro console like CRT-era hardware. Desktop and TV Mode each have their own switch and volume; KB is silent while a game runs." },
   tv: { section: "general", title: "TV Mode display", words: "tv monitor display text size overscan margin", detail: "With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving brings the window back. Raise the overscan margin if your TV cuts off the edges (the clock or hints are missing)." },
@@ -2039,7 +2039,7 @@ function AnimBlock() {
   return (
     <Row
       k="anim"
-      status={`Desktop ${levelName(fx.get("animDesktop"))} · TV Mode ${levelName(fx.get("animTv"))} · ${fx.get("tvShelf") === "3d" ? "3D shelf" : "flat shelf"}`}
+      status={`Desktop ${levelName(fx.get("animDesktop"))} · TV Mode ${levelName(fx.get("animTv"))} · ${fx.get("tvShelf") === "3d" ? "3D case" : "flat cover"}`}
       open="Change…"
       sub={
         <div class="form-grid">
@@ -2047,9 +2047,9 @@ function AnimBlock() {
           <Picker title="Desktop animations" value={fx.get("animDesktop")} options={LEVELS} onChange={(v) => fx.set("animDesktop", v)} />
           <label>TV Mode</label>
           <Picker title="TV Mode animations" value={fx.get("animTv")} options={LEVELS} onChange={(v) => fx.set("animTv", v)} />
-          <label>TV shelf</label>
+          <label>TV case</label>
           <Picker
-            title="TV Mode shelf"
+            title="TV Mode case"
             value={fx.get("tvShelf")}
             options={[
               { value: "3d", label: "3D cases" },

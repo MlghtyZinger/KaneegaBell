@@ -158,6 +158,22 @@ pub fn store_extra(data_dir: &Path, extra: Extra, game_id: i64, bytes: &[u8]) ->
     Ok((img.width(), img.height()))
 }
 
+/// A cached gameplay screenshot; keep the original proportions and HUD intact.
+pub fn screenshot_path(data_dir: &Path, game_id: i64) -> PathBuf {
+    data_dir.join("art").join("q").join(format!("{game_id}.webp"))
+}
+
+pub fn store_screenshot(data_dir: &Path, game_id: i64, bytes: &[u8]) -> Result<(u32, u32)> {
+    let img = decode(bytes)?;
+    let (w, h) = (img.width(), img.height());
+    // Banners and portrait artwork are not gameplay screenshots.
+    if h == 0 || !(1.0..=2.0).contains(&(w as f64 / h as f64)) {
+        return Err(Error::msg("Screenshot has unsuitable proportions."));
+    }
+    write_atomic(&screenshot_path(data_dir, game_id), &webp(&fit(&img, HERO_MAX), FULL_QUALITY)?)?;
+    Ok((w, h))
+}
+
 /// The pictures a game's 3D case uses besides its cover (LaunchBox's).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Case {

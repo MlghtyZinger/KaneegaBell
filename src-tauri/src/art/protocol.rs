@@ -13,6 +13,7 @@ pub enum Asset {
     Thumb(i64),
     Full(i64),
     Hero(i64),
+    Screenshot(i64),
     Logo(i64),
     Icon(i64),
     /// The disc and back cover of a game's 3D case.
@@ -34,6 +35,7 @@ pub fn parse(path: &str) -> Option<Asset> {
         "t" => Some(Asset::Thumb(id)),
         "f" => Some(Asset::Full(id)),
         "h" => Some(Asset::Hero(id)),
+        "q" => Some(Asset::Screenshot(id)),
         "l" => Some(Asset::Logo(id)),
         "i" => Some(Asset::Icon(id)),
         "d" => Some(Asset::Disc(id)),
@@ -52,6 +54,7 @@ pub fn file_for(data_dir: &Path, asset: &Asset) -> PathBuf {
         Asset::Thumb(id) => images::thumb_path(data_dir, *id),
         Asset::Full(id) => images::full_path(data_dir, *id),
         Asset::Hero(id) => images::extra_path(data_dir, images::Extra::Hero, *id),
+        Asset::Screenshot(id) => images::screenshot_path(data_dir, *id),
         Asset::Logo(id) => images::extra_path(data_dir, images::Extra::Logo, *id),
         Asset::Icon(id) => images::icon_path(data_dir, *id),
         Asset::Disc(id) => images::case_path(data_dir, images::Case::Disc, *id),

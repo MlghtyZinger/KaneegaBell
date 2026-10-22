@@ -1,7 +1,7 @@
 // Run with: npm test (Node's built-in runner; Node strips the TypeScript types).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lead, sentences } from "../src/state/summary.ts";
+import { lead, sentences, tvSummary } from "../src/state/summary.ts";
 
 const pad = (s: string) => s + " " + "Filler sentence about the game to make it long enough to cut. ".repeat(20);
 
@@ -59,4 +59,24 @@ test("a lead-in to a list and development history are left out", () => {
     ),
     ["A boy saves the planet from aliens.", "It is smoother to play today."],
   );
+});
+
+test("TV synopsis keeps two useful complete sentences, skipping release history and duplicates", () => {
+  const text = "It was released in 2003. Explore a ruined city. Explore a ruined city. Find tools to reach new places. Face the final enemy.";
+  assert.equal(tvSummary(text, (s) => s.length <= 120), "Explore a ruined city. Find tools to reach new places.");
+});
+
+test("TV synopsis fits its allotted space without cutting a later sentence", () => {
+  const text = "Explore a ruined city. Find a way through a labyrinth of ancient tunnels and dangerous traps. Save your friend.";
+  assert.equal(tvSummary(text, (s) => s.length <= 45), "Explore a ruined city.");
+});
+
+test("an oversized first TV sentence becomes a bounded word excerpt", () => {
+  const text = "Explore a mysterious ruined city with your friends and discover the secrets of an ancient civilization.";
+  const short = tvSummary(text, (s) => s.length <= 40);
+  assert.ok(short.length <= 40);
+  assert.equal(short, "Explore a mysterious ruined city with…");
+  assert.equal(tvSummary("A".repeat(5000), (s) => s.length <= 20), "A".repeat(19) + "…");
+  assert.equal(tvSummary("A short adventure.", () => false), "");
+  assert.equal(tvSummary("   ", () => true), "");
 });

@@ -163,8 +163,16 @@ export function installKeyboard(): () => void {
   };
 }
 
+/** A screen-local virtual pointer may activate the topmost button before normal navigation. */
+let gamepadPointer: ((action: Action) => boolean) | null = null;
+export function useGamepadPointer(handler: (action: Action) => boolean): () => void {
+  gamepadPointer = handler;
+  return () => { if (gamepadPointer === handler) gamepadPointer = null; };
+}
+
 /** Entry point for controller actions from Rust. */
 export function dispatchFromGamepad(action: Action) {
   setDevice("gamepad");
+  if (gamepadPointer?.(action)) { tap?.(action); return; }
   dispatch(action);
 }

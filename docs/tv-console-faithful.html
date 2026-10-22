@@ -1,0 +1,147 @@
+<div id="kb-console-faithful" class="viz-carousel" aria-label="Console menu reconstructions">
+  <section data-variant="Wii Menu" aria-label="Wii Menu reconstruction">
+    <div class="console wii">
+      <div class="channels" aria-label="Channels"></div>
+      <button class="page prev cursor-interaction" aria-label="Previous channel page">◀</button>
+      <button class="page next cursor-interaction" aria-label="Next channel page">▶</button>
+      <div class="wii-dock"><button class="round cursor-interaction" data-action="settings">Wii</button><button class="sd cursor-interaction" data-action="platforms" aria-label="Platforms"><i data-lucide="folder-open"></i></button><div class="wii-date"><div class="clock">10:22</div><div>Thu 22/10</div></div><button class="round mail cursor-interaction" data-action="styles" aria-label="Menu styles"><i data-lucide="mail"></i></button></div>
+      <div class="channel-screen" hidden><div class="channel-banner"><div class="channel-logo"></div></div><div class="channel-bottom"><button class="pill cursor-interaction" data-action="back">Wii Menu</button><button class="pill cursor-interaction" data-action="start">Start</button></div><button class="channel-info cursor-interaction" data-action="info">Game information</button></div>
+      <div class="wii-message" hidden><div class="message-inner"><h3></h3><p></p><button class="pill cursor-interaction" data-action="dismiss">Back</button></div></div>
+    </div>
+  </section>
+  <section data-variant="PS3 XMB" aria-label="PS3 XMB reconstruction" hidden>
+    <div class="console ps3">
+      <div class="wave wave-one"></div><div class="wave wave-two"></div><div class="wave wave-three"></div>
+      <div class="ps3-status">22/10　10:22 <i data-lucide="battery-full"></i></div>
+      <nav class="xmb-categories" aria-label="XMB categories"></nav>
+      <div class="xmb-items" aria-label="Category items"></div>
+      <div class="ps3-options" hidden><div class="option-title"></div><button class="cursor-interaction" data-action="start">Start</button><button class="cursor-interaction" data-action="info">Information</button><button class="cursor-interaction" data-action="platforms">Platforms</button><button class="cursor-interaction" data-action="styles">Menu style</button><button class="cursor-interaction" data-action="close">Back</button></div>
+      <div class="ps3-information" hidden><div><h3></h3><p></p><button class="cursor-interaction" data-action="dismiss">○ Back</button></div></div>
+      <div class="ps3-keys"><button class="cursor-interaction" data-action="start">✕ Enter</button><button class="cursor-interaction" data-action="back">○ Back</button><button class="cursor-interaction" data-action="options">△ Options</button></div>
+    </div>
+  </section>
+</div>
+<style>
+#kb-console-faithful .console { position:relative;isolation:isolate;overflow:hidden;width:100%;aspect-ratio:16/9;min-height:440px;font:400 16px/1.4 Arial,sans-serif; }
+#kb-console-faithful .console * { box-sizing:border-box; }
+#kb-console-faithful .console button { font:inherit;cursor:var(--cursor-interaction,pointer); }
+#kb-console-faithful [hidden] { display:none!important; }
+#kb-console-faithful .wii { background:repeating-linear-gradient(#eff1f3 0 2px,#f8f9fa 2px 4px);color:#53616d; }
+#kb-console-faithful .channels { position:absolute;left:10%;right:10%;top:7%;bottom:24%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:2.3% 1.8%; }
+#kb-console-faithful .channel { position:relative;border:3px solid #b7c5d1;border-radius:20%/25%;background:linear-gradient(#fff,#e1e7eb);color:#4a5c6c;overflow:hidden;box-shadow:0 3px 3px #62788a38;transition:transform .15s;display:flex;align-items:center;justify-content:center;padding:10px; }
+#kb-console-faithful .channel:hover,#kb-console-faithful .channel.active { border-color:#27b5e8;box-shadow:0 0 0 2px #a0e5ff,0 3px 5px #4a7a8c55;transform:scale(1.035); }
+#kb-console-faithful .channel.empty { color:#d1d8de;font-size:32px;border-color:#c8d1d8;box-shadow:none;background:repeating-linear-gradient(#f1f3f4 0 2px,#e7ecef 2px 4px); }
+#kb-console-faithful .wordmark { display:block;max-width:100%;text-align:center;font-weight:500;font-size:clamp(15px,2.3vw,28px);letter-spacing:-.06em;line-height:1.05;text-shadow:0 2px 0 #fff,1px 0 0 #fff,-1px 0 0 #fff; }
+#kb-console-faithful .wordmark small { display:block;font-size:.55em;letter-spacing:.06em;margin-top:3px; }
+#kb-console-faithful .disc { width:65px;height:65px;border-radius:50%;background:conic-gradient(#d4dce3,#fff,#adbdc9,#f6faff,#c6d2dc);border:1px solid #a3b4c0;box-shadow:0 2px 4px #46566644;position:relative; }
+#kb-console-faithful .disc::after { content:"";position:absolute;inset:40%;border-radius:50%;background:#edf0f3;border:1px solid #9caeba; }
+#kb-console-faithful .channel.disc-channel { flex-direction:column;gap:4px;font-size:12px; }
+#kb-console-faithful .channel.mario { background:radial-gradient(ellipse at 50% 100%,#9ba8ed,transparent),linear-gradient(#e6f7ff,#a4d2fb);color:#214a9a; }
+#kb-console-faithful .channel.zelda { background:radial-gradient(ellipse at 75% 80%,#b8cc90,transparent),linear-gradient(#fffbea,#e0d4aa);color:#536337;font-family:Georgia,serif; }
+#kb-console-faithful .channel.metroid { background:radial-gradient(ellipse at 50% 100%,#829eb5,transparent),linear-gradient(#d9edf1,#c1d4df);color:#325d73; }
+#kb-console-faithful .channel.kart { background:linear-gradient(135deg,#f1e9df,#f7f8fd 45%,#b8d7e6);color:#3a5670; }
+#kb-console-faithful .page { position:absolute;top:38%;border:0;background:transparent;color:#a1b6c7;font-size:32px;padding:15px 0; }
+#kb-console-faithful .page.prev { left:3%; } #kb-console-faithful .page.next { right:3%; }
+#kb-console-faithful .wii-dock { position:absolute;bottom:-6%;left:-5%;width:110%;height:27%;border-radius:50% 50% 0 0/30% 30% 0 0;border-top:4px solid #b8c8d5;background:linear-gradient(#fbfcfd,#d9e1e7);display:flex;align-items:flex-start;padding:2% 9%;gap:2%;box-shadow:0 -3px 12px #fff; }
+#kb-console-faithful .round { width:10%;aspect-ratio:1;min-width:55px;max-width:88px;border:3px solid #aebfce;border-radius:50%;background:linear-gradient(#fff,#dce7ed);color:#8a9bab;font-size:30px;box-shadow:inset 0 0 0 3px #fff; }
+#kb-console-faithful .mail { margin-left:auto; } #kb-console-faithful .mail svg { width:50%;height:50%;vertical-align:middle; }
+#kb-console-faithful .sd { background:none;border:0;color:#8fadae;align-self:center; }
+#kb-console-faithful .wii-date { position:absolute;top:12%;left:35%;width:30%;text-align:center;color:#969da6;text-shadow:0 1px #fff; }
+#kb-console-faithful .clock { font-size:clamp(28px,4.5vw,52px);letter-spacing:-.06em;font-variant-numeric:tabular-nums;line-height:1.15; }
+#kb-console-faithful .channel-screen { position:absolute;inset:0;z-index:4;background:#e8eef3;animation:console-open .25s ease-out; }
+#kb-console-faithful .channel-banner { position:absolute;inset:7% 8% 23%;border-radius:4%/7%;border:3px solid #afbdc8;background:radial-gradient(ellipse at 50% 85%,#6f9fdb,#eaf7ff 70%);display:grid;place-items:center;box-shadow:0 4px 10px #3455; }
+#kb-console-faithful .channel-logo { color:#26456b;text-shadow:2px 3px white;text-align:center;font-size:clamp(25px,5vw,62px);max-width:80%;font-weight:500;line-height:1; }
+#kb-console-faithful .channel-bottom { position:absolute;bottom:7%;left:15%;right:15%;display:flex;gap:7%; }
+#kb-console-faithful .pill { flex:1;border:3px solid #8fbad2;border-radius:99px;background:linear-gradient(#fff,#e5edf4);color:#536270;padding:9px 24px;box-shadow:inset 0 0 0 3px #fff;font-size:20px; }
+#kb-console-faithful .channel-info { position:absolute;bottom:1%;left:35%;width:30%;background:none;border:0;color:#5c7489;font-size:12px; }
+#kb-console-faithful .wii-message { position:absolute;inset:0;z-index:5;background:#dfe9f4ef;display:grid;place-items:center; }
+#kb-console-faithful .message-inner { width:65%;background:#fff;border:3px solid #9dbdd5;border-radius:20px;padding:24px;text-align:center; }
+#kb-console-faithful .ps3 { background:radial-gradient(ellipse at 60% 130%,#646e88,#232b41 50%,#060a13 90%);color:#f6f6fb; }
+#kb-console-faithful .wave { position:absolute;z-index:-1;width:160%;height:48%;left:-30%;top:49%;border-radius:50%;border-top:2px solid #ffffff52;box-shadow:0 -14px 25px -19px #fff,inset 0 30px 42px -42px #eff5ff;transform:rotate(-9deg);animation:console-wave 14s ease-in-out infinite alternate; }
+#kb-console-faithful .wave-two { top:51%;opacity:.55;transform:rotate(-4deg);animation-delay:-4s; } #kb-console-faithful .wave-three { top:54%;opacity:.3;transform:rotate(-13deg);animation-delay:-8s; }
+#kb-console-faithful .ps3-status { position:absolute;top:8%;right:12%;font-size:14px;display:flex;align-items:center;gap:20px;color:#dedfe5; }
+#kb-console-faithful .xmb-categories { position:absolute;inset:23% 0 auto;height:16%; }
+#kb-console-faithful .xmb-category { position:absolute;top:0;width:10%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;padding:0;border:0;background:none;color:#dddde6;opacity:.6;transition:left .25s,transform .25s; }
+#kb-console-faithful .xmb-category svg { width:32px;height:32px;stroke-width:1.6;filter:drop-shadow(0 2px 3px #0008); }
+#kb-console-faithful .xmb-category.active { opacity:1;transform:translateX(-50%) scale(1.2);text-shadow:0 0 12px #fff6; }
+#kb-console-faithful .xmb-category span { font-size:12px;white-space:nowrap; }
+#kb-console-faithful .xmb-category:not(.active) span { opacity:0; }
+#kb-console-faithful .xmb-items { position:absolute;left:29%;right:5%;top:40%;bottom:9%; }
+#kb-console-faithful .xmb-item { position:absolute;left:0;right:0;display:flex;align-items:center;gap:28px;height:55px;padding:0;border:0;background:none;color:#a6a9b6;opacity:.65;transition:top .22s,opacity .22s,transform .22s;text-align:left; }
+#kb-console-faithful .xmb-item .thumbnail { width:76px;height:43px;display:grid;place-items:center;border-radius:3px;background:linear-gradient(135deg,#e1e4eb,#3a4054);color:#34425c;flex-shrink:0;font-size:10px;text-align:center;box-shadow:0 2px 8px #0005; }
+#kb-console-faithful .xmb-item.active { color:white;opacity:1;transform:scale(1.07);transform-origin:left center;text-shadow:0 1px 5px #000; }
+#kb-console-faithful .xmb-item:not(.active) .item-label { opacity:.5;font-size:14px; }
+#kb-console-faithful .xmb-item.active .item-label { font-size:21px; }
+#kb-console-faithful .xmb-item small { display:block;font-size:12px;color:#b9becc;margin-top:4px; }
+#kb-console-faithful .ps3-keys { position:absolute;bottom:5%;left:5%;display:flex;gap:20px; }
+#kb-console-faithful .ps3 button:not(.xmb-item):not(.xmb-category) { border:0;background:none;color:inherit; }
+#kb-console-faithful .ps3-keys button { font-size:12px; }
+#kb-console-faithful .ps3-options { position:absolute;right:0;top:15%;bottom:0;width:30%;z-index:4;background:linear-gradient(90deg,#4a5266ed,#232b3ff7);box-shadow:-12px 0 35px #0004;padding:25px 15px;display:flex;flex-direction:column;gap:16px;animation:console-open .2s ease-out; }
+#kb-console-faithful .ps3-options button { text-align:left;padding:4px 12px; }
+#kb-console-faithful .option-title { color:#bbc2cf;font-size:12px;margin-bottom:12px; }
+#kb-console-faithful .ps3-information { position:absolute;inset:0;z-index:5;background:#111827eb;display:grid;place-items:center; }
+#kb-console-faithful .ps3-information > div { width:70%; } #kb-console-faithful .ps3-information p { color:#bac3d2; }
+@keyframes console-wave { to { transform:translateY(-10px) rotate(-6deg); } }
+@keyframes console-open { from { opacity:0;transform:scale(.96); } to { opacity:1;transform:scale(1); } }
+@media(prefers-reduced-motion:reduce) { #kb-console-faithful .console * { animation:none!important;transition:none!important; } }
+@media(max-width:600px) { #kb-console-faithful .console { min-height:390px; } #kb-console-faithful .channels { left:7%;right:7%;gap:10px 6px; } #kb-console-faithful .channel { border-radius:14px;padding:5px; } #kb-console-faithful .disc { width:40px;height:40px; } #kb-console-faithful .page { font-size:18px; } #kb-console-faithful .page.prev { left:1%; } #kb-console-faithful .page.next { right:1%; } #kb-console-faithful .xmb-category svg { width:24px;height:24px; } #kb-console-faithful .xmb-items { left:18%; } #kb-console-faithful .xmb-item { gap:15px; } #kb-console-faithful .xmb-item.active .item-label { font-size:16px; } #kb-console-faithful .xmb-item .thumbnail { width:54px; } #kb-console-faithful .ps3-options { width:48%; } #kb-console-faithful .wii-dock { height:26%; } }
+</style>
+<script>
+(() => {
+  const root = document.getElementById('kb-console-faithful');
+  const games = [
+    { title:'Super Mario Galaxy', mark:'SUPER MARIO', sub:'GALAXY', kind:'mario', platform:'Wii', desc:'Explore tiny planets, leap between galaxies and collect Power Stars with Mario.' },
+    { title:'The Legend of Zelda: Twilight Princess', mark:'ZELDA', sub:'TWILIGHT PRINCESS', kind:'zelda', platform:'Wii', desc:'Travel between Hyrule and the Twilight Realm as Link and his wolf form.' },
+    { title:'Metroid Prime 3: Corruption', mark:'METROID', sub:'PRIME 3 · CORRUPTION', kind:'metroid', platform:'Wii', desc:'Investigate alien worlds and battle the spread of Phazon as Samus Aran.' },
+    { title:'Mario Kart Wii', mark:'MARIO KART', sub:'Wii', kind:'kart', platform:'Wii', desc:'Race across Mushroom Kingdom courses with karts, bikes and familiar rivals.' },
+    { title:'Super Smash Bros. Brawl', mark:'SMASH BROS.', sub:'BRAWL', kind:'kart', platform:'Wii', desc:'Nintendo fighters meet in platform battles across familiar worlds.' },
+    { title:'Wii Sports', mark:'Wii Sports', sub:'', kind:'metroid', platform:'Wii', desc:'Tennis, baseball, bowling, golf and boxing.' },
+    { title:'Metal Gear Solid 4', mark:'METAL GEAR', sub:'SOLID 4', kind:'metroid', platform:'PS3', desc:'Old Snake returns for a final mission in a world controlled by private military companies.' },
+    { title:'LittleBigPlanet', mark:'LittleBigPlanet', sub:'', kind:'zelda', platform:'PS3', desc:'Explore a handmade world of platforms, puzzles and creations with Sackboy.' },
+    { title:'Uncharted 2: Among Thieves', mark:'UNCHARTED 2', sub:'AMONG THIEVES', kind:'kart', platform:'PS3', desc:'Nathan Drake follows the trail of Marco Polo into a dangerous Himalayan adventure.' }
+  ];
+  const categories = [['Users','users'],['Settings','settings'],['Photo','image'],['Music','music'],['Video','film'],['Game','gamepad-2'],['Network','globe'],['Friends','messages-square']];
+  const wii = root.querySelector('.wii'), ps3 = root.querySelector('.ps3');
+  let page=0, channel=0, category=5, item=0, options=false;
+  const saved=window.openai?.widgetState?.privateContent;
+  if(saved){page=saved.page===1?1:0;channel=Number.isInteger(saved.channel)?Math.max(0,Math.min(8,saved.channel)):0;category=Number.isInteger(saved.category)?Math.max(0,Math.min(7,saved.category)):5;item=Number.isInteger(saved.item)?Math.max(0,Math.min(4,saved.item)):0;}
+  const remember=()=>window.openai?.setWidgetState?.({modelContent:{preview:'Console-accurate layouts',wiiChannel:games[channel].title,ps3Category:categories[category][0]},privateContent:{page,channel,category,item}})?.catch(()=>{});
+  const icon=(name)=>`<i data-lucide="${name}" aria-hidden="true"></i>`;
+  const icons=()=>globalThis.lucide?.createIcons({attrs:{width:24,height:24}});
+  function renderWii(){
+    const grid=wii.querySelector('.channels');grid.replaceChildren();
+    for(let i=0;i<12;i++){
+      const b=document.createElement('button');b.type='button';b.className='channel cursor-interaction';
+      const gameIndex=page*8+i-1;
+      if(i===0&&page===0){b.classList.add('disc-channel');b.innerHTML='<span class="disc"></span><span>Disc Channel</span>';b.onclick=()=>openChannel(0);}
+      else if(gameIndex>=0&&gameIndex<games.length){const g=games[gameIndex];b.classList.add(g.kind);b.classList.toggle('active',gameIndex===channel);b.setAttribute('aria-label',g.title);b.innerHTML=`<span class="wordmark">${g.mark}<small>${g.sub}</small></span>`;b.onclick=()=>openChannel(gameIndex);}
+      else {b.classList.add('empty');b.textContent='Wii';b.disabled=true;}
+      grid.append(b);
+    }
+  }
+  function openChannel(index){channel=index;const g=games[index];wii.querySelector('.channel-logo').textContent=g.title;wii.querySelector('.channel-screen').hidden=false;renderWii();remember();}
+  function list(){return category===5?[games[6],games[7],games[8],{title:'All platforms',platform:'Game library',desc:'Browse every game, or choose a platform.'},{title:'Platform folders',platform:'Game library',desc:'PlayStation, Nintendo, Xbox and more.'}]:category===1?[{title:'Menu style',platform:'KB · Wii · PS3',desc:'Switch menus without leaving TV mode.'},{title:'Sound Settings',platform:'Key tones and volume',desc:'Choose menu sound and music levels.'},{title:'Display Settings',platform:'TV mode',desc:'Display, overscan and text settings.'}]:category===0?[{title:'KaneegaBell',platform:'Local library',desc:'Your games and play history.'}]:[{title:categories[category][0],platform:'Preview',desc:'This category illustrates XMB navigation.'}];}
+  function current(){return list()[Math.min(item,list().length-1)];}
+  function renderPs3(){
+    const bar=ps3.querySelector('.xmb-categories');bar.replaceChildren();
+    categories.forEach(([name,symbol],i)=>{const b=document.createElement('button');b.type='button';b.className='xmb-category cursor-interaction'+(i===category?' active':'');b.style.left=(35+(i-category)*11)+'%';b.setAttribute('aria-label',name);b.innerHTML=icon(symbol)+`<span>${name}</span>`;b.onclick=()=>{category=i;item=0;options=false;renderPs3();remember();};bar.append(b);});
+    const items=ps3.querySelector('.xmb-items');items.replaceChildren();
+    list().forEach((g,i)=>{const b=document.createElement('button');b.type='button';b.className='xmb-item cursor-interaction'+(i===item?' active':'');b.style.top=(12+(i-item)*28)+'%';b.style.visibility=(i<item-1||i>item+2)?'hidden':'visible';b.setAttribute('aria-label',g.title);b.innerHTML=`<span class="thumbnail">${category===5?(g.mark||'▤'):icon(category===1?'settings':'folder')}</span><span class="item-label">${g.title}${i===item?`<small>${g.platform}</small>`:''}</span>`;b.onclick=()=>{if(item===i){options=true;}else item=i;renderPs3();remember();};items.append(b);});
+    ps3.querySelector('.ps3-options').hidden=!options;ps3.querySelector('.option-title').textContent=current().title;icons();
+  }
+  function message(screen,title,text){const panel=screen.querySelector(screen===wii?'.wii-message':'.ps3-information');panel.querySelector('h3').textContent=title;panel.querySelector('p').textContent=text;panel.hidden=false;}
+  wii.querySelector('.prev').onclick=()=>{page=0;renderWii();remember();};wii.querySelector('.next').onclick=()=>{page=1;renderWii();remember();};
+  wii.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(!a)return;if(a==='back')wii.querySelector('.channel-screen').hidden=true;if(a==='dismiss')wii.querySelector('.wii-message').hidden=true;if(a==='start')message(wii,games[channel].title,'Starting game…');if(a==='info')message(wii,games[channel].title,games[channel].desc);if(a==='styles')message(wii,'Menu styles','KB · Wii · PS3');if(a==='platforms')message(wii,'Platforms','All platforms · Wii · GameCube · PlayStation · Xbox');if(a==='settings')message(wii,'Wii Options','Menu style · Platforms · Sounds · Display');});
+  ps3.addEventListener('click',e=>{const a=e.target.closest('[data-action]')?.dataset.action;if(!a)return;if(a==='options'){options=!options;renderPs3();}if(a==='close'||a==='back'){options=false;ps3.querySelector('.ps3-information').hidden=true;renderPs3();}if(a==='dismiss')ps3.querySelector('.ps3-information').hidden=true;if(a==='start')message(ps3,current().title,'Starting game…');if(a==='info')message(ps3,current().title,current().desc);if(a==='styles')message(ps3,'Menu style','KB · Wii · PS3');if(a==='platforms')message(ps3,'Platforms','All platforms · PlayStation · PlayStation 2 · PlayStation 3 · PSP · Wii');});
+  root.addEventListener('keydown',e=>{
+    const isWii=!wii.closest('[data-variant]').hidden;const active=isWii?wii:ps3;if(!active.contains(document.activeElement))return;
+    if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape','Enter'].includes(e.key))return;
+    if(e.key==='Escape'){e.preventDefault();if(isWii){wii.querySelector('.channel-screen').hidden=true;wii.querySelector('.wii-message').hidden=true;}else{options=false;ps3.querySelector('.ps3-information').hidden=true;renderPs3();}return;}
+    if(isWii)return;
+    if(e.key==='Enter'){e.preventDefault();options=!options;renderPs3();return;}
+    e.preventDefault();if(e.key==='ArrowLeft'||e.key==='ArrowRight'){category=Math.max(0,Math.min(categories.length-1,category+(e.key==='ArrowLeft'?-1:1)));item=0;}else item=Math.max(0,Math.min(list().length-1,item+(e.key==='ArrowUp'?-1:1)));options=false;renderPs3();remember();
+  });
+  renderWii();renderPs3();
+  if(globalThis.Tweak){const motion={waves:true};new Tweak({container:ps3,onChange:()=>ps3.querySelectorAll('.wave').forEach(el=>el.style.animationPlayState=motion.waves?'running':'paused')}).addToggle(motion,'waves',{label:'XMB waves'});}
+})();
+</script>

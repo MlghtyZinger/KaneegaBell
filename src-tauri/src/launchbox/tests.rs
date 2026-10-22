@@ -57,6 +57,29 @@ fn run_pass(conn: &mut Connection, dir: &Path, source: &FakeSource, http: &FakeH
 }
 
 #[test]
+fn screenshots_skip_banners_cache_and_reach_the_tv_library() {
+    let dir = tempfile::tempdir().unwrap();
+    let conn = db::test_db();
+    let id = add_game(&conn, "Screenshot Test (USA)");
+    let mut http = FakeHttp::default();
+    for (file, w, h) in [("a-banner.png", 600, 200), ("b-game.png", 480, 320)] {
+        conn.execute("INSERT INTO lb_images (db_id, kind, region, file) VALUES (101, 'Screenshot - Gameplay', NULL, ?1)", [file]).unwrap();
+        http.pages.insert(image_url(file), images::test_png(w, h));
+    }
+    images::store_screenshot(dir.path(), id, &images::test_png(480, 320)).unwrap();
+    fetch_screenshot(&conn, dir.path(), &http, id, 101, None).unwrap();
+    assert_eq!(http.requests.lock().unwrap().len(), 2);
+    let version = queries::library(&conn).unwrap().into_iter().find(|g| g.id == id).unwrap().screenshot;
+    assert!(version > 0);
+    let response = crate::art::protocol::respond(dir.path(), &format!("/q/{id}?v={version}"));
+    assert_eq!(response.status(), 200);
+    let stored = images::decode(response.body()).unwrap();
+    assert_eq!((stored.width(), stored.height()), (480, 320), "keep gameplay and HUD uncropped");
+    fetch_screenshot(&conn, dir.path(), &http, id, 101, None).unwrap();
+    assert_eq!(http.requests.lock().unwrap().len(), 2, "cached screenshots need no network request");
+}
+
+#[test]
 fn a_pass_matches_keeps_only_the_library_and_applies_art_and_info() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();

@@ -31,6 +31,8 @@ const DEFAULTS = {
   launchFxDesktop: true,
   launchFxTv: true,
   tvShelf: "3d" as "3d" | "flat",
+  tvMenu: "kb" as "kb" | "wii" | "ps3",
+  consoleFeedbackReady: false,
   soundDesktop: true,
   soundTv: true,
   volumeDesktop: 60,

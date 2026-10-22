@@ -147,7 +147,7 @@ pub fn forget_removed(conn: &Connection, data_dir: &Path) -> Result<usize> {
 /// remaining game uses). Hidden games keep everything.
 pub fn prune_leftovers(conn: &Connection, data_dir: &Path) -> Result<()> {
     let keep = ids(conn, "SELECT id FROM games")?;
-    for d in ["t", "f", "h", "l", "i", "d", "b", "s"] {
+    for d in ["t", "f", "h", "l", "i", "d", "b", "s", "q"] {
         prune_images(&data_dir.join("art").join(d), &keep)?;
     }
     crate::achievements::prune_removed(conn, data_dir)?;
@@ -197,6 +197,7 @@ pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
     prune_images(&art.join("h"), &extras)?;
     prune_images(&art.join("l"), &extras)?;
     prune_images(&art.join("i"), &icons)?;
+    prune_images(&art.join("q"), &HashSet::new())?;
     // Discs, backs and spines: the downloaded ones (the user's picks stay).
     crate::art::images::clear_case_art(data_dir);
     remove_dir(&data_dir.join("ra"))?;

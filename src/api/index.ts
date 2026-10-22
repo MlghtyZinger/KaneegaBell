@@ -24,6 +24,8 @@ export interface GameRow {
   /** TV Mode hero (wide background) / logo versions (SteamGridDB); absent when none. */
   hero?: number;
   logo?: number;
+  /** Cached LaunchBox gameplay screenshot version; absent when none. */
+  screenshot?: number;
   /** Developer / publisher / release year (LaunchBox, else IGDB, else Wikidata). */
   developer?: string | null;
   publisher?: string | null;
@@ -444,7 +446,7 @@ export interface ArtSummary {
  * URL of a game's cached artwork, served by the app's `thumb` protocol
  * (Windows webviews address custom protocols as http://<scheme>.localhost).
  */
-export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" | "d" | "b" | "s" = "t"): string {
+export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" | "d" | "b" | "s" | "q" = "t"): string {
   const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   return `${base}/${size}/${gameId}?v=${version}`;
 }
@@ -827,6 +829,7 @@ export const events = {
     listen<GameExited>("game-exited", (e) => cb(e.payload)),
   /** Controller navigation actions from the Rust gamepad thread. */
   onNav: (cb: (action: string) => void): Promise<UnlistenFn> => listen<string>("nav", (e) => cb(e.payload)),
+  onRightStick: (cb: (axes: [number, number]) => void): Promise<UnlistenFn> => listen<[number, number]>("right-stick", (e) => cb(e.payload)),
   onGamepadConnected: (cb: (p: PadInfo) => void): Promise<UnlistenFn> =>
     listen<PadInfo>("gamepad-connected", (e) => cb(e.payload)),
 };

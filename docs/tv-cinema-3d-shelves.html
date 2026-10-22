@@ -1,0 +1,161 @@
+<div id="kb-cinema-depth">
+ <div class="viz-carousel" aria-label="Cinema with 3D cases">
+  <section data-variant="Low shelf" aria-label="Low shelf"><div class="kd-screen" data-design="low"></div></section>
+  <section data-variant="Corner focus" aria-label="Corner focus" hidden><div class="kd-screen" data-design="corner"></div></section>
+  <section data-variant="Floating row" aria-label="Floating row" hidden><div class="kd-screen" data-design="float"></div></section>
+ </div>
+</div>
+<style>
+#kb-cinema-depth .kd-screen{--kd-bg:#100d0b;--kd-ink:#f6ebd9;--kd-dim:#c8bba8;--kd-accent:#f18c57;position:relative;isolation:isolate;width:100%;aspect-ratio:16/10;min-height:600px;background:var(--kd-bg);color:var(--kd-ink);font:400 14px/1.45 "Segoe UI",system-ui,sans-serif;overflow:hidden;border-radius:10px}
+#kb-cinema-depth .kd-screen *{box-sizing:border-box}
+#kb-cinema-depth button{font:inherit;cursor:var(--cursor-interaction,pointer)}
+#kb-cinema-depth button:focus-visible{outline:3px solid var(--kd-ink);outline-offset:5px}
+#kb-cinema-depth .kd-art,#kb-cinema-depth .kd-extension{position:absolute;inset:0;z-index:-4;pointer-events:none}
+#kb-cinema-depth .kd-art svg,#kb-cinema-depth .kd-extension svg{width:100%;height:100%;display:block}
+#kb-cinema-depth .kd-extension{filter:blur(24px);opacity:.35;inset:-30px;z-index:-5}
+#kb-cinema-depth .kd-shade{position:absolute;inset:0;z-index:-3;background:linear-gradient(0deg,#100d0bf5 0%,#100d0bbf 19%,#100d0b35 45%,transparent 65%,#100d0b30)}
+#kb-cinema-depth .kd-header{position:absolute;left:4%;right:4%;top:23px;display:flex;align-items:center;gap:25px;text-shadow:0 1px 6px #000}
+#kb-cinema-depth .kd-brand{font-weight:500;letter-spacing:.06em}
+#kb-cinema-depth .kd-brand span{color:var(--kd-accent)}
+#kb-cinema-depth .kd-path{color:var(--kd-dim);font-size:12px}
+#kb-cinema-depth .kd-header-end{margin-left:auto;margin-right:65px;color:var(--kd-dim);font-size:11px}
+#kb-cinema-depth [data-design=low] .kd-header{display:none}
+#kb-cinema-depth .kd-information{position:absolute;left:5%;bottom:242px;width:45%;max-width:450px;text-shadow:0 2px 12px #000}
+#kb-cinema-depth .kd-console{font-size:11px;color:var(--kd-accent);letter-spacing:.15em;text-transform:uppercase;margin-bottom:7px}
+#kb-cinema-depth .kd-title{font:400 clamp(26px,4vw,43px)/1.02 Georgia,serif;letter-spacing:-.025em;color:var(--kd-ink);margin:0 0 10px;text-wrap:balance}
+#kb-cinema-depth .kd-description{font-size:12px;color:#ebdfcd;margin:0;max-width:410px;line-height:1.5}
+#kb-cinema-depth .kd-facts{font-size:11px;margin-top:9px;color:var(--kd-dim)}
+#kb-cinema-depth .kd-shelf{position:absolute;left:4%;right:4%;bottom:72px;height:178px;perspective:1100px;isolation:isolate}
+#kb-cinema-depth .kd-floor{position:absolute;z-index:-1;left:-8%;right:-8%;bottom:-13px;height:22px;background:linear-gradient(#f1c78e0c,#17120e 35%,#0009);border-top:1px solid #e8c99528;transform:rotateX(60deg);transform-origin:top}
+#kb-cinema-depth .kd-game{position:absolute;bottom:0;left:50%;width:100px;height:140px;border:0;background:transparent;padding:0;overflow:visible;transform-style:preserve-3d;transform-origin:50% 100%;transition:transform .24s,opacity .24s;text-align:center;color:#fff0d9;opacity:.76}
+#kb-cinema-depth .kd-case{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateY(var(--kd-angle));transition:transform .24s}
+#kb-cinema-depth .kd-face{position:absolute;inset:0;background:var(--kd-cover);border:1px solid #eee0bd66;border-radius:2px;backface-visibility:hidden;transform:translateZ(5px);overflow:hidden;box-shadow:0 6px 14px #0008}
+#kb-cinema-depth .kd-face::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,#fff3,transparent 22%,transparent 80%,#0006);pointer-events:none}
+#kb-cinema-depth .kd-land{position:absolute;inset:17% 7% 15%;clip-path:polygon(0 100%,19% 33%,34% 59%,54% 0,78% 64%,100% 26%,100% 100%);background:linear-gradient(#f6e8c888,#d4cfb51a)}
+#kb-cinema-depth .kd-cover-title{position:absolute;left:8%;right:8%;bottom:10%;font:400 14px/1.05 Georgia,serif;text-shadow:0 2px 5px #000;z-index:1}
+#kb-cinema-depth .kd-platform-band{display:block;position:absolute;top:0;left:0;right:0;padding:4px 2px;background:#171a1be6;font-size:8px;color:#f2e9d9;letter-spacing:.06em}
+#kb-cinema-depth .kd-spine{position:absolute;left:-5px;top:0;bottom:0;width:10px;background:linear-gradient(90deg,#151719,#817164 45%,#38332f);transform:rotateY(-90deg);transform-origin:center;backface-visibility:hidden;border:1px solid #d2bfa977;border-radius:1px;display:grid;place-items:center}
+#kb-cinema-depth .kd-spine span{writing-mode:vertical-rl;font-size:6px;color:#f1dfc8;white-space:nowrap;max-height:85%;overflow:hidden}
+#kb-cinema-depth .kd-spine-right{left:auto;right:-5px;transform:rotateY(90deg)}
+#kb-cinema-depth .kd-top-edge{position:absolute;left:0;right:0;top:-5px;height:10px;background:#b1a695;transform:rotateX(90deg);border:1px solid #403a31}
+#kb-cinema-depth .kd-game[aria-pressed=true]{opacity:1;z-index:10}
+#kb-cinema-depth .kd-game[aria-pressed=true] .kd-face{border-color:#fff2d6;box-shadow:0 0 0 2px #f5e4c277,0 8px 20px #000a}
+#kb-cinema-depth .kd-game[aria-pressed=true]::after{content:"";position:absolute;left:25%;right:25%;bottom:-15px;height:3px;background:var(--kd-accent);border-radius:3px}
+#kb-cinema-depth .kd-footer{position:absolute;left:5%;right:5%;bottom:20px;display:flex;align-items:center;gap:14px;font-size:10px;color:var(--kd-dim)}
+#kb-cinema-depth .kd-nav-button{width:29px;height:29px;display:grid;place-items:center;border:1px solid #99816c;background:#1e1712d9;border-radius:50%;color:var(--kd-ink)}
+#kb-cinema-depth .kd-nav-button svg{width:14px;height:14px}
+#kb-cinema-depth .kd-whole{margin-left:auto;color:var(--kd-ink);background:#201710df;border:1px solid #8c7560;border-radius:4px;padding:6px 10px;font-size:11px}
+#kb-cinema-depth .kd-sample{position:absolute;bottom:55px;right:5%;font-size:9px;color:var(--kd-dim)}
+#kb-cinema-depth [data-design=corner] .kd-information{left:31%;bottom:215px;width:48%;max-width:470px}
+#kb-cinema-depth [data-design=corner] .kd-title{font-size:34px}
+#kb-cinema-depth [data-design=corner] .kd-shelf{bottom:76px;height:210px}
+#kb-cinema-depth [data-design=corner] .kd-floor{display:none}
+#kb-cinema-depth [data-design=float] .kd-shelf{bottom:80px;height:175px;left:22%;right:5%}
+#kb-cinema-depth [data-design=float] .kd-floor{display:none}
+#kb-cinema-depth [data-design=float] .kd-information{left:5%;bottom:85px;width:24%;max-width:240px}
+#kb-cinema-depth [data-design=float] .kd-title{font-size:27px}
+#kb-cinema-depth [data-design=float] .kd-description{font-size:11px}
+#kb-cinema-depth [data-design=float] .kd-shade{background:linear-gradient(0deg,#100d0bf2,#100d0b88 22%,transparent 55%)}
+#kb-cinema-depth .kd-screen.kd-clean .kd-information,#kb-cinema-depth .kd-screen.kd-clean .kd-shelf,#kb-cinema-depth .kd-screen.kd-clean .kd-header,#kb-cinema-depth .kd-screen.kd-clean .kd-sample{visibility:hidden}
+#kb-cinema-depth .kd-screen.kd-clean .kd-shade{opacity:0}
+#kb-cinema-depth .kd-screen.kd-clean .kd-footer>*:not(.kd-whole){visibility:hidden}
+#kb-cinema-depth .kd-screen.kd-clean .kd-whole{opacity:.75}
+@media(max-width:650px){
+ #kb-cinema-depth .kd-screen{aspect-ratio:auto;min-height:700px}
+ #kb-cinema-depth .kd-header{gap:14px;font-size:12px;flex-wrap:wrap}
+ #kb-cinema-depth .kd-header-end{margin:0}
+ #kb-cinema-depth .kd-information{left:6%;bottom:267px;width:85%}
+ #kb-cinema-depth .kd-title{font-size:31px}
+ #kb-cinema-depth .kd-description{font-size:12px;max-width:90%}
+ #kb-cinema-depth .kd-shelf{left:4%;right:4%;bottom:93px;height:160px}
+ #kb-cinema-depth .kd-footer{gap:10px;bottom:20px;flex-wrap:wrap}
+ #kb-cinema-depth .kd-sample{bottom:65px;font-size:9px}
+ #kb-cinema-depth [data-design=corner] .kd-information{left:6%;bottom:310px;width:85%}
+ #kb-cinema-depth [data-design=corner] .kd-title{font-size:29px}
+ #kb-cinema-depth [data-design=corner] .kd-shelf{bottom:95px;height:200px}
+ #kb-cinema-depth [data-design=float] .kd-information{left:6%;bottom:270px;width:85%;max-width:none}
+ #kb-cinema-depth [data-design=float] .kd-title{font-size:29px}
+ #kb-cinema-depth [data-design=float] .kd-shelf{left:4%;right:4%;bottom:95px}
+ #kb-cinema-depth .kd-hint{display:none}
+}
+@media(prefers-reduced-motion:reduce){#kb-cinema-depth .kd-game,#kb-cinema-depth .kd-case{transition:none}}
+</style>
+<script>
+(() => {
+ const root=document.getElementById('kb-cinema-depth');
+ const games=[
+  {name:'Metroid Prime',console:'GameCube',year:'2002',genre:'Adventure',time:'6h 20m',scene:'forest',cover:'linear-gradient(150deg,#69866e,#263f40 65%,#19222c)',description:'Explore an isolated world of rain-soaked ruins, tangled forests and ancient machinery. Every new discovery opens another path into the unknown.'},
+  {name:'Boktai',console:'Game Boy Advance',year:'2003',genre:'Action RPG',time:'4h 12m',scene:'sun',cover:'linear-gradient(150deg,#d4a756,#805c43 65%,#30243a)',description:'Carry the sun into a world of shadow. Explore forgotten ruins, solve puzzles and face the creatures that wake after dark.'},
+  {name:'Fire Emblem Echoes',console:'Nintendo 3DS',year:'2017',genre:'Strategy RPG',time:'12h 40m',scene:'valley',cover:'linear-gradient(150deg,#bfccbf,#688a95 65%,#283c54)',description:'Two paths through a divided kingdom. Guide your army across the hills, villages and strongholds of Valentia.'},
+  {name:'The Wind Waker',console:'GameCube',year:'2003',genre:'Adventure',time:'8h 05m',scene:'sea',cover:'linear-gradient(150deg,#ddbc61,#609d8b 65%,#19445c)',description:'Set sail across a sea of scattered islands. Follow the wind, discover hidden shores and find the adventure beyond the horizon.'},
+  {name:'Super Mario Galaxy',console:'Wii',year:'2007',genre:'Platformer',time:'3h 30m',scene:'sea',cover:'linear-gradient(150deg,#4d84a6,#3c315e 65%,#1c2039)',description:'Leap between tiny worlds and sweeping skies, with a new surprise waiting around every orbit.'},
+  {name:'Shadow of the Colossus',console:'PlayStation 2',year:'2005',genre:'Adventure',time:'5h 10m',scene:'valley',cover:'linear-gradient(150deg,#b8b998,#748779 65%,#30483e)',description:'Ride through a vast, silent landscape in search of ancient giants. Find a way to overcome each towering encounter.'},
+  {name:'Journey',console:'PlayStation 3',year:'2012',genre:'Adventure',time:'1h 45m',scene:'sun',cover:'linear-gradient(150deg,#e8bc7a,#a56a56 65%,#593640)',description:'Follow a distant mountain through golden dunes and the remnants of a forgotten world.'},
+  {name:'Xenoblade Chronicles',console:'Wii',year:'2010',genre:'RPG',time:'21h 15m',scene:'valley',cover:'linear-gradient(150deg,#78a5ab,#7e9564 65%,#914b42)',description:'Walk beneath an endless sky and discover a world larger than you imagined.'}
+ ];
+ function scenery(kind,id,fit){
+  const palette=kind==='sun'?['#2d2d42','#b76b51','#efc586','#815b56','#4c414d','#2d303a']:kind==='sea'?['#234e7d','#6eafb8','#eed8a6','#5b9391','#367c86','#235a70']:kind==='forest'?['#192f35','#658780','#b9c4a2','#4e7268','#34584f','#1b3939']:['#314f66','#a1b6ac','#e5d8b3','#79978b','#4d7571','#2c5058'];
+  const sky=`kc-sky-${id}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 810" preserveAspectRatio="xMidYMid ${fit}" role="img" aria-label="Whole original illustrative ${kind} landscape"><defs><linearGradient id="${sky}" x2="0" y2="1"><stop stop-color="${palette[0]}"/><stop offset=".7" stop-color="${palette[1]}"/><stop offset="1" stop-color="${palette[2]}"/></linearGradient></defs><rect width="1440" height="810" fill="url(#${sky})"/><circle cx="1030" cy="230" r="${kind==='sun'?90:49}" fill="${palette[2]}" opacity=".85"/><path d="M0 450Q200 420 360 450T750 430T1120 440T1440 400" fill="none" stroke="${palette[2]}" stroke-width="16" opacity=".18"/><path d="M0 590 140 395 305 510 485 285 640 460 800 365 995 500 1145 280 1320 480 1440 385V810H0Z" fill="${palette[3]}" opacity=".65"/><path d="M0 650 200 520 400 610 570 475 740 590 900 480 1100 590 1250 495 1440 550V810H0Z" fill="${palette[4]}"/><path d="M0 740Q200 660 440 710T900 700T1440 665V810H0Z" fill="${palette[5]}"/>${kind==='sea'?`<path d="M0 640Q200 605 400 640T800 650T1200 630T1440 650V810H0Z" fill="#377f91"/><path d="M825 650 890 475 950 535 1010 425 1100 650Z" fill="#385e58"/><path d="M890 475 1010 425 1038 505 950 535Z" fill="#9da874"/><g stroke="#d2e2c7" opacity=".4"><path d="M60 735H450 M600 780H1150 M1080 710H1380"/></g><path d="M510 725Q560 765 615 722Z" fill="#8f403b"/><path d="M560 720V570L620 704H565Z" fill="#f0d8a0"/>`:`<g fill="${kind==='forest'?'#243e3c':'#35464e'}"><path d="M660 640V390H695V365H825V390H860V640H825V420H695V640Z"/><path d="M690 365 760 310 830 365Z"/><path d="M700 580H820V600H700Z M685 600H835V622H685Z M670 622H850V642H670Z"/><path d="M110 665V440H150V425H185V440H225V665H187V475H150V665Z"/></g>${kind==='forest'?'<g fill="#183b36"><path d="M0 0H110L135 810H40Z M1170 0H1230L1280 810H1210Z M1320 0H1420L1440 810H1370Z"/><path d="M0 100Q240 150 335 0H0Z M1090 0Q1120 145 1440 170V0Z"/></g><path d="M380 700Q550 640 720 682" stroke="#b6c5a4" stroke-width="9" opacity=".35" fill="none"/>':'<path d="M740 810Q630 740 810 660" stroke="#d7c9a9" stroke-width="19" opacity=".4" fill="none"/>'}`}<g fill="${palette[2]}" opacity=".5"><circle cx="330" cy="170" r="2"/><circle cx="580" cy="120" r="2"/></g></svg>`;
+ }
+ const entries=[];
+ root.querySelectorAll('.kd-screen').forEach((screen,n)=>{
+  const design=screen.dataset.design;
+  const restored=window.openai?.widgetState?.modelContent;
+  const state={index:Number.isInteger(restored?.gameIndex)&&restored.gameIndex>=0&&restored.gameIndex<games.length?restored.gameIndex:0,peerSize:82,selectedSize:158,clean:false};
+  screen.innerHTML='<div class="kd-extension" aria-hidden="true"></div><div class="kd-art"></div><div class="kd-shade"></div><header class="kd-header"><div class="kd-brand">K<span>B</span> / KaneegaBell</div><div class="kd-path">All games</div><div class="kd-header-end"></div></header><section class="kd-information" aria-label="Selected game" aria-live="polite"><div class="kd-console"></div><h2 class="kd-title"></h2><p class="kd-description"></p><div class="kd-facts"></div></section><nav class="kd-shelf" aria-label="3D game cases"><div class="kd-floor"></div></nav><div class="kd-sample">Illustrative art · sample library</div><footer class="kd-footer"><button type="button" class="kd-nav-button" data-step="-1" aria-label="Previous game"><i data-lucide="chevron-left" aria-hidden="true"></i></button><button type="button" class="kd-nav-button" data-step="1" aria-label="Next game"><i data-lucide="chevron-right" aria-hidden="true"></i></button><span class="kd-hint">← → Choose game</span><button type="button" class="kd-whole" aria-pressed="false">View whole artwork</button></footer>';
+  const shelf=screen.querySelector('.kd-shelf');
+  shelf.insertAdjacentHTML('beforeend',games.map((g,i)=>`<button type="button" class="kd-game" data-game="${i}" aria-label="${g.name}, ${g.console}" aria-pressed="false"><span class="kd-case" style="--kd-cover:${g.cover}"><span class="kd-spine" aria-hidden="true"><span>${g.name}</span></span><span class="kd-spine kd-spine-right" aria-hidden="true"></span><span class="kd-top-edge" aria-hidden="true"></span><span class="kd-face"><span class="kd-platform-band">${g.console}</span><span class="kd-land" aria-hidden="true"></span><span class="kd-cover-title">${g.name}</span></span></span></button>`).join(''));
+  function geometry(){
+   const width=shelf.clientWidth||800;
+   const small=screen.clientWidth<650;
+   const factor=small?.84:1;
+   const peer=state.peerSize*factor;
+   const big=(design==='corner'?state.selectedSize*1.17:state.selectedSize)*factor;
+   const visible=small?1:design==='float'?2:3;
+   shelf.querySelectorAll('[data-game]').forEach(button=>{
+    const i=Number(button.dataset.game);
+    let delta=(i-state.index+games.length)%games.length;if(delta>games.length/2)delta-=games.length;
+    const selected=delta===0;
+    const height=selected?big:peer;
+    const boxWidth=height/1.42;
+    let x=width/2;
+    if(design==='corner'){
+     if(selected)x=width*(small?.23:.12);
+     else {const rank=(i-state.index+games.length)%games.length;x=width*(small?.5:.35)+(rank-1)*(width*(small?.19:.095));}
+    }else{
+     const step=small?width*.21:width*(design==='float'?.14:.115);
+     x=width/2+delta*step+(delta===0?0:Math.sign(delta)*big*.14);
+    }
+    const show=design==='corner'?(selected||((i-state.index+games.length)%games.length)<(small?4:7)):Math.abs(delta)<=visible;
+    button.hidden=!show;button.disabled=!show;
+    button.style.width=boxWidth+'px';button.style.height=height+'px';button.style.left=x+'px';
+    button.style.transform=`translateX(-50%) translateY(${selected?-6:0}px)`;
+    button.style.setProperty('--kd-angle',(selected?17:delta<0?24:-24)+'deg');
+    button.setAttribute('aria-pressed',String(selected));
+   });
+  }
+  function render(){
+   const g=games[state.index];
+   screen.querySelector('.kd-art').innerHTML=scenery(g.scene,'depth-'+n,'meet');
+   screen.querySelector('.kd-extension').innerHTML=scenery(g.scene,'blur-'+n,'slice');
+   screen.querySelector('.kd-console').textContent=g.console;
+   screen.querySelector('.kd-title').textContent=g.name;
+   screen.querySelector('.kd-description').textContent=g.description;
+   screen.querySelector('.kd-facts').textContent=`${g.year} · ${g.genre} · ${g.time} played`;
+   screen.querySelector('.kd-header-end').textContent=`${state.index+1} / ${games.length}`;
+   screen.classList.toggle('kd-clean',state.clean);
+   const art=screen.querySelector('.kd-whole');art.textContent=state.clean?'Back to library':'View whole artwork';art.setAttribute('aria-pressed',String(state.clean));
+   geometry();if(globalThis.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+  }
+  function remember(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{layout:screen.closest('[data-variant]').dataset.variant,gameIndex:state.index,game:games[state.index].name,neighborHeight:state.peerSize,selectedHeight:state.selectedSize},privateContent:null}).catch(()=>{});}
+  function move(delta){state.index=(state.index+delta+games.length)%games.length;render();remember();}
+  screen.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.game!==undefined){state.index=Number(b.dataset.game);render();remember();}else if(b.dataset.step){move(Number(b.dataset.step));}else if(b.classList.contains('kd-whole')){state.clean=!state.clean;render();}});
+  screen.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();move(e.key==='ArrowLeft'?-1:1);}else if(e.key==='Escape'){state.clean=false;render();}});
+  new ResizeObserver(geometry).observe(screen);
+  entries.push({screen,state,render});render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:screen,onChange:render});tweak.addSlider(state,'peerSize',{label:'Neighbor case height',min:60,max:100,unit:'px'});tweak.addSlider(state,'selectedSize',{label:'Selected case height',min:130,max:185,unit:'px'});}
+ });
+ window.addEventListener('openai:set_globals',e=>{const s=e.detail?.globals?.widgetState?.modelContent;const entry=entries.find(x=>x.screen.closest('[data-variant]').dataset.variant===s?.layout);if(!entry)return;if(Number.isInteger(s.gameIndex)&&s.gameIndex>=0&&s.gameIndex<games.length)entry.state.index=s.gameIndex;entry.render();});
+})();
+</script>

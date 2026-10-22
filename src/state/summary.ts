@@ -63,3 +63,32 @@ export function lead(text: string): string[] | null {
   }
   return out;
 }
+
+/** TV only: keep up to two useful opening sentences that fit the available lines. */
+export function tvSummary(text: string, fits: (text: string) => boolean): string {
+  const chosen: string[] = [];
+  for (const sentence of new Set(sentences(text).map((s) => s.replace(/\s+/g, " ").trim()).filter(Boolean))) {
+    if (chosen.length === 2) break;
+    if (fits([...chosen, sentence].join(" "))) {
+      chosen.push(sentence);
+    } else if (chosen.length > 0) {
+      break;
+    } else {
+      // One sentence alone is too long: fit a word-boundary excerpt with an ellipsis.
+      const chars = Array.from(sentence);
+      let low = 0;
+      let high = chars.length;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        if (fits(chars.slice(0, mid).join("") + "…")) low = mid;
+        else high = mid - 1;
+      }
+      if (low === 0) return "";
+      let excerpt = chars.slice(0, low).join("").trimEnd();
+      const space = excerpt.lastIndexOf(" ");
+      if (space > 0) excerpt = excerpt.slice(0, space);
+      return excerpt + "…";
+    }
+  }
+  return chosen.join(" ");
+}

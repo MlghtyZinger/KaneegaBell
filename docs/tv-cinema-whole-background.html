@@ -1,0 +1,135 @@
+<div id="kb-whole-cinema" aria-label="Cinema with unobstructed artwork">
+ <div class="kc-screen">
+  <header class="kc-header"><span class="kc-brand">K<span>B</span> / KaneegaBell</span><span class="kc-section">All games</span><span class="kc-count"></span></header>
+  <div class="kc-picture" aria-label="Whole game background">
+   <div class="kc-extension" aria-hidden="true"></div>
+   <div class="kc-original"></div>
+  </div>
+  <section class="kc-information" aria-label="Selected game">
+   <div class="kc-heading"><div class="kc-console"></div><h2 class="kc-title"></h2><div class="kc-facts"></div></div>
+   <p class="kc-description"></p>
+   <div class="kc-actions"><button type="button" class="kc-play"><i data-lucide="play" aria-hidden="true"></i>Play</button><button type="button" class="kc-browse" aria-expanded="true" aria-controls="kc-games">Hide shelf</button></div>
+  </section>
+  <nav id="kc-games" class="kc-games" aria-label="Choose a game"></nav>
+  <footer class="kc-footer"><span>← → <b>Choose game</b></span><span>B <b>Show / hide shelf</b></span><span class="kc-caption">Illustrative artwork · sample library</span></footer>
+  <div class="kc-launch" hidden><span>Launch preview</span><h3></h3><button type="button">Back to library</button></div>
+ </div>
+</div>
+<style>
+#kb-whole-cinema{width:100%}
+#kb-whole-cinema .kc-screen{--kc-bg:#100d0b;--kc-ink:#f4ebdd;--kc-muted:#c1b09a;--kc-accent:#ee7948;position:relative;isolation:isolate;display:flex;flex-direction:column;aspect-ratio:16/10;min-height:590px;width:100%;overflow:hidden;background:var(--kc-bg);color:var(--kc-ink);font:400 14px/1.45 "Segoe UI",system-ui,sans-serif;border-radius:10px}
+#kb-whole-cinema *{box-sizing:border-box}
+#kb-whole-cinema button{font:inherit;cursor:var(--cursor-interaction,pointer)}
+#kb-whole-cinema button:focus-visible{outline:3px solid #f4ebdd;outline-offset:3px}
+#kb-whole-cinema .kc-header{display:flex;align-items:center;gap:25px;min-height:47px;padding:8px 4%;flex-shrink:0;background:var(--kc-bg)}
+#kb-whole-cinema .kc-brand{font-weight:500;letter-spacing:.04em;white-space:nowrap}
+#kb-whole-cinema .kc-brand>span{color:var(--kc-accent)}
+#kb-whole-cinema .kc-section{font-size:12px;color:var(--kc-muted)}
+#kb-whole-cinema .kc-count{margin-left:auto;margin-right:65px;font-size:11px;color:var(--kc-muted)}
+#kb-whole-cinema .kc-picture{flex:1;min-height:220px;position:relative;overflow:hidden;background:#253333;isolation:isolate}
+#kb-whole-cinema .kc-original{position:absolute;inset:0;z-index:1}
+#kb-whole-cinema .kc-original svg{display:block;width:100%;height:100%}
+#kb-whole-cinema .kc-extension{position:absolute;inset:-35px;filter:blur(28px);opacity:.32;pointer-events:none}
+#kb-whole-cinema .kc-extension svg{display:block;width:100%;height:100%}
+#kb-whole-cinema .kc-information{display:grid;grid-template-columns:1fr 1.15fr auto;align-items:center;gap:22px;padding:18px 4% 14px;background:var(--kc-bg);flex-shrink:0}
+#kb-whole-cinema .kc-console{color:var(--kc-accent);font-size:11px;text-transform:uppercase;letter-spacing:.14em;margin-bottom:5px}
+#kb-whole-cinema .kc-title{font:400 clamp(22px,3vw,32px)/1.05 Georgia,serif;letter-spacing:-.02em;margin:0 0 7px;text-wrap:balance}
+#kb-whole-cinema .kc-facts{color:var(--kc-muted);font-size:11px}
+#kb-whole-cinema .kc-description{font-size:12px;color:#ded1bf;margin:0;max-width:410px}
+#kb-whole-cinema .kc-actions{display:flex;align-items:stretch;flex-direction:column;gap:8px}
+#kb-whole-cinema .kc-play{background:var(--kc-ink);color:var(--kc-bg);display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:4px;padding:8px 18px;font-weight:500}
+#kb-whole-cinema .kc-play svg{width:15px;height:15px}
+#kb-whole-cinema .kc-browse{background:transparent;color:var(--kc-muted);border:1px solid #5d4d3e;border-radius:4px;padding:6px 12px;font-size:11px;white-space:nowrap}
+#kb-whole-cinema .kc-games{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:14px;align-items:end;padding:14px 4% 8px;flex-shrink:0;background:var(--kc-bg)}
+#kb-whole-cinema .kc-games[hidden]{display:none}
+#kb-whole-cinema .kc-game{height:105px;position:relative;min-width:0;background:var(--kc-cover);padding:0;border:1px solid #6b5e50;border-left:4px solid #2c2925;border-radius:3px;color:#fff3dc;text-align:left;box-shadow:4px 5px 10px #0006;transition:transform .16s,opacity .16s}
+#kb-whole-cinema .kc-game:not([aria-pressed=true]){opacity:.65}
+#kb-whole-cinema .kc-game[aria-pressed=true]{outline:2px solid var(--kc-ink);outline-offset:4px;transform:translateY(-4px)}
+#kb-whole-cinema .kc-game:hover{opacity:1;transform:translateY(-4px)}
+#kb-whole-cinema .kc-game::before{content:"";position:absolute;inset:14% 8% 20%;clip-path:polygon(0 100%,24% 28%,36% 55%,57% 0,80% 62%,100% 20%,100% 100%);background:#ebedcf66}
+#kb-whole-cinema .kc-game::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent,#0009)}
+#kb-whole-cinema .kc-game span{position:absolute;left:7px;right:6px;bottom:9px;z-index:1;font:400 12px/1.08 Georgia,serif;text-shadow:0 1px 3px #000}
+#kb-whole-cinema .kc-game small{position:absolute;left:6px;top:4px;z-index:1;font-size:8px;letter-spacing:.06em}
+#kb-whole-cinema .kc-footer{display:flex;align-items:center;gap:20px;flex-shrink:0;padding:12px 4%;font-size:10px;color:var(--kc-muted)}
+#kb-whole-cinema .kc-footer b{font-weight:400;color:var(--kc-ink);margin-left:4px}
+#kb-whole-cinema .kc-caption{margin-left:auto;font-size:10px}
+#kb-whole-cinema .kc-launch{position:absolute;inset:0;z-index:10;background:#100d0bf5;display:grid;place-content:center;text-align:center;padding:30px;color:var(--kc-ink)}
+#kb-whole-cinema .kc-launch[hidden]{display:none}
+#kb-whole-cinema .kc-launch>span{color:var(--kc-accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+#kb-whole-cinema .kc-launch h3{font:400 32px/1.2 Georgia,serif;margin:15px 0 25px;color:inherit}
+#kb-whole-cinema .kc-launch button{background:#30231c;color:inherit;border:1px solid #8e7864;border-radius:4px;padding:10px 20px}
+@media(max-width:700px){
+ #kb-whole-cinema .kc-screen{aspect-ratio:auto;min-height:740px}
+ #kb-whole-cinema .kc-header{gap:15px;padding:12px 5%;flex-wrap:wrap}
+ #kb-whole-cinema .kc-count{margin-right:0}
+ #kb-whole-cinema .kc-picture{min-height:260px}
+ #kb-whole-cinema .kc-information{grid-template-columns:1fr auto;padding:18px 5%;gap:12px}
+ #kb-whole-cinema .kc-title{font-size:25px}
+ #kb-whole-cinema .kc-description{grid-column:1/-1;grid-row:2;font-size:12px;max-width:none}
+ #kb-whole-cinema .kc-games{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:12px 5%}
+ #kb-whole-cinema .kc-game{height:86px}
+ #kb-whole-cinema .kc-game span{font-size:11px}
+ #kb-whole-cinema .kc-footer{flex-wrap:wrap;gap:8px 15px;padding:12px 5%}
+ #kb-whole-cinema .kc-caption{margin-left:0;width:100%}
+}
+@media(prefers-reduced-motion:reduce){#kb-whole-cinema .kc-game{transition:none}}
+</style>
+<script>
+(() => {
+ const root=document.getElementById('kb-whole-cinema');
+ const games=[
+  {name:'Metroid Prime',console:'GameCube',year:'2002',genre:'Adventure',time:'6h 20m',scene:'forest',cover:'linear-gradient(150deg,#69866e,#263f40 65%,#19222c)',description:'Explore an isolated world of rain-soaked ruins, tangled forests and ancient machinery. Every new discovery opens another path into the unknown.'},
+  {name:'Boktai',console:'Game Boy Advance',year:'2003',genre:'Action RPG',time:'4h 12m',scene:'sun',cover:'linear-gradient(150deg,#d4a756,#805c43 65%,#30243a)',description:'Carry the sun into a world of shadow. Explore forgotten ruins, solve puzzles and face the creatures that wake after dark.'},
+  {name:'Fire Emblem Echoes',console:'Nintendo 3DS',year:'2017',genre:'Strategy RPG',time:'12h 40m',scene:'valley',cover:'linear-gradient(150deg,#bfccbf,#688a95 65%,#283c54)',description:'Two paths through a divided kingdom. Guide your army across the hills, villages and strongholds of Valentia.'},
+  {name:'The Wind Waker',console:'GameCube',year:'2003',genre:'Adventure',time:'8h 05m',scene:'sea',cover:'linear-gradient(150deg,#ddbc61,#609d8b 65%,#19445c)',description:'Set sail across a sea of scattered islands. Follow the wind, discover hidden shores and find the adventure beyond the horizon.'},
+  {name:'Super Mario Galaxy',console:'Wii',year:'2007',genre:'Platformer',time:'3h 30m',scene:'sea',cover:'linear-gradient(150deg,#4d84a6,#3c315e 65%,#1c2039)',description:'Leap between tiny worlds and sweeping skies, with a new surprise waiting around every orbit.'},
+  {name:'Shadow of the Colossus',console:'PlayStation 2',year:'2005',genre:'Adventure',time:'5h 10m',scene:'valley',cover:'linear-gradient(150deg,#b8b998,#748779 65%,#30483e)',description:'Ride through a vast, silent landscape in search of ancient giants. Find a way to overcome each towering encounter.'},
+  {name:'Journey',console:'PlayStation 3',year:'2012',genre:'Adventure',time:'1h 45m',scene:'sun',cover:'linear-gradient(150deg,#e8bc7a,#a56a56 65%,#593640)',description:'Follow a distant mountain through golden dunes and the remnants of a forgotten world.'},
+  {name:'Xenoblade Chronicles',console:'Wii',year:'2010',genre:'RPG',time:'21h 15m',scene:'valley',cover:'linear-gradient(150deg,#78a5ab,#7e9564 65%,#914b42)',description:'Walk beneath an endless sky and discover a world larger than you imagined.'}
+ ];
+ const restored=window.openai?.widgetState?.modelContent;
+ const state={gameIndex:Number.isInteger(restored?.gameIndex)&&restored.gameIndex>=0&&restored.gameIndex<games.length?restored.gameIndex:0,shelf:typeof restored?.shelf==='boolean'?restored.shelf:true,extension:true};
+ const picture=root.querySelector('.kc-original');
+ const extension=root.querySelector('.kc-extension');
+ const shelf=root.querySelector('.kc-games');
+ const browse=root.querySelector('.kc-browse');
+ const launch=root.querySelector('.kc-launch');
+ function scenery(kind,id,fit){
+  const palette=kind==='sun'?['#2d2d42','#b76b51','#efc586','#815b56','#4c414d','#2d303a']:kind==='sea'?['#234e7d','#6eafb8','#eed8a6','#5b9391','#367c86','#235a70']:kind==='forest'?['#192f35','#658780','#b9c4a2','#4e7268','#34584f','#1b3939']:['#314f66','#a1b6ac','#e5d8b3','#79978b','#4d7571','#2c5058'];
+  const sky=`kc-sky-${id}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 810" preserveAspectRatio="xMidYMid ${fit}" role="img" aria-label="Whole original illustrative ${kind} landscape"><defs><linearGradient id="${sky}" x2="0" y2="1"><stop stop-color="${palette[0]}"/><stop offset=".7" stop-color="${palette[1]}"/><stop offset="1" stop-color="${palette[2]}"/></linearGradient></defs><rect width="1440" height="810" fill="url(#${sky})"/><circle cx="1030" cy="230" r="${kind==='sun'?90:49}" fill="${palette[2]}" opacity=".85"/><path d="M0 450Q200 420 360 450T750 430T1120 440T1440 400" fill="none" stroke="${palette[2]}" stroke-width="16" opacity=".18"/><path d="M0 590 140 395 305 510 485 285 640 460 800 365 995 500 1145 280 1320 480 1440 385V810H0Z" fill="${palette[3]}" opacity=".65"/><path d="M0 650 200 520 400 610 570 475 740 590 900 480 1100 590 1250 495 1440 550V810H0Z" fill="${palette[4]}"/><path d="M0 740Q200 660 440 710T900 700T1440 665V810H0Z" fill="${palette[5]}"/>${kind==='sea'?`<path d="M0 640Q200 605 400 640T800 650T1200 630T1440 650V810H0Z" fill="#377f91"/><path d="M825 650 890 475 950 535 1010 425 1100 650Z" fill="#385e58"/><path d="M890 475 1010 425 1038 505 950 535Z" fill="#9da874"/><g stroke="#d2e2c7" opacity=".4"><path d="M60 735H450 M600 780H1150 M1080 710H1380"/></g><path d="M510 725Q560 765 615 722Z" fill="#8f403b"/><path d="M560 720V570L620 704H565Z" fill="#f0d8a0"/>`:`<g fill="${kind==='forest'?'#243e3c':'#35464e'}"><path d="M660 640V390H695V365H825V390H860V640H825V420H695V640Z"/><path d="M690 365 760 310 830 365Z"/><path d="M700 580H820V600H700Z M685 600H835V622H685Z M670 622H850V642H670Z"/><path d="M110 665V440H150V425H185V440H225V665H187V475H150V665Z"/></g>${kind==='forest'?'<g fill="#183b36"><path d="M0 0H110L135 810H40Z M1170 0H1230L1280 810H1210Z M1320 0H1420L1440 810H1370Z"/><path d="M0 100Q240 150 335 0H0Z M1090 0Q1120 145 1440 170V0Z"/></g><path d="M380 700Q550 640 720 682" stroke="#b6c5a4" stroke-width="9" opacity=".35" fill="none"/>':'<path d="M740 810Q630 740 810 660" stroke="#d7c9a9" stroke-width="19" opacity=".4" fill="none"/>'}`}<g fill="${palette[2]}" opacity=".5"><circle cx="330" cy="170" r="2"/><circle cx="580" cy="120" r="2"/></g></svg>`;
+ }
+ shelf.innerHTML=games.map((g,i)=>`<button type="button" class="kc-game" data-game="${i}" aria-label="${g.name}, ${g.console}" aria-pressed="false" style="--kc-cover:${g.cover}"><small>${g.console}</small><span>${g.name}</span></button>`).join('');
+ function render(){
+  const g=games[state.gameIndex];
+  picture.innerHTML=scenery(g.scene,'original','meet');
+  extension.innerHTML=scenery(g.scene,'extension','slice');
+  extension.hidden=!state.extension;
+  root.querySelector('.kc-console').textContent=g.console;
+  root.querySelector('.kc-title').textContent=g.name;
+  root.querySelector('.kc-facts').textContent=`${g.year} · ${g.genre} · ${g.time} played`;
+  root.querySelector('.kc-description').textContent=g.description;
+  root.querySelector('.kc-count').textContent=`${state.gameIndex+1} / ${games.length}`;
+  root.querySelector('.kc-launch h3').textContent=g.name;
+  shelf.hidden=!state.shelf;
+  browse.textContent=state.shelf?'Hide shelf':'Browse games';browse.setAttribute('aria-expanded',String(state.shelf));
+  shelf.querySelectorAll('[data-game]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.game)===state.gameIndex)));
+  if(globalThis.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+ }
+ function remember(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{layout:'Cinema — whole background',gameIndex:state.gameIndex,game:games[state.gameIndex].name,shelf:state.shelf},privateContent:null}).catch(()=>{});}
+ root.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.game!==undefined){state.gameIndex=Number(b.dataset.game);render();remember();}});
+ browse.addEventListener('click',()=>{state.shelf=!state.shelf;render();remember();});
+ root.querySelector('.kc-play').addEventListener('click',()=>{launch.hidden=false;launch.querySelector('button').focus();});
+ launch.querySelector('button').addEventListener('click',()=>{launch.hidden=true;root.querySelector('.kc-play').focus();});
+ root.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){launch.hidden=true;return;}
+  if(!launch.hidden)return;
+  const move=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+  if(move){e.preventDefault();state.gameIndex=(state.gameIndex+move+games.length)%games.length;render();remember();}
+  if(e.key.toLowerCase()==='b'){state.shelf=!state.shelf;render();remember();}
+ });
+ window.addEventListener('openai:set_globals',e=>{const s=e.detail?.globals?.widgetState?.modelContent;if(s?.layout!=='Cinema — whole background')return;if(Number.isInteger(s.gameIndex)&&s.gameIndex>=0&&s.gameIndex<games.length)state.gameIndex=s.gameIndex;if(typeof s.shelf==='boolean')state.shelf=s.shelf;render();});
+ render();
+ if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addToggle(state,'extension',{label:'Soft artwork extension at the sides'});}
+})();
+</script>

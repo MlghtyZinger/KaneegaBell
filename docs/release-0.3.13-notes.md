@@ -1,0 +1,12 @@
+- New: switch between KB, Wii and PS3 TV menus without restarting; your choice is remembered.
+- Changed: KB TV Mode has a logo list, a large 3D case, short game summaries, and an All platforms filter.
+- New: Wii TV Mode has a channel grid, channel-opening screen, page transitions and a clock dock.
+- New: Wii supports a right-stick hand pointer and D-pad access to the bottom controls.
+- New: PS3 TV Mode has a console crossbar, a vertical game list, animated waves and sparkles, and an options panel.
+- Improved: PS3 console icons are larger and game tiles show logos over backgrounds instead of cropped boxes.
+- New: Wii and PS3 menus use their own sound effects with matched playback levels; Wii also plays its menu music.
+- New: TV previews prefer cached gameplay screenshots in a 16:9 frame, preserving older games' proportions.
+- Improved: TV descriptions fit their text; More… opens the full description and game information.
+- Fixed: moving PS3 console tabs no longer scroll the screen and cut off the bottom controls.
+- Changed: the current platform stays visible without a pop-up when switching consoles.
+- Changed: start-up intros use the supplied recordings as their default sounds.

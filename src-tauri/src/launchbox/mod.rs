@@ -42,9 +42,9 @@ const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
 /// Image types kept (LaunchBox has ~30; KB shows these). Disc, cartridge, back
 /// and spine pictures are for the 3D cases (TV shelf, launch animation, 0.3.12).
 const IMAGE_KINDS: &[&str] =
-    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine", "Cart - Front"];
+    &["Box - Front", "Box - Front - Reconstructed", "Clear Logo", "Fanart - Background", "Disc", "Box - Back", "Box - Back - Reconstructed", "Box - Spine", "Cart - Front", "Screenshot - Gameplay"];
 /// Raised when `IMAGE_KINDS` grows, so the image lists are downloaded once more.
-const IMAGE_KINDS_VERSION: u32 = 4;
+const IMAGE_KINDS_VERSION: u32 = 5;
 /// Raised when GameTDB's full covers should be tried again for every game (setting `gametdbCaseArt`).
 const GAMETDB_CASE_VERSION: u32 = 1;
 const STAMP_KEY: &str = "launchbox";
@@ -696,6 +696,23 @@ fn fetch_case_art(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id
     Ok(())
 }
 
+/// Fetch at most one cached gameplay picture per game. No requests while navigating TV Mode.
+fn fetch_screenshot(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i64, db_id: i64, region: Option<&str>) -> Result<()> {
+    let current: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM artwork WHERE game_id = ?1 AND kind = 'screenshot' AND selected = 1)",
+        [game_id], |r| r.get(0),
+    )?;
+    if current && images::screenshot_path(data_dir, game_id).is_file() { return Ok(()); }
+    for (file, _) in images_for(conn, db_id, &["Screenshot - Gameplay"], region)?.into_iter().take(3) {
+        let url = image_url(&file);
+        let Some(bytes) = fetch.get(&url)? else { continue };
+        let Ok((w, h)) = images::store_screenshot(data_dir, game_id, &bytes) else { continue };
+        queries::set_extra(conn, game_id, "screenshot", "launchbox", &file, &url, w, h, queries::now())?;
+        break;
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- the job
 
 /// One LaunchBox pass (see the module docs). `force` downloads even when
@@ -787,6 +804,9 @@ pub fn run(
         progress(Progress { phase: "images", done: i as u64, total });
         let db_id = g.lb_id.unwrap_or_default();
         apply_genres(conn, g.id, db_id)?;
+        if let Err(e) = fetch_screenshot(conn, data_dir, fetch, g.id, db_id, g.region.as_deref()) {
+            log::warn!("LaunchBox screenshot for game {}: {e}", g.id);
+        }
         if queue_cover(conn, g.id, db_id, g.region.as_deref())? {
             s.covers_queued += 1;
         }
@@ -869,7 +889,7 @@ pub fn set_manual(conn: &Connection, game_id: i64, db_id: i64) -> Result<bool> {
         let region: Option<String> = conn.query_row("SELECT region FROM games WHERE id = ?1", [game_id], |r| r.get(0))?;
         queue_cover(conn, game_id, db_id, region.as_deref())?;
         // Its own logo and background, not the previous match's.
-        conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind IN ('hero', 'logo') AND source = 'launchbox'", [game_id])?;
+        conn.execute("DELETE FROM artwork WHERE game_id = ?1 AND kind IN ('hero', 'logo', 'screenshot') AND source = 'launchbox'", [game_id])?;
         return Ok(false);
     }
     Ok(true)

@@ -419,13 +419,54 @@ but has no Collections overview yet.
 
 A big-screen view in the spirit of Steam's Big Picture, for the couch: switch with the left stick
 button (L3), `F10` or the **TV Mode** button; Settings → General can start the app in it. It goes
-fullscreen and shows the focused game's SteamGridDB background (crossfading and slowly drifting;
-a blurred cover when there's none), its logo or title, platform, year, developer, genres, play
-time and description, with a shelf of covers along the bottom. LB/RB switch platform, LT/RT jump
-by letter, A opens the game's details, X searches, Y favorites, Start opens a menu (Search,
-Settings, Desktop mode). It shares the desktop library's tabs, search, filters and focus.
+fullscreen into Showcase: a logo list on the left, one large selected case in the middle,
+and a dedicated information column with the game's title, console, play time and short synopsis.
+Cached game logos are used whenever available, with the title as a fallback. More… opens the
+full game details and complete description. The synopsis selects up to two useful sentences
+locally and measures them in the TV font; its panel fits the text rather than reserving blank
+lines. Desktop descriptions are unchanged. The full-width 16:9 preview below uses a cached
+LaunchBox gameplay screenshot when available. Original gameplay proportions and HUDs are
+preserved over a blurred fill; if no screenshot is available, existing artwork fills the frame
+with a center crop. The background is unchanged. LaunchBox imports screenshot lists once on
+upgrade (its existing metadata download), then caches one suitable screenshot per matched game;
+TV navigation never fetches screenshots from the network.
 
-Measured on the 5,000-game test library: holding right steps through the shelf with every frame
+The visible platform filter includes **All platforms** and each platform with its game count,
+as well as Favorites, Recent and Collections. LB/RB cycle platforms. Up/Down browse games;
+Up from the first game reaches the filter. Right moves to Play and More…; Left/B returns
+to the game list. LT/RT jump by letter, X searches, Y favorites, and Start opens the TV menu.
+The selected 3D case still supports turning, tilting and flipping; a flat-cover option is
+available in Settings. TV Mode loads only when opened.
+
+**Menu styles:** **KB** (KaneegaBell) keeps Showcase. **Wii** uses a full-screen 4×3
+channel grid, page arrows, a curved clock dock, and a separate channel-opening screen with
+Wii Menu, Start and Game information. D-pad moves across four columns; A/Enter opens a
+channel. **PS3** uses XMB navigation: Left/Right slides between console tabs (plus All platforms), Up/Down moves
+through the vertical game list, A/Enter starts the selected game, and Y/Triangle opens its
+options. The active category and game thumbnails share one horizontal axis, so navigation
+keeps them aligned. Platforms opens the shared filter with All platforms and every console.
+Tabs use the console icons and keep their selected icon aligned with the game thumbnails.
+The game thumbnails use an uncropped logo over background artwork, with a title fallback.
+Both console menus show the active platform without a pop-up when it changes. In Wii, Down
+from the bottom channel row reaches the dock; Left/Right then choose its buttons, Up returns
+to the channels. The right stick also moves a local hand pointer; A/Cross or right-stick click
+activates the visible button under its fingertip. No OS mouse input is generated.
+
+Wii channel/page transitions, PS3 category/item slides and options-panel transitions use
+transform/opacity. The PS3 waves move in Full animation mode and stop in Reduced, Off,
+OS reduced-motion mode and while a game runs. The earlier performance figures below do
+not verify these new console screens. Console menu effects are bundled and selected automatically for Wii/PS3; desktop and KB
+keep the chosen sound profile. The console feedback update enables TV sounds and Full
+animation once to apply the owner's request; later settings changes remain respected.
+Explicit Full animation opts into motion even if Windows requests reduced motion.
+The controller thread sends pointer velocity only while a stick moves with KB focused;
+no pointer messages are sent while a game runs.
+
+Switch instantly with **Menu style** in the corner, **G / View / Share**, or
+**Start → Menu style…**. The choice is saved, and switching styles preserves the selected
+game and filter. No console firmware or extracted system artwork is used.
+
+Earlier shelf layout (before Showcase), measured on the 5,000-game test library: holding right stepped through the shelf with every frame
 under 14 ms; idle (background drifting) 0.2% of one core.
 
 Settings → General → TV Mode:
@@ -448,15 +489,15 @@ Settings → General:
   Each platform has its own case (CD jewel case, DVD/Blu-ray keep cases, the GameCube mini disc,
   the PSP's UMD) or cartridge and console (SNES, N64, GBA, DS, 3DS, Switch). The disc and the back
   cover use LaunchBox's pictures when it has them, else the cover. Back cancels it.
-- **TV shelf**: 3D cases (turn them with the right stick or by dragging, tilt with right stick
+- **TV case**: a large 3D case (turn it with the right stick or by dragging, tilt with right stick
   up/down, flip to the back with R3/V) or flat covers.
 - **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
   of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption 2), Game Boy Advance,
-  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. Any button skips.
+  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. The owner-provided recordings are bundled as the default audio; PSP plays both parts in order. Any button skips.
   **Your own sound for an intro:** put a file named after it (`konami`, `rockstar`, `gba`,
   `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `xbox360` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
-  uses longer timings made for full-length recordings. These files are yours and are never shipped.
+  stays open until the recording finishes. Files in data\intros override the bundled audio and are never shipped.
 - **Sounds**: three profiles (Tactile, the default: real buttons and latches; Console: soft system
   tones; Retro console: warm filtered beeps and chunky switches) for moving, choosing, going back
   and starting a disc or cartridge game. On/off and volume for the desktop and TV Mode separately;
@@ -586,8 +627,9 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
 - The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
 - Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
   (no logos).
-- Sounds (`src/assets/sounds`, made with `tools/sounds`): mixed from CC0 recordings:
-  [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
+- Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled.
+- Startup audio (`src/assets/sounds/intro_*.ogg`): converted from the owner-provided recordings in `audio files` using `tools/sounds/import-intros.ps1` (PSP joins part 1 and part 2).
+- Menu and launch sounds (`src/assets/sounds/prof_*.ogg`, made with `tools/sounds`): CC0 sources include [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
   [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
   and [Kenney](https://kenney.nl)'s Interface Sounds and UI Audio.
 
@@ -712,6 +754,31 @@ but only warns; the Task Manager figures, which the gate uses, are within 4%.
 Added after the gate (only the back/spine/disc picker's Search and a LaunchBox pass that can keep a few extra entries; nothing
 at startup, in the grid or while idle), so no second gate run.
 
+0.3.13 release candidate (2026-10-22): two full runs failed the startup regression gate:
+652 ms then 580 ms median versus the saved 426 ms baseline (+36% on the repeat), still under
+1.5 seconds. The owner accepted this startup deviation for publication after a time-limited investigation. Run 2: 240 fps, p99 4.3 ms, maximum
+4.4 ms; idle 0.77% of one core; Task Manager memory 107 MB at start, 213 MB after scrolling,
+109 MB during a game and 139 MB after it. Other gated metrics passed; private memory only warned.
+Native console regression checks passed 17/17 across 720p, 1080p, 1440p and 4K, including
+PS3 footer bounds after console-tab focus changes, icon alignment/size, removed pop-up and
+Wii dock action navigation. These are layout checks, not a console frame-rate measurement.
+See `docs/release-0.3.13.md` for evidence, limitations and remaining release steps.
+
+Final 0.3.13 publication check (2026-10-22), rerun after the owner stopped a CPU-intensive game:
+startup 629 ms median versus the 426 ms baseline (+203 ms, +48%); the startup gate fails, while
+all other gates pass. All three scroll passes 240 fps, p99 4.3 ms, maximum 4.4 ms, no frame over
+20 ms. Idle 0.77% of one core; Task Manager RAM 108 MB at start, 217 MB after scrolling,
+110 MB during the game, 139 MB after it. Private memory warnings: 250/448/340/367 MB.
+The preceding 754 ms run happened while the owner was in a CPU-intensive game; an intervening
+623 ms run lost its local DevTools connection before completing and is not a full gate result.
+The owner authorized publication if a five-minute investigation found no quick fix. No app-code
+fix was identified: current/previous screenshot queries both take about 11-19 ms for 5,000 rows;
+one cold profile spent ~296 ms before page navigation, then loaded JS/CSS within 6 ms, completed
+DOM loading at 59 ms and painted at 260 ms. A warm library IPC took 25 ms. Reloads of the same
+UI painted in 28-32 ms. Cold WebView/first-paint overhead warrants further investigation;
+no controlled old-binary comparison was completed in the time budget. Baseline left unchanged.
+
+
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
 
@@ -765,6 +832,20 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.13
+- New: switch between KB, Wii and PS3 TV menus without restarting; your choice is remembered.
+- Changed: KB TV Mode has a logo list, a large 3D case, short game summaries, and an All platforms filter.
+- New: Wii TV Mode has a channel grid, channel-opening screen, page transitions and a clock dock.
+- New: Wii supports a right-stick hand pointer and D-pad access to the bottom controls.
+- New: PS3 TV Mode has a console crossbar, a vertical game list, animated waves and sparkles, and an options panel.
+- Improved: PS3 console icons are larger and game tiles show logos over backgrounds instead of cropped boxes.
+- New: Wii and PS3 menus use their own sound effects with matched playback levels; Wii also plays its menu music.
+- New: TV previews prefer cached gameplay screenshots in a 16:9 frame, preserving older games' proportions.
+- Improved: TV descriptions fit their text; More… opens the full description and game information.
+- Fixed: moving PS3 console tabs no longer scroll the screen and cut off the bottom controls.
+- Changed: the current platform stays visible without a pop-up when switching consoles.
+- Changed: start-up intros use the supplied recordings as their default sounds.
 
 ### 0.3.12
 - New: animations. Pick Full, Reduced or Off for the desktop and for TV Mode in Settings → General → Animations.

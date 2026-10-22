@@ -112,7 +112,7 @@ $env:TEMP = $env:TMP = (New-Item -ItemType Directory -Force "target\tmp").FullNa
 $testExit = $LASTEXITCODE
 $env:TEMP = $oldTemp; $env:TMP = $oldTmp
 Pop-Location
-if ($testExit -ne 0) { git checkout -- .; Fail "Rust tests failed (version bump undone)" }
+if ($testExit -ne 0) { Fail "Rust tests failed; changes preserved for inspection" }
 Run node @("--test", "tests/*.test.ts")
 
 Step "Signed build (the updater key's password is asked for here, not stored)"
@@ -126,7 +126,7 @@ try {
 finally {
     Remove-Item env:TAURI_SIGNING_PRIVATE_KEY, env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD -ErrorAction SilentlyContinue
 }
-if ($buildExit -ne 0) { git checkout -- .; Fail "build failed (version bump undone)" }
+if ($buildExit -ne 0) { Fail "build failed; changes preserved for inspection" }
 
 $installer = Join-Path $root "src-tauri\target\release\bundle\nsis\$installerName"
 if (-not (Test-Path $installer) -or -not (Test-Path "$installer.sig")) { Fail "installer or signature missing: $installer(.sig)" }
@@ -159,7 +159,6 @@ function Update-UpdatesBranch {
     Step "Updates branch (what installed copies read)"
     Run git @("fetch", "-q", "origin", "updates")
     $wt = Join-Path ([IO.Path]::GetTempPath()) "kb-updates-$Version"
-    Quiet git @("worktree", "remove", "--force", $wt) | Out-Null
     if (Test-Path -LiteralPath $wt) { Fail "a leftover folder is in the way: $wt" }
     Run git @("worktree", "add", "-q", "--detach", $wt, "origin/updates")
     try {
@@ -174,7 +173,7 @@ function Update-UpdatesBranch {
         Run git @("-C", $wt, "push", "-q", "origin", "HEAD:updates")
     }
     finally {
-        Quiet git @("worktree", "remove", "--force", $wt) | Out-Null
+        Quiet git @("worktree", "remove", $wt) | Out-Null
     }
 
     # Download both back exactly the way KB does, and compare.

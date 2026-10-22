@@ -1,7 +1,7 @@
 /* Start-up intros (milestone p, 0.3.12). Ported from the approved mockup
    ("KB Launch Animations", 2026-10-21): each intro is drawn on a 540 px tall stage
-   as wide as the window and scaled to its height. `.custom` retimes an intro to the user's own sound file
-   (data\intros); without one the built-in CC0 sound and these timings play. */
+   as wide as the window and scaled to its height. `.custom` uses the recording timings
+   for the bundled startup audio and optional data\intros overrides. */
 .intro {
   position: fixed;
   inset: 0;

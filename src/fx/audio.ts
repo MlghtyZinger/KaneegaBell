@@ -1,5 +1,5 @@
-// KB's sounds: menu moves, game starts and the start-up intros. Every built-in
-// sound is mixed from CC0 recordings (tools/sounds); a user's own intro sound
+// KB's sounds: menu moves, game starts and the start-up intros. Menu and launch
+// sounds use CC0 recordings; bundled intros use the owner's recordings. An override
 // comes from data\intros. Played through Web Audio so they start on time.
 import { fx } from "../state/fx";
 import { session } from "../state/session";
@@ -72,13 +72,22 @@ export function hush() {
   wire();
 }
 
+let lastCue = "";
+let lastCueAt = 0;
+
 /** The current profile's sound for a menu move, a choice, going back, or a disc / cartridge game starting. */
 export function sfx(role: "move" | "select" | "back" | "disc" | "cart", delayMs = 0) {
-  play(`prof_${fx.get("soundProfile")}_${role}`, delayMs);
+  const style = fx.tv() ? fx.get("tvMenu") : "kb";
+  const name = style !== "kb" && ["move", "select", "back"].includes(role) ? `menu_${style}_${role}` : `prof_${fx.get("soundProfile")}_${role}`;
+  const now = performance.now();
+  if (lastCue === name && now - lastCueAt < 35) return;
+  lastCue = name; lastCueAt = now;
+  play(name, delayMs);
 }
 
 /** Decodes the menu sounds ahead of time, so the first press isn't late. */
 export function warmUp() {
   if (!fx.soundOn()) return;
-  for (const r of ["move", "select", "back"]) void load(`prof_${fx.get("soundProfile")}_${r}`);
+  const style = fx.tv() ? fx.get("tvMenu") : "kb";
+  for (const r of ["move", "select", "back"]) void load(style !== "kb" ? `menu_${style}_${r}` : `prof_${fx.get("soundProfile")}_${r}`);
 }

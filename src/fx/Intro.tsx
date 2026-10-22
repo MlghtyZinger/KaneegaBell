@@ -23,6 +23,8 @@ const runs = createRoot(() => {
   const [run, setRun] = createSignal<{ key: IntroKey | null } | null>({ key: null });
   return { run, setRun };
 });
+/** Menu music waits until the intro has finished or been skipped. */
+export const introPlaying = () => runs.run() !== null;
 /** Plays an intro now (Settings → General → Start-up intro). */
 export const playIntro = (key: IntroKey) => runs.setRun({ key });
 
@@ -42,7 +44,6 @@ export function Intros() {
 function IntroHost(props: { forced: IntroKey | null }) {
   const [state, setState] = createSignal<"wait" | "play" | "done">("wait");
   const [key, setKey] = createSignal<IntroKey | null>(null);
-  const [custom, setCustom] = createSignal(false);
   const [on, setOn] = createSignal(false);
   const [leaving, setLeaving] = createSignal(false);
   const timers: ReturnType<typeof setTimeout>[] = [];
@@ -76,11 +77,10 @@ function IntroHost(props: { forced: IntroKey | null }) {
     if (fx.soundOn() && !session.running()) {
       const own = await api.introSound(k).catch(() => null);
       buf = own && own.byteLength > 0 ? await load(`own_${k}`, own) : null;
-      setCustom(!!buf);
       buf ??= await load(`intro_${k}`);
     }
     setState("play");
-    const ms = custom() ? INTROS[k].customMs : INTROS[k].ms;
+    const ms = Math.max(INTROS[k].customMs, (buf?.duration ?? 0) * 1000);
     requestAnimationFrame(() => {
       setOn(true);
       playBuffer(buf);
@@ -92,7 +92,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
   return (
     <Show when={state() !== "done"}>
       <Show when={state() === "play"} fallback={<div class="intro-wait" />}>
-        <div class="intro" classList={{ on: on(), leave: leaving(), custom: custom() }} onClick={skip}>
+        <div class="intro custom" classList={{ on: on(), leave: leaving() }} onClick={skip}>
           <Stage class="intro-stage">
             <Switch>
               <Match when={key() === "konami"}>
@@ -104,7 +104,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
                 </div>
               </Match>
               <Match when={key() === "rockstar"}>
-                <Rockstar custom={custom()} at={at} />
+                <Rockstar custom={true} at={at} />
               </Match>
               <Match when={key() === "gba"}>
                 <div class="iv gba">

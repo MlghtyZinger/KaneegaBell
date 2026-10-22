@@ -106,6 +106,8 @@ struct Pad {
     ly: AxisLatch,
     rx: AxisLatch,
     ry: AxisLatch,
+    pointer_x: i16,
+    pointer_y: i16,
     lt: AxisLatch,
     rt: AxisLatch,
     combo: Combo<Button>,
@@ -161,6 +163,8 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
     let mut repeater = Repeater::default();
     let mut dedupe: Dedupe<u32> = Dedupe::default();
     let mut nav_was_enabled = false;
+    let mut pointer_at = Instant::now();
+    let mut pointer_moving = false;
     log::info!("controller thread started");
 
     loop {
@@ -208,6 +212,8 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                                 ly: AxisLatch::default(),
                                 rx: AxisLatch::default(),
                                 ry: AxisLatch::default(),
+                                pointer_x: 0,
+                                pointer_y: 0,
                                 lt: AxisLatch::default(),
                                 rt: AxisLatch::default(),
                                 combo: build_combo(&combo_cfg),
@@ -244,6 +250,8 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                 Event::GamepadAxisMotion { which, axis, value, .. } => {
                     let id: u32 = which.into();
                     let Some(p) = pads.get_mut(&id) else { continue };
+                    if axis == Axis::RightX { p.pointer_x = value; }
+                    if axis == Axis::RightY { p.pointer_y = value; }
                     let (latch, press, release, neg, pos) = match axis {
                         Axis::LeftX => (&mut p.lx, STICK_PRESS, STICK_RELEASE, Some(Action::Left), Some(Action::Right)),
                         // SDL's Y axis is positive downward.
@@ -279,6 +287,19 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
             if let Some(a) = repeater.tick(now) {
                 let _ = app.emit("nav", a.as_str());
             }
+        }
+        // One velocity sample per frame while the right stick moves; no idle or game-running traffic.
+        let pointer = if nav_enabled {
+            pads.values().find(|p| p.pointer_x.unsigned_abs() > 6000 || p.pointer_y.unsigned_abs() > 6000)
+                .map(|p| [p.pointer_x as f32 / 32768.0, p.pointer_y as f32 / 32768.0])
+        } else { None };
+        if pointer.is_some() && now.duration_since(pointer_at) >= Duration::from_millis(16) {
+            let _ = app.emit("right-stick", pointer.unwrap());
+            pointer_at = now;
+            pointer_moving = true;
+        } else if pointer.is_none() && pointer_moving {
+            let _ = app.emit("right-stick", [0.0_f32, 0.0]);
+            pointer_moving = false;
         }
         if running && pads.values_mut().any(|p| p.combo.poll(now)) {
             log::info!("exit combo held");

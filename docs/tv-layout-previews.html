@@ -1,0 +1,236 @@
+<div id="kb-tv-designs">
+  <div class="viz-carousel" aria-label="KaneegaBell TV layouts">
+    <section data-variant="Cinema" aria-label="Cinema TV layout"><div class="kb-tv cinema" data-layout="cinema"></div></section>
+    <section data-variant="Gallery" aria-label="Gallery TV layout" hidden><div class="kb-tv gallery" data-layout="gallery"></div></section>
+    <section data-variant="Quiet rail" aria-label="Quiet rail TV layout" hidden><div class="kb-tv rail" data-layout="rail"></div></section>
+    <section data-variant="Wii channels" aria-label="Wii channels TV layout" hidden><div class="kb-tv channels" data-layout="channels"></div></section>
+    <section data-variant="PS3 cross-bar" aria-label="PS3 cross-bar TV layout" hidden><div class="kb-tv crossbar" data-layout="crossbar"></div></section>
+  </div>
+</div>
+<style>
+#kb-tv-designs .kb-tv{--kb-bg:#100c0b;--kb-panel:#1b1411;--kb-ink:#f5eddf;--kb-muted:#c5b6a2;--kb-accent:#ee7746;--kb-focus:#fff0d6;position:relative;isolation:isolate;overflow:hidden;width:100%;aspect-ratio:16/10;min-height:590px;background:var(--kb-bg);color:var(--kb-ink);font:400 14px/1.5 "Segoe UI",system-ui,sans-serif;border-radius:12px}
+#kb-tv-designs .kb-tv *{box-sizing:border-box}
+#kb-tv-designs .kb-tv button{font:inherit;color:inherit;cursor:var(--cursor-interaction,pointer)}
+#kb-tv-designs .kb-tv button:focus-visible{outline:3px solid var(--kb-focus);outline-offset:4px}
+#kb-tv-designs .kb-top{position:absolute;z-index:5;top:0;left:0;right:0;padding:25px 32px;display:flex;align-items:center;gap:28px;background:linear-gradient(var(--kb-bg),transparent)}
+#kb-tv-designs .kb-brand{font-weight:500;letter-spacing:.04em;white-space:nowrap}
+#kb-tv-designs .kb-brand span{color:var(--kb-accent)}
+#kb-tv-designs .kb-nav{display:flex;gap:18px;align-items:center}
+#kb-tv-designs .kb-nav button{background:none;border:0;padding:4px 0;color:var(--kb-muted)}
+#kb-tv-designs .kb-nav button[aria-pressed=true]{color:var(--kb-ink);box-shadow:0 2px var(--kb-accent)}
+#kb-tv-designs .kb-clock{margin-left:auto;color:var(--kb-muted);padding-right:65px;white-space:nowrap}
+#kb-tv-designs .kb-art{position:absolute;inset:0;z-index:-2;background:#293b43;overflow:hidden}
+#kb-tv-designs .kb-art svg{width:100%;height:100%;display:block}
+#kb-tv-designs .kb-shade{position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,var(--kb-bg) 2%,#100c0be8 19%,#100c0b1a 62%,#100c0b18)}
+#kb-tv-designs .kb-detail{position:absolute;z-index:2;left:4%;bottom:39%;width:58%;max-width:590px}
+#kb-tv-designs .kb-eyebrow{color:var(--kb-accent);letter-spacing:.18em;text-transform:uppercase;font-size:11px;font-weight:500;margin-bottom:8px}
+#kb-tv-designs .kb-title{font-family:Georgia,serif;font-size:clamp(28px,4.5vw,50px);line-height:1.05;font-weight:400;letter-spacing:-.025em;margin:0 0 12px;text-wrap:balance;text-shadow:0 2px 18px #000}
+#kb-tv-designs .kb-facts{color:var(--kb-muted);font-size:12px;margin-bottom:12px}
+#kb-tv-designs .kb-description{margin:0 0 16px;max-width:490px;color:var(--kb-ink);font-size:13px}
+#kb-tv-designs .kb-actions{display:flex;gap:8px;align-items:center}
+#kb-tv-designs .kb-play,#kb-tv-designs .kb-secondary{border:1px solid #655447;border-radius:5px;padding:8px 19px;background:var(--kb-panel);display:inline-flex;gap:8px;align-items:center}
+#kb-tv-designs .kb-play{background:var(--kb-ink);color:var(--kb-bg);border-color:var(--kb-ink);font-weight:500}
+#kb-tv-designs .kb-secondary[aria-pressed=true]{color:var(--kb-accent)}
+#kb-tv-designs .kb-shelf{position:absolute;left:4%;right:4%;bottom:65px;display:flex;gap:15px;align-items:end;height:150px}
+#kb-tv-designs .kb-case{flex:1;min-width:0;max-width:130px;height:132px;border:1px solid #746251;border-left:5px solid #282420;border-radius:3px;background:var(--cover);padding:0;position:relative;transition:transform .18s,opacity .18s;box-shadow:5px 7px 14px #0006;text-align:left;overflow:hidden}
+#kb-tv-designs .kb-case::before{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#fff3,transparent 35%,#0008)}
+#kb-tv-designs .kb-case::after{content:"";position:absolute;left:8%;right:8%;top:20%;height:47%;clip-path:polygon(0 100%,17% 36%,28% 60%,50% 0,73% 68%,91% 30%,100% 100%);background:#f5eddf55}
+#kb-tv-designs .kb-case span{position:absolute;left:8px;right:6px;bottom:12px;font-family:Georgia,serif;font-size:13px;line-height:1.15;color:#fff8e9;text-shadow:0 1px 4px #000;z-index:1}
+#kb-tv-designs .kb-case small{position:absolute;top:5px;left:7px;font-size:8px;color:#fff;letter-spacing:.12em}
+#kb-tv-designs .kb-case[aria-pressed=true]{outline:2px solid var(--kb-focus);outline-offset:4px;transform:translateY(-10px);opacity:1}
+#kb-tv-designs .kb-case:not([aria-pressed=true]){opacity:.74}
+#kb-tv-designs .kb-case:hover{transform:translateY(-6px);opacity:1}
+#kb-tv-designs .kb-footer{position:absolute;left:4%;right:4%;bottom:18px;display:flex;align-items:center;gap:20px;color:var(--kb-muted);font-size:11px}
+#kb-tv-designs .kb-footer b{font-weight:500;color:var(--kb-ink)}
+#kb-tv-designs .kb-sample{margin-left:auto;color:var(--kb-muted);font-size:10px}
+#kb-tv-designs .kb-tv svg.lucide{width:17px;height:17px;flex-shrink:0}
+#kb-tv-designs .kb-art-control{position:absolute;right:4%;bottom:35%;z-index:4;background:#1b1411e8;border:1px solid #786656;color:var(--kb-ink);padding:7px 12px;border-radius:5px;font-size:11px}
+#kb-tv-designs .gallery .kb-art{inset:82px 4% 34%;background:#202c32;border-radius:4px}
+#kb-tv-designs .gallery .kb-shade{display:none}
+#kb-tv-designs .gallery .kb-detail{bottom:calc(34% + 22px);left:6%;width:65%;padding:16px 20px;background:#100c0bdc;border-radius:4px}
+#kb-tv-designs .gallery .kb-title{font-size:30px;margin:0 0 8px}
+#kb-tv-designs .gallery .kb-description{display:none}
+#kb-tv-designs .gallery .kb-facts{margin-bottom:8px}
+#kb-tv-designs .gallery .kb-eyebrow{display:none}
+#kb-tv-designs .gallery .kb-art-control{bottom:calc(34% + 25px);right:6%}
+#kb-tv-designs .gallery .kb-shelf{height:130px;bottom:60px}
+#kb-tv-designs .gallery .kb-case{height:123px}
+#kb-tv-designs .rail .kb-art{left:29%;bottom:28%}
+#kb-tv-designs .rail .kb-shade{background:linear-gradient(0deg,var(--kb-bg),transparent 38%);left:29%}
+#kb-tv-designs .rail .kb-detail{left:4%;top:25%;bottom:auto;width:22%;max-width:none}
+#kb-tv-designs .rail .kb-title{font-size:31px;text-shadow:none}
+#kb-tv-designs .rail .kb-facts{font-size:11px}
+#kb-tv-designs .rail .kb-actions{flex-wrap:wrap}
+#kb-tv-designs .rail .kb-description{font-size:12px}
+#kb-tv-designs .rail .kb-shelf{left:33%;height:130px;bottom:65px;gap:12px}
+#kb-tv-designs .rail .kb-case{height:112px}
+#kb-tv-designs .rail .kb-art-control{bottom:31%;right:4%}
+#kb-tv-designs .channels{--kb-bg:#ecece9;--kb-panel:#fdfdfb;--kb-ink:#38434b;--kb-muted:#606d76;--kb-accent:#007eae;--kb-focus:#009bce;background:repeating-linear-gradient(0deg,#eaece9 0 2px,#f3f4f1 2px 4px);color:var(--kb-ink)}
+#kb-tv-designs .channels .kb-top{background:linear-gradient(#f8f9f5,#eef0ed);border-bottom:1px solid #c3c9c9}
+#kb-tv-designs .channels .kb-clock{padding-right:65px}
+#kb-tv-designs .kb-channel-grid{position:absolute;left:7%;right:7%;top:18%;bottom:26%;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(3,1fr);gap:12px}
+#kb-tv-designs .kb-channel{position:relative;min-width:0;overflow:hidden;border:2px solid #b9c2c7;border-radius:16px;background:#f8faf8;padding:0;transition:transform .18s}
+#kb-tv-designs .kb-channel .kb-channel-art{position:absolute;inset:0;background:var(--cover)}
+#kb-tv-designs .kb-channel-art svg{width:100%;height:100%;object-fit:cover;opacity:.85}
+#kb-tv-designs .kb-channel span{position:absolute;inset:auto 0 0;padding:5px 8px;background:#fcfcf1e8;color:#25353c;font-size:12px;font-weight:500;text-align:center}
+#kb-tv-designs .kb-channel[aria-pressed=true]{border-color:#009dca;box-shadow:0 0 0 3px #73dcf5;transform:scale(1.035)}
+#kb-tv-designs .kb-channel.empty{background:repeating-linear-gradient(125deg,#f0f3f1 0 7px,#e7eceb 7px 8px);opacity:.7}
+#kb-tv-designs .kb-channel.empty span{position:static;background:none;display:block;font-size:17px;letter-spacing:.05em;color:#9ca8ad}
+#kb-tv-designs .channels .kb-detail{left:8%;bottom:11%;width:64%}
+#kb-tv-designs .channels .kb-title{font:400 24px/1.1 "Segoe UI",sans-serif;text-shadow:none;margin-bottom:5px}
+#kb-tv-designs .channels .kb-eyebrow,#kb-tv-designs .channels .kb-description,#kb-tv-designs .channels .kb-facts{display:none}
+#kb-tv-designs .channels .kb-actions{position:absolute;left:100%;bottom:0}
+#kb-tv-designs .channels .kb-play{color:#005f86;background:#f9fcfc;border:2px solid #7ec6e2;border-radius:40px;padding:8px 28px}
+#kb-tv-designs .channels .kb-secondary{display:none}
+#kb-tv-designs .channels .kb-footer{border-top:1px solid #c8cecc;bottom:14px;padding-top:10px}
+#kb-tv-designs .crossbar{--kb-bg:#101c37;--kb-panel:#152543;background:radial-gradient(ellipse at 80% 100%,#4c6386,transparent 65%),linear-gradient(110deg,#071125,#243d61)}
+#kb-tv-designs .crossbar .kb-art{opacity:.25}
+#kb-tv-designs .crossbar .kb-shade{background:linear-gradient(90deg,#0c1835e8,#142c4b33)}
+#kb-tv-designs .kb-wave{position:absolute;z-index:-1;left:-20%;top:13%;width:145%;height:55%;border-bottom:2px solid #e0edff44;border-radius:50%;transform:rotate(-12deg);box-shadow:0 18px 30px #d2e4ff12}
+#kb-tv-designs .kb-wave.second{top:25%;transform:rotate(-6deg);opacity:.5}
+#kb-tv-designs .kb-crossnav{position:absolute;top:24%;left:12%;right:9%;display:flex;justify-content:space-between;align-items:center}
+#kb-tv-designs .kb-crossnav button{display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;opacity:.6;color:#e4edff;font-size:11px;padding:8px}
+#kb-tv-designs .kb-crossnav button svg{width:27px;height:27px}
+#kb-tv-designs .kb-crossnav button[aria-pressed=true]{opacity:1;transform:scale(1.15);text-shadow:0 0 14px #fff}
+#kb-tv-designs .kb-crosslist{position:absolute;top:38%;left:33%;right:7%;display:flex;flex-direction:column;gap:9px}
+#kb-tv-designs .kb-crossitem{display:flex;align-items:center;text-align:left;gap:18px;padding:5px 0;border:0;background:none;color:#f5f4ef;opacity:.62}
+#kb-tv-designs .kb-crossitem[aria-pressed=true]{opacity:1;transform:translateX(6px)}
+#kb-tv-designs .kb-crossitem .kb-mini-cover{width:53px;height:54px;background:var(--cover);border:1px solid #c7d0db77;display:grid;place-items:center;border-radius:5px}
+#kb-tv-designs .kb-crossitem[aria-pressed=true] .kb-mini-cover{width:72px;height:72px;box-shadow:0 0 28px #ecf1ff66;border-color:#fff}
+#kb-tv-designs .kb-crossitem span:last-child{font-size:13px;max-width:300px}
+#kb-tv-designs .kb-crossitem small{display:block;font-size:11px;color:#c8d7e9;margin-top:4px}
+#kb-tv-designs .crossbar .kb-detail{left:5%;bottom:16%;width:25%}
+#kb-tv-designs .crossbar .kb-title{font-size:23px}
+#kb-tv-designs .crossbar .kb-description,#kb-tv-designs .crossbar .kb-facts{display:none}
+#kb-tv-designs .crossbar .kb-secondary{display:none}
+#kb-tv-designs .kb-overlay{position:absolute;inset:0;z-index:20;display:grid;place-content:center;text-align:center;background:#100c0bf5;padding:30px}
+#kb-tv-designs .kb-overlay[hidden]{display:none}
+#kb-tv-designs .kb-overlay h3{font:400 32px/1.2 Georgia,serif;color:#f5eddf;margin:8px 0 25px}
+#kb-tv-designs .kb-overlay button{color:#f5eddf;border:1px solid #8a7766;background:#241a15;padding:10px 24px;border-radius:5px}
+@media(max-width:650px){
+ #kb-tv-designs .kb-tv{aspect-ratio:auto;min-height:730px}
+ #kb-tv-designs .kb-top{padding:20px;gap:15px;flex-wrap:wrap}
+ #kb-tv-designs .kb-clock{display:none}
+ #kb-tv-designs .kb-nav{gap:15px;font-size:12px}
+ #kb-tv-designs .kb-title{font-size:32px}
+ #kb-tv-designs .kb-detail{left:6%;width:86%;bottom:44%}
+ #kb-tv-designs .kb-description{max-width:90%}
+ #kb-tv-designs .kb-art-control{bottom:auto;top:100px;font-size:11px}
+ #kb-tv-designs .kb-shelf{height:210px;bottom:90px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+ #kb-tv-designs .kb-case{height:95px;max-width:none;width:100%}
+ #kb-tv-designs .kb-case span{font-size:11px}
+ #kb-tv-designs .kb-footer{flex-wrap:wrap;gap:7px 16px;bottom:16px;font-size:10px}
+ #kb-tv-designs .kb-sample{width:100%;margin:0}
+ #kb-tv-designs .gallery .kb-art{inset:95px 4% 40%}
+ #kb-tv-designs .gallery .kb-detail{bottom:calc(40% + 14px);left:6%;width:88%;padding:12px}
+ #kb-tv-designs .gallery .kb-title{font-size:24px}
+ #kb-tv-designs .gallery .kb-shelf{height:210px;bottom:85px}
+ #kb-tv-designs .gallery .kb-case{height:95px}
+ #kb-tv-designs .gallery .kb-art-control{top:106px;bottom:auto;right:6%}
+ #kb-tv-designs .rail .kb-art{left:0;bottom:43%;top:90px}
+ #kb-tv-designs .rail .kb-shade{left:0;background:linear-gradient(0deg,#100c0b 43%,transparent 80%)}
+ #kb-tv-designs .rail .kb-detail{top:auto;bottom:39%;left:6%;width:88%}
+ #kb-tv-designs .rail .kb-title{font-size:26px}
+ #kb-tv-designs .rail .kb-description{display:none}
+ #kb-tv-designs .rail .kb-eyebrow{margin-bottom:4px}
+ #kb-tv-designs .rail .kb-facts{margin-bottom:8px}
+ #kb-tv-designs .rail .kb-shelf{left:4%;height:190px;bottom:90px}
+ #kb-tv-designs .rail .kb-case{height:85px}
+ #kb-tv-designs .rail .kb-art-control{top:100px;bottom:auto}
+ #kb-tv-designs .kb-channel-grid{left:5%;right:5%;top:17%;bottom:29%;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:9px}
+ #kb-tv-designs .kb-channel{border-radius:11px}
+ #kb-tv-designs .kb-channel span{font-size:10px;padding:3px}
+ #kb-tv-designs .channels .kb-detail{bottom:14%;left:6%;width:88%}
+ #kb-tv-designs .channels .kb-actions{position:static;margin-top:12px}
+ #kb-tv-designs .channels .kb-title{font-size:22px}
+ #kb-tv-designs .kb-crossnav{top:19%;left:3%;right:3%;gap:0}
+ #kb-tv-designs .kb-crossnav button{font-size:10px;padding:4px;gap:5px}
+ #kb-tv-designs .kb-crossnav button svg{width:22px;height:22px}
+ #kb-tv-designs .kb-crosslist{top:31%;left:7%;right:6%}
+ #kb-tv-designs .kb-crossitem span:last-child{max-width:180px;font-size:12px}
+ #kb-tv-designs .crossbar .kb-detail{bottom:12%;left:7%;width:86%}
+ #kb-tv-designs .crossbar .kb-title{font-size:22px}
+}
+@media(prefers-reduced-motion:reduce){#kb-tv-designs .kb-tv *{transition:none!important}}
+</style>
+<script>
+(() => {
+ const root = document.getElementById('kb-tv-designs');
+ const games = [
+  {title:'Boktai', subtitle:'The Sun Is in Your Hand',platform:'Game Boy Advance',year:'2003',genre:'Action RPG',time:'4h 12m',art:'sun',cover:'linear-gradient(160deg,#af8134,#583328 65%,#211b2a)',description:'Chase the last light. Explore ancient ruins and carry the sun into a world of shadow.'},
+  {title:'Fire Emblem Echoes',subtitle:'Shadows of Valentia',platform:'Nintendo 3DS',year:'2017',genre:'Strategy RPG',time:'12h 40m',art:'valley',cover:'linear-gradient(160deg,#b9c9bb,#547c8c 60%,#1c3447)',description:'Two paths through a divided kingdom. Lead your army across the hills and strongholds of Valentia.'},
+  {title:'The Wind Waker',subtitle:'The Legend of Zelda',platform:'GameCube',year:'2003',genre:'Adventure',time:'8h 05m',art:'sea',cover:'linear-gradient(155deg,#d6b955,#559880 62%,#183f51)',description:'An ocean of islands, a small red boat, and an adventure waiting beyond the horizon.'},
+  {title:'Metroid Prime',subtitle:'',platform:'GameCube',year:'2002',genre:'Adventure',time:'6h 20m',art:'valley',cover:'linear-gradient(155deg,#53786e,#293e3e 65%,#111a28)',description:'Step into a mysterious world and discover what lies beneath its quiet surface.'},
+  {title:'Super Mario Galaxy',subtitle:'',platform:'Wii',year:'2007',genre:'Platformer',time:'3h 30m',art:'sea',cover:'linear-gradient(145deg,#285b95,#352459 65%,#17132a)',description:'Small worlds, sweeping skies, and a new adventure around every orbit.'},
+  {title:'Shadow of the Colossus',subtitle:'',platform:'PlayStation 2',year:'2005',genre:'Adventure',time:'5h 10m',art:'valley',cover:'linear-gradient(150deg,#b6b391,#798878 60%,#263f39)',description:'Ride across a vast, silent landscape in search of the ancient giants.'},
+  {title:'Journey',subtitle:'',platform:'PlayStation 3',year:'2012',genre:'Adventure',time:'1h 45m',art:'sun',cover:'linear-gradient(150deg,#e7ba75,#ad6651 65%,#532e38)',description:'Follow the mountain through golden dunes and the remnants of a forgotten world.'},
+  {title:'Xenoblade Chronicles',subtitle:'',platform:'Wii',year:'2010',genre:'RPG',time:'21h 15m',art:'valley',cover:'linear-gradient(160deg,#79a4a6,#718e60 60%,#a54338)',description:'Walk beneath an endless sky and discover a world larger than you imagined.'}
+ ];
+ function scenery(kind, id) {
+  const colors = kind==='sun' ? ['#222638','#ac6252','#f1c27f','#eed391','#8d6660','#453c4b','#292b39'] : kind==='valley' ? ['#293e53','#a4b9b7','#e2d3b6','#f4e3b4','#6f9290','#456a70','#254b57'] : ['#244e80','#63a6b1','#e6cda6','#fff0be','#67a8a7','#397f87','#255c72'];
+  return `<svg viewBox="0 0 1440 810" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Original illustrative ${kind==='sun'?'sunset ruins':kind==='valley'?'misty valley':'ocean islands'} scenery"><defs><linearGradient id="sky-${id}" x2="0" y2="1"><stop stop-color="${colors[0]}"/><stop offset=".62" stop-color="${colors[1]}"/><stop offset="1" stop-color="${colors[2]}"/></linearGradient><linearGradient id="ground-${id}" x2="0" y2="1"><stop stop-color="${colors[5]}"/><stop offset="1" stop-color="${colors[6]}"/></linearGradient></defs><rect width="1440" height="810" fill="url(#sky-${id})"/><circle cx="${kind==='sun'?910:1060}" cy="255" r="${kind==='sun'?92:50}" fill="${colors[3]}" opacity=".8"/><path d="M0 360Q180 315 340 355T710 330T1110 345T1440 315" fill="none" stroke="${colors[2]}" stroke-width="22" opacity=".14"/><path d="M0 570 150 430 270 510 480 275 635 475 810 360 960 440 1120 260 1300 460 1440 380V810H0Z" fill="${colors[4]}" opacity=".55"/><path d="M0 620 170 520 360 610 520 450 680 560 860 430 1080 555 1250 470 1440 540V810H0Z" fill="${colors[5]}"/><path d="M0 705Q210 620 430 700T860 675T1440 655V810H0Z" fill="url(#ground-${id})"/>${kind==='sun'?`<g fill="#33303b"><path d="M655 640V395H690V368H830V395H865V640H830V425H690V640Z"/><path d="M685 369 760 300 835 369Z"/><path d="M700 575H820V592H700Z M688 592H835V610H688Z M675 610H850V633H675Z"/><path d="M130 655V470H160V455H200V475H220V654H197V508H159V655Z"/></g><g fill="#f1be6d" opacity=".75"><path d="m755 425 8-9 8 9-8 38Z"/><rect x="746" y="468" width="34" height="3"/></g>`:kind==='valley'?`<path d="M800 810Q680 730 830 650T900 570" stroke="#c7cdb7" stroke-width="18" fill="none" opacity=".45"/><g fill="#2d4a54"><path d="M1030 580V335H1050V315H1070V335H1090V580Z M1088 580V400H1115V380H1140V400H1170V580Z"/><path d="M1025 335 1060 275 1095 335Z M1110 400 1128 355 1147 400Z"/></g><path d="M0 790 55 590 100 760 135 610 175 810Z" fill="#1b3945"/>`:`<path d="M0 600Q300 550 530 600T1040 595T1440 590V810H0Z" fill="#408b98"/><g stroke="#cee0c4" opacity=".4" fill="none"><path d="M50 665H480 M800 675H1200 M300 750H1000 M900 620H1320"/></g><path d="M880 615 945 465 1000 530 1045 410 1120 560 1180 615Z" fill="#325b60"/><path d="M935 485 1045 410 1090 505 1000 530Z" fill="#90a879"/><path d="M580 690Q620 722 670 688Z" fill="#8d413c"/><path d="M623 690V560L675 670H630Z" fill="#f4d89a"/>`}<g fill="${colors[2]}" opacity=".4"><circle cx="350" cy="240" r="2"/><circle cx="565" cy="180" r="1.5"/><circle cx="1160" cy="155" r="2"/></g></svg>`;
+ }
+ const states=[];
+ const saved = window.openai?.widgetState?.modelContent;
+ root.querySelectorAll('.kb-tv').forEach((screen, n) => {
+  const layout=screen.dataset.layout;
+  const state={index:Number.isInteger(saved?.gameIndex)?Math.max(0,Math.min(7,saved.gameIndex)):0,favorite:false,showDescription:true,contain:layout==='gallery',safe:4};
+  const top=`<header class="kb-top"><div class="kb-brand">K<span>B</span> <span aria-hidden="true">/</span> KaneegaBell</div><nav class="kb-nav" aria-label="Library"><button type="button" data-tab="all" aria-pressed="true">All games</button><button type="button" data-tab="favorites" aria-pressed="false">Favorites</button><button type="button" data-tab="collections" aria-pressed="false">Collections</button></nav><div class="kb-clock">20:42</div></header>`;
+  const details=`<div class="kb-detail"><div class="kb-eyebrow"></div><h2 class="kb-title"></h2><div class="kb-facts"></div><p class="kb-description"></p><div class="kb-actions"><button class="kb-play" type="button" data-action="play"><i data-lucide="play" aria-hidden="true"></i>Play</button><button class="kb-secondary" type="button" data-action="favorite" aria-label="Favorite game" aria-pressed="false"><i data-lucide="star" aria-hidden="true"></i></button><button class="kb-secondary" type="button" data-action="details">Details</button></div></div>`;
+  const footer=`<footer class="kb-footer"><span><b>← →</b> Choose game</span><span><b>Enter</b> Select</span><span><b>Esc</b> Back</span><span class="kb-sample">Illustrative artwork · sample library</span></footer>`;
+  const covers=games.map((g,i)=>`<button type="button" class="kb-case" data-game="${i}" aria-label="${g.title}" aria-pressed="${i===state.index}" style="--cover:${g.cover}"><small>${g.platform}</small><span>${g.title}</span></button>`).join('');
+  if(layout==='channels'){
+   screen.innerHTML=top+`<div class="kb-channel-grid" aria-label="Game channels">${games.map((g,i)=>`<button type="button" class="kb-channel" data-game="${i}" aria-label="${g.title}" aria-pressed="${i===state.index}"><div class="kb-channel-art">${scenery(g.art,'channel-'+i)}</div><span>${g.title}</span></button>`).join('')}${Array.from({length:4},()=>'<div class="kb-channel empty"><span>KB</span></div>').join('')}</div>`+details+footer;
+  }else if(layout==='crossbar'){
+   const cats=[['settings','Settings'],['image','Photos'],['folder','Collections'],['gamepad-2','Games'],['star','Favorites'],['clock','Recent']];
+   screen.innerHTML='<div class="kb-art"></div><div class="kb-shade"></div><div class="kb-wave"></div><div class="kb-wave second"></div>'+top+`<nav class="kb-crossnav" aria-label="Cross-bar categories">${cats.map(([icon,label])=>`<button type="button" data-category="${label}" aria-pressed="${label==='Games'}"><i data-lucide="${icon}" aria-hidden="true"></i>${label}</button>`).join('')}</nav><div class="kb-crosslist" aria-label="Games"></div>`+details+footer;
+  }else{
+   screen.innerHTML='<div class="kb-art"></div><div class="kb-shade"></div>'+top+details+`<button type="button" class="kb-art-control" data-action="fit">Whole artwork</button><div class="kb-shelf" aria-label="Game shelf">${covers}</div>`+footer;
+  }
+  screen.insertAdjacentHTML('beforeend','<div class="kb-overlay" hidden><div class="kb-eyebrow">Launch preview</div><h3></h3><button type="button" data-action="close">Back to library</button></div>');
+  const render=()=>{
+   const g=games[state.index];
+   const art=screen.querySelector('.kb-art');
+   if(art){art.innerHTML=scenery(g.art,layout);art.querySelector('svg').setAttribute('preserveAspectRatio',state.contain?'xMidYMid meet':'xMidYMid slice');}
+   screen.querySelector('.kb-title').textContent=g.title;
+   screen.querySelector('.kb-eyebrow').textContent=g.subtitle||g.platform;
+   screen.querySelector('.kb-facts').textContent=`${g.platform}  ·  ${g.year}  ·  ${g.genre}  ·  ${g.time}`;
+   const desc=screen.querySelector('.kb-description');desc.textContent=g.description;desc.hidden=!state.showDescription;
+   screen.querySelector('[data-action="favorite"]').setAttribute('aria-pressed',String(state.favorite));
+   screen.querySelectorAll('[data-game]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.game)===state.index)));
+   const fit=screen.querySelector('[data-action="fit"]');if(fit){fit.textContent=state.contain?'Fill artwork':'Whole artwork';fit.setAttribute('aria-pressed',String(state.contain));}
+   if(layout==='crossbar'){
+    const list=screen.querySelector('.kb-crosslist');
+    list.innerHTML=Array.from({length:4},(_,j)=>{const i=(state.index+j)%games.length;const item=games[i];return `<button type="button" class="kb-crossitem" data-game="${i}" aria-pressed="${j===0}" aria-label="${item.title}"><span class="kb-mini-cover" style="--cover:${item.cover}"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><span>${item.title}<small>${j===0?item.platform+' · '+item.time:'Game'}</small></span></button>`;}).join('');
+   }
+   screen.querySelector('.kb-overlay h3').textContent=g.title;
+   screen.style.setProperty('--kb-safe',state.safe+'%');
+   if(globalThis.lucide)lucide.createIcons({attrs:{width:16,height:16}});
+  };
+  const remember=()=>{if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{layout,gameIndex:state.index,game:games[state.index].title,wholeArtwork:state.contain},privateContent:null}).catch(()=>{});};
+  screen.addEventListener('click',e=>{
+   const button=e.target.closest('button');if(!button)return;
+   if(button.dataset.game!==undefined){state.index=Number(button.dataset.game);state.favorite=false;render();remember();return;}
+   if(button.dataset.category){screen.querySelectorAll('[data-category]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));screen.querySelector('.kb-eyebrow').textContent=button.dataset.category;return;}
+   if(button.dataset.tab){screen.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));screen.querySelector('.kb-eyebrow').textContent=button.textContent;return;}
+   switch(button.dataset.action){case 'favorite':state.favorite=!state.favorite;render();break;case 'details':state.showDescription=!state.showDescription;render();break;case 'fit':state.contain=!state.contain;render();remember();break;case 'play':screen.querySelector('.kb-overlay').hidden=false;screen.querySelector('[data-action="close"]').focus();break;case 'close':screen.querySelector('.kb-overlay').hidden=true;screen.querySelector('[data-action="play"]').focus();break;}
+  });
+  screen.addEventListener('keydown',e=>{
+   if(e.key==='Escape'){screen.querySelector('.kb-overlay').hidden=true;return;}
+   const delta=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+   if(delta){e.preventDefault();state.index=(state.index+delta+games.length)%games.length;state.favorite=false;render();remember();}
+  });
+  states.push({screen,state,render});
+  render();
+  if(globalThis.Tweak && !['channels','crossbar'].includes(layout)){
+   const tweak=new Tweak({container:screen,onChange:render});
+   tweak.addToggle(state,'contain',{label:'Show whole artwork'});
+   tweak.addToggle(state,'showDescription',{label:'Description'});
+  }
+ });
+ window.addEventListener('openai:set_globals',e=>{
+  const s=e.detail?.globals?.widgetState?.modelContent;if(!Number.isInteger(s?.gameIndex)||s.gameIndex<0||s.gameIndex>=games.length)return;
+  const match=states.find(x=>x.screen.dataset.layout===s.layout);if(match){match.state.index=s.gameIndex;match.state.contain=!!s.wholeArtwork;match.render();}
+ });
+})();
+</script>

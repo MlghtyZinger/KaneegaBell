@@ -5,7 +5,7 @@ import { library } from "./state/library";
 import { session } from "./state/session";
 import { dispatchFromGamepad, installKeyboard, pushHandler, setActionTap, type Action } from "./input/actions";
 import { LibraryView } from "./views/Library";
-import { TvMode } from "./views/TvMode";
+const TvMode = lazy(() => import("./views/TvMode").then((m) => ({ default: m.TvMode })));
 // Loaded the first time Settings opens, so starting KB doesn't parse it.
 const SettingsView = lazy(() => import("./views/Settings").then((m) => ({ default: m.SettingsView })));
 import { NowPlaying } from "./views/NowPlaying";

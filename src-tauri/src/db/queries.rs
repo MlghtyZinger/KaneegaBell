@@ -42,6 +42,8 @@ pub struct GameRow {
     pub hero: i64,
     #[serde(skip_serializing_if = "is_zero")]
     pub logo: i64,
+    #[serde(skip_serializing_if = "is_zero")]
+    pub screenshot: i64,
     /// The game icon's version (sidebar, Recent, collections), 0 when none.
     pub icon: i64,
     /// Developer, publisher and release year (LaunchBox, else IGDB, else
@@ -74,7 +76,8 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
                 COALESCE(
                     CAST(strftime('%Y', datetime(NULLIF(COALESCE(l.release_date, m.release_date), 0), 'unixepoch')) AS INTEGER),
                     w.year
-                )
+                ),
+                COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'screenshot' AND x.selected = 1), 0)
          FROM games g JOIN platforms p ON p.id = g.platform_id
          LEFT JOIN artwork a ON a.game_id = g.id AND a.kind = 'boxart' AND a.selected = 1
          LEFT JOIN lb_games l ON l.db_id = g.lb_id AND g.lb_status IN ('ok', 'manual')
@@ -103,6 +106,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             developer: r.get(14)?,
             publisher: r.get(15)?,
             year: r.get(16)?,
+            screenshot: r.get(17)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
