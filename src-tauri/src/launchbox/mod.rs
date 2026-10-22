@@ -488,6 +488,21 @@ pub fn images_for(conn: &Connection, db_id: i64, kinds: &[&str], region: Option<
     images_ranked(conn, db_id, kinds, region, false)
 }
 
+/// Default order when the game's own region doesn't decide: USA, then Japan,
+/// then world/unknown, then anything else.
+pub fn default_rank(reg: Option<&str>) -> u8 {
+    let r = reg.unwrap_or("").to_ascii_lowercase();
+    if ["usa", "united states", "north america"].iter().any(|x| r.contains(x)) {
+        0
+    } else if r.contains("japan") {
+        1
+    } else if r.is_empty() || r.contains("world") {
+        2
+    } else {
+        3
+    }
+}
+
 /// A region LaunchBox lists for English-language releases (or none given).
 fn english_region(reg: Option<&str>) -> bool {
     let Some(r) = reg else { return true };
@@ -507,7 +522,8 @@ pub fn images_ranked(conn: &Connection, db_id: i64, kinds: &[&str], region: Opti
         .filter_map(|(kind, reg, file)| {
             let k = kinds.iter().position(|x| *x == kind)?;
             let fits = matching::region_fits(region, reg.as_deref());
-            let r = if english_first {
+            // Tiers as before (game's own region first), then USA, Japan, world/none, the rest.
+            let tier = if english_first {
                 // English regions first (the game's own among them first), then the game's region, then the rest.
                 match (english_region(reg.as_deref()), fits) {
                     (true, true) => 0,
@@ -517,12 +533,10 @@ pub fn images_ranked(conn: &Connection, db_id: i64, kinds: &[&str], region: Opti
                 }
             } else if fits {
                 0
-            } else if reg.is_none() || reg.as_deref().is_some_and(|x| x.eq_ignore_ascii_case("world")) {
-                1
             } else {
-                2
+                1
             };
-            Some((k, r, file, reg))
+            Some((k, tier * 4 + default_rank(reg.as_deref()), file, reg))
         })
         .collect();
     out.sort_by(|a, b| (a.0, a.1, &a.2).cmp(&(b.0, b.1, &b.2)));

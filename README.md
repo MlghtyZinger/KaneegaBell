@@ -834,6 +834,7 @@ Newest first, one change per line. The release script copies a version's lines i
 window, so they're written for players.
 
 ### 0.3.14
+- Changed: artwork, screenshots and back covers prefer the USA release, then Japan, when the game's own region doesn't decide.
 - New: in TV Mode, Esc opens the menu, which now has a Turn off PC button (asks you to press it twice).
 - New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.
 - Fixed: start-up intro effects follow the complete supplied audio recordings, including PSP's second part, PS2's final chime and the Switch click.

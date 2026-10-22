@@ -135,17 +135,17 @@ impl Index {
         cands.iter().copied().min_by_key(|&i| (self.rank(i, region), self.names[i].len()))
     }
 
-    /// Lower is better: the game's own region first, then common English
-    /// releases; demos/betas/hacks and later discs lose ties.
+    /// Lower is better: the game's own region first, then USA, then Japan,
+    /// then world and Europe; demos/betas/hacks and later discs lose ties.
     fn rank(&self, i: usize, want_region: Option<&str>) -> u32 {
         let p = &self.parsed[i];
         let region = p.region.as_deref().unwrap_or("").to_ascii_lowercase();
         let mut r = match want_region {
             Some(w) if !w.is_empty() && region.contains(&w.to_ascii_lowercase()) => 0,
             _ if region.contains("usa") => 1,
-            _ if region.contains("world") => 2,
-            _ if region.contains("europe") => 3,
-            _ if region.contains("japan") => 4,
+            _ if region.contains("japan") => 2,
+            _ if region.contains("world") => 3,
+            _ if region.contains("europe") => 4,
             _ => 5,
         };
         if p.variant.is_some() {

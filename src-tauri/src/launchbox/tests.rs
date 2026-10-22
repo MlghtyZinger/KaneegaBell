@@ -168,6 +168,13 @@ fn disc_and_back_pictures_come_with_one_more_download_for_older_lists() {
 }
 
 #[test]
+fn default_region_order_is_usa_then_japan() {
+    let mut regions = vec![Some("Europe"), Some("World"), Some("Japan"), Some("USA"), None];
+    regions.sort_by_key(|r| super::default_rank(*r));
+    assert_eq!(regions, [Some("USA"), Some("Japan"), Some("World"), None, Some("Europe")]);
+}
+
+#[test]
 fn back_covers_prefer_english_regions_and_spines_are_kept() {
     let dir = tempfile::tempdir().unwrap();
     let mut conn = db::test_db();
