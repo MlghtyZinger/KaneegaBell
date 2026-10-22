@@ -266,6 +266,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         if (library.query()) library.setQuery("");
         else if (library.activeFilter()) library.clearFilter();
         else if (collectionKeyOf(library.platform())) library.setPlatform("collections");
+        else return false; // nothing left to close: Esc falls through to the menu (actions.ts)
         return true;
       case "turnLeft": if (shelf3d()) turn(-20); return true;
       case "turnRight": if (shelf3d()) turn(20); return true;
@@ -515,6 +516,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
 }
 
 function TvMenu(props: { onStyle: () => void; onClose: () => void; onPlatforms: () => void; onSearch: () => void; onSettings: () => void; onDesktop: () => void }) {
+  const [confirmOff, setConfirmOff] = createSignal(false);
   return (
     <div class="overlay tv-menu-overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
       <NavScope class="tv-menu" modal onBack={props.onClose}>
@@ -533,6 +535,9 @@ function TvMenu(props: { onStyle: () => void; onClose: () => void; onPlatforms: 
         </button>
         <button class="tv-menu-item" onClick={props.onDesktop}>
           Desktop mode
+        </button>
+        <button class="tv-menu-item" onClick={() => (confirmOff() ? void api.shutdownPc().catch(() => {}) : setConfirmOff(true))}>
+          {confirmOff() ? "Press again to turn off the PC" : "Turn off PC"}
         </button>
       </NavScope>
     </div>

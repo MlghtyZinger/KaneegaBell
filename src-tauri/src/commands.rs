@@ -1791,6 +1791,22 @@ pub fn open_url(url: String) -> Result<()> {
     Ok(())
 }
 
+/// Turns the PC off (TV menu, after the user confirms).
+#[tauri::command]
+pub fn shutdown_pc() -> Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW; "/t 5" gives KB a moment to answer before Windows closes it.
+        std::process::Command::new("shutdown")
+            .args(["/s", "/t", "5"])
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .map_err(|_| Error::msg("couldn't turn the PC off"))?;
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- performance harness
 
 /// Milliseconds since this process was created (by the OS clock, so it

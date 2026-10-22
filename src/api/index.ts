@@ -773,6 +773,7 @@ export const api = {
   getStartupNotice: () => invoke<string | null>("get_startup_notice"),
   /** Opens a page on a known site (Backloggd, RetroAchievements...) in the default browser. */
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  shutdownPc: () => invoke<void>("shutdown_pc"),
   /** Startup timing for the performance harness (a no-op unless KB_PERF is set). */
   perfMark: (name: string) => invoke<void>("perf_mark", { name }),
 };

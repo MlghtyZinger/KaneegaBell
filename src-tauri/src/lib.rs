@@ -366,6 +366,7 @@ pub fn run() {
             commands::remove_sgdb_key,
             commands::fetch_extras,
             commands::open_url,
+            commands::shutdown_pc,
             commands::get_startup_notice,
             commands::app_info,
             commands::get_storage,
