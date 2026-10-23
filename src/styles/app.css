@@ -1555,16 +1555,19 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   background: linear-gradient(90deg, var(--gold), color-mix(in srgb, var(--gold) 55%, #fff));
 }
 
-/* The Achievements window (components/AchievementsWindow.tsx): list left, focused achievement right. */
+/* The Achievements window (components/AchievementsWindow.tsx), after the A2 / A3 mock-ups:
+   progress block, filter pills, a list with the focused achievement beside it.
+   The list and the panel have fixed shares so nothing resizes when the selection changes. */
 .panel.ach-win {
-  width: min(1280px, 94vw);
+  width: min(1500px, 96vw);
   height: min(86vh, 860px);
   display: flex;
   flex-direction: column;
+  gap: 14px;
   overflow: hidden;
 }
 
-.ach-win-head,
+.ach-win-top,
 .ach-win-chips {
   display: flex;
   align-items: center;
@@ -1572,12 +1575,66 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   flex-wrap: wrap;
 }
 
-.ach-win-head h2 {
+.ach-win-top h2 {
   margin: 0;
+  font-size: 1.6em;
 }
 
 .ach-win-spacer {
   flex-grow: 1;
+}
+
+.ach-win-progress {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 20px;
+}
+
+.ach-win-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.ach-win-progress-main {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ach-win-count {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ach-win-count b {
+  font-size: 2em;
+  line-height: 1;
+}
+
+.ach-win-gold {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.ach-win-progress .ach-bar {
+  margin: 0;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.ach-chip {
+  border-radius: 999px;
 }
 
 .ach-win-body {
@@ -1585,11 +1642,11 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   gap: 20px;
   min-height: 0;
   flex-grow: 1;
-  margin-top: 12px;
 }
 
 .ach-win-list {
-  width: 58%;
+  flex: 0 0 60%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1598,12 +1655,25 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 }
 
 .ach-win-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 72px 112px 112px 56px;
   align-items: center;
-  gap: 12px;
-  text-align: left;
-  padding: 8px;
+  column-gap: 14px;
+  height: 62px;
   flex-shrink: 0;
+  padding: 0 14px;
+  background: var(--bg-raised);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ach-win-row:focus-visible,
+.ach-win-row:hover {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-raised));
 }
 
 .ach-win-row-text {
@@ -1612,30 +1682,203 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   min-width: 0;
 }
 
+.ach-win-row-text > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-win-row-text > b {
+  font-size: 1.1em;
+}
+
+.ach-win-row:not(.earned) .ach-win-row-text > b {
+  color: var(--text-dim);
+}
+
+.ach-win-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-sunken);
+  border: 2px dashed var(--border);
+  display: flex;
+}
+
+.ach-win-badge.on {
+  border: 3px solid var(--gold);
+}
+
+.ach-win-badge.big {
+  width: 112px;
+  height: 112px;
+  border-radius: 16px;
+}
+
+.ach-win-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ach-win-badge:not(.on) img {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.ach-win-pill {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.9em;
+  text-align: center;
+  background: color-mix(in srgb, var(--gold) 14%, var(--bg-sunken));
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.ach-win-tag {
+  color: var(--text);
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 3px 0;
+  text-align: center;
+  font-size: 0.8em;
+  font-weight: 700;
+}
+
+.ach-win-tag[data-kind="progression"] {
+  color: var(--accent);
+}
+
+.ach-win-tag[data-kind="win_condition"] {
+  color: var(--gold);
+}
+
+.ach-win-date {
+  text-align: right;
+  font-size: 0.9em;
+}
+
+.ach-hc {
+  margin-left: 8px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--gold);
+  color: #140d0a;
+  font-size: 0.75em;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ach-win-rar {
+  text-align: right;
+  font-size: 0.9em;
+}
+
 .ach-win-panel {
-  flex-grow: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+  padding: 24px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.ach-win-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.ach-win-panel-meta {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  min-width: 0;
+}
+
+.ach-win-panel-title {
+  font-size: 1.6em;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ach-win-panel-tags {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ach-win-panel-tags .ach-win-tag {
+  padding: 3px 12px;
+}
+
+.ach-win-panel-desc {
+  margin: 0;
+  font-size: 1.15em;
+  line-height: 1.5;
+}
+
+.ach-win-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ach-win-stats > div {
+  background: var(--bg-sunken);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.ach-win-stats b {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.15em;
+}
+
+.ach-win-rarity-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.ach-win-panel .ach-bar {
+  margin: 8px 0 0;
 }
 
 .ach-win-hints {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
-  margin-top: 12px;
   color: var(--text-dim);
 }
 
-/* TV Mode: the same window, larger type for the couch. */
+@media (max-width: 1200px) {
+  .ach-win-row {
+    grid-template-columns: 52px minmax(0, 1fr) 72px 112px;
+  }
+  .ach-win-date,
+  .ach-win-rar {
+    display: none;
+  }
+}
+
+/* TV Mode: the same window, larger type and taller rows for the couch. */
 .panel.ach-win-tv {
-  width: min(1600px, 96vw);
-  height: min(90vh, 980px);
-  font-size: 1.25em;
+  width: min(1760px, 97vw);
+  height: min(92vh, 1000px);
+  font-size: 1.3em;
+}
+
+.ach-win-tv .ach-win-row {
+  height: 80px;
 }
 
 .ach-list {

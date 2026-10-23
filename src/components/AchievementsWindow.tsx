@@ -3,6 +3,7 @@ import { Portal } from "solid-js/web";
 import { api, errorText, raMediaUrl, type Achievement, type GameAchievements } from "../api";
 import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
+import { Picker } from "./Picker";
 import { formatEarned } from "./Achievements";
 
 type Filter = "all" | "unlocked" | "locked" | "missable";
@@ -14,11 +15,13 @@ const SORTS: { label: string; by: (a: Achievement, b: Achievement) => number }[]
   { label: "Unlock date, newest", by: (a, b) => (b.earned ?? "").localeCompare(a.earned ?? "") || a.id - b.id },
   { label: "RetroAchievements' order", by: (a, b) => a.id - b.id },
 ];
+const SORT_OPTIONS = SORTS.map((s, i) => ({ value: String(i), label: s.label }));
+const KIND_LABEL: Record<string, string> = { progression: "Progression", win_condition: "Win condition", missable: "Missable" };
 
-function rarityText(a: Achievement): string {
+function rarityPct(a: Achievement): string {
   if (a.rarity === null) return "";
   const pct = a.rarity * 100;
-  return `${pct < 1 ? pct.toFixed(1) : Math.round(pct)}% of players`;
+  return `${pct < 1 ? pct.toFixed(1) : Math.round(pct)}%`;
 }
 
 /** Why a game has no list to show (mirrors the details screen). */
@@ -29,18 +32,35 @@ function reason(d: GameAchievements): string {
   return "Achievements aren't available yet. Refresh when you're online.";
 }
 
+function Badge(props: { a: Achievement; big?: boolean }) {
+  return (
+    <span class="ach-win-badge" classList={{ on: !!props.a.earned, big: props.big }}>
+      <img src={raMediaUrl(props.a.badge)} alt="" decoding="async" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+    </span>
+  );
+}
+
+function Kind(props: { a: Achievement }) {
+  return (
+    <Show when={props.a.kind} fallback={<span />}>
+      <span class="ach-win-tag" data-kind={props.a.kind}>{KIND_LABEL[props.a.kind!]}</span>
+    </Show>
+  );
+}
+
 /**
  * The full RetroAchievements window: progress, filters, sort, a list with the
  * focused achievement's details beside it. Works with a controller alone:
- * D-pad moves, B closes, LB/RB filter, X sorts, Y jumps to the next achievement
- * worth the most, Menu refreshes. Reads the cache; only Refresh goes online.
+ * D-pad moves, B closes, LB/RB filter, X opens the sort list, Menu refreshes.
+ * Reads the cache; only Refresh goes online.
  */
-export function AchievementsWindow(props: { gameId: number; gameTitle?: string; tv: boolean; onClose: () => void }) {
+export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose: () => void }) {
   const [data, setData] = createSignal<GameAchievements | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [filter, setFilter] = createSignal<Filter>("all");
   const [sort, setSort] = createSignal(0);
+  const [sortOpen, setSortOpen] = createSignal(false);
   const [sel, setSel] = createSignal<number | null>(null);
 
   async function load(refresh: boolean) {
@@ -83,130 +103,151 @@ export function AchievementsWindow(props: { gameId: number; gameTitle?: string; 
     const i = FILTERS.indexOf(filter());
     setFilter(FILTERS[(i + delta + FILTERS.length) % FILTERS.length]);
   };
-  const nextWorth = () => {
-    const best = (progress()?.achievements ?? []).filter((a) => !a.earned).sort((a, b) => b.points - a.points || a.id - b.id)[0];
-    if (!best) return;
-    setFilter("all");
-    setSel(best.id);
-  };
   const pct = () => {
     const p = progress();
     return p && p.total > 0 ? Math.round((p.earned / p.total) * 100) : 0;
   };
+  const openRa = () => void api.openUrl(`https://retroachievements.org/game/${data()!.raGameId}`).catch(() => {});
 
   // A portal: the details panel it opens from is transformed, which would trap this fixed overlay inside it.
   return (
     <Portal>
-    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <NavScope
-        class={`panel ach-win${props.tv ? " ach-win-tv" : ""}`}
-        modal
-        onBack={props.onClose}
-        onTab={cycleFilter}
-        onSecondary={() => setSort((sort() + 1) % SORTS.length)}
-        onFavorite={nextWorth}
-        onMenu={() => void load(true)}
-      >
-        <div class="ach-win-head">
-          <h2>{props.gameTitle ?? "Achievements"}</h2>
-          <Show when={progress()}>
-            {(p) => (
-              <span class="dim">
-                {p().earned} / {p().total} unlocked · {p().pointsEarned} / {p().pointsTotal} points
-                {p().earnedHardcore > 0 ? ` · ${p().earnedHardcore} hardcore` : ""}
-              </span>
-            )}
-          </Show>
-          <div class="ach-win-spacer" />
-          <button class="btn small" disabled={loading()} onClick={() => void load(true)}>
-            {loading() ? "Checking…" : "Refresh"}
-          </button>
-        </div>
-        <Show when={progress()}>
-          <div class="ach-bar" role="progressbar" aria-valuenow={pct()} aria-valuemin={0} aria-valuemax={100}>
-            <div style={{ width: `${pct()}%` }} />
-          </div>
-        </Show>
-        <Show when={error()}>
-          <p class="warn">Couldn't load achievements: {error()}</p>
-        </Show>
-        <Show when={data() && !progress()}>
-          <p class="dim">{reason(data()!)}</p>
-        </Show>
-        <Show when={progress() && progress()!.total > 0}>
-          <div class="ach-win-chips">
-            <For each={FILTERS}>
-              {(f) => (
-                <button class="btn small" aria-pressed={filter() === f} classList={{ primary: filter() === f }} onClick={() => setFilter(f)}>
-                  {FILTER_LABEL[f]} {counts()[f]}
-                </button>
-              )}
-            </For>
+      <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+        <NavScope
+          class={`panel ach-win${props.tv ? " ach-win-tv" : ""}`}
+          modal
+          onBack={props.onClose}
+          onTab={cycleFilter}
+          onSecondary={() => setSortOpen(true)}
+          onMenu={() => void load(true)}
+        >
+          <div class="ach-win-top">
+            <h2>Achievements</h2>
+            <Show when={progress()}>{(p) => <span class="dim">{p().title}</span>}</Show>
             <div class="ach-win-spacer" />
-            <button class="btn small" onClick={() => setSort((sort() + 1) % SORTS.length)}>
-              {SORTS[sort()].label} ▾
+            <button class="btn small" disabled={loading()} onClick={() => void load(true)}>
+              {loading() ? "Checking…" : "Refresh"}
             </button>
+            <Show when={data()?.raGameId}>
+              <button class="btn small" onClick={openRa}>Open on RetroAchievements ↗</button>
+            </Show>
           </div>
-          <div class="ach-win-body">
-            <div class="ach-win-list">
-              <For each={list()} fallback={<p class="dim">Nothing in this filter.</p>}>
-                {(a) => (
-                  <button class="ach-win-row" classList={{ earned: !!a.earned }} onFocus={() => setSel(a.id)} onMouseEnter={() => setSel(a.id)}>
-                    <img
-                      src={raMediaUrl(a.badge)}
-                      alt=""
-                      width="56"
-                      height="56"
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => (e.currentTarget.style.visibility = "hidden")}
-                    />
-                    <span class="ach-win-row-text">
-                      <span class="ach-title">
-                        {a.title}
-                        <span class="ach-points">{a.points}</span>
-                        <Show when={a.kind === "missable"}>
-                          <span class="badge ach-kind">Missable</span>
-                        </Show>
-                      </span>
-                      <span class="dim small">{a.earned ? `Unlocked ${formatEarned(a.earned)}${a.hardcore ? " (hardcore)" : ""}` : rarityText(a)}</span>
-                    </span>
+          <Show when={error()}>
+            <p class="warn">Couldn't load achievements: {error()}</p>
+          </Show>
+          <Show when={data() && !progress()}>
+            <p class="dim">{reason(data()!)}</p>
+          </Show>
+          <Show when={progress() && progress()!.total > 0}>
+            <div class="ach-win-progress">
+              <Show when={progress()!.icon}>
+                <img class="ach-win-icon" src={raMediaUrl(progress()!.icon!, "rai")} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+              </Show>
+              <div class="ach-win-progress-main">
+                <div class="ach-win-count">
+                  <b>{progress()!.earned}</b>
+                  <span class="dim">/ {progress()!.total} achievements unlocked</span>
+                  <div class="ach-win-spacer" />
+                  <span class="ach-win-gold">{progress()!.pointsEarned}</span>
+                  <span class="dim">/ {progress()!.pointsTotal} points</span>
+                  <Show when={progress()!.earnedHardcore > 0}>
+                    <span>{progress()!.earnedHardcore} in hardcore</span>
+                  </Show>
+                </div>
+                <div class="ach-bar" role="progressbar" aria-valuenow={pct()} aria-valuemin={0} aria-valuemax={100}>
+                  <div style={{ width: `${pct()}%` }} />
+                </div>
+              </div>
+            </div>
+            <div class="ach-win-chips">
+              <For each={FILTERS}>
+                {(f) => (
+                  <button class="btn small ach-chip" aria-pressed={filter() === f} classList={{ primary: filter() === f }} onClick={() => setFilter(f)}>
+                    {FILTER_LABEL[f]} {counts()[f]}
                   </button>
                 )}
               </For>
+              <div class="ach-win-spacer" />
+              <span class="dim">Sort by</span>
+              <Picker
+                title="Sort by"
+                value={String(sort())}
+                options={SORT_OPTIONS}
+                onChange={(v) => setSort(Number(v))}
+                open={sortOpen()}
+                onOpenChange={setSortOpen}
+              />
             </div>
-            <Show when={focused()}>
-              {(a) => (
-                <div class="ach-win-panel" aria-live="polite">
-                  <img src={raMediaUrl(a().badge)} alt="" width="128" height="128" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
-                  <div class="ach-title">{a().title}</div>
-                  <div class="ach-desc">{a().description}</div>
-                  <div>
-                    <span class="ach-points">{a().points} pts</span>
-                    <Show when={a().kind === "missable"}>
-                      <span class="badge ach-kind">Missable</span>
+            <div class="ach-win-body">
+              <div class="ach-win-list">
+                <For each={list()} fallback={<p class="dim">Nothing in this filter.</p>}>
+                  {(a) => (
+                    <button class="ach-win-row" classList={{ earned: !!a.earned }} onFocus={() => setSel(a.id)}>
+                      <Badge a={a} />
+                      <span class="ach-win-row-text">
+                        <b>{a.title}</b>
+                        <span class="dim">{a.description}</span>
+                      </span>
+                      <span class="ach-win-pill">{a.points} pts</span>
+                      <Kind a={a} />
+                      <span class="ach-win-date">
+                        {a.earned ? formatEarned(a.earned) : "Locked"}
+                        <Show when={a.hardcore}>
+                          <i class="ach-hc">HC</i>
+                        </Show>
+                      </span>
+                      <span class="ach-win-rar dim">{rarityPct(a)}</span>
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show when={focused()}>
+                {(a) => (
+                  <div class="ach-win-panel">
+                    <div class="ach-win-panel-head">
+                      <Badge a={a()} big />
+                      <div class="ach-win-panel-meta">
+                        <div class="ach-win-panel-title">{a().title}</div>
+                        <div class="ach-win-panel-tags">
+                          <Kind a={a()} />
+                          <span class="ach-win-pill">{a().points} pts</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="ach-win-panel-desc">{a().description}</p>
+                    <div class="ach-win-stats">
+                      <div>
+                        <small class="dim">Unlocked</small>
+                        <b>{a().earned ? formatEarned(a().earned!) : "Locked"}</b>
+                      </div>
+                      <div>
+                        <small class="dim">Mode</small>
+                        <b>{a().earned ? (a().hardcore ? "Hardcore" : "Softcore") : "Not yet"}</b>
+                      </div>
+                    </div>
+                    <Show when={a().rarity !== null}>
+                      <div>
+                        <div class="ach-win-rarity-row">
+                          <span class="dim">Rarity</span>
+                          <span>{rarityPct(a())} of players</span>
+                        </div>
+                        <div class="ach-bar">
+                          <div style={{ width: `${Math.max(a().rarity! * 100, 2)}%` }} />
+                        </div>
+                      </div>
                     </Show>
                   </div>
-                  <div class="dim">
-                    {a().earned ? `Unlocked ${formatEarned(a().earned!)}${a().hardcore ? " (hardcore)" : ""}` : "Locked"}
-                  </div>
-                  <Show when={a().rarity !== null}>
-                    <div class="dim small">{rarityText(a())}</div>
-                  </Show>
-                </div>
-              )}
-            </Show>
+                )}
+              </Show>
+            </div>
+          </Show>
+          <div class="ach-win-hints">
+            <Hint actions={["prevPlatform", "nextPlatform"]} label="Filter" />
+            <Hint action="secondary" label="Sort" />
+            <Hint action="back" label="Close" />
           </div>
-        </Show>
-        <div class="ach-win-hints">
-          <Hint action="prevPlatform" label="Filter" />
-          <Hint action="secondary" label="Sort" />
-          <Hint action="favorite" label="Next worth the most" />
-          <Hint action="menu" label="Refresh" />
-          <Hint action="back" label="Close" />
-        </div>
-      </NavScope>
-    </div>
+        </NavScope>
+      </div>
     </Portal>
   );
 }
