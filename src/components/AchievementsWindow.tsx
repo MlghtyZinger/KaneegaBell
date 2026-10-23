@@ -108,11 +108,14 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
     return p && p.total > 0 ? Math.round((p.earned / p.total) * 100) : 0;
   };
   const openRa = () => void api.openUrl(`https://retroachievements.org/game/${data()!.raGameId}`).catch(() => {});
+  // TV Mode (the A3 layout) shows a ring header once there is a list.
+  const rich = () => props.tv && !!progress();
+  const position = () => `${list().findIndex((a) => a.id === focused()?.id) + 1} / ${list().length}`;
 
   // A portal: the details panel it opens from is transformed, which would trap this fixed overlay inside it.
   return (
     <Portal>
-      <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <div class={`overlay${props.tv ? " ach-win-screen" : ""}`} onClick={(e) => e.target === e.currentTarget && props.onClose()}>
         <NavScope
           class={`panel ach-win${props.tv ? " ach-win-tv" : ""}`}
           modal
@@ -121,6 +124,33 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
           onSecondary={() => setSortOpen(true)}
           onMenu={() => void load(true)}
         >
+          <Show when={rich()}>
+            <div class="ach-win-tvhead">
+              <div class="ach-win-ring">
+                <svg viewBox="0 0 96 96" aria-hidden="true">
+                  <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border)" stroke-width="9" />
+                  <circle cx="48" cy="48" r="40" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray={`${(pct() / 100) * 251} 252`} transform="rotate(-90 48 48)" />
+                </svg>
+                <span>{pct()}%</span>
+              </div>
+              <div>
+                <div class="ach-win-eyebrow">ACHIEVEMENTS</div>
+                <div class="ach-win-bigtitle">{progress()!.title}</div>
+              </div>
+              <div class="ach-win-spacer" />
+              <div class="ach-win-tvtotals">
+                <div>
+                  <b>{progress()!.earned}</b>
+                  <span class="dim"> / {progress()!.total}</span>
+                </div>
+                <div>
+                  <span class="ach-win-gold">{progress()!.pointsEarned}</span>
+                  <span class="dim"> / {progress()!.pointsTotal} points{progress()!.earnedHardcore > 0 ? ` · ${progress()!.earnedHardcore} hardcore` : ""}</span>
+                </div>
+              </div>
+            </div>
+          </Show>
+          <Show when={!rich()}>
           <div class="ach-win-top">
             <h2>Achievements</h2>
             <Show when={progress()}>{(p) => <span class="dim">{p().title}</span>}</Show>
@@ -132,6 +162,7 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
               <button class="btn small" onClick={openRa}>Open on RetroAchievements ↗</button>
             </Show>
           </div>
+          </Show>
           <Show when={error()}>
             <p class="warn">Couldn't load achievements: {error()}</p>
           </Show>
@@ -139,6 +170,7 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
             <p class="dim">{reason(data()!)}</p>
           </Show>
           <Show when={progress() && progress()!.total > 0}>
+            <Show when={!props.tv}>
             <div class="ach-win-progress">
               <Show when={progress()!.icon}>
                 <img class="ach-win-icon" src={raMediaUrl(progress()!.icon!, "rai")} alt="" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
@@ -159,7 +191,11 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
                 </div>
               </div>
             </div>
+            </Show>
             <div class="ach-win-chips">
+              <Show when={props.tv}>
+                <span class="ach-win-key">LB</span>
+              </Show>
               <For each={FILTERS}>
                 {(f) => (
                   <button class="btn small ach-chip" aria-pressed={filter() === f} classList={{ primary: filter() === f }} onClick={() => setFilter(f)}>
@@ -167,7 +203,13 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
                   </button>
                 )}
               </For>
+              <Show when={props.tv}>
+                <span class="ach-win-key">RB</span>
+              </Show>
               <div class="ach-win-spacer" />
+              <Show when={props.tv}>
+                <span class="ach-win-key round">X</span>
+              </Show>
               <span class="dim">Sort by</span>
               <Picker
                 title="Sort by"
@@ -245,6 +287,10 @@ export function AchievementsWindow(props: { gameId: number; tv: boolean; onClose
             <Hint actions={["prevPlatform", "nextPlatform"]} label="Filter" />
             <Hint action="secondary" label="Sort" />
             <Hint action="back" label="Close" />
+            <Show when={props.tv && progress()}>
+              <div class="ach-win-spacer" />
+              <span>{position()}</span>
+            </Show>
           </div>
         </NavScope>
       </div>
