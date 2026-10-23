@@ -1873,9 +1873,16 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
 /* TV Mode, after mock-up A3: a full-screen page over the TV background, a ring header,
    LB / RB around the filters, simpler rows and a hint bar. Sizes are in em of 1/54 of the screen height. */
 .overlay.ach-win-screen {
-  background: rgb(14 11 10 / 0.78);
+  background: rgb(14 11 10 / 0.7);
+  backdrop-filter: blur(22px);
   align-items: stretch;
   justify-content: stretch;
+}
+
+/* A static blur only: no fade over a blurred full screen (animated blur is off the table). */
+html[data-anim] .overlay.ach-win-screen,
+html[data-anim] .overlay.ach-win-screen > .panel {
+  animation: none;
 }
 
 .panel.ach-win-tv {
