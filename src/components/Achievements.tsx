@@ -1,5 +1,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { api, errorText, events, raMediaUrl, type Achievement, type GameAchievements } from "../api";
+import { AchievementsWindow } from "./AchievementsWindow";
+import { fx } from "../state/fx";
 
 /** RA times ("YYYY-MM-DD HH:MM:SS", UTC) as a local date. */
 export function formatEarned(s: string): string {
@@ -21,6 +23,7 @@ export function Achievements(props: { gameId: number; /** The game's RetroAchiev
   const [data, setData] = createSignal<GameAchievements | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
+  const [windowOpen, setWindowOpen] = createSignal(false);
 
   async function load(refresh: boolean) {
     setLoading(true);
@@ -64,8 +67,13 @@ export function Achievements(props: { gameId: number; /** The game's RetroAchiev
               {loading() ? "Checking…" : "Refresh"}
             </button>
           </Show>
-
+          <Show when={data()?.status === "ok"}>
+            <button class="btn small" onClick={() => setWindowOpen(true)}>Open window</button>
+          </Show>
         </div>
+        <Show when={windowOpen()}>
+          <AchievementsWindow gameId={props.gameId} tv={fx.tv()} onClose={() => setWindowOpen(false)} />
+        </Show>
         <Show when={error()}>
           <p class="warn">Couldn't load achievements: {error()}</p>
         </Show>

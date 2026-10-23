@@ -1555,6 +1555,89 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   background: linear-gradient(90deg, var(--gold), color-mix(in srgb, var(--gold) 55%, #fff));
 }
 
+/* The Achievements window (components/AchievementsWindow.tsx): list left, focused achievement right. */
+.panel.ach-win {
+  width: min(1280px, 94vw);
+  height: min(86vh, 860px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ach-win-head,
+.ach-win-chips {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ach-win-head h2 {
+  margin: 0;
+}
+
+.ach-win-spacer {
+  flex-grow: 1;
+}
+
+.ach-win-body {
+  display: flex;
+  gap: 20px;
+  min-height: 0;
+  flex-grow: 1;
+  margin-top: 12px;
+}
+
+.ach-win-list {
+  width: 58%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.ach-win-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.ach-win-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ach-win-panel {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.ach-win-hints {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  color: var(--text-dim);
+}
+
+/* TV Mode: the same window, larger type for the couch. */
+.panel.ach-win-tv {
+  width: min(1600px, 96vw);
+  height: min(90vh, 980px);
+  font-size: 1.25em;
+}
+
 .ach-list {
   list-style: none;
   margin: 0;
