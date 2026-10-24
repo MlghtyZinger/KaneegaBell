@@ -1481,13 +1481,16 @@ pub fn update_source(conn: &Connection, id: i64, platform_id: Option<&str>, recu
 }
 
 /// Rows worth keeping when their files are gone: the user played or
-/// favorited them.
-const HAS_USER_DATA: &str =
-    "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL)";
+/// favorited them, put them in a collection or series, or picked something
+/// for them (cover, pictures, icon, match, emulator).
+const HAS_USER_DATA: &str = "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL
+     OR art_manual = 1 OR extras_manual = 1 OR icon_manual = 1 OR lb_status = 'manual' OR match_status = 'manual'
+     OR emulator_choice IS NOT NULL
+     OR id IN (SELECT game_id FROM collection_games) OR id IN (SELECT game_id FROM series_membership_overrides))";
 
-/// Removing a source deletes its games, except ones with play time or a
-/// favorite, which stay hidden in case the folder is added back. Returns the
-/// games that left the library.
+/// Removing a source deletes its games, except ones with user data (see
+/// `HAS_USER_DATA`), which stay hidden in case the folder is added back.
+/// Returns the games that left the library.
 pub fn remove_source(conn: &Connection, id: i64) -> Result<Vec<GameChange>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT platform_id, title, variant, {HAS_USER_DATA} FROM games

@@ -121,8 +121,8 @@ fn ids(conn: &Connection, sql: &str) -> Result<HashSet<i64>> {
 }
 
 /// Games whose files are gone. KB keeps them hidden when they carry play
-/// time, a last-played date or a favorite (so that comes back with the file);
-/// the others are deleted by the scan.
+/// time, a favorite, a collection or one of the user's picks (so that comes
+/// back with the file); the others are deleted by the scan.
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Removed {

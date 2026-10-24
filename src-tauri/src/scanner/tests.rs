@@ -727,6 +727,30 @@ fn vanished_games_without_user_data_are_deleted_not_kept() {
 }
 
 #[test]
+fn vanished_games_in_a_collection_or_with_a_pick_are_kept() {
+    let t = gc_wii_folder();
+    let mut conn = db_with_source(t.path(), Some("gc"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let zelda = t.path().join("Legend of Zelda, The - The Wind Waker (USA).iso");
+    let id = |title: &str| -> i64 { conn.query_row("SELECT id FROM games WHERE title = ?1", [title], |r| r.get(0)).unwrap() };
+    // Never played: one is in a collection, one has the user's own cover.
+    let col = crate::collections::create(&conn, "Backlog", Some(id("The Legend of Zelda: The Wind Waker"))).unwrap();
+    conn.execute("UPDATE games SET art_manual = 1 WHERE title = 'Luigi''s Mansion'", []).unwrap();
+    let luigi = conn.query_row("SELECT launch_path FROM games WHERE title = 'Luigi''s Mansion'", [], |r| r.get::<_, String>(0)).unwrap();
+    fs::remove_file(&zelda).unwrap();
+    fs::remove_file(&luigi).unwrap();
+    let s = run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    assert_eq!((s.missing, s.removed), (2, 0), "both kept hidden");
+    // The file comes back: the game is back in its collection.
+    write(&zelda, &gc_iso(b"GZLE01"));
+    run(&mut conn, &|_| {}, &AtomicBool::new(false)).unwrap();
+    let members: i64 = conn
+        .query_row("SELECT COUNT(*) FROM collection_games cg JOIN games g ON g.id = cg.game_id WHERE g.missing = 0", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(members, 1, "still in {col}");
+}
+
+#[test]
 fn scan_report_lists_added_and_moved_games_by_platform() {
     let t = gc_wii_folder();
     let mut conn = db_with_source(t.path(), Some("gc"));
