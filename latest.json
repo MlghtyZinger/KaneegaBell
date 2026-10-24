@@ -1,11 +1,11 @@
 {
-  "version": "0.3.15",
-  "notes": "- New: on the Recent tab, Y removes a game from Recent; its play time is kept.\n- Changed: F1 no longer opens Settings or the TV Mode menu; Esc does both.\n- Fixed: the intro and other pickers no longer scroll their title and top options out of view.\n- Changed: artwork, screenshots and back covers prefer the USA release, then Japan, when the game's own region doesn't decide.\n- New: in TV Mode, Esc opens the menu, which now has a Turn off PC button (asks you to press it twice).\n- New: the desktop sidebar groups platforms into compact Nintendo, PlayStation, Sega and Microsoft folding rows, remembering which are open; A opens or closes a group.\n- Fixed: start-up intro effects follow the complete supplied audio recordings, including PSP's second part, PS2's final chime and the Switch click.\n- Fixed: skipping or replacing an intro cancels its pending playback and timers.\n- New: PS3 TV Mode plays the existing PS3 sound pack's background track, following TV volume and pausing for intros, hidden windows and gameplay.",
-  "pub_date": "2026-10-22T21:32:00Z",
+  "version": "0.3.16",
+  "notes": "- New: open a dedicated achievements window from game details, with the full list, filters, sorting, and rarity details.\n- Changed: start-up intros now play the final reviewed videos with their synchronized soundtracks, including the RDR1 revolver sequence; the Xbox intro has been retired.",
+  "pub_date": "2026-10-24T17:34:46Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVlFbmo4ek9uOC81QWFWREpMK0wwcE1ZdENFZFk1QTNrQnNneTAyYVowbEJ2TmRnQm4rdThiTWRXR0ltQzlGdDhzMXBwQ2lPaFBVbW1sQXd5ZnV4QXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNzA0NzEzCWZpbGU6S2FuZWVnYUJlbGxfMC4zLjE1X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTUKeVhzTFZIY21hRjNsdTB2MkxjRy9tU3RveUdaemluZnZUaDI5QmJocjhkdmJtSHJLaWZkTWtsNklNblZzYUc5Z3RCdlhYRktDSytaWGZrL0NQWTg0RGc9PQo=",
-      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.15_x64-setup.exe?ref=updates"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVRiVVN1WHE4Q0ZYc29ONCtlekZiTWhUL0hSMUxlMG56NHI1S0FzVVVPSWFJck5VeWFkdHh6OUt1NVVzWmkxSUtMS281NzFiVys2WWZIdktxVWxoVlEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODYzMjczCWZpbGU6S2FuZWVnYUJlbGxfMC4zLjE2X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjMuMTYKVSs5aDdNQ2lHY2EwMnU4V3c5MHU5RHYxT0FxRjJpK3JMTFRpMzd0Y1FFeG0xWk1YelFiY2RvazE1bTA4N2srL2NjQ0lYd2tyUTBJODNHVmdvR3ZVQWc9PQo=",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.3.16_x64-setup.exe?ref=updates"
     }
   }
 }
