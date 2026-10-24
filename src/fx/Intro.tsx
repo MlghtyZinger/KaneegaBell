@@ -6,6 +6,7 @@ import { fx, INTROS, type IntroKey } from "../state/fx";
 import { session } from "../state/session";
 import { hush, load, playBuffer, readyAudio } from "./audio";
 import { emblem } from "./emblem";
+import rdr1Video from "../assets/intros/rdr1.mp4";
 import "../styles/intro.css";
 
 const KEYS = Object.keys(INTROS) as IntroKey[];
@@ -46,6 +47,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
   const [key, setKey] = createSignal<IntroKey | null>(null);
   const [on, setOn] = createSignal(false);
   const [leaving, setLeaving] = createSignal(false);
+  const [customSound, setCustomSound] = createSignal(false);
   let disposed = false;
   let frame = 0;
   let source: AudioBufferSourceNode | undefined;
@@ -87,7 +89,8 @@ function IntroHost(props: { forced: IntroKey | null }) {
     if (fx.soundOn() && !session.running()) {
       const own = await api.introSound(k).catch(() => null);
       buf = own && own.byteLength > 0 ? await load(`own_${k}`, own) : null;
-      buf ??= await load(`intro_${k}`);
+      setCustomSound(buf !== null);
+      if (k !== "rockstar") buf ??= await load(`intro_${k}`);
       await readyAudio();
     }
     if (disposed) return;
@@ -117,7 +120,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
                 </div>
               </Match>
               <Match when={key() === "rockstar"}>
-                <Rockstar playing={on()} at={at} />
+                <Rdr1Intro playing={on() && !leaving()} soundOn={fx.soundOn() && !session.running()} volume={fx.volume()} customSound={customSound()} />
               </Match>
               <Match when={key() === "gba"}>
                 <div class="iv gba">
@@ -214,57 +217,16 @@ function IntroHost(props: { forced: IntroKey | null }) {
   );
 }
 
-/**
- * Rockstar (Red Dead Redemption 2): dusk, the sight settles on the emblem and
- * it's shot: a spread of pellet holes at the blast in the owner's recording.
- */
-function Rockstar(props: { playing: boolean; at: (ms: number, f: () => void) => void }) {
-  let holes!: HTMLDivElement;
-  let target!: HTMLDivElement;
+/** The reviewed RDR1 sequence is bundled as a short, full-screen startup clip. */
+function Rdr1Intro(props: { playing: boolean; soundOn: boolean; volume: number; customSound: boolean }) {
+  let video!: HTMLVideoElement;
   createEffect(() => {
-    if (!props.playing) return;
-    props.at(5080, () => {
-      const pellets = 9;
-      const cx = 30 + Math.random() * 40;
-      const cy = 30 + Math.random() * 40;
-      for (let p = 0; p < pellets; p++) {
-        const x = pellets > 1 ? cx + (Math.random() - 0.5) * 34 : 18 + Math.random() * 64;
-        const y = pellets > 1 ? cy + (Math.random() - 0.5) * 34 : 18 + Math.random() * 64;
-        const h = document.createElement("span");
-        h.className = pellets > 1 ? "bh small" : "bh";
-        h.style.left = `${x}%`;
-        h.style.top = `${y}%`;
-        holes.appendChild(h);
-        for (let c = 0; c < (pellets > 1 ? 2 : 7); c++) {
-          const ch = document.createElement("span");
-          const a = Math.random() * Math.PI * 2;
-          const r = 30 + Math.random() * 60;
-          ch.className = "chip";
-          ch.style.cssText = `left:${x}%;top:${y}%;--cx:${Math.cos(a) * r}px;--cy:${Math.sin(a) * r}px`;
-          holes.appendChild(ch);
-        }
-      }
-      target.className = "tgt-in";
-      void target.offsetWidth; // restart the jolt
-      target.className = "tgt-in knock";
-    });
+    if (!video) return;
+    video.muted = !props.soundOn || props.customSound;
+    video.volume = props.volume;
+    if (props.playing) void video.play().catch(() => {});
+    else video.pause();
   });
-  return (
-    <div class="iv rockstar">
-      <div class="ridge" />
-      <div class="dust">
-        {Array.from({ length: 16 }, () => (
-          <i style={{ "--y": `${10 + Math.random() * 70}%`, "--s": `${2 + Math.random() * 3}px`, "--dl": `${Math.random() * 1.5}s`, "--md": `${2.5 + Math.random() * 3}s` }} />
-        ))}
-      </div>
-      <div class="reticle" />
-      <div class="target">
-        <div class="tgt-in" ref={target}>
-          <div class="emb" innerHTML={emblem()} />
-          <div ref={holes} />
-        </div>
-      </div>
-      <div class="rname">KaneegaBell</div>
-    </div>
-  );
+  onCleanup(() => video?.pause());
+  return <video ref={video} class="rdr1-video" src={rdr1Video} preload="auto" playsinline />;
 }

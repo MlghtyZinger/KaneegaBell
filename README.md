@@ -492,8 +492,8 @@ Settings → General:
 - **TV case**: a large 3D case (turn it with the right stick or by dragging, tilt with right stick
   up/down, flip to the back with R3/V) or flat covers.
 - **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
-  of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption 2), Game Boy Advance,
-  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. The owner-provided recordings are bundled as the default audio; PSP plays both parts in order. Any button skips.
+  of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption), Game Boy Advance,
+  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. Rockstar's RDR1 sequence includes its reference audio; the other defaults use the owner-provided recordings, and PSP plays both parts in order. Any button skips.
   **Your own sound for an intro:** put a file named after it (`konami`, `rockstar`, `gba`,
   `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `xbox360` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
@@ -629,6 +629,7 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   (no logos).
 - Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled.
 - Startup audio (`src/assets/sounds/intro_*.ogg`): converted from the owner-provided recordings in `audio files` using `tools/sounds/import-intros.ps1` (PSP joins part 1 and part 2).
+- The RDR1 intro clip (`src/assets/intros/rdr1.mp4`) uses the soundtrack from the [reference video supplied by the owner](https://www.youtube.com/watch?v=_C4NevyqF0o). Confirm redistribution rights for this recording before publishing the update.
 - Menu and launch sounds (`src/assets/sounds/prof_*.ogg`, made with `tools/sounds`): CC0 sources include [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
   [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
   and [Kenney](https://kenney.nl)'s Interface Sounds and UI Audio.
@@ -832,6 +833,10 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.3.16
+- New: open a dedicated achievements window from game details, with the full list, filters, sorting, and rarity details.
+- Changed: the Rockstar start-up intro now follows the RDR1 revolver sequence, with a continuous spin, two badge shots, and fuller smoke.
 
 ### 0.3.15
 - New: on the Recent tab, Y removes a game from Recent; its play time is kept.

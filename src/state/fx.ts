@@ -10,7 +10,7 @@ export type SoundProfile = "tactile" | "console" | "retro";
 /** The intros, in the order Settings lists them, with how long each runs (built-in sound / a sound file of your own). */
 export const INTROS = {
   konami: { name: "Konami (Metal Gear)", ms: 2600, customMs: 4800 },
-  rockstar: { name: "Rockstar (Red Dead 2)", ms: 3900, customMs: 7000 },
+  rockstar: { name: "Rockstar (Red Dead Redemption)", ms: 6181, customMs: 6181 },
   gba: { name: "Game Boy Advance", ms: 2900, customMs: 4700 },
   gamecube: { name: "GameCube", ms: 3600, customMs: 5600 },
   ps1: { name: "PlayStation", ms: 4800, customMs: 7700 },

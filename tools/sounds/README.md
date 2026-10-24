@@ -6,7 +6,7 @@ recordings (no synthesized "game" sounds, owner's request 2026-10-21):
 | Source | License | Used for |
 |---|---|---|
 | [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) (Versilian Studios) | CC0 | intros: glockenspiel, marimba, piano, timpani, strings, horns, gong, cymbals |
-| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | CC0 | the Rockstar intro's shots |
+| [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | CC0 | earlier Rockstar intro drafts |
 | [Kenney Interface Sounds and UI Audio](https://kenney.nl/assets) | CC0 | menu clicks and switches (sound profiles) |
 
 To rebuild, download the three into `tools/sounds/snd/` (`vsco/`, `guns/`, `kenney/interface/`, `kenney/ui/`;
@@ -23,7 +23,7 @@ exists (see Settings → General → Start-up intro). These optional overrides a
 
 ## Default startup recordings
 
-The bundled `intro_*.ogg` files now use the owner-provided recordings in `audio files`.
+The bundled `intro_*.ogg` files (except the new Rockstar/RDR1 video intro) now use the owner-provided recordings in `audio files`.
 Rebuild them with `& "C:\Emulator files\tools\sounds\import-intros.ps1"`.
 The script leaves the original MP3s untouched, converts them to 48 kHz stereo Opus,
 and joins PSP part 1 then part 2. It preserves the full recordings, including silence.
