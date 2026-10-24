@@ -182,7 +182,8 @@ fn igdb_try(url: Option<&str>) -> Option<Try> {
 }
 
 enum Outcome {
-    Found { id: i64, source: &'static str, name: String, url: String, width: u32, height: u32 },
+    /// Stored by `record` (on the job's thread), after checking the user didn't pick a cover meanwhile.
+    Found { id: i64, source: &'static str, name: String, url: String, image: images::Processed },
     NotFound { id: i64 },
     Failed { id: i64, error: String },
 }
@@ -278,7 +279,7 @@ pub fn run(
                 }
                 let i = next.fetch_add(1, Ordering::Relaxed);
                 let Some(job) = jobs.get(i) else { break };
-                let outcome = fetch_first(fetch, data_dir, job);
+                let outcome = fetch_first(fetch, job);
                 if tx.send(outcome).is_err() {
                     break;
                 }
@@ -302,14 +303,11 @@ pub fn run(
 /// Downloads the first cover that exists among a job's tries. A disc scan
 /// filed as a box is passed over for the next try, and used only if nothing
 /// else turns up.
-fn fetch_first(fetch: &dyn Fetch, data_dir: &Path, job: &Job) -> Outcome {
+fn fetch_first(fetch: &dyn Fetch, job: &Job) -> Outcome {
     let id = job.id;
     let mut error = None;
     let mut disc: Option<(&Try, images::Processed)> = None;
-    let keep = |t: &Try, p: images::Processed| match images::store(data_dir, id, &p) {
-        Ok(()) => Outcome::Found { id, source: t.source, name: t.name.clone(), url: t.url.clone(), width: p.width, height: p.height },
-        Err(e) => Outcome::Failed { id, error: e.to_string() },
-    };
+    let keep = |t: &Try, image: images::Processed| Outcome::Found { id, source: t.source, name: t.name.clone(), url: t.url.clone(), image };
     for t in &job.tries {
         match fetch.get(&t.url) {
             Ok(Some(bytes)) => match images::process(&bytes) {
@@ -337,8 +335,19 @@ fn fetch_first(fetch: &dyn Fetch, data_dir: &Path, job: &Job) -> Outcome {
 fn record(conn: &Connection, data_dir: &Path, o: &Outcome, summary: &mut Summary) -> Result<()> {
     let now = queries::now();
     match o {
-        Outcome::Found { id, source, name, url, width, height } => {
-            queries::set_boxart(conn, *id, source, name, url, *width, *height, now)?;
+        Outcome::Found { id, source, name, url, image } => {
+            // Picked or removed by the user while this pass ran: theirs stays.
+            let manual: bool = conn.query_row("SELECT art_manual FROM games WHERE id = ?1", [id], |r| r.get(0))?;
+            if manual {
+                return Ok(());
+            }
+            if let Err(e) = images::store(data_dir, *id, image) {
+                log::warn!("art for game {id} failed: {e}");
+                queries::set_art_status(conn, *id, "error", now)?;
+                summary.failed += 1;
+                return Ok(());
+            }
+            queries::set_boxart(conn, *id, source, name, url, image.width, image.height, now)?;
             icons::cover_changed(conn, data_dir, *id)?;
             summary.found += 1;
         }
@@ -527,6 +536,28 @@ mod tests {
     use http::fake::FakeHttp;
 
     const PS2: &str = "Sony - PlayStation 2";
+
+    #[test]
+    fn a_cover_picked_during_a_pass_is_not_overwritten() {
+        let data = tempfile::tempdir().unwrap();
+        let conn = db_with_games(&[("Ico", r"E:\PS2\Ico.iso", "USA")]);
+        // The user picked a cover while the pass was downloading one.
+        let mine = images::process(&images::test_png(100, 140)).unwrap();
+        images::store(data.path(), 1, &mine).unwrap();
+        queries::set_art_manual(&conn, 1).unwrap();
+        let before = std::fs::read(images::thumb_path(data.path(), 1)).unwrap();
+        let found = Outcome::Found {
+            id: 1,
+            source: "libretro",
+            name: "Ico".into(),
+            url: "https://x".into(),
+            image: images::process(&images::test_png(60, 90)).unwrap(),
+        };
+        record(&conn, data.path(), &found, &mut Summary::default()).unwrap();
+        assert_eq!(std::fs::read(images::thumb_path(data.path(), 1)).unwrap(), before, "the user's file stays");
+        let sources: i64 = conn.query_row("SELECT COUNT(*) FROM artwork WHERE game_id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(sources, 0, "the pass's cover isn't recorded");
+    }
 
     #[test]
     fn refresh_keeps_a_cover_the_user_picked() {
