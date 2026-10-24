@@ -35,8 +35,9 @@ pub fn looks_like_disc(img: &DynamicImage) -> bool {
     if w < 16 || h < 16 || !(0.9..=1.1).contains(&(w as f32 / h as f32)) {
         return false;
     }
-    let rgba = img.to_rgba8();
-    let px = |fx: f32, fy: f32| *rgba.get_pixel(((w - 1) as f32 * fx) as u32, ((h - 1) as f32 * fy) as u32);
+    use image::GenericImageView;
+    // Five pixels read in place: no full-size RGBA copy of the cover.
+    let px = |fx: f32, fy: f32| img.get_pixel(((w - 1) as f32 * fx) as u32, ((h - 1) as f32 * fy) as u32);
     let clear = |p: image::Rgba<u8>| p[3] < 40;
     let near = |a: image::Rgba<u8>, b: image::Rgba<u8>| (0..3).all(|i| a[i].abs_diff(b[i]) <= 24) && a[3].abs_diff(b[3]) <= 40;
     let corners = [px(0.02, 0.02), px(0.98, 0.02), px(0.02, 0.98), px(0.98, 0.98)];

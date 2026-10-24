@@ -76,7 +76,9 @@ pub fn respond(data_dir: &Path, path: &str) -> tauri::http::Response<Vec<u8>> {
     let builder = tauri::http::Response::builder();
     let (found, mime) = match ra_media(path) {
         Some((kind, name)) => {
-            let bytes = crate::achievements::media(data_dir, &super::http::Http::new(), kind, name);
+            // One client for every badge request, so they share connections.
+            static HTTP: std::sync::OnceLock<super::http::Http> = std::sync::OnceLock::new();
+            let bytes = crate::achievements::media(data_dir, HTTP.get_or_init(super::http::Http::new), kind, name);
             (bytes, "image/png")
         }
         None => (parse(path).and_then(|a| std::fs::read(file_for(data_dir, &a)).ok()), "image/webp"),
