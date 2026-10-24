@@ -836,6 +836,13 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 
+### 0.3.17
+- Fixed: a game you added to a collection or gave your own cover, icon or emulator stays in your library, hidden, when its file is moved or renamed, instead of being deleted.
+- Fixed: a new game no longer shows the cover of a game you removed earlier.
+- Fixed: Clear downloaded data brings back LaunchBox's covers, genres and artwork straight away.
+- Fixed: a cover you choose isn't replaced by an automatic one while artwork is still downloading.
+- Fixed: a game whose file couldn't be read (for example on an unplugged drive) gets its achievements once the file is back.
+
 ### 0.3.16
 - New: open a dedicated achievements window from game details, with the full list, filters, sorting, and rarity details.
 - Changed: start-up intros now play the final reviewed videos with their synchronized soundtracks, including the RDR1 revolver sequence; the Xbox intro has been retired.
