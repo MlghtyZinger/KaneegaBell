@@ -1,0 +1,17 @@
+﻿{
+    "startMedianMs":  522,
+    "idleCpuPct":  0.77,
+    "startMemMB":  244,
+    "startTaskManagerMB":  103,
+    "scrollfirstP99Ms":  4.3,
+    "scrollfirstMaxMs":  12.5,
+    "scrollsecondP99Ms":  4.3,
+    "scrollsecondMaxMs":  4.4,
+    "scrollMemMB":  444,
+    "scrollTaskManagerMB":  212,
+    "gameCpuPct":  0.92,
+    "gameMemMB":  339,
+    "gameTaskManagerMB":  109,
+    "afterGameMemMB":  374,
+    "afterGameTaskManagerMB":  138
+}

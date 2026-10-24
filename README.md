@@ -629,7 +629,7 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   (no logos).
 - Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled.
 - Startup audio (`src/assets/sounds/intro_*.ogg`): converted from the owner-provided recordings in `audio files` using `tools/sounds/import-intros.ps1` (PSP joins part 1 and part 2).
-- The RDR1 intro clip (`src/assets/intros/rdr1.mp4`) uses the soundtrack from the [reference video supplied by the owner](https://www.youtube.com/watch?v=_C4NevyqF0o). Confirm redistribution rights for this recording before publishing the update.
+- The RDR1 intro clip (`src/assets/intros/rdr1.mp4`) uses the soundtrack from the [reference video supplied by the owner](https://www.youtube.com/watch?v=_C4NevyqF0o). This reference recording retains its original ownership and is not claimed to be CC0.
 - Menu and launch sounds (`src/assets/sounds/prof_*.ogg`, made with `tools/sounds`): CC0 sources include [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
   [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
   and [Kenney](https://kenney.nl)'s Interface Sounds and UI Audio.
@@ -779,6 +779,8 @@ DOM loading at 59 ms and painted at 260 ms. A warm library IPC took 25 ms. Reloa
 UI painted in 28-32 ms. Cold WebView/first-paint overhead warrants further investigation;
 no controlled old-binary comparison was completed in the time budget. Baseline left unchanged.
 
+
+0.3.16 publication check (2026-10-24): startup 522 ms median (453–888 ms), improved from the previously accepted 629 ms but still above the saved 426 ms baseline. The raw gate fails startup only; the baseline is unchanged. Scrolling about 240 fps, p99 4.3 ms, maximum 12.5 ms, zero frames over 20 ms. Idle CPU 0.77% of one core; Task Manager RAM 103 MB at start, 212 MB after scrolling, 109 MB during gameplay, 138 MB after exit. Other gates pass; private memory only warns. See `docs/release-0.3.16.md`.
 
 Only the visible rows exist in the DOM (≈40–55 cards), and the grid only ever decodes the small
 WebP thumbnails. Reproduce:
