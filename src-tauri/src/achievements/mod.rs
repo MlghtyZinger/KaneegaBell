@@ -97,14 +97,14 @@ pub struct Summary {
     pub cancelled: bool,
 }
 
-/// RA's hash for a game's files ("" when there's none to be had).
-fn compute_hash(console: u32, launch_path: &Path) -> String {
+/// RA's hash for a game's files ("" when there's none to be had), or None
+/// when the file couldn't be read (an unplugged drive): tried again next pass.
+fn compute_hash(console: u32, launch_path: &Path) -> Option<String> {
     match hash::hash_file(console, launch_path) {
-        Ok(Some(h)) => h,
-        Ok(None) => String::new(),
+        Ok(h) => Some(h.unwrap_or_default()),
         Err(e) => {
             log::warn!("RetroAchievements hash of {}: {e}", launch_path.display());
-            String::new()
+            None
         }
     }
 }
@@ -142,7 +142,11 @@ pub fn run(conn: &mut Connection, ra: &Ra, progress: &dyn Fn(&JobProgress), canc
         let hash = match t.hash {
             Some(h) => h,
             None => {
-                let h = compute_hash(t.console, &t.launch_path);
+                let Some(h) = compute_hash(t.console, &t.launch_path) else {
+                    p.done += 1;
+                    progress(&p);
+                    continue;
+                };
                 queries::set_ra_hash(conn, t.id, &h)?;
                 s.hashed += 1;
                 h
@@ -333,7 +337,10 @@ pub fn for_game(conn: &Connection, ra: Option<&Ra>, game_id: i64, refresh: bool)
     let h = match hash.take() {
         Some(h) => h,
         None => {
-            let h = compute_hash(console, Path::new(&launch_path));
+            // Unreadable right now: say so without remembering it.
+            let Some(h) = compute_hash(console, Path::new(&launch_path)) else {
+                return Ok(GameAchievements::status("nohash", None));
+            };
             queries::set_ra_hash(conn, game_id, &h)?;
             ra_id = None;
             h
