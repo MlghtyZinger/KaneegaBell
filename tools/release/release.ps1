@@ -70,6 +70,12 @@ $publishOnly = $false
 if (git tag --list "v$Version") {
     $built = Join-Path $root "release\v$Version\KaneegaBell_${Version}_x64-setup.exe"
     if (-not ($Publish -and (Test-Path $built) -and (Test-Path "$built.sig"))) { Fail "tag v$Version already exists" }
+    # Only files built from the tagged commit (a moved tag once shipped an older build).
+    $builtFrom = Join-Path $root "release\v$Version\commit.txt"
+    $tagged = (git rev-parse "v$Version^{commit}").Trim()
+    if (-not (Test-Path $builtFrom) -or (Get-Content $builtFrom -Raw).Trim() -ne $tagged) {
+        Fail "the files in release\v$Version weren't built from tag v$Version ($tagged): delete that folder and the tag, then release again"
+    }
     $publishOnly = $true
     Write-Host "v$Version is already built and tagged: publishing those files."
 }
@@ -143,6 +149,8 @@ Run git @("add", "src-tauri/tauri.conf.json", "src-tauri/Cargo.toml", "src-tauri
 git diff --cached --quiet
 if ($LASTEXITCODE -ne 0) { Run git @("commit", "-q", "-m", "Release v$Version") }
 Run git @("tag", "-a", "v$Version", "-m", "KaneegaBell $Version")
+# Which commit these files are, checked before a later publish-only run.
+[IO.File]::WriteAllText((Join-Path $out "commit.txt"), (git rev-parse HEAD).Trim())
 Write-Host "`nRelease files in $out" -ForegroundColor Green
 }
 
@@ -171,8 +179,14 @@ function Update-UpdatesBranch {
         Copy-Item -LiteralPath $installerOut -Destination $wt
         Run node @("tools\release\latest-json.mjs", $Version, $installerOut, $notesPath, (Join-Path $wt "latest.json"), "--contents")
         Run git @("-C", $wt, "add", "-A")
-        Run git @("-C", $wt, "commit", "-q", "-m", "KaneegaBell $Version")
-        Run git @("-C", $wt, "push", "-q", "origin", "HEAD:updates")
+        # One commit with no history: old installers would otherwise stay in the
+        # branch's history for good (185 MB after 23 releases). Installed copies
+        # only read the branch's current files.
+        $old = (git rev-parse origin/updates).Trim()
+        $tree = (git -C $wt write-tree).Trim()
+        $commit = (git -C $wt commit-tree $tree -m "KaneegaBell $Version").Trim()
+        if (-not $commit) { Fail "couldn't make the updates commit" }
+        Run git @("-C", $wt, "push", "-q", "--force-with-lease=updates:$old", "origin", "${commit}:refs/heads/updates")
     }
     finally {
         Quiet git @("worktree", "remove", $wt) | Out-Null
