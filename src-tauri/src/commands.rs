@@ -67,6 +67,20 @@ impl AppState {
         self.db_path.parent().unwrap_or(Path::new("."))
     }
 
+    /// Every queued-job flag (Cancel and Reset clear them all).
+    fn pending_flags(&self) -> [&AtomicBool; 8] {
+        [
+            &self.rescan_pending,
+            &self.art_pending,
+            &self.icon_pending,
+            &self.meta_pending,
+            &self.ra_pending,
+            &self.sgdb_pending,
+            &self.lb_pending,
+            &self.wd_pending,
+        ]
+    }
+
     pub fn db(&self) -> MutexGuard<'_, Connection> {
         // A panic mid-query can't leave SQLite inconsistent, so recover from poison.
         self.db.lock().unwrap_or_else(|e| e.into_inner())
@@ -420,11 +434,6 @@ pub fn remove_platform_emulator(state: State<'_, AppState>, platform: String, em
 }
 
 #[tauri::command]
-pub fn validate_template(template: String, needs_core: bool) -> Result<()> {
-    template::validate(&template, needs_core)
-}
-
-#[tauri::command]
 pub fn add_source(state: State<'_, AppState>, path: String, platform_id: Option<String>) -> Result<i64> {
     let p = clean_path(Path::new(path.trim()));
     if !p.is_dir() {
@@ -575,14 +584,9 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
 /// Finished work is kept; an interrupted scan leaves its folder unchanged.
 #[tauri::command]
 pub fn cancel_scan(state: State<'_, AppState>) {
-    state.rescan_pending.store(false, Ordering::Release);
-    state.art_pending.store(false, Ordering::Release);
-    state.icon_pending.store(false, Ordering::Release);
-    state.meta_pending.store(false, Ordering::Release);
-    state.ra_pending.store(false, Ordering::Release);
-    state.sgdb_pending.store(false, Ordering::Release);
-    state.lb_pending.store(false, Ordering::Release);
-    state.wd_pending.store(false, Ordering::Release);
+    for flag in state.pending_flags() {
+        flag.store(false, Ordering::Release);
+    }
     state.scan_cancel.store(true, Ordering::Release);
 }
 
@@ -1426,19 +1430,21 @@ fn collection_image_kind(kind: &str) -> Result<(art::sgdb::Kind, &'static str)> 
     }
 }
 
+/// The host of an https URL, unless it carries a login or port (`a@b`, `b:1`).
+fn https_host(url: &str) -> Option<&str> {
+    let host = url.strip_prefix("https://")?.split(['/', '?', '#']).next()?;
+    (!host.contains(['@', ':'])).then_some(host)
+}
+
 /// SteamGridDB's image CDN only: the page hands the URL back, so it is checked here.
 fn is_sgdb_url(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
-    !host.contains(['@', ':']) && (host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
+    https_host(url).is_some_and(|h| h == "steamgriddb.com" || h.ends_with(".steamgriddb.com"))
 }
 
 /// The sites KB downloads artwork from (the same ones the page's CSP lets it preview).
 fn is_art_url(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
     const SITES: [&str; 4] = ["thumbnails.libretro.com", "art.gametdb.com", "images.igdb.com", "images.launchbox-app.com"];
-    !host.contains(['@', ':']) && (SITES.contains(&host) || host == "steamgriddb.com" || host.ends_with(".steamgriddb.com"))
+    is_sgdb_url(url) || https_host(url).is_some_and(|h| SITES.contains(&h))
 }
 
 #[cfg(test)]
@@ -1636,11 +1642,13 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
         crate::maintenance::clear_downloaded(&mut state.db(), state.data_dir())?
     };
     log::info!("cleared downloaded data ({freed} bytes)");
-    let (art, meta, ra, sgdb, wd) = {
+    let (art, meta, ra, sgdb, wd, lb) = {
         let conn = state.db();
         let art = queries::get_setting::<bool>(&conn, "autoArt")?.unwrap_or(true);
-        (art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, crate::wikidata::wanted(&conn)?)
+        (art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, crate::wikidata::wanted(&conn)?, crate::launchbox::wanted(&conn)?)
     };
+    // LaunchBox first (the worker runs it before covers): it decides the covers, genres and pictures.
+    state.lb_pending.fetch_or(lb, Ordering::AcqRel);
     state.wd_pending.fetch_or(wd, Ordering::AcqRel);
     state.art_pending.fetch_or(art, Ordering::AcqRel);
     let icons = queries::count_games_needing_icon(&state.db()).unwrap_or(0) > 0;
@@ -1648,7 +1656,7 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
     state.meta_pending.fetch_or(meta, Ordering::AcqRel);
     state.ra_pending.fetch_or(ra, Ordering::AcqRel);
     state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
-    if art || meta || ra || sgdb || wd || icons {
+    if art || meta || ra || sgdb || wd || lb || icons {
         kick_worker(app, &state);
     }
     Ok(freed)
@@ -1699,7 +1707,7 @@ pub async fn reset_app(app: AppHandle, forget_keys: bool) -> Result<()> {
     let state = app.state::<AppState>();
     {
         let _slot = state.exclusive()?;
-        for flag in [&state.rescan_pending, &state.art_pending, &state.meta_pending, &state.ra_pending, &state.sgdb_pending, &state.lb_pending, &state.wd_pending] {
+        for flag in state.pending_flags() {
             flag.store(false, Ordering::Release);
         }
         let backup = crate::maintenance::reset(&mut state.db(), state.data_dir())?;
@@ -1770,9 +1778,7 @@ const LINK_SITES: &[&str] = &["backloggd.com", "retroachievements.org", "www.ste
 
 /// An https URL on one of `LINK_SITES`, with nothing that could confuse the shell.
 fn allowed_link(url: &str) -> bool {
-    let Some(rest) = url.strip_prefix("https://") else { return false };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
-    LINK_SITES.contains(&host) && !url.chars().any(|c| c.is_control() || c == '"' || c == ' ')
+    https_host(url).is_some_and(|h| LINK_SITES.contains(&h)) && !url.chars().any(|c| c.is_control() || c == '"' || c == ' ')
 }
 
 /// Opens a web page in the default browser (only on known sites).

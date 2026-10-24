@@ -122,18 +122,19 @@ export interface Collection {
   rules?: CollectionRules | null;
 }
 
+/** The app's `thumb` protocol (Windows webviews address custom protocols as http://<scheme>.localhost). */
+const THUMB_BASE = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
+
 /** A collection's or series' own logo image (the user's file, copied into KB's folder). */
 export function collectionLogoUrl(key: string, version: number): string {
-  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   const [kind, id] = key.split(":");
-  return `${base}/${kind === "s" ? "cs" : "cc"}/${id}?v=${version}`;
+  return `${THUMB_BASE}/${kind === "s" ? "cs" : "cc"}/${id}?v=${version}`;
 }
 
 /** A collection's or series' own TV Mode background. */
 export function collectionHeroUrl(key: string, version: number): string {
-  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
   const [kind, id] = key.split(":");
-  return `${base}/${kind === "s" ? "sh" : "ch"}/${id}?v=${version}`;
+  return `${THUMB_BASE}/${kind === "s" ? "sh" : "ch"}/${id}?v=${version}`;
 }
 
 /** A series or franchise a game belongs to (Wikidata). */
@@ -447,8 +448,7 @@ export interface ArtSummary {
  * (Windows webviews address custom protocols as http://<scheme>.localhost).
  */
 export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" | "d" | "b" | "s" | "q" = "t"): string {
-  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
-  return `${base}/${size}/${gameId}?v=${version}`;
+  return `${THUMB_BASE}/${size}/${gameId}?v=${version}`;
 }
 
 /** The game's Backloggd page (by its IGDB slug), or a Backloggd search for its title. */
@@ -460,8 +460,7 @@ export function backloggdUrl(title: string, slug: string | null | undefined): st
 
 /** A RetroAchievements badge ("ra") or game icon ("rai"), cached on disk by the app. */
 export function raMediaUrl(name: string, kind: "ra" | "rai" = "ra"): string {
-  const base = navigator.userAgent.includes("Windows") ? "http://thumb.localhost" : "thumb://localhost";
-  return `${base}/${kind}/${encodeURIComponent(name)}`;
+  return `${THUMB_BASE}/${kind}/${encodeURIComponent(name)}`;
 }
 
 export interface RunningGame {
@@ -662,8 +661,6 @@ export const api = {
     invoke<void>("update_platform_emulator", { platform, emulator, core, templateOverride }),
   removePlatformEmulator: (platform: string, emulator: string) =>
     invoke<void>("remove_platform_emulator", { platform, emulator }),
-  validateTemplate: (template: string, needsCore: boolean) =>
-    invoke<void>("validate_template", { template, needsCore }),
   addSource: (path: string, platformId: string | null) =>
     invoke<number>("add_source", { path, platformId }),
   addRpcs3InstalledSource: () => invoke<number>("add_rpcs3_installed_source"),

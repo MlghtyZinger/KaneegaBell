@@ -333,7 +333,6 @@ pub fn run() {
             commands::remove_platform_emulator,
             commands::game_emulators,
             commands::set_game_emulator,
-            commands::validate_template,
             commands::list_dir,
             commands::suggest_platform,
             commands::add_source,
