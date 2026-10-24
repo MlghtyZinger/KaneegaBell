@@ -491,13 +491,13 @@ Settings → General:
   cover use LaunchBox's pictures when it has them, else the cover. Back cancels it.
 - **TV case**: a large 3D case (turn it with the right stick or by dragging, tilt with right stick
   up/down, flip to the back with R3/V) or flat covers.
-- **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
+- **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Nine intros in the spirit
   of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption), Game Boy Advance,
-  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Xbox 360 and Switch. Rockstar's RDR1 sequence includes its reference audio; the other defaults use the owner-provided recordings, and PSP plays both parts in order. Any button skips.
+  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP and Switch. Rockstar's RDR1 sequence includes its reference audio; the other defaults use the owner-provided recordings, and PSP plays both parts in order. Any button skips.
   **Your own sound for an intro:** put a file named after it (`konami`, `rockstar`, `gba`,
-  `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `xbox360` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
+  `gamecube`, `ps1`, `ps2`, `ps3`, `psp` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
-  stays open until the recording finishes. Files in data\intros override the bundled audio and are never shipped.
+  stays open until the recording finishes. Files in data\intros override a video's embedded soundtrack and are never shipped. Overrides start with the video; use the embedded soundtrack for the reviewed cue timing.
 - **Sounds**: three profiles (Tactile, the default: real buttons and latches; Console: soft system
   tones; Retro console: warm filtered beeps and chunky switches) for moving, choosing, going back
   and starting a disc or cartridge game. On/off and volume for the desktop and TV Mode separately;
@@ -836,7 +836,7 @@ window, so they're written for players.
 
 ### 0.3.16
 - New: open a dedicated achievements window from game details, with the full list, filters, sorting, and rarity details.
-- Changed: the Rockstar start-up intro now follows the RDR1 revolver sequence, with a continuous spin, two badge shots, and fuller smoke.
+- Changed: start-up intros now play the final reviewed videos with their synchronized soundtracks, including the RDR1 revolver sequence; the Xbox intro has been retired.
 
 ### 0.3.15
 - New: on the Recent tab, Y removes a game from Recent; its play time is kept.

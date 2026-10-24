@@ -7,18 +7,17 @@ export type AnimLevel = "full" | "reduced" | "off";
 export type IntroPick = "random" | "off" | IntroKey;
 export type SoundProfile = "tactile" | "console" | "retro";
 
-/** The intros, in the order Settings lists them, with how long each runs (built-in sound / a sound file of your own). */
+/** The retained video intros, in the order Settings lists them. */
 export const INTROS = {
-  konami: { name: "Konami (Metal Gear)", ms: 2600, customMs: 4800 },
-  rockstar: { name: "Rockstar (Red Dead Redemption)", ms: 6181, customMs: 6181 },
-  gba: { name: "Game Boy Advance", ms: 2900, customMs: 4700 },
-  gamecube: { name: "GameCube", ms: 3600, customMs: 5600 },
-  ps1: { name: "PlayStation", ms: 4800, customMs: 7700 },
-  ps2: { name: "PlayStation 2", ms: 4100, customMs: 6400 },
-  ps3: { name: "PlayStation 3", ms: 4400, customMs: 6300 },
-  psp: { name: "PSP", ms: 3800, customMs: 5600 },
-  xbox360: { name: "Xbox 360", ms: 3800, customMs: 6300 },
-  switch: { name: "Switch", ms: 2300, customMs: 2300 },
+  konami: { name: "Konami (Metal Gear)" },
+  rockstar: { name: "Rockstar (Red Dead Redemption)" },
+  gba: { name: "Game Boy Advance" },
+  gamecube: { name: "GameCube" },
+  ps1: { name: "PlayStation" },
+  ps2: { name: "PlayStation 2" },
+  ps3: { name: "PlayStation 3" },
+  psp: { name: "PSP" },
+  switch: { name: "Switch" },
 } as const;
 export type IntroKey = keyof typeof INTROS;
 
@@ -65,6 +64,9 @@ function createFx() {
       for (const k of keys) {
         const saved = stored[k];
         if (saved !== undefined && saved !== null && typeof saved === typeof DEFAULTS[k]) (v as Record<string, unknown>)[k] = saved;
+      }
+      for (const k of ["introDesktop", "introTv"] as const) {
+        if (v[k] !== "random" && v[k] !== "off" && !Object.hasOwn(INTROS, v[k])) v[k] = "random";
       }
       setValues(v);
       setStartInTv(stored.startInTv === true);

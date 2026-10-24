@@ -1,232 +1,117 @@
-import { createEffect, createRoot, createSignal, Match, onCleanup, onMount, Show, Switch } from "solid-js";
-import { Stage } from "./Stage";
+import { createEffect, createRoot, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { api } from "../api";
 import { pushHandler } from "../input/actions";
 import { fx, INTROS, type IntroKey } from "../state/fx";
 import { session } from "../state/session";
 import { hush, load, playBuffer, readyAudio } from "./audio";
-import { emblem } from "./emblem";
-import rdr1Video from "../assets/intros/rdr1.mp4";
 import "../styles/intro.css";
 
+const FILES = import.meta.glob<string>("../assets/intros/*.mp4", { eager: true, query: "?url", import: "default" });
 const KEYS = Object.keys(INTROS) as IntroKey[];
-const LETTERS = [..."KaneegaBell"];
+const videoUrl = (key: IntroKey) => FILES[`../assets/intros/${key === "rockstar" ? "rdr1" : key}.mp4`];
 
-/** Which intro plays at start-up: the setting for the mode KB starts in. */
 function pick(): IntroKey | null {
   const p = fx.startInTv() ? fx.get("introTv") : fx.get("introDesktop");
   if (p === "off" || session.running()) return null;
-  return p === "random" ? KEYS[Math.floor(Math.random() * KEYS.length)] : (p as IntroKey);
+  // Retired choices (such as Xbox 360) fall back to the current lineup.
+  return Object.hasOwn(INTROS, p) ? p as IntroKey : KEYS[Math.floor(Math.random() * KEYS.length)];
 }
 
-/** The intro to show: the start-up one (`key` null: the setting decides), or one asked for in Settings. */
 const runs = createRoot(() => {
   const [run, setRun] = createSignal<{ key: IntroKey | null } | null>({ key: null });
   return { run, setRun };
 });
 /** Menu music waits until the intro has finished or been skipped. */
 export const introPlaying = () => runs.run() !== null;
-/** Plays an intro now (Settings → General → Start-up intro). */
 export const playIntro = (key: IntroKey) => runs.setRun({ key });
 
 export function Intros() {
-  return (
-    <Show when={runs.run()} keyed>
-      {(r) => <IntroHost forced={r.key} />}
-    </Show>
-  );
+  return <Show when={runs.run()} keyed>{(r) => <IntroHost forced={r.key} />}</Show>;
 }
 
-/**
- * The start-up intro: covers the window until the saved settings are read, then
- * plays the chosen intro (with the user's own sound file for it from data\intros,
- * if there is one) and gets out of the way. Any button, key or click skips it.
- */
+/** Reviewed clips keep their embedded audio and video on a single media clock. */
 function IntroHost(props: { forced: IntroKey | null }) {
-  const [state, setState] = createSignal<"wait" | "play" | "done">("wait");
   const [key, setKey] = createSignal<IntroKey | null>(null);
-  const [on, setOn] = createSignal(false);
   const [leaving, setLeaving] = createSignal(false);
   const [customSound, setCustomSound] = createSignal(false);
+  let video: HTMLVideoElement | undefined;
   let disposed = false;
-  let frame = 0;
+  let startedAt = 0;
+  let buffer: AudioBuffer | null = null;
   let source: AudioBufferSourceNode | undefined;
   const timers: ReturnType<typeof setTimeout>[] = [];
   const at = (ms: number, f: () => void) => timers.push(setTimeout(f, ms));
-  onCleanup(() => {
-    disposed = true;
-    cancelAnimationFrame(frame);
-    timers.forEach(clearTimeout);
-    source?.stop();
-  });
-
-  const finish = () => {
-    timers.forEach(clearTimeout);
-    setState("done");
-    runs.setRun(null);
-  };
-  const skip = () => {
-    if (state() === "wait") return finish();
-    if (state() !== "play" || leaving()) return;
+  const finish = () => { if (!disposed) runs.setRun(null); };
+  const leave = () => {
+    if (disposed || leaving()) return;
+    video?.pause();
     hush();
     setLeaving(true);
     at(300, finish);
   };
-  onCleanup(pushHandler(() => {
-    if (state() === "done") return false;
-    skip();
-    return true;
-  }));
+  const skip = () => key() ? leave() : finish();
+
+  onCleanup(pushHandler(() => { skip(); return true; }));
+  onCleanup(() => {
+    disposed = true;
+    timers.forEach(clearTimeout);
+    video?.pause();
+    source?.stop();
+  });
+  createEffect(() => {
+    const selected = key();
+    const muted = !fx.soundOn() || !!session.running() || customSound();
+    const volume = fx.volume();
+    if (selected && video) {
+      video.muted = muted;
+      video.volume = volume;
+    }
+  });
 
   onMount(async () => {
     if (!props.forced) await fx.load();
     if (disposed) return;
-    const k = props.forced ?? pick();
-    if (!k) return finish();
-    setKey(k);
-    // The user's own sound for this intro, if any; else the built-in one.
-    let buf: AudioBuffer | null = null;
+    const selected = props.forced ?? pick();
+    if (!selected) return finish();
     if (fx.soundOn() && !session.running()) {
-      const own = await api.introSound(k).catch(() => null);
-      buf = own && own.byteLength > 0 ? await load(`own_${k}`, own) : null;
-      setCustomSound(buf !== null);
-      if (k !== "rockstar") buf ??= await load(`intro_${k}`);
-      await readyAudio();
-    }
-    if (disposed) return;
-    setState("play");
-    const ms = Math.max(INTROS[k].customMs, (buf?.duration ?? 0) * 1000);
-    frame = requestAnimationFrame(() => {
+      const own = await api.introSound(selected).catch(() => null);
       if (disposed) return;
-      source = playBuffer(buf);
-      setOn(true);
-      at(ms, () => setLeaving(true));
-      at(ms + 360, finish);
-    });
+      buffer = own?.byteLength ? await load(`own_${selected}`, own) : null;
+      if (disposed) return;
+      setCustomSound(buffer !== null);
+      if (buffer) await readyAudio();
+    }
+    if (!disposed) setKey(selected);
   });
 
   return (
-    <Show when={state() !== "done"}>
-      <Show when={state() === "play"} fallback={<div class="intro-wait" />}>
-        <div class="intro custom" classList={{ on: on(), leave: leaving() }} onClick={skip}>
-          <Stage class="intro-stage">
-            <Switch>
-              <Match when={key() === "konami"}>
-                <div class="iv konami">
-                  <div class="kwm"><span class="kw">KaneegaBell</span><span class="kwf">KaneegaBell</span><div class="shine" /></div>
-                  <div class="kseg">
-                    <span style={{ "--t": ".25s" }} /><span style={{ "--t": ".43s" }} /><span style={{ "--t": ".61s" }} /><span style={{ "--t": ".79s" }} />
-                  </div>
-                </div>
-              </Match>
-              <Match when={key() === "rockstar"}>
-                <Rdr1Intro playing={on() && !leaving()} soundOn={fx.soundOn() && !session.running()} volume={fx.volume()} customSound={customSound()} />
-              </Match>
-              <Match when={key() === "gba"}>
-                <div class="iv gba">
-                  <div class="gbaw">
-                    {LETTERS.map((c, i) => <span style={{ "--dl": `${0.05 + i * 0.07}s` }}>{c}</span>)}
-                    <div class="sweep" />
-                  </div>
-                  <div class="gbasub">ADVANCE</div>
-                </div>
-              </Match>
-              <Match when={key() === "gamecube"}>
-                <div class="iv gamecube">
-                  <div class="gcp">
-                    <i class="tr t1" /><i class="tr t2" /><i class="tr t3" /><i class="tr t4" /><i class="tr t5" />
-                    <i class="gcb" />
-                    <div class="emb" innerHTML={emblem("indigo")} />
-                  </div>
-                  <div class="gcname">KaneegaBell<small>GAMECUBE</small></div>
-                </div>
-              </Match>
-              <Match when={key() === "ps1"}>
-                <div class="iv ps1">
-                  <div class="ps1a">
-                    <div class="dia"><span /><span style={{ "--d": ".3s" }} /><span style={{ "--d": ".4s" }} /><span style={{ "--d": ".5s" }} /></div>
-                    <div class="sce">KaneegaBell<small>Computer Entertainment</small></div>
-                  </div>
-                  <div class="ps1b">
-                    <div class="emb" innerHTML={emblem()} />
-                    <div class="lic">LICENSED BY</div>
-                    <div class="lname">KaneegaBell</div>
-                  </div>
-                </div>
-              </Match>
-              <Match when={key() === "ps2"}>
-                <div class="iv ps2">
-                  <div class="towers">
-                    {Array.from({ length: 36 }, () => (
-                      <i style={{ "--x": `${Math.random() * 96}%`, "--w": `${6 + Math.random() * 16}px`, "--h": `${50 + Math.random() * 240}px`, "--z": `${-320 + Math.random() * 420}px`, "--dl": `${Math.random() * 1.8}s` }} />
-                    ))}
-                  </div>
-                  <div class="motes">
-                    {Array.from({ length: 40 }, () => (
-                      <i style={{ "--x": `${Math.random() * 100}%`, "--dl": `${Math.random() * 2.5}s`, "--md": `${2.5 + Math.random() * 2.5}s` }} />
-                    ))}
-                  </div>
-                  <div class="fog" />
-                  <div class="p2black" />
-                  <div class="p2name">KANEEGABELL</div>
-                </div>
-              </Match>
-              <Match when={key() === "ps3"}>
-                <div class="iv ps3">
-                  <div class="waves"><i class="w1" /><i class="w2" /><i class="w3" /></div>
-                  <div class="p3glow" />
-                  <div class="p3name">KaneegaBell</div>
-                </div>
-              </Match>
-              <Match when={key() === "psp"}>
-                <div class="iv psp">
-                  <div class="pblue" />
-                  <div class="pline" />
-                  <svg class="pwave" viewBox="0 0 960 200" preserveAspectRatio="none" aria-hidden="true">
-                    <path d="M0 120 C 160 60, 320 170, 480 110 S 800 60, 960 120" />
-                    <path class="pw2" d="M0 140 C 200 90, 360 190, 520 130 S 820 80, 960 140" />
-                    <path class="pw3" d="M0 100 C 140 50, 300 150, 470 95 S 780 40, 960 100" />
-                  </svg>
-                  <div class="pflare" />
-                  <div class="pwhite" />
-                  <div class="pspname">
-                    KaneegaBell<span class="prefl" aria-hidden="true">KaneegaBell</span>
-                  </div>
-                </div>
-              </Match>
-              <Match when={key() === "xbox360"}>
-                <div class="iv xbox">
-                  <div class="ribbons"><i /><i /><i /><i /><i /></div>
-                  <div class="xx"><i /><i /></div>
-                  <div class="xorb"><div class="emb" innerHTML={emblem("green")} /></div>
-                  <div class="xbflash" />
-                  <div class="xbname">KANEEGABELL</div>
-                </div>
-              </Match>
-              <Match when={key() === "switch"}>
-                <div class="iv nsw">
-                  <div class="jc"><i class="jl" /><i class="jr" /></div>
-                  <div class="swname">KaneegaBell</div>
-                </div>
-              </Match>
-            </Switch>
-          </Stage>
+    <Show when={key()} fallback={<div class="intro-wait" onClick={skip} />}>
+      {(selected) => (
+        <div class="intro" classList={{ leave: leaving() }} onClick={skip}>
+          <video
+            ref={(el) => { video = el; el.volume = fx.volume(); }}
+            class="intro-video"
+            src={videoUrl(selected())}
+            preload="auto"
+            playsinline
+            muted={!fx.soundOn() || !!session.running() || customSound()}
+            onLoadedData={() => {
+              if (!disposed && !leaving()) void video?.play().catch(finish);
+            }}
+            onPlaying={() => {
+              if (startedAt || disposed || leaving()) return;
+              startedAt = performance.now();
+              source = playBuffer(buffer);
+            }}
+            onEnded={() => {
+              const remaining = (buffer?.duration ?? 0) * 1000 - (performance.now() - startedAt);
+              if (remaining > 0) at(remaining, leave);
+              else leave();
+            }}
+            onError={finish}
+          />
         </div>
-      </Show>
+      )}
     </Show>
   );
-}
-
-/** The reviewed RDR1 sequence is bundled as a short, full-screen startup clip. */
-function Rdr1Intro(props: { playing: boolean; soundOn: boolean; volume: number; customSound: boolean }) {
-  let video!: HTMLVideoElement;
-  createEffect(() => {
-    if (!video) return;
-    video.muted = !props.soundOn || props.customSound;
-    video.volume = props.volume;
-    if (props.playing) void video.play().catch(() => {});
-    else video.pause();
-  });
-  onCleanup(() => video?.pause());
-  return <video ref={video} class="rdr1-video" src={rdr1Video} preload="auto" playsinline />;
 }

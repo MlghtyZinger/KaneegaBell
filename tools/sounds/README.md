@@ -21,9 +21,21 @@ profiles under their own names. `make_system.py` holds the tone helpers `make_pr
 A user's own intro sounds don't come from here: KB plays `data\intros\<intro>.ogg|mp3|wav|m4a|flac` when it
 exists (see Settings → General → Start-up intro). These optional overrides are never shipped.
 
-## Default startup recordings
+## Bundled startup videos
 
-The bundled `intro_*.ogg` files (except the new Rockstar/RDR1 video intro) now use the owner-provided recordings in `audio files`.
+The 0.3.16 candidate plays nine reviewed MP4s from `src/assets/intros`. Their embedded
+soundtracks use the same media clock as the video; no separate default intro OGG is loaded.
+Xbox was rejected and is excluded. The final selections, file hashes, and approved cue
+measurements are recorded in `docs/intro-videos-0.3.16.json`.
+
+Run `node tools/perf/intro-videos.mjs <output-folder> [mock-Vite-URL]` with the existing
+FFmpeg, Playwright and Edge to check asset identity, full decode, A/V lengths, actual
+player audio/playback, mute, desktop/TV volume, skipping, overrides, and replacement cleanup.
+The check uses the browser's generated library, never an owner library.
+
+## Legacy startup recordings
+
+The legacy `intro_*.ogg` files use the owner-provided recordings in `audio files`; they are retained as source material and excluded from the app bundle.
 Rebuild them with `& "C:\Emulator files\tools\sounds\import-intros.ps1"`.
 The script leaves the original MP3s untouched, converts them to 48 kHz stereo Opus,
 and joins PSP part 1 then part 2. It preserves the full recordings, including silence.

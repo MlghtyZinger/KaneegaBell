@@ -1,0 +1,47 @@
+[
+  {
+    "key": "konami",
+    "file": "dist/assets/konami-ByxwHSSM.mp4",
+    "sha256": "418ca68ccf207ea5ba4845aaf1397fd4cfc0472f2f85e6e6c555c6f795ad227f"
+  },
+  {
+    "key": "rockstar",
+    "file": "dist/assets/rdr1-6EFsUmff.mp4",
+    "sha256": "e87cf2af6adfd4905a802a130c7fa97262a8c1e9d4a71efd89c2b5fc9d5444d1"
+  },
+  {
+    "key": "gba",
+    "file": "dist/assets/gba-BM5SgKkd.mp4",
+    "sha256": "31d40e4cd464b7ec852e24a19e674d54d5ce553f00264c5d141d16ec45dafae1"
+  },
+  {
+    "key": "gamecube",
+    "file": "dist/assets/gamecube-DG_2jrsL.mp4",
+    "sha256": "c02471ee0285f3e97432b8928626224f928176a746c74b8de8b99e687e1f1399"
+  },
+  {
+    "key": "ps1",
+    "file": "dist/assets/ps1-BFD_2aJz.mp4",
+    "sha256": "8914ca860d3afebf729366cf3d8db20250d3d6a2225daede95a8bab8087feb8c"
+  },
+  {
+    "key": "ps2",
+    "file": "dist/assets/ps2-BHLhH7lV.mp4",
+    "sha256": "786de437310431382c3bdeb02eac28f93aa4c1a3a651fed4d92d3b0fa17ae930"
+  },
+  {
+    "key": "ps3",
+    "file": "dist/assets/ps3-DChd-nyk.mp4",
+    "sha256": "5ef8452ca0cd531c859e156f147d941f9a68d98a458fb4af388e786af18fb6d4"
+  },
+  {
+    "key": "psp",
+    "file": "dist/assets/psp-C3HEw4uS.mp4",
+    "sha256": "2883be3ae116b019197e923eec4af3eabc96dd44dbb2198ada9cc50b11820729"
+  },
+  {
+    "key": "switch",
+    "file": "dist/assets/switch-CEnFQiCV.mp4",
+    "sha256": "5102baa5c3be65221d6114c6dc9e4bd7361abc893976b0e5a221d73778ebfa8a"
+  }
+]

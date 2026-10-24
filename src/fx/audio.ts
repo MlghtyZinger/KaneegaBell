@@ -5,7 +5,7 @@ import { fx } from "../state/fx";
 import { session } from "../state/session";
 
 const FILES = Object.fromEntries(
-  Object.entries(import.meta.glob<string>("../assets/sounds/*.ogg", { eager: true, query: "?url", import: "default" })).map(
+  Object.entries(import.meta.glob<string>(["../assets/sounds/*.ogg", "!../assets/sounds/intro_*.ogg"], { eager: true, query: "?url", import: "default" })).map(
     ([path, url]) => [path.split("/").pop()!.replace(".ogg", ""), url],
   ),
 );

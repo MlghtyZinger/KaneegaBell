@@ -1,0 +1,184 @@
+{
+  "clips": [
+    {
+      "key": "konami",
+      "asset": "src/assets/intros/konami.mp4",
+      "preview": "kb-branding-revision-2026-10-24/konami/kb-konami-classic.mp4",
+      "sha256": "418ca68ccf207ea5ba4845aaf1397fd4cfc0472f2f85e6e6c555c6f795ad227f",
+      "videoDuration": 5.25,
+      "audioDuration": 5.25,
+      "decode": "passed",
+      "approvedTiming": {
+        "cues": [
+          {
+            "event": "color resolve midpoint",
+            "audioTime": 2.5,
+            "visualTime": 2.5
+          }
+        ]
+      }
+    },
+    {
+      "key": "rockstar",
+      "asset": "src/assets/intros/rdr1.mp4",
+      "preview": "rdr1-purple-smoke-final-2026-10-24/kb-rdr1-preview.mp4",
+      "sha256": "e87cf2af6adfd4905a802a130c7fa97262a8c1e9d4a71efd89c2b5fc9d5444d1",
+      "videoDuration": 6.166667,
+      "audioDuration": 6.181,
+      "decode": "passed",
+      "approvedTiming": {
+        "cues": [
+          {
+            "event": "gold badge shot",
+            "audioTime": 1.936,
+            "visualTime": 1.936
+          },
+          {
+            "event": "violet badge shot",
+            "audioTime": 4.8,
+            "visualTime": 4.8
+          }
+        ]
+      }
+    },
+    {
+      "key": "gba",
+      "asset": "src/assets/intros/gba.mp4",
+      "preview": "revision-3/kb-gba-classic.mp4",
+      "sha256": "31d40e4cd464b7ec852e24a19e674d54d5ce553f00264c5d141d16ec45dafae1",
+      "videoDuration": 4.766667,
+      "audioDuration": 4.76,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.9999992534985306
+      }
+    },
+    {
+      "key": "gamecube",
+      "asset": "src/assets/intros/gamecube.mp4",
+      "preview": "gamecube-g-correction/kb-gamecube-classic.mp4",
+      "sha256": "c02471ee0285f3e97432b8928626224f928176a746c74b8de8b99e687e1f1399",
+      "videoDuration": 10.116667,
+      "audioDuration": 10.124,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.9999946223034472
+      }
+    },
+    {
+      "key": "ps1",
+      "asset": "src/assets/intros/ps1.mp4",
+      "preview": "sony-revision-5/kb-ps1-revised.mp4",
+      "sha256": "8914ca860d3afebf729366cf3d8db20250d3d6a2225daede95a8bab8087feb8c",
+      "videoDuration": 10,
+      "audioDuration": 10,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.9999668982267849,
+        "cues": [
+          {
+            "event": "final emblem reveal",
+            "sourceTime": 12.37,
+            "audioTime": 6.32,
+            "visualTime": 6.32
+          }
+        ],
+        "measuredCue": {
+          "audioAttackSeconds": 6.32,
+          "visualHalfRevealSeconds": 6.35,
+          "differenceMs": 30,
+          "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+        }
+      }
+    },
+    {
+      "key": "ps2",
+      "asset": "src/assets/intros/ps2.mp4",
+      "preview": "sony-revision-5/kb-ps2-revised.mp4",
+      "sha256": "786de437310431382c3bdeb02eac28f93aa4c1a3a651fed4d92d3b0fa17ae930",
+      "videoDuration": 9.6,
+      "audioDuration": 9.6,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.9999329755090236,
+        "cues": [
+          {
+            "event": "title midpoint",
+            "sourceTime": 14.59,
+            "audioTime": 7.79,
+            "visualTime": 7.79
+          }
+        ],
+        "measuredCue": {
+          "audioAttackSeconds": 7.81,
+          "visualHalfRevealSeconds": 7.8167,
+          "differenceMs": 6.7,
+          "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+        }
+      }
+    },
+    {
+      "key": "ps3",
+      "asset": "src/assets/intros/ps3.mp4",
+      "preview": "revision-3/kb-ps3-classic.mp4",
+      "sha256": "5ef8452ca0cd531c859e156f147d941f9a68d98a458fb4af388e786af18fb6d4",
+      "videoDuration": 6.683333,
+      "audioDuration": 6.687,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.999995370168621
+      }
+    },
+    {
+      "key": "psp",
+      "asset": "src/assets/intros/psp.mp4",
+      "preview": "sony-revision-5/kb-psp-revised.mp4",
+      "sha256": "2883be3ae116b019197e923eec4af3eabc96dd44dbb2198ada9cc50b11820729",
+      "videoDuration": 6.166667,
+      "audioDuration": 6.165,
+      "decode": "passed",
+      "approvedTiming": {
+        "audioOffsetMs": 0,
+        "audioCorrelation": 0.9999341770633764,
+        "cues": [
+          {
+            "event": "logo midpoint and gold flare",
+            "sourcePart": 2,
+            "sourceTime": 0.51,
+            "audioTime": 3.932,
+            "visualTime": 3.932
+          }
+        ],
+        "measuredCue": {
+          "audioAttackSeconds": 3.95,
+          "visualHalfRevealSeconds": 3.9333,
+          "differenceMs": -16.7,
+          "method": "10 ms RMS attack and decoded 60 fps frame contrast"
+        }
+      }
+    },
+    {
+      "key": "switch",
+      "asset": "src/assets/intros/switch.mp4",
+      "preview": "next-three-2026-10-24/switch/kb-switch-classic.mp4",
+      "sha256": "5102baa5c3be65221d6114c6dc9e4bd7361abc893976b0e5a221d73778ebfa8a",
+      "videoDuration": 1.8,
+      "audioDuration": 1.8,
+      "decode": "passed",
+      "approvedTiming": {
+        "cues": [
+          {
+            "event": "controller landing",
+            "audioTime": 0.06,
+            "visualTime": 0.06
+          }
+        ]
+      }
+    }
+  ]
+}
