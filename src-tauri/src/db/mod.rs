@@ -132,6 +132,28 @@ mod tests {
     }
 
     #[test]
+    fn a_new_game_reusing_a_deleted_games_id_gets_a_new_cover_version() {
+        let conn = super::test_db();
+        let add = || {
+            conn.execute(
+                "INSERT INTO games (platform_id, title, sort_title, search_key, launch_path, added_at) VALUES ('gba', 'A', 'a', 'a', 'a.gba', 0)",
+                [],
+            )
+            .unwrap();
+            conn.last_insert_rowid()
+        };
+        let cover = |id: i64| super::queries::game_detail(&conn, id).unwrap().art;
+        let first = add();
+        super::queries::set_boxart(&conn, first, "libretro", "a", "u", 1, 1, 1_000).unwrap();
+        let old = cover(first);
+        conn.execute("DELETE FROM games WHERE id = ?1", [first]).unwrap();
+        let second = add();
+        assert_eq!(second, first, "SQLite hands out the deleted id again");
+        super::queries::set_boxart(&conn, second, "libretro", "b", "u", 1, 1, 1_001).unwrap();
+        assert_ne!(cover(second), old, "the cached /t/{first}?v={old} must not be reused");
+    }
+
+    #[test]
     fn a_replaced_background_never_gets_the_old_version_back() {
         let conn = super::test_db();
         conn.execute(

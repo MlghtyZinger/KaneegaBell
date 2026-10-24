@@ -70,7 +70,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
                      THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END,
                 COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'hero' AND x.selected = 1), 0),
                 COALESCE((SELECT x.id FROM artwork x WHERE x.game_id = g.id AND x.kind = 'logo' AND x.selected = 1), 0),
-                g.icon_version,
+                MAX(g.icon_version, 0),
                 COALESCE(l.developer, m.developer),
                 COALESCE(l.publisher, m.publisher),
                 COALESCE(
@@ -312,7 +312,9 @@ pub fn set_boxart(
         params![game_id, source, remote_id, url, width, height, now],
     )?;
     conn.execute(
-        "UPDATE games SET art_status = 'ok', art_version = art_version + 1, art_checked_at = ?2 WHERE id = ?1",
+        // Never a version used before, even by a deleted game whose id this one reuses: the
+        // webview keeps `/t/{id}?v={version}` forever.
+        "UPDATE games SET art_status = 'ok', art_version = MAX(art_version + 1, ?2), art_checked_at = ?2 WHERE id = ?1",
         params![game_id, now],
     )?;
     Ok(())
@@ -352,15 +354,16 @@ pub fn icon_manual(conn: &Connection, game_id: i64) -> Result<bool> {
     Ok(conn.query_row("SELECT icon_manual FROM games WHERE id = ?1", [game_id], |r| r.get(0))?)
 }
 
-/// A new icon is on disk: its URL gets a new version, so caches never show the old one.
+/// A new icon is on disk: its URL gets a version never used before (see `set_boxart`).
 pub fn bump_icon(conn: &Connection, game_id: i64) -> Result<()> {
-    conn.execute("UPDATE games SET icon_version = icon_version + 1 WHERE id = ?1", [game_id])?;
+    conn.execute("UPDATE games SET icon_version = MAX(ABS(icon_version) + 1, unixepoch()) WHERE id = ?1", [game_id])?;
     Ok(())
 }
 
 /// No icon (the cover was removed, or there's nothing to crop from).
 pub fn clear_icon(conn: &Connection, game_id: i64) -> Result<()> {
-    conn.execute("UPDATE games SET icon_version = 0 WHERE id = ?1", [game_id])?;
+    // Negative = none, keeping the last version so it is never used again.
+    conn.execute("UPDATE games SET icon_version = -ABS(icon_version) WHERE id = ?1", [game_id])?;
     Ok(())
 }
 
@@ -373,7 +376,7 @@ pub fn set_icon_manual(conn: &Connection, game_id: i64, manual: bool) -> Result<
 pub fn games_needing_icon(conn: &Connection) -> Result<Vec<i64>> {
     let mut stmt = conn.prepare(
         "SELECT id FROM games
-         WHERE missing = 0 AND art_status = 'ok' AND icon_version = 0
+         WHERE missing = 0 AND art_status = 'ok' AND icon_version <= 0
          ORDER BY id",
     )?;
     let rows = stmt.query_map([], |r| r.get(0))?;

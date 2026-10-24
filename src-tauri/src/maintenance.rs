@@ -76,7 +76,7 @@ const CLEAR_SQL: &str = "
            (kind = 'boxart' AND game_id IN (SELECT id FROM games WHERE art_manual = 1))
         OR (kind IN ('hero', 'logo') AND game_id IN (SELECT id FROM games WHERE extras_manual = 1)));
     UPDATE games SET art_status = 'none', art_checked_at = NULL, art_version = art_version + 1 WHERE art_manual = 0;
-    UPDATE games SET icon_version = 0 WHERE icon_manual = 0;
+    UPDATE games SET icon_version = -ABS(icon_version) WHERE icon_manual = 0;
     UPDATE games SET sgdb_status = 'none', sgdb_checked_at = NULL, sgdb_id = NULL WHERE extras_manual = 0;
     DELETE FROM game_genres;
     DELETE FROM genres;

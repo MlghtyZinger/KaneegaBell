@@ -582,8 +582,9 @@ pub fn set_logo_bytes(conn: &Connection, data_dir: &Path, key: &str, bytes: &[u8
     let path = logo_path(data_dir, key).ok_or_else(|| Error::msg("unknown collection"))?;
     crate::art::images::store_logo_at(&path, bytes)?;
     conn.execute(
-        "INSERT INTO collection_looks (key, logo, logo_version) VALUES (?1, 'file', 1)
-         ON CONFLICT(key) DO UPDATE SET logo = 'file', logo_version = logo_version + 1",
+        // Versions never repeat, even for a new collection reusing a deleted one's id (cached URLs).
+        "INSERT INTO collection_looks (key, logo, logo_version) VALUES (?1, 'file', unixepoch())
+         ON CONFLICT(key) DO UPDATE SET logo = 'file', logo_version = MAX(logo_version + 1, unixepoch())",
         [key],
     )?;
     Ok(())
@@ -594,8 +595,8 @@ pub fn set_hero_bytes(conn: &Connection, data_dir: &Path, key: &str, bytes: &[u8
     let path = hero_path(data_dir, key).ok_or_else(|| Error::msg("unknown collection"))?;
     crate::art::images::store_hero_at(&path, bytes)?;
     conn.execute(
-        "INSERT INTO collection_looks (key, hero_version) VALUES (?1, 1)
-         ON CONFLICT(key) DO UPDATE SET hero_version = hero_version + 1",
+        "INSERT INTO collection_looks (key, hero_version) VALUES (?1, unixepoch())
+         ON CONFLICT(key) DO UPDATE SET hero_version = MAX(ABS(hero_version) + 1, unixepoch())",
         [key],
     )?;
     Ok(())
@@ -606,7 +607,8 @@ pub fn remove_hero(conn: &Connection, data_dir: &Path, key: &str) -> Result<()> 
     if let Some(p) = hero_path(data_dir, key) {
         let _ = std::fs::remove_file(p);
     }
-    conn.execute("UPDATE collection_looks SET hero_version = 0 WHERE key = ?1", [key])?;
+    // Negative = none, remembering the last version so it is never handed out again.
+    conn.execute("UPDATE collection_looks SET hero_version = -ABS(hero_version) WHERE key = ?1", [key])?;
     Ok(())
 }
 

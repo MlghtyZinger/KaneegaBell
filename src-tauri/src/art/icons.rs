@@ -111,7 +111,7 @@ mod tests {
     }
 
     fn version(conn: &Connection, id: i64) -> i64 {
-        conn.query_row("SELECT icon_version FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+        conn.query_row("SELECT MAX(icon_version, 0) FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap()
     }
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         cover(data.path(), with_cover);
         assert_eq!(queries::games_needing_icon(&conn).unwrap(), [with_cover]);
         assert_eq!(run(&conn, data.path(), &AtomicBool::new(false)).unwrap(), 1);
-        assert_eq!(version(&conn, with_cover), 1);
+        assert!(version(&conn, with_cover) > 0);
         assert_eq!(version(&conn, without), 0);
         assert!(queries::games_needing_icon(&conn).unwrap().is_empty());
     }

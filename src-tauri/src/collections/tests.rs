@@ -125,15 +125,19 @@ fn logos_can_be_a_game_s_logo_a_cover_or_your_own_image() {
     std::fs::remove_file(&png).unwrap();
     let stored = logo_path(dir.path(), &key).unwrap();
     assert!(stored.is_file());
-    assert_eq!(find(&list(&conn).unwrap(), &key).logo, Some(Logo::File { version: 1 }));
+    let file_version = || match find(&list(&conn).unwrap(), &key).logo.clone() {
+        Some(Logo::File { version }) => version,
+        other => panic!("not the user's image: {other:?}"),
+    };
+    let v1 = file_version();
     // A WebP works too, and each new image gets a new version.
     let webp_file = dir.path().join("mine.webp");
     let rgba = vec![200u8; 64 * 32 * 4];
     std::fs::write(&webp_file, &*webp::Encoder::from_rgba(&rgba, 64, 32).encode(90.0)).unwrap();
     set_logo_file(&conn, dir.path(), &key, &webp_file).unwrap();
-    assert_eq!(find(&list(&conn).unwrap(), &key).logo, Some(Logo::File { version: 2 }));
+    let v2 = file_version();
     set_logo_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(600, 200)).unwrap();
-    assert_eq!(find(&list(&conn).unwrap(), &key).logo, Some(Logo::File { version: 3 }));
+    assert!(v1 < v2 && v2 < file_version());
     let text = dir.path().join("notes.txt");
     std::fs::write(&text, b"not an image").unwrap();
     assert!(set_logo_file(&conn, dir.path(), &key, &text).is_err());
@@ -152,11 +156,13 @@ fn logos_can_be_a_game_s_logo_a_cover_or_your_own_image() {
     set_hero_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(1600, 600)).unwrap();
     let hero = hero_path(dir.path(), &key).unwrap();
     assert!(hero.is_file());
-    assert_eq!(find(&list(&conn).unwrap(), &key).hero, Some(2));
+    let before = find(&list(&conn).unwrap(), &key).hero.expect("has a background");
     remove_hero(&conn, dir.path(), &key).unwrap();
     assert!(!hero.exists());
     assert_eq!(find(&list(&conn).unwrap(), &key).hero, None);
     set_hero_bytes(&conn, dir.path(), &key, &crate::art::images::test_png(1600, 600)).unwrap();
+    // Never an old version again (the webview keeps those URLs).
+    assert!(find(&list(&conn).unwrap(), &key).hero.unwrap() > before);
 
     // Deleting the collection removes its images too.
     set_logo_file(&conn, dir.path(), &key, &webp_file).unwrap();
