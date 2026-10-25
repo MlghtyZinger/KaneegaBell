@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "KaneegaBell",
   "mainBinaryName": "KaneegaBell",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "identifier": "com.kaneegabell.kb",
   "build": {
     "beforeDevCommand": "npm run dev",
