@@ -199,21 +199,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
     const k = openKey();
     return k ? collections.byKey().get(k) : undefined;
   };
-  const [collectionError, setCollectionError] = createSignal<string | null>(null);
   async function forgetRecent(game: GameRow) {
     await api.forgetRecent(game.id);
     await library.reload();
   }
-  async function removeCollectionMember(c: Collection, game: GameRow) {
-    if (c.kind === "smart") return;
-    setCollectionError(null);
-    try {
-      await api.setInCollection(c.key, game.id, false);
-      await collections.reload();
-    } catch (e) {
-      setCollectionError(errorText(e));
-    }
-  }
+  const [collectionError, setCollectionError] = createSignal<string | null>(null);
   const tiles = createMemo<Tile[]>(() => [
     { kind: "new" },
     ...collections.visible().map((c) => ({ kind: "col" as const, c })),
@@ -476,7 +466,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       // △ / Y / F: the full details screen (in the Collections overview: edit the collection).
       case "favorite":
         if (overview()) editTile(focused());
-        else if (openCol() && openCol()!.kind !== "smart" && games()[focused()]) void removeCollectionMember(openCol()!, games()[focused()]);
         else if (library.platform() === "recent" && games()[focused()]) void forgetRecent(games()[focused()]);
         else openDetails(focused());
         return true;
@@ -752,7 +741,17 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                 <span class="dim small">Drag a tile to move it, or press <Hint action="toggleGroups" label="pick up" /> and use the D-pad.</span>
               </Show>
             </div>
-            <div class="grid-wrap" onWheel={onWheel} onPointerDown={startDrag}>
+            <div
+              class="grid-wrap"
+              onWheel={onWheel}
+              onPointerDown={startDrag}
+              onContextMenu={(e) => {
+                const key = (e.target as HTMLElement).closest<HTMLElement>("[data-col-key]")?.dataset.colKey;
+                if (!key) return;
+                e.preventDefault();
+                setEditKey(key);
+              }}
+            >
               <VirtualGrid
                 items={tiles()}
                 focused={focused()}
@@ -858,12 +857,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             items={games()}
             focused={focused()}
             onFocus={setFocused}
-            onActivate={openSide}
+            onActivate={(i) => { if (!openCol()) (library.listView() ? openSide(i) : openDetails(i)); }}
             onContext={(i) => {
-              const c = openCol();
-              const g = games()[i];
-              if (c && c.kind !== "smart" && g) void removeCollectionMember(c, g);
-              else openDetails(i);
+              openDetails(i);
             }}
             onNavigator={(n) => (navigate = n)}
             minCardWidth={minCardWidth()}
@@ -900,7 +896,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <footer class="hints">
           <Hint action="select" label="Open" />
-          <Hint action="favorite" label={openCol() && openCol()!.kind !== "smart" ? "Remove from collection" : library.platform() === "recent" ? "Remove from Recent" : "Details"} />
+          <Hint action="favorite" label={library.platform() === "recent" ? "Remove from Recent" : "Details"} />
           <Hint action="secondary" label="Search" />
           <Hint action="filter" label="Filter" />
           <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />

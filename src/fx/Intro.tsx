@@ -14,7 +14,17 @@ function pick(): IntroKey | null {
   const p = fx.startInTv() ? fx.get("introTv") : fx.get("introDesktop");
   if (p === "off" || session.running()) return null;
   // Retired choices (such as Xbox 360) fall back to the current lineup.
-  return Object.hasOwn(INTROS, p) ? p as IntroKey : KEYS[Math.floor(Math.random() * KEYS.length)];
+  if (Object.hasOwn(INTROS, p)) return p as IntroKey;
+  // Random: skip the one played last (unless it's the only one).
+  const last = lastIntro();
+  const pool = KEYS.length > 1 ? KEYS.filter((k) => k !== last) : KEYS;
+  const next = pool[Math.floor(Math.random() * pool.length)];
+  try { localStorage.setItem("kb.lastIntro", next); } catch { /* private mode: repeats are possible */ }
+  return next;
+}
+
+function lastIntro(): string | null {
+  try { return localStorage.getItem("kb.lastIntro"); } catch { return null; }
 }
 
 const runs = createRoot(() => {

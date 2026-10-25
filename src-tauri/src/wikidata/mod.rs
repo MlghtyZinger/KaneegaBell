@@ -93,7 +93,18 @@ impl Source for Web {
                 return Err(Error::msg(format!("Wikidata answered {status}")));
             }
             let body = resp.body_mut().with_config().limit(64 * 1024 * 1024).read_to_vec().map_err(|e| err(&e))?;
-            return parse_bindings(&body);
+            // A query that runs past the service's limit is cut off mid-answer with a 200,
+            // which parses as "EOF while parsing": treat it like a busy moment.
+            match parse_bindings(&body) {
+                Err(Error::Json(e)) if e.is_eof() => {
+                    if attempt == 0 {
+                        std::thread::sleep(Duration::from_secs(5));
+                        continue;
+                    }
+                    return Err(Error::msg("Wikidata cut its answer short; try again later"));
+                }
+                other => return other,
+            }
         }
         Err(Error::msg("Wikidata is busy; try again later"))
     }

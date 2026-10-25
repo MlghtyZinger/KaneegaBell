@@ -843,6 +843,14 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.1
+- Changed: double-clicking a game in a collection does nothing; pick it with the controller's select button or Enter.
+- Changed: right-clicking a game opens its details screen, as F does; in a collection, remove games with the untick in "Add games…".
+- Changed: double-clicking a game opens its details screen in the grid and selects it in list view.
+- Changed: right-clicking a collection tile opens its edit window.
+- Fixed: a start-up intro no longer repeats the one before it when picked at random.
+- Fixed: a Wikidata answer cut short by the service is retried once, then reported, instead of showing a JSON error.
+
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
 

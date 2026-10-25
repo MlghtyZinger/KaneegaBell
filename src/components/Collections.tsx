@@ -350,7 +350,7 @@ export function CollectionEditor(props: { c: Collection; onClose: () => void; on
             <div class="row">
               <button class="btn" onClick={() => setManagingMembers(true)}>Add games…</button>
             </div>
-            <p class="dim small">Tick games to add them. On the collection page, press Y or right-click a game to remove it.</p>
+            <p class="dim small">Tick games to add them, untick to remove them.</p>
           </Show>
           <div class="row">
             <Show
