@@ -1,10 +1,9 @@
 import { launchAnimation, launchDone } from "../fx/LaunchFx";
-import { createEffect, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createResource, createSignal, For, lazy, on, onCleanup, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, events, type GameDetail, type Series } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
-import { CoverPicker, type PictureKind } from "../components/CoverPicker";
 import { MatchPicker } from "../components/MatchPicker";
 import { Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
@@ -13,6 +12,7 @@ import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
 import { caseOf } from "../fx/Model";
+const ArtworkStudio = lazy(() => import("../components/ArtworkStudio").then((m) => ({ default: m.ArtworkStudio })));
 
 function formatSize(bytes: number): string {
   if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GB`;
@@ -130,7 +130,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [id, setId] = createSignal(props.id);
   const [game, { refetch }] = createResource(() => id(), api.getGame);
   const [refreshing, setRefreshing] = createSignal(false);
-  const [picking, setPicking] = createSignal<PictureKind | null>(null);
+  const [studio, setStudio] = createSignal(false);
   const [matching, setMatching] = createSignal(false);
   const [collecting, setCollecting] = createSignal(false);
   const [services] = createResource(() => api.getServices().catch(() => null));
@@ -242,33 +242,15 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <img src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
                 </Show>
                 <div class="row tight">
-                  <button class="btn small" onClick={() => setPicking("cover")}>
-                    Change cover…
+                  <button class="btn small" onClick={() => setStudio(true)}>
+                    Artwork…
                   </button>
-                  <button class="btn small" onClick={() => setPicking("icon")}>Icon…</button>
                   <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
                     {refreshing() ? "Looking…" : "Refresh"}
                   </button>
                 </div>
-                <Show when={services()?.sgdb || g().meta.lbId}>
-                  <div class="row tight">
-                    <button class="btn small" onClick={() => setPicking("hero")}>
-                      Background…
-                    </button>
-                    <button class="btn small" onClick={() => setPicking("logo")}>
-                      Logo…
-                    </button>
-                  </div>
-                </Show>
-                <Show when={g().meta.lbId}>
-                  <div class="row tight">
-                    <button class="btn small" onClick={() => setPicking("back")}>Back cover…</button>
-                    <button class="btn small" onClick={() => setPicking("spine")}>Spine…</button>
-                    <button class="btn small" onClick={() => setPicking("disc")}>{caseOf(g().platformId).m === "cart" ? "Cartridge…" : "Disc…"}</button>
-                  </div>
-                </Show>
                 <Show when={kept()}>
-                  <span class="dim small">You picked this cover, so Refresh keeps it. Change cover… picks another.</span>
+                  <span class="dim small">You picked this cover, so Refresh keeps it. Artwork… picks another.</span>
                 </Show>
                 <Show when={g().artSource}>
                   <span class="dim small">
@@ -446,14 +428,13 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           />
         )}
       </Show>
-      <Show when={picking() && game()}>
+      <Show when={studio() && game()}>
         {(g) => (
-          <CoverPicker
+          <ArtworkStudio
             gameId={g().id}
             title={g().title}
-            kind={picking()!}
             cart={caseOf(g().platformId).m === "cart"}
-            onClose={() => setPicking(null)}
+            onClose={() => setStudio(false)}
             onChanged={() => {
               void refetch();
               void library.reload();

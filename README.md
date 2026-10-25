@@ -843,6 +843,9 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.2
+- New: Artwork… on a game's details screen opens one screen with every picture of the game: background, logo, front cover, back cover, spine, disc or cartridge, and icon. Change them in place and save them all with Apply.
+
 ### 0.4.1
 - Changed: double-clicking a game in a collection does nothing; pick it with the controller's select button or Enter.
 - Changed: right-clicking a game opens its details screen, as F does; in a collection, remove games with the untick in "Add games…".

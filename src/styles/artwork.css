@@ -1,0 +1,209 @@
+/* Artwork studio: every picture of a game on one screen (loaded only when opened). */
+
+.art-studio {
+  width: min(1240px, 96vw);
+  height: min(820px, 92vh);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.art-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.art-head > div {
+  flex-grow: 1;
+  min-width: 0;
+}
+.art-head h2 {
+  margin: 0;
+}
+.art-head p {
+  margin: 0;
+}
+
+.art-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 18px;
+}
+
+.art-board {
+  flex: none;
+  width: min(860px, 62vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+}
+
+.art-row {
+  display: grid;
+  gap: 14px;
+}
+.art-row.top {
+  grid-template-columns: 1.6fr 1fr;
+}
+.art-row.bottom {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.art-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  min-width: 0;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.art-card.on {
+  border-color: var(--focus);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 4px rgb(242 232 216 / 0.18), 0 14px 30px rgb(0 0 0 / 0.5);
+  transform: translateY(-3px);
+}
+.art-card:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.art-well {
+  height: 190px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.art-card.top .art-well {
+  height: 160px;
+}
+.art-well img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.art-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.art-name {
+  flex-grow: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-tag {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.art-empty {
+  font-size: 12px;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 8px;
+}
+
+.art-panel {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.art-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.art-panel-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.art-options {
+  flex-grow: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.art-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  min-height: 84px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.art-opt.staged {
+  border-color: var(--focus);
+  background: var(--surface-hover);
+}
+.art-opt:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.art-opt-thumb {
+  flex: none;
+  width: 120px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.art-opt-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.art-opt-label {
+  flex-grow: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.art-compare {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.art-toast {
+  margin: 0;
+  color: var(--ok);
+  font-size: 13px;
+}
