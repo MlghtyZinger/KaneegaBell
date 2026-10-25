@@ -38,11 +38,8 @@ type Info = { section: Section; title: string; detail: string; words?: string };
 const INFO: Record<string, Info> = {
   scan: { section: "library", title: "Scan", words: "rescan games warnings skipped", detail: "Looks through your ROM folders for new, changed and removed games. The report lists what changed and anything it skipped." },
   covers: { section: "library", title: "Covers", words: "box art artwork thumbnails libretro gametdb automatic", detail: "Box art comes first from the LaunchBox Games Database, then libretro-thumbnails and GameTDB. No account needed, and it's cached for offline use. Change any cover from the game's details. The switch fetches covers after each scan." },
-  folders: { section: "library", title: "ROM folders", words: "auto folder source path platform subfolders add browse", detail: "Auto works out each game's platform from its files and disc contents, falling back to folder names like \"PS2\" or \"PSX\". Files it can't place are listed under the scan's warnings; assigning a platform to the folder always works." },
-  rpcs3: { section: "library", title: "RPCS3 installs", words: "ps3 dev_hdd0 installed psn", detail: "Adds the PS3 games installed in RPCS3 (its dev_hdd0 folder) as a source of their own." },
+  folders: { section: "library", title: "ROM folders", words: "auto folder source path platform subfolders add browse rpcs3 ps3 dev_hdd0 installed psn", detail: "Auto works out each game's platform from its files and disc contents, falling back to folder names like \"PS2\" or \"PSX\". Files it can't place are listed under the scan's warnings; assigning a platform to the folder always works. Add RPCS3 installed games adds the PS3 games in RPCS3's dev_hdd0 folder as a source of their own." },
   findEmus: { section: "emulators", title: "Find emulators", words: "detect scan folder exe paths", detail: "Looks in a folder (up to two levels deep) for every emulator KB knows, like RetroArch, Dolphin, PCSX2, Eden, Ryubing or xemu, and fills in their paths." },
-  ownEmus: { section: "emulators", title: "Your emulators", words: "custom add emulator exe template", detail: "Any other emulator: its .exe and launch template. Then add it to a platform (Platforms, emulator button) and pick it per game with Launch with." },
-  cores: { section: "emulators", title: "RetroArch cores folder", words: "retroarch cores libretro dll", detail: "Where RetroArch keeps its cores (…\\RetroArch\\cores). Platforms played with RetroArch load their core from here." },
   platforms: { section: "platforms", title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
   launchbox: { section: "services", title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, back covers, discs and spines, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) once and keeps it in its folder, so adding games never downloads it again; it keeps only your games' details and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
   wikidata: { section: "services", title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
@@ -529,7 +526,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         <Show
           when={library.scanProgress()}
           fallback={
-            <button class="btn primary" onClick={() => void library.scan()}>
+            <button class="btn primary big" onClick={() => void library.scan()}>
               Scan library
             </button>
           }
@@ -563,7 +560,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         <Show
           when={library.artProgress()}
           fallback={
-            <button class="btn" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
+            <button class="btn big" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
               Fetch missing
             </button>
           }
@@ -619,25 +616,27 @@ function LibrarySection(props: { s: Settings; run: Run }) {
           Add folder
         </button>
       </div>
+            <Show when={!props.s.sources.some((x) => x.kind === "ps3_hdd0")}>
+              <div class="row">
+                <button
+                  class="btn"
+                  onClick={() =>
+                    props.run(
+                      async () => {
+                        await api.addRpcs3InstalledSource();
+                        await library.scan();
+                      },
+                      { notice: "Added RPCS3's installed games. Scanning them now…" },
+                    )
+                  }
+                >
+                  Add RPCS3 installed games
+                </button>
+              </div>
+            </Show>
           </>
         }
       />
-      <Row k="rpcs3" status="PS3 games installed in RPCS3">
-        <button
-          class="btn"
-          onClick={() =>
-            props.run(
-              async () => {
-                await api.addRpcs3InstalledSource();
-                await library.scan();
-              },
-              { notice: "Added RPCS3's installed games. Scanning them now…" },
-            )
-          }
-        >
-          Add RPCS3 games
-        </button>
-      </Row>
       <Show when={browsing()}>
         <FileBrowser
           title="Choose a ROM folder"
@@ -716,10 +715,8 @@ function achievementsNote(a: boolean | null): string {
 
 function EmulatorsSection(props: { s: Settings; run: Run }) {
   const [browsing, setBrowsing] = createSignal(false);
-  const [adding, setAdding] = createSignal(false);
   const coresDir = () => (props.s.values.retroarchCoresDir as string | undefined) ?? "";
   const builtIn = () => props.s.emulators.filter((e) => !e.custom);
-  const own = () => props.s.emulators.filter((e) => e.custom);
 
   const detect = (folder: string) =>
     props.run(
@@ -737,34 +734,7 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
           Find emulators…
         </button>
       </Row>
-      <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} />}</For>
-      <Row
-        k="ownEmus"
-        status={own().length ? own().map((e) => e.name).join(", ") : "None added"}
-        open={own().length > 0 && "Edit…"}
-        sub={<For each={own()}>{(emu) => <CustomEmulatorEditor emu={emu} run={props.run} />}</For>}
-      >
-        <button class="btn" onClick={() => setAdding(true)}>
-          Add emulator…
-        </button>
-      </Row>
-      <Show when={adding()}>
-        <AddEmulatorPanel run={props.run} onClose={() => setAdding(false)} />
-      </Show>
-      <Row
-        k="cores"
-        status={coresDir() || "Not set"}
-        open="Change…"
-        sub={
-          <PathField
-            label="RetroArch cores folder"
-            value={coresDir()}
-            placeholder="e.g. E:\Emulators\RetroArch\cores"
-            mode="folder"
-            onCommit={(v) => props.run(() => api.setSetting("retroarchCoresDir", v))}
-          />
-        }
-      />
+      <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} cores={coresDir()} />}</For>
       <Show when={browsing()}>
         <FileBrowser
           title="Folder containing your emulators"
@@ -781,7 +751,7 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
   );
 }
 
-function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
+function EmulatorEditor(props: { emu: EmulatorRow; run: Run; cores?: string }) {
   const save = (exe: string | null, tpl: string | null) => props.run(() => api.updateEmulator(props.emu.id, exe, tpl));
   return (
     <Row
@@ -813,140 +783,22 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
             placeholder={props.emu.defaultTemplate}
             onChange={(e) => save(props.emu.exePath, e.currentTarget.value || null)}
           />
+          <Show when={props.emu.id === "retroarch"}>
+            <label class="field-label">RetroArch cores folder</label>
+            <PathField
+              label="RetroArch cores folder"
+              value={props.cores ?? ""}
+              placeholder="e.g. E:\Emulators\RetroArch\cores"
+              mode="folder"
+              onCommit={(v) => props.run(() => api.setSetting("retroarchCoresDir", v))}
+            />
+            <p class="dim small">
+              RetroArch's cores (its .dll files) are kept in this folder. Every platform played with RetroArch loads its core from here, so those games won't start without it.
+            </p>
+          </Show>
         </div>
       }
     />
-  );
-}
-
-const TEMPLATE_HELP = (
-  <>
-    Placeholders: <code>{"{emulator}"}</code> <code>{"{rom}"}</code> <code>{"{rom_dir}"}</code> <code>{"{rom_name}"}</code>.
-    Check the emulator's own documentation for its command-line options (e.g. a fullscreen flag).
-  </>
-);
-
-/** One of the user's own emulators: name, exe, template, playlist support, remove. */
-function CustomEmulatorEditor(props: { emu: EmulatorRow; run: Run }) {
-  const [confirming, setConfirming] = createSignal(false);
-  const saveInfo = (patch: { name?: string; template?: string; m3u?: boolean }) =>
-    props.run(() =>
-      api.updateCustomEmulator(
-        props.emu.id,
-        patch.name ?? props.emu.name,
-        patch.template ?? props.emu.defaultTemplate,
-        patch.m3u ?? props.emu.supportsM3u,
-      ),
-    );
-  return (
-    <div class="emu" id={`set-emu-${props.emu.id}`} data-title={props.emu.name} data-detail={`Your emulator ${props.emu.name}: its name, .exe, launch template and whether it opens .m3u playlists.`}>
-      <h3>
-        {props.emu.name}
-        <span class="status" classList={{ ok: props.emu.exeExists }}>
-          {props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}
-        </span>
-      </h3>
-      <label class="field-label">Name</label>
-      <input
-        class="input"
-        aria-label="Emulator name"
-        value={props.emu.name}
-        onChange={(e) => void saveInfo({ name: e.currentTarget.value })}
-      />
-      <label class="field-label">Executable</label>
-      <PathField
-        label={`${props.emu.name} executable`}
-        value={props.emu.exePath ?? ""}
-        placeholder="Path to the emulator .exe"
-        mode="file"
-        onCommit={(v) => props.run(() => api.updateEmulator(props.emu.id, v || null, null))}
-      />
-      <label class="field-label">Launch template</label>
-      <input
-        class="input mono"
-        aria-label={`${props.emu.name} launch template`}
-        value={props.emu.defaultTemplate}
-        onChange={(e) => void saveInfo({ template: e.currentTarget.value })}
-      />
-      <p class="dim small">{TEMPLATE_HELP}</p>
-      <label class="check">
-        <input type="checkbox" checked={props.emu.supportsM3u} onChange={(e) => void saveInfo({ m3u: e.currentTarget.checked })} />
-        Opens .m3u playlists (multi-disc games)
-      </label>
-      <div class="row">
-        <Show
-          when={confirming()}
-          fallback={
-            <button class="btn" onClick={() => setConfirming(true)}>
-              Remove…
-            </button>
-          }
-        >
-          <span class="dim">Remove {props.emu.name}? Its platforms and games go back to their default emulators.</span>
-          <button class="btn danger" onClick={() => void props.run(() => api.removeCustomEmulator(props.emu.id))}>
-            Remove
-          </button>
-          <button class="btn" onClick={() => setConfirming(false)}>
-            Cancel
-          </button>
-        </Show>
-      </div>
-    </div>
-  );
-}
-
-/** "Add emulator…": name, exe and launch template of an emulator KB doesn't know. */
-function AddEmulatorPanel(props: { run: Run; onClose: () => void }) {
-  const [name, setName] = createSignal("");
-  const [exe, setExe] = createSignal("");
-  const [template, setTemplate] = createSignal('"{emulator}" "{rom}"');
-  const [m3u, setM3u] = createSignal(false);
-  const [failed, setFailed] = createSignal<string | null>(null);
-  async function add() {
-    setFailed(null);
-    try {
-      await api.addCustomEmulator(name(), exe() || null, template(), m3u());
-    } catch (e) {
-      setFailed(errorText(e));
-      return;
-    }
-    props.onClose();
-    await props.run(async () => {}, { notice: `${name().trim()} added. Add it to a platform in Settings → Platforms.` });
-  }
-  return (
-    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <NavScope class="panel confirm-panel" modal onBack={props.onClose}>
-        <h2>Add emulator</h2>
-        <label class="field-label">Name</label>
-        <input class="input" data-autofocus aria-label="Emulator name" placeholder="e.g. PPSSPP" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
-        <label class="field-label">Executable</label>
-        <PathField label="Emulator executable" value={exe()} placeholder="Path to the emulator .exe" mode="file" onCommit={setExe} />
-        <label class="field-label">Launch template</label>
-        <input class="input mono" aria-label="Launch template" value={template()} onInput={(e) => setTemplate(e.currentTarget.value)} />
-        <p class="dim small">{TEMPLATE_HELP}</p>
-        <label class="check">
-          <input type="checkbox" checked={m3u()} onChange={(e) => setM3u(e.currentTarget.checked)} />
-          Opens .m3u playlists (multi-disc games)
-        </label>
-        <Show when={failed()}>
-          <p class="warn">{failed()}</p>
-        </Show>
-        <div class="row">
-          <button class="btn" onClick={props.onClose}>
-            Cancel
-          </button>
-          <button class="btn primary" disabled={!name().trim()} onClick={() => void add()}>
-            Add
-          </button>
-        </div>
-        <div class="panel-actions">
-          <div class="hints-row">
-            <Hint action="select" label="Choose" />
-            <Hint action="back" label="Cancel" />
-          </div>
-        </div>
-      </NavScope>
-    </div>
   );
 }
 

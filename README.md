@@ -843,6 +843,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.3
+- Changed: Add RPCS3 installed games is in Settings → ROM folders, not its own row.
+- Changed: the RetroArch cores folder is in the RetroArch emulator's settings.
+- Changed: "Your emulators" is gone from Settings; add other emulators from Platforms.
+- Improved: the Scan library and Fetch missing buttons are bigger.
+
 ### 0.4.2
 - New: Artwork… on a game's details screen opens one screen with every picture of the game: background, logo, front cover, back cover, spine, disc or cartridge, and icon. Change them in place and save them all with Apply.
 
