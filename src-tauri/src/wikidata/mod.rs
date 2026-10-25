@@ -493,11 +493,9 @@ pub struct Series {
 /// A game's series, then franchises (no repeated names).
 pub fn series_for(conn: &Connection, game_id: i64) -> Result<Vec<Series>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT gs.series_qid, s.name, gs.kind, gs.ord FROM games g
-         JOIN wd_game_series gs ON gs.game_qid = g.wd_id
-         JOIN wd_series s ON s.qid = gs.series_qid
-         WHERE g.id = ?1 AND g.wd_status = 'ok'
-         ORDER BY gs.kind DESC, s.name",
+        "SELECT series_id, name, kind, ord FROM series_links
+         WHERE game_id = ?1
+         ORDER BY kind DESC, name",
     )?;
     let rows: Vec<(i64, String, String, Option<String>)> = stmt
         .query_map([game_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?

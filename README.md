@@ -309,11 +309,13 @@ Everything works without accounts or API keys:
   art for your copy's region, clear logos and backgrounds (TV Mode), descriptions, release
   dates, developers, publishers, genres and player counts, for KB's platforms (~30,000 games for the first 12).
   - LaunchBox publishes everything as one daily `Metadata.zip` (~100 MB, no per-game access).
-    KB downloads it only when there's something to gain (no data yet, games whose details aren't
-    stored, or LaunchBox changed while some games still have no match, checked at most weekly
-    with a tiny request; or "Update now"), reads it as it streams in (about 2 seconds of CPU) and
-    keeps only a name list for your enabled platforms plus your games' details (a few MB in
-    `data\`). Pictures are fetched just for your games.
+    KB downloads it **once** (the footer says so: about 100 MB) and keeps it in
+    `data\launchbox\Metadata.zip`. Later passes (new games, "Update now", Clear downloaded data)
+    read that kept file with no network and store a name list for your enabled platforms plus
+    your games' details in the library. It is downloaded again only when LaunchBox's copy
+    changed while some games still have no match (checked at most weekly with a tiny request),
+    or after you delete it (Settings → Storage → Delete LaunchBox file). Pictures are fetched
+    just for your games.
   - Matching: same platform, same cleaned-up title (main name or another region's title, e.g.
     "Slap Stick (Japan)" → Robotrek), then a close title with matching sequel numbers. Tested on
     1,776 real No-Intro/Redump names: 91% matched (93–99% on most platforms), correct in spot
@@ -321,6 +323,14 @@ Everything works without accounts or API keys:
     entries (searched offline) and your pick is kept for good.
   - Settings → Game info can turn it off. Credit: game info and pictures from the LaunchBox
     Games Database, made by its community. LaunchBox staff have said other apps use the file.
+- **Series with an IGDB key:** Wikidata (below) comes first; for games Wikidata has no series for,
+  IGDB's own series ("collections") fill in. IGDB's series nest ("Super Mario" holds "Paper Mario"),
+  so each game goes only in its most specific one with two or more of your games, except that a
+  sub-series named after its parent ("The Legend of Zelda: Ocarina of Time", "Metroid Prime") joins
+  the parent; IGDB's
+  franchises aren't used (too broad). A series both know by the same name stays one collection
+  (with your changes, hiding and logo), and a series with exactly the same games as another shows
+  once. Matched games are looked up once more by id (100 per request) to get them.
 - **[Wikidata](https://www.wikidata.org)** (keyless, CC0): each game's **series** and
   **franchise** (e.g. "Jak and Daxter", "Final Fantasy"), plus its number in the series (used
   only to order games released the same year). When you have two or more games from a series, the
@@ -402,7 +412,7 @@ The **Collections** tab (next to Favorites and Recent) holds:
 - **Edit members from the collection page.** Choose **Edit… → Add games…** and tick games to add
   or remove them. In an open manual collection or series, press **Y** or right-click a game to
   remove it. Series edits are saved over Wikidata, so refreshing series data keeps your changes.
-- **Series**, automatically: every series or franchise (from Wikidata, see Covers and metadata) you
+- **Series**, automatically: every series or franchise (from Wikidata, with IGDB filling in when you have a key; see Covers and metadata) you
   have two or more games from, in release order. Hide the ones you don't want; "Show hidden
   series" brings them back.
 
@@ -835,6 +845,13 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 Newest first, one change per line. The release script copies a version's lines into KB's update
 window, so they're written for players.
+
+### 0.4.0
+- New: with an IGDB key, IGDB's series fill in for games Wikidata has no series for.
+- Fixed: a series with exactly the same games as another (e.g. a franchise repeating its series) shows only once.
+- Fixed: game and collection logos prefer English or region-free versions over Japanese ones; KB picks its automatic logos again once.
+- Improved: pictures from LaunchBox (discs, backs, spines, logos, backgrounds) download four games at a time, so a fresh library fills in several times faster.
+- Changed: KB keeps LaunchBox's game database (about 100 MB, downloaded once) in its folder, so adding games never downloads it again. Settings → Storage shows it and can delete it.
 
 ### 0.3.17
 - Fixed: a game you added to a collection or gave your own cover, icon or emulator stays in your library, hidden, when its file is moved or renamed, instead of being deleted.

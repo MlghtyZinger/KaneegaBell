@@ -299,6 +299,11 @@ a grey area), TheGamesDB, RAWG, GiantBomb (all need keys), MobyGames (paid), Gam
 TheCoverProject (no API, scraping not allowed). IGDB, SteamGridDB and RetroAchievements stay as
 optional per-user upgrades.
 
+**(changed, owner, 2026-10-25) KB keeps `Metadata.zip` (~100 MB) in `data\launchbox` after one download and reads
+it locally for new games, Update now and Clear downloaded data; a new download only when LaunchBox's copy changed
+(and games are unmatched) or the file is gone. Built in 0.4.0; Settings → Storage shows it with a delete button.
+The paragraph below is the original rule it replaces for the zip itself; the library still stores only matches.**
+
 **Owner's requirement (2026-10-14): only what matches.** LaunchBox offers no partial download (one
 compressed XML) and no per-game API, so KB streams `Metadata.zip` and filters it as it arrives:
 only entries matching the user's games are kept (a few MB at most in `data\`), the rest is never
@@ -318,6 +323,29 @@ games (hash lookups, which media each has, match rate, speed, vs LaunchBox), run
 info (libretro/GameTDB stay as fallbacks, IGDB/SGDB picks win when set up), then Wikidata for series,
 then Hasheous hash identification. Settings → Game info shows each source, what it adds and its
 credit; each can be turned off. All downloads stay in the background worker, cached, never on focus.
+
+## 0.4.0 plan (decided with the owner, 2026-10-25)
+- **LaunchBox stays the only automatic picture and info source** (owner, 2026-10-25, after comparing). REG-Vault was
+  built as primary and taken out again before release: it matched 74 of 103 dev-library games against LaunchBox's 100,
+  LaunchBox already has a front and a logo for all 100, backs 96, spines 84, discs/carts 91, fanart 90; REG-Vault's free
+  tier is 1,000 requests a day per IP and its years are often a re-release's. libretro and GameTDB stay as gap fillers,
+  Wikidata for series, IGDB and SteamGridDB as optional keys. Migration 023 is a retired slot (drops `reg_games`).
+- **ScreenScraper is out for good** (owner, 2026-10-21 and again 2026-10-25); the "Parked" note above is superseded.
+- **Built for 0.4.0:** `Metadata.zip` kept after one download; LaunchBox pictures downloaded 4 games at a time
+  (`PICTURE_WORKERS`, each worker on its own DB connection).
+- **Built: series from IGDB first, Wikidata fills in** (owner, 2026-10-25), then **reversed the same day: Wikidata
+  first, IGDB fills in** (owner, after IGDB-first gave duplicates and mixed series; migration 025). IGDB franchises
+  dropped (too broad); a game counts only in its most specific IGDB series with 2+ library games; collections with an
+  identical game set show once (series before franchise; user-changed ones always shown). Migration 026: an IGDB
+  sub-series named after another series sharing a game ("The Legend of Zelda: …", "Metroid Prime") joins that parent
+  as a whole. LaunchBox logos rank English/region-free before Japanese (`images_ranked` english_first); setting
+  `lbLogos` (LOGO_VERSION 1) re-picks the automatic ones once. First build: IGDB `collections` (kind series) and
+  `franchise`/`franchises` stored per matched game (migration 024: `igdb_series`, `igdb_game_series`, ids negative,
+  franchises -(1e9+id)); the `series_links` view merges both sources: a game with IGDB series uses only those, an IGDB
+  series named like a Wikidata one takes the Wikidata item number (keeps the user's overrides/hide/logo). Existing
+  matches refetch once by id (`metadata.series_checked`).
+- **Manuals are not game content** (owner, 2026-10-25): on-demand downloads from Retrokit (Internet Archive) are allowed,
+  built in 0.5.0 as before.
 
 ## Explicit non-goals (updated)
 - No ROM, BIOS, firmware, key or game-content downloading of any kind (unchanged)

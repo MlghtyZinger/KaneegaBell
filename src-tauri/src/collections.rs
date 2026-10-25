@@ -143,7 +143,8 @@ pub fn hero_path(data_dir: &Path, key: &str) -> Option<PathBuf> {
     Some(data_dir.join("art").join("c").join(format!("{kind}-{id}-hero.webp")))
 }
 
-/// "c:12" -> ('c', 12); "s:526700" -> ('s', 526700).
+/// "c:12" -> ('c', 12); "s:526700" -> ('s', 526700); IGDB's series are
+/// negative ("s:-123", see migration 024).
 fn parse_key(key: &str) -> Option<(char, i64)> {
     let (kind, id) = key.split_once(':')?;
     let kind = match kind {
@@ -151,7 +152,7 @@ fn parse_key(key: &str) -> Option<(char, i64)> {
         "s" => 's',
         _ => return None,
     };
-    Some((kind, id.parse().ok().filter(|n: &i64| *n > 0)?))
+    Some((kind, id.parse().ok().filter(|n: &i64| *n > 0 || (kind == 's' && *n < 0))?))
 }
 
 fn mine_id(key: &str) -> Result<i64> {
@@ -217,14 +218,11 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
         });
     }
 
-    // Series: one game per Wikidata entry (the first copy), in release order.
+    // Series (IGDB's first, Wikidata's for the rest; see `series_links`): one game per entry (the first copy), in release order.
     let mut stmt = conn.prepare(
-        "SELECT gs.series_qid, s.name, gs.kind, g.id, g.wd_id, w.year, gs.ord, g.sort_title
-         FROM wd_game_series gs
-         JOIN wd_series s ON s.qid = gs.series_qid
-         JOIN games g ON g.wd_id = gs.game_qid AND g.wd_status = 'ok' AND g.missing = 0
-         LEFT JOIN wd_games w ON w.qid = gs.game_qid
-         ORDER BY g.id",
+        "SELECT series_id, name, kind, game_id, entry, year, ord, sort_title
+         FROM series_links WHERE missing = 0
+         ORDER BY game_id",
     )?;
     type Row = (i64, String, String, i64, i64, Option<i64>, Option<String>, String);
     let rows: Vec<Row> = stmt
@@ -259,19 +257,38 @@ pub fn list(conn: &Connection) -> Result<Vec<Collection>> {
     }
     let mut series: Vec<(i64, Series)> = series.into_iter().collect();
     series.sort_by(|a, b| a.1.name.to_lowercase().cmp(&b.1.name.to_lowercase()).then(a.1.kind.cmp(&b.1.kind).reverse()));
-    let mut names = std::collections::HashSet::new();
+    let mut found = Vec::new();
     for (qid, s) in series {
-        // A franchise named like a series shows once (as the series).
         let games = series_game_ids(conn, qid)?;
         let customized: bool = conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM series_membership_overrides WHERE series_qid = ?1)",
             [qid],
             |r| r.get(0),
         )?;
-        if games.len() < 2 && !customized {
-            continue;
+        if games.len() >= 2 || customized {
+            found.push((qid, s, games, customized));
         }
-        if !names.insert(s.name.to_lowercase()) {
+    }
+    // The same games under another name show once (an umbrella franchise often
+    // repeats its series): a series before a franchise. One the user changed always stays.
+    let mut prefer: Vec<usize> = (0..found.len()).collect();
+    prefer.sort_by_key(|&i| found[i].1.kind != "series");
+    let mut keep = vec![false; found.len()];
+    let mut sets: Vec<Vec<i64>> = Vec::new();
+    for i in prefer {
+        let mut set = found[i].2.clone();
+        set.sort_unstable();
+        if found[i].3 {
+            keep[i] = true;
+        } else if !sets.contains(&set) {
+            sets.push(set);
+            keep[i] = true;
+        }
+    }
+    let mut names = std::collections::HashSet::new();
+    for ((qid, s, games, _), keep) in found.into_iter().zip(keep) {
+        // A franchise named like a series shows once (as the series).
+        if !keep || !names.insert(s.name.to_lowercase()) {
             continue;
         }
         let key = format!("s:{qid}");
@@ -314,12 +331,10 @@ fn series_game_ids_inner(
     preferred_game: Option<i64>,
 ) -> Result<Vec<i64>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT g.id, g.wd_id, w.year, gs.ord, g.sort_title
-         FROM wd_game_series gs
-         JOIN games g ON g.wd_id = gs.game_qid AND g.wd_status = 'ok' AND g.missing = 0
-         LEFT JOIN wd_games w ON w.qid = gs.game_qid
-         WHERE gs.series_qid = ?1
-         ORDER BY g.id",
+        "SELECT game_id, entry, year, ord, sort_title
+         FROM series_links
+         WHERE series_id = ?1 AND missing = 0
+         ORDER BY game_id",
     )?;
     type Member = (i64, i64, Option<i64>, Option<String>, String);
     let rows: Vec<Member> = stmt
@@ -488,10 +503,7 @@ fn set_series_member(conn: &Connection, qid: i64, game_id: i64, member: bool) ->
     }
     let known: Option<(String, String)> = conn
         .query_row(
-            "SELECT s.name,
-                    CASE WHEN EXISTS(SELECT 1 FROM wd_game_series gs WHERE gs.series_qid = s.qid AND gs.kind = 'series')
-                         THEN 'series' ELSE 'franchise' END
-             FROM wd_series s WHERE s.qid = ?1",
+            "SELECT MIN(name), MAX(kind) FROM series_links WHERE series_id = ?1 HAVING COUNT(*) > 0",
             [qid],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )

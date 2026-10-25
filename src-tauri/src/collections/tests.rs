@@ -202,3 +202,84 @@ fn smart_collections_store_and_validate_their_rules() {
     assert!(set_rules(&conn, &key, Rules { play_from: Some(500), play_to: Some(100), ..Default::default() }).is_err());
     assert!(create_smart(&conn, "Bad", Rules { genres: vec![-1], ..Default::default() }).is_err());
 }
+
+/// Gives a game IGDB series the way an IGDB match stores them (see `queries::set_metadata`).
+fn igdb_series(conn: &Connection, game: i64, igdb_game: i64, year: i64, series: &[(i64, &str, &str)]) {
+    conn.execute("UPDATE games SET igdb_id = ?2, match_status = 'ok' WHERE id = ?1", params![game, igdb_game]).unwrap();
+    conn.execute(
+        "INSERT OR REPLACE INTO metadata (game_id, title, source, fetched_at, release_date) VALUES (?1, 'x', 'igdb', 0, ?2)",
+        params![game, (year - 1970) * 31_556_952 + 86_400 * 40],
+    )
+    .unwrap();
+    for (id, name, kind) in series {
+        conn.execute("INSERT OR REPLACE INTO igdb_series (id, name, kind) VALUES (?1, ?2, ?3)", params![id, name, kind]).unwrap();
+        conn.execute("INSERT OR IGNORE INTO igdb_game_series (game_id, series_id) VALUES (?1, ?2)", params![game, id]).unwrap();
+    }
+}
+
+#[test]
+fn wikidata_series_come_first_and_igdb_fills_in_for_other_games() {
+    let conn = db::test_db();
+    let ff7 = add_game(&conn, "Final Fantasy VII");
+    let ff9 = add_game(&conn, "Final Fantasy IX");
+    let ff10 = add_game(&conn, "Final Fantasy X");
+    let sly1 = add_game(&conn, "Sly Cooper");
+    let sly2 = add_game(&conn, "Sly 2");
+    // Wikidata knows FF (item 50) for VII and X; IGDB puts X somewhere else, and has IX too.
+    series(&conn, 50, "Final Fantasy", "series", &[(ff7, 7, 1997), (ff10, 10, 2001)]);
+    igdb_series(&conn, ff10, 1000, 2001, &[(-2, "Spira", "series"), (-1, "Final Fantasy", "series")]);
+    igdb_series(&conn, ff9, 900, 2000, &[(-1, "Final Fantasy", "series")]);
+    // A series only IGDB has keeps IGDB's (negative) number.
+    igdb_series(&conn, sly1, 1, 2002, &[(-7, "Sly Cooper", "series")]);
+    igdb_series(&conn, sly2, 2, 2004, &[(-7, "Sly Cooper", "series")]);
+
+    let list = list(&conn).unwrap();
+    // "Final Fantasy" keeps Wikidata's key (so your changes to it stay); IX joins from IGDB; release order.
+    assert_eq!(find(&list, "s:50").games, vec![ff7, ff9, ff10]);
+    // X's series is Wikidata's: IGDB's other one doesn't apply to it.
+    assert!(list.iter().all(|c| c.key != "s:-2"));
+    let sly = find(&list, "s:-7");
+    assert_eq!((sly.name.as_str(), sly.games.clone()), ("Sly Cooper", vec![sly1, sly2]));
+
+    // IGDB-only series work like any other: remove a game, hide it.
+    set_member(&conn, "s:-7", sly2, false).unwrap();
+    set_hidden(&conn, "s:-7", true).unwrap();
+    assert!(super::list(&conn).unwrap().iter().any(|c| c.key == "s:-7" && c.hidden && c.games == vec![sly1]));
+    // The game's details list the same series.
+    let s = crate::wikidata::series_for(&conn, ff9).unwrap();
+    assert_eq!(s.iter().map(|s| s.key.as_str()).collect::<Vec<_>>(), ["s:50"]);
+}
+
+#[test]
+fn the_same_games_under_another_name_show_once() {
+    let conn = db::test_db();
+    let bg1 = add_game(&conn, "Dark Alliance");
+    let bg2 = add_game(&conn, "Dark Alliance II");
+    series(&conn, 71, "Baldur's Gate: Dark Alliance", "series", &[(bg1, 1, 2001), (bg2, 2, 2004)]);
+    series(&conn, 70, "Dungeons & Dragons", "franchise", &[(bg1, 1, 2001), (bg2, 2, 2004)]);
+    series(&conn, 72, "Forgotten Realms", "franchise", &[(bg1, 1, 2001), (bg2, 2, 2004)]);
+    let keys: Vec<String> = list(&conn).unwrap().into_iter().map(|c| c.key).collect();
+    assert_eq!(keys, ["s:71"], "the series, not its umbrella franchises");
+
+    // One the user changed always stays.
+    set_member(&conn, "s:72", bg1, true).unwrap();
+    let keys: Vec<String> = list(&conn).unwrap().into_iter().map(|c| c.key).collect();
+    assert_eq!(keys, ["s:71", "s:72"]);
+}
+
+#[test]
+fn an_igdb_sub_series_joins_its_parent() {
+    let conn = db::test_db();
+    let oot = add_game(&conn, "Ocarina of Time");
+    let mm = add_game(&conn, "Majora's Mask");
+    let ww = add_game(&conn, "The Wind Waker");
+    let tp = add_game(&conn, "Twilight Princess");
+    igdb_series(&conn, oot, 1, 1998, &[(-106, "The Legend of Zelda", "series"), (-900, "The Legend of Zelda: Ocarina of Time", "series")]);
+    // Majora's Mask is listed only under the sub-series: it still comes along.
+    igdb_series(&conn, mm, 2, 2000, &[(-900, "The Legend of Zelda: Ocarina of Time", "series")]);
+    igdb_series(&conn, ww, 3, 2002, &[(-106, "The Legend of Zelda", "series")]);
+    igdb_series(&conn, tp, 4, 2006, &[(-106, "The Legend of Zelda", "series")]);
+    let list = list(&conn).unwrap();
+    assert_eq!(list.iter().map(|c| c.key.as_str()).collect::<Vec<_>>(), ["s:-106"]);
+    assert_eq!(list[0].games, vec![oot, mm, ww, tp]);
+}

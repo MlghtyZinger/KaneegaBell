@@ -44,7 +44,7 @@ const INFO: Record<string, Info> = {
   ownEmus: { section: "emulators", title: "Your emulators", words: "custom add emulator exe template", detail: "Any other emulator: its .exe and launch template. Then add it to a platform (Platforms, emulator button) and pick it per game with Launch with." },
   cores: { section: "emulators", title: "RetroArch cores folder", words: "retroarch cores libretro dll", detail: "Where RetroArch keeps its cores (…\\RetroArch\\cores). Platforms played with RetroArch load their core from here." },
   platforms: { section: "platforms", title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
-  launchbox: { section: "services", title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) only when there's something to gain, keeps only your games' details, and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
+  launchbox: { section: "services", title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, back covers, discs and spines, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) once and keeps it in its folder, so adding games never downloads it again; it keeps only your games' details and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
   wikidata: { section: "services", title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
   igdb: { section: "services", title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
   sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
@@ -1894,6 +1894,12 @@ function StorageBlock(props: { s: Settings; run: Run }) {
                       <td>Web cache (picker previews)</td>
                       <td class="num">{size(st().webCacheBytes)}</td>
                     </tr>
+                    <Show when={st().launchboxBytes}>
+                      <tr>
+                        <td>LaunchBox game database (kept so new games need no download)</td>
+                        <td class="num">{size(st().launchboxBytes!)}</td>
+                      </tr>
+                    </Show>
                     <Show when={st().resetBackupBytes}>
                       <tr>
                         <td>Reset backup (library.before-reset.db)</td>
@@ -1911,6 +1917,22 @@ function StorageBlock(props: { s: Settings; run: Run }) {
               <button class="btn" onClick={() => ask("clear")}>
                 Clear downloaded data…
               </button>
+              <Show when={storage()?.launchboxBytes}>
+                <button
+                  class="btn"
+                  onClick={() =>
+                    void props.run(
+                      async () => {
+                        await api.deleteLaunchboxFile();
+                        await refetch();
+                      },
+                      { notice: "LaunchBox file deleted. It downloads again (about 100 MB) the next time it's needed." },
+                    )
+                  }
+                >
+                  Delete LaunchBox file
+                </button>
+              </Show>
               <Show when={storage()?.resetBackupBytes}>
                 <button class="btn" onClick={() => ask("backup")}>
                   Delete reset backup…

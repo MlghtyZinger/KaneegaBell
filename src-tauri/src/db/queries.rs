@@ -399,7 +399,7 @@ pub fn games_needing_metadata(conn: &Connection, now: i64) -> Result<Vec<crate::
            AND (g.match_status IN ('none', 'error')
                 OR (g.match_status = 'notfound' AND COALESCE(g.meta_checked_at, 0) < ?1)
                 OR (g.match_status IN ('ok', 'manual')
-                    AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.game_id = g.id AND m.slug IS NOT NULL)))
+                    AND NOT EXISTS (SELECT 1 FROM metadata m WHERE m.game_id = g.id AND m.slug IS NOT NULL AND m.series_checked = 1)))
          ORDER BY p.sort_order, g.sort_title",
     )?;
     let rows = stmt.query_map([now - crate::metadata::NOTFOUND_RETRY_SECS], |r| {
@@ -425,13 +425,23 @@ pub fn count_games_needing_metadata(conn: &Connection, now: i64) -> Result<usize
 /// had none, or only GameTDB's generic PSN frame), so a cover pass should run.
 pub fn set_metadata(conn: &Connection, game_id: i64, g: &crate::metadata::igdb::Game, status: &str, now: i64) -> Result<bool> {
     conn.execute(
-        "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at, slug)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7, ?8)
+        "INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, source, fetched_at, slug, series_checked)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'igdb', ?7, ?8, 1)
          ON CONFLICT(game_id) DO UPDATE SET title = excluded.title, description = excluded.description,
              release_date = excluded.release_date, developer = excluded.developer, publisher = excluded.publisher,
-             source = excluded.source, fetched_at = excluded.fetched_at, slug = excluded.slug",
+             source = excluded.source, fetched_at = excluded.fetched_at, slug = excluded.slug, series_checked = 1",
         params![game_id, g.name, g.summary, g.first_release_date, g.developer(), g.publisher(), now, g.slug.clone().unwrap_or_default()],
     )?;
+    // Its series and franchises (they come before Wikidata's; see migration 024).
+    conn.execute("DELETE FROM igdb_game_series WHERE game_id = ?1", [game_id])?;
+    for (id, name, kind) in g.series() {
+        conn.execute(
+            "INSERT INTO igdb_series (id, name, kind) VALUES (?1, ?2, ?3) ON CONFLICT(id) DO UPDATE SET name = excluded.name",
+            params![id, name, kind],
+        )?;
+        conn.execute("INSERT OR IGNORE INTO igdb_game_series (game_id, series_id) VALUES (?1, ?2)", params![game_id, id])?;
+    }
+    conn.execute("DELETE FROM igdb_series WHERE id NOT IN (SELECT series_id FROM igdb_game_series)", [])?;
     // A LaunchBox match's genres come first; IGDB's are used otherwise.
     let lb_genres: bool = conn
         .query_row(

@@ -373,6 +373,7 @@ pub fn run() {
             commands::clear_downloaded,
             commands::clear_web_cache,
             commands::delete_reset_backup,
+            commands::delete_launchbox_file,
             commands::reset_app,
             commands::list_displays,
             commands::tv_enter,

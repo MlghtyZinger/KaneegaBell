@@ -39,7 +39,8 @@ function JobPill() {
       const mb = (n: number) => Math.round(n / 1_000_000);
       return {
         checking: "LaunchBox: checking for updates",
-        downloading: lb.total > 0 ? `LaunchBox data ${mb(lb.done)}/${mb(lb.total)} MB` : "LaunchBox data…",
+        downloading: `LaunchBox: one-time download of its game list (about 100 MB, kept for later)${lb.total > 0 ? ` ${mb(lb.done)}/${mb(lb.total)} MB` : "…"}`,
+        reading: "LaunchBox: reading its saved game list",
         matching: "LaunchBox: matching games",
         images: `LaunchBox pictures ${lb.done}/${lb.total}`,
       }[lb.phase];

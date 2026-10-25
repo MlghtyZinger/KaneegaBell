@@ -211,7 +211,7 @@ export interface LbStatus {
 }
 
 export interface LbProgress {
-  phase: "checking" | "downloading" | "matching" | "images";
+  phase: "checking" | "downloading" | "reading" | "matching" | "images";
   done: number;
   total: number;
 }
@@ -290,6 +290,8 @@ export interface Storage {
   resetBackupBytes: number | null;
   /** WebView2's disk cache (picker previews). */
   webCacheBytes: number;
+  /** LaunchBox's kept game database file (~100 MB), once downloaded. */
+  launchboxBytes: number | null;
 }
 
 export interface UpdateInfo {
@@ -757,6 +759,7 @@ export const api = {
   clearWebCache: () => invoke<number>("clear_web_cache"),
   /** Deletes the library copy the last reset kept. */
   deleteResetBackup: () => invoke<void>("delete_reset_backup"),
+  deleteLaunchboxFile: () => invoke<void>("delete_launchbox_file"),
   /** Back to a first start (keeps a copy of the library); reload the page afterwards. */
   resetApp: (forgetKeys: boolean) => invoke<void>("reset_app", { forgetKeys }),
   /** Looks for a newer KB release; null when up to date. */

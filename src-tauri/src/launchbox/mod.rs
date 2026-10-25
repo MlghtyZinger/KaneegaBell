@@ -3,17 +3,19 @@
 //! picks always win.
 //!
 //! LaunchBox publishes everything as one daily `Metadata.zip` (~100 MB) with no
-//! per-game access, so the job downloads it, filters it while it streams in
-//! (see `stream`) and keeps only:
+//! per-game access, so the job downloads it once and **keeps it** in
+//! `data\launchbox` (owner's choice, 0.4.0). Every later pass reads the kept
+//! file (no network), filters it (see `stream`) and stores in the library:
 //! - a name list (main and alternate titles) for the enabled platforms, ~2 MB,
-//!   so new games and Fix match work without downloading again;
+//!   so new games and Fix match work offline;
 //! - details and image lists for the games in the library.
 //!
-//! It downloads only when there's something to gain: no name list yet,
+//! It reads the file when there's something to gain: no name list yet,
 //! matched games without details, or LaunchBox's file changed (checked at most
 //! weekly with a tiny request) while some games still have no match; or when
-//! the user asks ("Update now"). Images come from LaunchBox's image server on
-//! demand, like the other sources' images.
+//! the user asks ("Update now"). The file is fetched again only when
+//! LaunchBox's copy changed or the kept one is gone. Images come from
+//! LaunchBox's image server on demand, like the other sources' images.
 
 pub mod matching;
 pub mod stream;
@@ -37,6 +39,9 @@ use stream::{LbGame, Record};
 
 pub const ZIP_URL: &str = "https://gamesdb.launchbox-app.com/Metadata.zip";
 pub const IMAGE_BASE: &str = "https://images.launchbox-app.com/";
+/// Games whose pictures download at the same time (LaunchBox's image server is a
+/// plain file host; the cover pass uses the same number).
+const PICTURE_WORKERS: usize = 4;
 /// How often LaunchBox's file is checked for changes (a HEAD request).
 const CHECK_EVERY_SECS: i64 = 7 * 24 * 3600;
 /// Image types kept (LaunchBox has ~30; KB shows these). Disc, cartridge, back
@@ -47,6 +52,9 @@ const IMAGE_KINDS: &[&str] =
 const IMAGE_KINDS_VERSION: u32 = 5;
 /// Raised when GameTDB's full covers should be tried again for every game (setting `gametdbCaseArt`).
 const GAMETDB_CASE_VERSION: u32 = 1;
+/// Raised when the automatic LaunchBox logos should be picked again (setting `lbLogos`;
+/// 1 = English or region-free logos before Japanese ones, 0.4.0).
+const LOGO_VERSION: u32 = 1;
 const STAMP_KEY: &str = "launchbox";
 
 /// What KB remembers about the last download (settings, `launchbox`).
@@ -110,7 +118,7 @@ impl Source for Web {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Progress {
-    /// "checking" | "downloading" | "matching" | "images"
+    /// "checking" | "downloading" | "reading" | "matching" | "images"
     pub phase: &'static str,
     pub done: u64,
     pub total: u64,
@@ -241,6 +249,10 @@ pub fn wanted(conn: &Connection) -> Result<bool> {
     if st.imported_at.is_some() && queries::get_setting::<u32>(conn, "gametdbCaseArt")?.unwrap_or(0) < GAMETDB_CASE_VERSION {
         return Ok(true);
     }
+    // The automatic logos are due to be picked again (no download of LaunchBox's file).
+    if st.imported_at.is_some() && queries::get_setting::<u32>(conn, "lbLogos")?.unwrap_or(0) < LOGO_VERSION {
+        return Ok(true);
+    }
     Ok(conn
         .query_row(
             "SELECT 1 FROM games g JOIN platforms p ON p.id = g.platform_id
@@ -329,20 +341,95 @@ struct Import {
     wanted: HashSet<i64>,
 }
 
-/// Downloads LaunchBox's file and filters it as it streams in.
+/// Where KB keeps LaunchBox's file (~100 MB) after the one download.
+pub fn zip_path(data_dir: &Path) -> std::path::PathBuf {
+    data_dir.join("launchbox").join("Metadata.zip")
+}
+
+/// Size of the kept file, if there is one.
+pub fn zip_bytes(data_dir: &Path) -> Option<u64> {
+    std::fs::metadata(zip_path(data_dir)).ok().filter(|m| m.is_file()).map(|m| m.len())
+}
+
+/// Deletes the kept file (it's downloaded again when needed).
+pub fn delete_zip(data_dir: &Path) -> Result<()> {
+    match std::fs::remove_file(zip_path(data_dir)) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+        _ => Ok(()),
+    }
+}
+
+/// Saves LaunchBox's file as `path`, through a `.part` file so a stopped
+/// download never leaves a broken copy.
+fn fetch_local(source: &dyn Source, path: &Path, total: u64, progress: &dyn Fn(Progress), cancel: &AtomicBool) -> Result<()> {
+    use std::io::Write;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let part = path.with_extension("zip.part");
+    let copy = || -> Result<()> {
+        let mut src = source.open()?;
+        let mut out = std::fs::File::create(&part)?;
+        let mut buf = vec![0u8; 256 * 1024];
+        let (mut done, mut last) = (0u64, 0u64);
+        loop {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(Error::msg("cancelled"));
+            }
+            let n = src.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            out.write_all(&buf[..n])?;
+            done += n as u64;
+            if done - last > 1_000_000 {
+                last = done;
+                progress(Progress { phase: "downloading", done, total });
+            }
+        }
+        Ok(out.flush()?)
+    };
+    let r = copy();
+    match r {
+        Ok(()) => std::fs::rename(&part, path)?,
+        Err(_) => drop(std::fs::remove_file(&part)),
+    }
+    r
+}
+
+/// Reads LaunchBox's file and filters it. The file is downloaded once and
+/// kept (`zip_path`); it's fetched again only when LaunchBox's copy changed
+/// or the kept one is missing or unreadable.
 fn download(
     conn: &Connection,
+    data_dir: &Path,
     source: &dyn Source,
     games: &[Game],
     progress: &dyn Fn(Progress),
     cancel: &AtomicBool,
 ) -> Result<(Import, (Option<String>, Option<String>))> {
     let (last_modified, etag, size) = source.head().unwrap_or((None, None, None));
+    let local = zip_path(data_dir);
+    let st = stamp(conn)?;
+    let changed = (last_modified.is_some() && last_modified != st.last_modified) || (etag.is_some() && etag != st.etag);
+    if changed || !local.is_file() {
+        fetch_local(source, &local, size.unwrap_or(0), progress, cancel)?;
+    }
+    let result = read_local(conn, &local, games, progress, cancel);
+    if result.is_err() && !cancel.load(Ordering::Relaxed) {
+        // A broken kept file would fail every pass: drop it so the next one starts over.
+        let _ = std::fs::remove_file(&local);
+    }
+    result.map(|imp| (imp, (last_modified, etag)))
+}
+
+/// Filters the kept file as it's read.
+fn read_local(conn: &Connection, local: &Path, games: &[Game], progress: &dyn Fn(Progress), cancel: &AtomicBool) -> Result<Import> {
     let platforms = platform_map(conn)?;
     let browse = browse_ids(conn)?;
-    let total = size.unwrap_or(0);
+    let total = std::fs::metadata(local)?.len();
     let read = Arc::new(AtomicU64::new(0));
-    let body = Counting { inner: source.open()?, read: read.clone() };
+    let body = Counting { inner: std::fs::File::open(local)?, read: read.clone() };
     let xml = stream::open_entry(body)?;
 
     let mut imp = Import::default();
@@ -379,7 +466,7 @@ fn download(
         let n = read.load(Ordering::Relaxed);
         if n - last_report > 1_000_000 {
             last_report = n;
-            progress(Progress { phase: "downloading", done: n, total });
+            progress(Progress { phase: "reading", done: n, total });
         }
         match r {
             Record::Game(g) => {
@@ -409,8 +496,8 @@ fn download(
     if !resolved {
         resolve(&mut imp, &mut buffered);
     }
-    progress(Progress { phase: "downloading", done: total.max(read.load(Ordering::Relaxed)), total });
-    Ok((imp, (last_modified, etag)))
+    progress(Progress { phase: "reading", done: total.max(read.load(Ordering::Relaxed)), total });
+    Ok(imp)
 }
 
 struct Counting<R> {
@@ -569,7 +656,7 @@ pub fn picker(conn: &Connection, game_id: i64, extra: Option<Extra>) -> Result<V
         Some(Extra::Hero) => (&["Fanart - Background"], "LaunchBox background"),
         Some(Extra::Logo) => (&["Clear Logo"], "LaunchBox logo"),
     };
-    Ok(images_for(conn, db_id, kinds, region.as_deref())?
+    Ok(images_ranked(conn, db_id, kinds, region.as_deref(), extra == Some(Extra::Logo))?
         .into_iter()
         .map(|(file, reg)| {
             let url = image_url(&file);
@@ -599,7 +686,8 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
     if current.as_deref() == Some("launchbox") {
         return Ok(false);
     }
-    for (file, _) in images_for(conn, db_id, &[kind], region)?.into_iter().take(2) {
+    // Logos carry text: English or region-free ones first (a Japanese logo only when there's nothing else).
+    for (file, _) in images_ranked(conn, db_id, &[kind], region, extra == Extra::Logo)?.into_iter().take(2) {
         let url = image_url(&file);
         let Some(bytes) = fetch.get(&url)? else { continue };
         let (w, h) = images::store_extra(data_dir, extra, game_id, &bytes)?;
@@ -782,7 +870,7 @@ pub fn run(
 
     if need {
         log::info!("LaunchBox: downloading its game database to update {} games", games.len());
-        let (imp, (lm, etag)) = match download(conn, source, &games, progress, cancel) {
+        let (imp, (lm, etag)) = match download(conn, data_dir, source, &games, progress, cancel) {
             Err(_) if cancel.load(Ordering::Relaxed) => {
                 s.cancelled = true;
                 return Ok(s);
@@ -802,6 +890,16 @@ pub fn run(
         games = library_games(conn)?;
     }
 
+    // Automatic logos picked by older rules are picked again below (the user's own stay).
+    let relogo = queries::get_setting::<u32>(conn, "lbLogos")?.unwrap_or(0) < LOGO_VERSION;
+    if relogo {
+        conn.execute(
+            "DELETE FROM artwork WHERE kind = 'logo' AND source = 'launchbox'
+               AND game_id IN (SELECT id FROM games WHERE extras_manual = 0)",
+            [],
+        )?;
+    }
+
     // Apply: covers (queued for the art pass), genres, heroes and logos.
     // Every step is cheap when there's nothing to do (a cover or picture that
     // already is LaunchBox's, or the user's own, is left alone).
@@ -810,43 +908,100 @@ pub fn run(
     s.not_found = games.iter().filter(|g| g.status == "notfound").count();
     s.ambiguous = games.iter().filter(|g| g.status == "ambiguous").count();
     let total = matched_games.len() as u64;
-    for (i, g) in matched_games.iter().enumerate() {
-        if cancel.load(Ordering::Relaxed) {
-            s.cancelled = true;
-            break;
-        }
-        progress(Progress { phase: "images", done: i as u64, total });
-        let db_id = g.lb_id.unwrap_or_default();
-        apply_genres(conn, g.id, db_id)?;
-        if let Err(e) = fetch_screenshot(conn, data_dir, fetch, g.id, db_id, g.region.as_deref()) {
-            log::warn!("LaunchBox screenshot for game {}: {e}", g.id);
-        }
-        if queue_cover(conn, g.id, db_id, g.region.as_deref())? {
-            s.covers_queued += 1;
-        }
-        if let Err(e) = fetch_case_art(conn, data_dir, fetch, g.id, db_id, g.region.as_deref()) {
-            log::warn!("LaunchBox disc/back for game {}: {e}", g.id);
-        }
-        // What LaunchBox lacks: the back and spine from GameTDB's full cover (Wii, GameCube, PS3, DS, 3DS).
-        let serial: Option<String> = conn.query_row("SELECT serial FROM games WHERE id = ?1", [g.id], |r| r.get(0)).optional()?.flatten();
-        crate::art::gametdb::fill_case_art(data_dir, fetch, g.id, &g.platform_id, serial.as_deref());
-        let manual: bool = conn.query_row("SELECT extras_manual FROM games WHERE id = ?1", [g.id], |r| r.get(0))?;
-        if !manual {
-            for (extra, count) in [(Extra::Hero, &mut s.heroes), (Extra::Logo, &mut s.logos)] {
-                match fetch_extra(conn, data_dir, fetch, g.id, db_id, g.region.as_deref(), extra) {
-                    Ok(true) => *count += 1,
-                    Ok(false) => {}
-                    Err(e) => log::warn!("LaunchBox {} for game {}: {e}", extra.kind(), g.id),
+    let add = |s: &mut Summary, a: Applied| {
+        s.covers_queued += a.cover as usize;
+        s.heroes += a.hero as usize;
+        s.logos += a.logo as usize;
+    };
+    match conn.path().filter(|p| !p.is_empty()).map(std::path::PathBuf::from) {
+        // A library on disk: PICTURE_WORKERS games at a time, each worker on its own connection.
+        Some(db_path) => {
+            let next = std::sync::atomic::AtomicUsize::new(0);
+            let (tx, rx) = std::sync::mpsc::channel::<Result<Applied>>();
+            std::thread::scope(|scope| -> Result<()> {
+                for _ in 0..PICTURE_WORKERS.min(matched_games.len()) {
+                    let (tx, next, games, db_path) = (tx.clone(), &next, &matched_games, &db_path);
+                    scope.spawn(move || {
+                        let conn = match crate::db::open(db_path) {
+                            Ok(c) => c,
+                            Err(e) => return drop(tx.send(Err(e))),
+                        };
+                        while !cancel.load(Ordering::Relaxed) {
+                            let Some(g) = games.get(next.fetch_add(1, Ordering::Relaxed)) else { break };
+                            if tx.send(apply_one(&conn, data_dir, fetch, g)).is_err() {
+                                break;
+                            }
+                        }
+                    });
                 }
+                drop(tx);
+                let mut failed = None;
+                for (i, r) in rx.into_iter().enumerate() {
+                    progress(Progress { phase: "images", done: i as u64 + 1, total });
+                    match r {
+                        Ok(a) => add(&mut s, a),
+                        Err(e) => drop(failed.get_or_insert(e)),
+                    }
+                }
+                failed.map_or(Ok(()), Err)
+            })?;
+            s.cancelled = cancel.load(Ordering::Relaxed);
+        }
+        // An in-memory library (tests): one game at a time on this connection.
+        None => {
+            for (i, g) in matched_games.iter().enumerate() {
+                if cancel.load(Ordering::Relaxed) {
+                    s.cancelled = true;
+                    break;
+                }
+                progress(Progress { phase: "images", done: i as u64, total });
+                add(&mut s, apply_one(conn, data_dir, fetch, g)?);
             }
         }
     }
     progress(Progress { phase: "images", done: total, total });
     if !s.cancelled {
         queries::set_setting(conn, "gametdbCaseArt", &serde_json::Value::from(GAMETDB_CASE_VERSION))?;
+        queries::set_setting(conn, "lbLogos", &serde_json::Value::from(LOGO_VERSION))?;
     }
     log::info!("LaunchBox: {s:?}");
     Ok(s)
+}
+
+/// What applying one game changed (for the summary).
+struct Applied {
+    cover: bool,
+    hero: bool,
+    logo: bool,
+}
+
+/// One matched game: genres, its cover queued for the art pass, and its
+/// pictures (screenshot, disc, back, spine, background, logo). A picture that
+/// fails to download is logged and skipped.
+fn apply_one(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, g: &Game) -> Result<Applied> {
+    let db_id = g.lb_id.unwrap_or_default();
+    let region = g.region.as_deref();
+    apply_genres(conn, g.id, db_id)?;
+    if let Err(e) = fetch_screenshot(conn, data_dir, fetch, g.id, db_id, region) {
+        log::warn!("LaunchBox screenshot for game {}: {e}", g.id);
+    }
+    let mut a = Applied { cover: queue_cover(conn, g.id, db_id, region)?, hero: false, logo: false };
+    if let Err(e) = fetch_case_art(conn, data_dir, fetch, g.id, db_id, region) {
+        log::warn!("LaunchBox disc/back for game {}: {e}", g.id);
+    }
+    // What LaunchBox lacks: the back and spine from GameTDB's full cover (Wii, GameCube, PS3, DS, 3DS).
+    let serial: Option<String> = conn.query_row("SELECT serial FROM games WHERE id = ?1", [g.id], |r| r.get(0)).optional()?.flatten();
+    crate::art::gametdb::fill_case_art(data_dir, fetch, g.id, &g.platform_id, serial.as_deref());
+    let manual: bool = conn.query_row("SELECT extras_manual FROM games WHERE id = ?1", [g.id], |r| r.get(0))?;
+    if !manual {
+        for (extra, got) in [(Extra::Hero, &mut a.hero), (Extra::Logo, &mut a.logo)] {
+            match fetch_extra(conn, data_dir, fetch, g.id, db_id, region, extra) {
+                Ok(stored) => *got = stored,
+                Err(e) => log::warn!("LaunchBox {} for game {}: {e}", extra.kind(), g.id),
+            }
+        }
+    }
+    Ok(a)
 }
 
 /// LaunchBox's genres become the game's genres (for the genre filter).

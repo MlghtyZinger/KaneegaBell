@@ -161,10 +161,11 @@ fn disc_and_back_pictures_come_with_one_more_download_for_older_lists() {
     st.kinds = 0;
     save_stamp(&conn, &st).unwrap();
     assert!(wanted(&conn).unwrap());
+    // Read again from the kept file: no new download.
     run_pass(&mut conn, dir.path(), &source, &http, false);
-    assert_eq!(source.opens(), 2);
+    assert_eq!(source.opens(), 1);
     run_pass(&mut conn, dir.path(), &source, &http, false);
-    assert_eq!(source.opens(), 2);
+    assert_eq!(source.opens(), 1);
 }
 
 #[test]
@@ -228,14 +229,14 @@ fn searching_for_a_back_cover_loads_another_entry_s_pictures_once() {
     add_browse(&conn, &[102]).unwrap();
     assert!(wanted(&conn).unwrap());
     assert!(run_pass(&mut conn, dir.path(), &source, &http, false).downloaded);
-    assert_eq!(source.opens(), opens + 1);
+    assert_eq!(source.opens(), opens);
     let found = case_search(&conn, game, images::Case::Back, "okami").unwrap();
     assert_eq!((found[0].source.as_str(), found[0].name.as_str()), ("launchbox", "okami-back.jpg"));
     assert!(found[0].label.ends_with("North America"));
     // Stored, so no more downloads, and later passes keep it.
     assert!(!wanted(&conn).unwrap());
     run_pass(&mut conn, dir.path(), &source, &http, false);
-    assert_eq!(source.opens(), opens + 1);
+    assert_eq!(source.opens(), opens);
     assert_eq!(count(&conn, "SELECT COUNT(*) FROM lb_images WHERE db_id = 102"), 1);
 }
 
@@ -290,11 +291,29 @@ fn a_platform_added_after_the_last_download_gets_one_more() {
     .unwrap();
     assert!(wanted(&conn).unwrap());
     assert!(run_pass(&mut conn, dir.path(), &source, &http, false).downloaded);
-    assert_eq!(source.opens(), 2);
+    assert_eq!(source.opens(), 1);
 
     // This LaunchBox file lists no Switch games: that's remembered, not downloaded every pass.
     assert!(!wanted(&conn).unwrap());
     run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(source.opens(), 1);
+}
+
+#[test]
+fn the_kept_file_is_downloaded_again_only_when_it_is_gone() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::test_db();
+    add_game(&conn, "Jak & Daxter - The Precursor Legacy (USA)");
+    let source = FakeSource::new(SAMPLE);
+    let http = FakeHttp::default();
+    run_pass(&mut conn, dir.path(), &source, &http, false);
+    assert_eq!(zip_bytes(dir.path()), Some(source.zip.len() as u64));
+    run_pass(&mut conn, dir.path(), &source, &http, true);
+    assert_eq!(source.opens(), 1, "an update with an unchanged file reads the kept copy");
+
+    delete_zip(dir.path()).unwrap();
+    assert_eq!(zip_bytes(dir.path()), None);
+    run_pass(&mut conn, dir.path(), &source, &http, true);
     assert_eq!(source.opens(), 2);
 }
 
@@ -467,4 +486,41 @@ fn launchbox_browse_timing() {
     }, &AtomicBool::new(false))
     .unwrap();
     println!("{:>6.1} s  done: {s:?}", t0.elapsed().as_secs_f32());
+}
+
+#[test]
+fn a_library_on_disk_downloads_pictures_in_parallel_with_the_same_result() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut conn = db::init(&dir.path().join("library.db")).unwrap();
+    let jak = add_game(&conn, "Jak & Daxter - The Precursor Legacy (USA)");
+    add_game(&conn, "Ookami (Japan)");
+    add_game(&conn, "Totally Unknown Game (USA)");
+    let source = FakeSource::new(SAMPLE);
+    let mut http = FakeHttp::default();
+    http.pages.insert(image_url("bbbb-01.png"), images::test_png(400, 150));
+    let s = run_pass(&mut conn, dir.path(), &source, &http, false);
+
+    assert_eq!((s.matched, s.not_found, s.covers_queued, s.logos, s.heroes), (2, 1, 1, 1, 0));
+    assert!(images::extra_path(dir.path(), Extra::Logo, jak).is_file());
+    // The workers' writes are in the library this connection reads.
+    let logo: String = conn.query_row("SELECT source FROM artwork WHERE game_id = ?1 AND kind = 'logo'", [jak], |r| r.get(0)).unwrap();
+    assert_eq!(logo, "launchbox");
+    assert_eq!(queries::game_metadata(&conn, jak).unwrap().genres, vec!["Adventure".to_string(), "Platform".to_string()]);
+}
+
+#[test]
+fn logos_prefer_english_or_region_free_over_japanese() {
+    let dir = tempfile::tempdir().unwrap();
+    let conn = db::test_db();
+    let id = add_game(&conn, "Super Mario 64 (USA)");
+    for (file, region) in [("jp-logo.png", Some("Japan")), ("plain-logo.png", None)] {
+        conn.execute("INSERT INTO lb_images (db_id, kind, region, file) VALUES (64, 'Clear Logo', ?1, ?2)", params![region, file]).unwrap();
+    }
+    let mut http = FakeHttp::default();
+    for f in ["jp-logo.png", "plain-logo.png"] {
+        http.pages.insert(image_url(f), images::test_png(400, 150));
+    }
+    assert!(fetch_extra(&conn, dir.path(), &http, id, 64, Some("USA"), Extra::Logo).unwrap());
+    let file: String = conn.query_row("SELECT remote_id FROM artwork WHERE game_id = ?1 AND kind = 'logo'", [id], |r| r.get(0)).unwrap();
+    assert_eq!(file, "plain-logo.png");
 }

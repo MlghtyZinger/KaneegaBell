@@ -27,6 +27,8 @@ pub struct Storage {
     pub reset_backup_bytes: Option<u64>,
     /// WebView2's disk cache (picker previews); capped, rebuilt as needed.
     pub web_cache_bytes: u64,
+    /// LaunchBox's kept game database file, if it has been downloaded.
+    pub launchbox_bytes: Option<u64>,
 }
 
 /// Where WebView2 keeps its disk cache inside KB's folder.
@@ -60,6 +62,7 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
         data_dir: data_dir.to_string_lossy().into_owned(),
         reset_backup_bytes: reset_backup_bytes(data_dir),
         web_cache_bytes: dir_size(&web_cache_dir(data_dir)),
+        launchbox_bytes: crate::launchbox::zip_bytes(data_dir),
     })
 }
 
@@ -81,6 +84,8 @@ const CLEAR_SQL: &str = "
     DELETE FROM game_genres;
     DELETE FROM genres;
     DELETE FROM metadata;
+    DELETE FROM igdb_game_series;
+    DELETE FROM igdb_series;
     UPDATE games SET igdb_id = NULL, match_status = 'none', meta_checked_at = NULL WHERE match_status != 'manual';
     UPDATE games SET meta_checked_at = NULL WHERE match_status = 'manual';
     UPDATE games SET ra_game_id = NULL;
@@ -233,6 +238,7 @@ pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
          DELETE FROM wd_games;
          DELETE FROM wd_series;
          DELETE FROM wd_game_series;
+         DELETE FROM igdb_series;
          DELETE FROM collections;
          DELETE FROM collection_looks;
          DELETE FROM settings;

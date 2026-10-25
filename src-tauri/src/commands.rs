@@ -1632,6 +1632,14 @@ pub fn delete_reset_backup(state: State<'_, AppState>) -> Result<()> {
     crate::maintenance::delete_reset_backup(state.data_dir())
 }
 
+/// Settings → Storage: deletes LaunchBox's kept file (~100 MB). Game info
+/// already imported stays; the file is downloaded again when it's needed.
+#[tauri::command]
+pub fn delete_launchbox_file(state: State<'_, AppState>) -> Result<()> {
+    let _slot = state.exclusive()?;
+    crate::launchbox::delete_zip(state.data_dir())
+}
+
 /// Deletes the downloaded covers, artwork, game info and achievement data,
 /// then fetches them again (where the automatic lookups are on). Returns the
 /// bytes freed.

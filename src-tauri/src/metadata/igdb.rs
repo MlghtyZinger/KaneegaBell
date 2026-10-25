@@ -29,7 +29,7 @@ const TOKEN_MARGIN_SECS: i64 = 24 * 3600;
 /// (editions like "Collector's Edition" point at their parent).
 pub const FIELDS: &str = "name,summary,first_release_date,genres.name,platforms,cover.image_id,\
 alternative_names.name,involved_companies.company.name,involved_companies.developer,\
-involved_companies.publisher,version_parent,game_type.type,slug";
+involved_companies.publisher,version_parent,game_type.type,slug,collections.name";
 
 #[derive(Debug, Clone)]
 pub struct Credentials {
@@ -84,6 +84,17 @@ pub struct Game {
     /// URL name ("golden-sun"); Backloggd's game pages use the same one.
     #[serde(default)]
     pub slug: Option<String>,
+    /// Series the game belongs to ("Jak and Daxter"). IGDB's franchises aren't
+    /// used: they're too broad (migration 025).
+    #[serde(default)]
+    pub collections: Vec<Entity>,
+}
+
+/// An expanded IGDB record with its id and name.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+pub struct Entity {
+    pub id: i64,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -110,6 +121,12 @@ impl Game {
         self.companies(|c| c.publisher)
     }
     /// Cover image URL for previews (`t_cover_big` is 264x374; `_2x` doubles it).
+    /// The game's series as (KB's series id, name, kind): IGDB's ids negated, so
+    /// they never meet Wikidata's item numbers (see migration 024).
+    pub fn series(&self) -> Vec<(i64, &str, &'static str)> {
+        self.collections.iter().map(|c| (-c.id, c.name.as_str(), "series")).collect()
+    }
+
     pub fn cover_url(&self) -> Option<String> {
         self.cover.as_ref().map(|c| cover_image(&c.image_id, "cover_big_2x"))
     }
@@ -377,5 +394,15 @@ mod tests {
         assert_eq!(okami.developer().as_deref(), Some("Clover Studio"));
         assert_eq!(okami.publisher().as_deref(), Some("Capcom"));
         assert_eq!(okami.cover_url().unwrap(), "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/abc.jpg");
+        assert!(okami.series().is_empty());
+    }
+
+    #[test]
+    fn series_get_negative_numbers_and_franchises_are_ignored() {
+        let jak: Game = serde_json::from_value(j!({"id": 1, "name": "Jak II",
+            "collections": [{"id": 12, "name": "Jak and Daxter"}],
+            "franchises": [{"id": 6, "name": "PlayStation Mascots"}]}))
+        .unwrap();
+        assert_eq!(jak.series(), [(-12, "Jak and Daxter", "series")]);
     }
 }
