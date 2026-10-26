@@ -732,47 +732,130 @@ input[type="checkbox"].switch:checked::after {
   font: inherit;
 }
 
-.settings-chips {
-  padding: 8px calc(var(--gap) * 2) 0;
-  flex: none;
+/* Settings is one screen: groups of settings in three columns. A setting is a tile
+   (name and status, then its button and switch); emulators and platforms are small
+   name-and-dot tiles that open their editor. Search lights matching settings up and
+   dims the rest. */
+.set-one {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+  max-width: 1900px;
+  margin: 0 auto;
 }
 
-/* Centred; auto margins (not justify-content) keep them scrollable when narrow. */
-.settings-chips > :first-child {
-  margin-left: auto;
-}
-
-.settings-chips > :last-child {
-  margin-right: auto;
-}
-
-.settings-chips.dimmed {
-  opacity: 0.55;
-}
-
-.set-results {
+.set-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 12px;
+  min-width: 0;
 }
 
-.set-result {
+.set-group {
+  padding: 6px 8px 8px;
+  border-radius: 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.set-group-title {
+  margin: 2px 6px 6px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.set-group .set-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+/* The sections that fill a group wrap their rows once more. */
+.set-group .card-section {
+  display: contents;
+}
+
+.set-group .set-item {
+  gap: 8px;
+  padding: 3px 10px;
+  min-height: 40px;
+  background: var(--bg);
+}
+
+.set-group .set-actions > .btn,
+.set-group .set-actions > .picker {
+  min-width: 7em;
+}
+
+.set-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.set-tile-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-align: left;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: transparent;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--bg);
   color: var(--text);
   font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
   cursor: pointer;
 }
 
-.set-result:hover,
-.set-result:focus-visible {
-  background: var(--surface);
+.set-tile-btn:hover,
+.set-tile-btn:focus-visible {
+  border-color: var(--focus);
+}
+
+.set-tile-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.set-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.set-dot.ok {
+  background: var(--ok);
+}
+
+.set-dot.warn {
+  background: var(--danger);
+}
+
+.set-item.hit,
+.set-tile.hit .set-tile-btn {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg));
+}
+
+.set-item.dim,
+.set-tile.dim {
+  opacity: 0.35;
+}
+
+@media (max-width: 1100px) {
+  .set-one {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 1000px) {
@@ -1091,6 +1174,42 @@ kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+/* A picker opened as a dropdown: a menu under its button, over a clear click-catcher. */
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.picker-menu-wrap {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.55);
+  overflow: hidden;
+}
+
+.picker-menu {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.picker-menu .picker-list {
+  max-height: none;
+  padding: 4px;
+  gap: 2px;
+}
+
+.picker-menu .picker-option {
+  padding: 8px 12px;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
 }
 
 .picker-option:hover,

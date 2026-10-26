@@ -843,6 +843,14 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.4
+- New: Settings is one screen, with no tabs: Library, Game info, Emulators, Platforms, Controller, TV Mode, App, Look and start-up, Motion and Sound sit side by side.
+- New: the search box at the top lights up the settings you're looking for and dims the rest.
+- Changed: emulators and platforms are small tiles that open their settings when chosen.
+- Changed: the choices in the right-hand column of Settings open as a dropdown under the setting, not in the middle of the screen.
+- Changed: KB opens in one choice (a window, fullscreen or TV Mode), and the start-up intro, launch animation and sounds are one setting each for the desktop and TV Mode (sounds: off or a volume).
+- Changed: List view (press V), Open TV Mode on and Overscan margin are no longer in Settings.
+
 ### 0.4.3
 - Changed: Add RPCS3 installed games is in Settings → ROM folders, not its own row.
 - Changed: the RetroArch cores folder is in the RetroArch emulator's settings.

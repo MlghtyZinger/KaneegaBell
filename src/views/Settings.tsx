@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
+import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
@@ -18,90 +18,120 @@ import { fx, INTROS, type AnimLevel, type IntroKey, type IntroPick, type SoundPr
 import { playIntro } from "../fx/Intro";
 import { sfx } from "../fx/audio";
 
-type Section = "library" | "emulators" | "platforms" | "services" | "general";
-const SECTIONS: [Section, string][] = [
-  ["library", "Library"],
-  ["emulators", "Emulators"],
-  ["platforms", "Platforms"],
-  ["services", "Game info"],
-  ["general", "General"],
-];
-
 type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
 
 /**
- * Every setting's name, section and explanation. The explanation shows in the
- * details strip when the setting has focus, and search looks through all of
- * it (plus `words`), so a setting is found from any section.
+ * Every setting's name and explanation. The explanation pops up when the setting
+ * has focus, and search highlights a setting whose name, `words` or explanation
+ * match.
  */
-type Info = { section: Section; title: string; detail: string; words?: string };
+type Info = { title: string; detail: string; words?: string };
 const INFO: Record<string, Info> = {
-  scan: { section: "library", title: "Scan", words: "rescan games warnings skipped", detail: "Looks through your ROM folders for new, changed and removed games. The report lists what changed and anything it skipped." },
-  covers: { section: "library", title: "Covers", words: "box art artwork thumbnails libretro gametdb automatic", detail: "Box art comes first from the LaunchBox Games Database, then libretro-thumbnails and GameTDB. No account needed, and it's cached for offline use. Change any cover from the game's details. The switch fetches covers after each scan." },
-  folders: { section: "library", title: "ROM folders", words: "auto folder source path platform subfolders add browse rpcs3 ps3 dev_hdd0 installed psn", detail: "Auto works out each game's platform from its files and disc contents, falling back to folder names like \"PS2\" or \"PSX\". Files it can't place are listed under the scan's warnings; assigning a platform to the folder always works. Add RPCS3 installed games adds the PS3 games in RPCS3's dev_hdd0 folder as a source of their own." },
-  findEmus: { section: "emulators", title: "Find emulators", words: "detect scan folder exe paths", detail: "Looks in a folder (up to two levels deep) for every emulator KB knows, like RetroArch, Dolphin, PCSX2, Eden, Ryubing or xemu, and fills in their paths." },
-  platforms: { section: "platforms", title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
-  launchbox: { section: "services", title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, back covers, discs and spines, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) once and keeps it in its folder, so adding games never downloads it again; it keeps only your games' details and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
-  wikidata: { section: "services", title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
-  igdb: { section: "services", title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
-  sgdb: { section: "services", title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
-  ra: { section: "services", title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
-  style: { section: "general", title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
-  exitCombo: { section: "general", title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
-  listView: { section: "general", title: "List view", words: "display layout rows steam list sections grid r3 v", detail: "Shows games as rows with a details panel on the right (cover, background, achievements, links) instead of the cover grid. Switch from the library with R3 or V." },
-  fullscreen: { section: "general", title: "Start fullscreen", words: "display window f11", detail: "Opens KB fullscreen. F11 toggles fullscreen at any time." },
-  startTv: { section: "general", title: "Start in TV Mode", words: "big picture tv mode l3 f10", detail: "Opens KB in TV Mode, the big-screen view with backgrounds and logos. Switch any time with L3, F10 or the TV Mode button." },
-  size: { section: "general", title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
-  anim: { section: "general", title: "Animations", words: "motion reduced off launch animation case cartridge 3d shelf flat covers inspect", detail: "Full moves the most, Reduced only fades, Off keeps everything still; desktop and TV Mode each have their own. The launch animation opens the game's case (or puts the cartridge in its console) before the emulator starts; Back cancels it. TV Mode shows a large selected case you can turn and flip, or a flat cover." },
-  intro: { section: "general", title: "Start-up intro", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random sound file intros folder", detail: "An intro plays when KB starts: one at random, always the same one, or none. Any button skips it. To use your own sound for one, put a file named after it (konami, rockstar, gba, gamecube, ps1, ps2, ps3, psp or switch, as .ogg, .mp3 or .wav) in the intros folder inside KB's data folder." },
-  sounds: { section: "general", title: "Sounds", words: "sound effects audio volume mute tactile console retro profile menu clicks", detail: "Short sounds for moving, choosing, going back and starting a game. Tactile sounds like real buttons, Console like a system menu, Retro console like CRT-era hardware. Desktop and TV Mode each have their own switch and volume; KB is silent while a game runs." },
-  tv: { section: "general", title: "TV Mode display", words: "tv monitor display text size overscan margin", detail: "With a display chosen, TV Mode moves KB to it and goes fullscreen, and leaving brings the window back. Raise the overscan margin if your TV cuts off the edges (the clock or hints are missing)." },
-  updates: { section: "general", title: "Updates", words: "version check what's new access code", detail: "Updates install only when you choose to, never while a game runs, and KB refuses any download that isn't signed. The access code lets this copy read KaneegaBell's private releases." },
-  storage: { section: "general", title: "Storage and reset", words: "clear downloaded data reset backup cache space", detail: "Clear downloaded data deletes the covers, info and achievement data KB downloaded, then fetches them again. Reset goes back to the first start (a copy of the old library is kept). Neither touches your games, emulators or saves." },
-  removed: { section: "general", title: "Removed games", words: "forget missing hidden deleted play time", detail: "When a game's file disappears, KB keeps it hidden if you played or favorited it, so it comes back with the file (e.g. an unplugged drive). Forgetting deletes them for good. With the switch on, scans do that right away." },
+  scan: { title: "Scan", words: "rescan games warnings skipped", detail: "Looks through your ROM folders for new, changed and removed games. The report lists what changed and anything it skipped." },
+  covers: { title: "Covers", words: "box art artwork thumbnails libretro gametdb automatic", detail: "Box art comes first from the LaunchBox Games Database, then libretro-thumbnails and GameTDB. No account needed, and it's cached for offline use. Change any cover from the game's details. The switch fetches covers after each scan." },
+  folders: { title: "ROM folders", words: "auto folder source path platform subfolders add browse rpcs3 ps3 dev_hdd0 installed psn", detail: "Auto works out each game's platform from its files and disc contents, falling back to folder names like \"PS2\" or \"PSX\". Files it can't place are listed under the scan's warnings; assigning a platform to the folder always works. Add RPCS3 installed games adds the PS3 games in RPCS3's dev_hdd0 folder as a source of their own." },
+  findEmus: { title: "Find emulators", words: "detect scan folder exe paths", detail: "Looks in a folder (up to two levels deep) for every emulator KB knows, like RetroArch, Dolphin, PCSX2, Eden, Ryubing or xemu, and fills in their paths." },
+  platforms: { title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
+  launchbox: { title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, back covers, discs and spines, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) once and keeps it in its folder, so adding games never downloads it again; it keeps only your games' details and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
+  wikidata: { title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
+  igdb: { title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
+  sgdb: { title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
+  ra: { title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
+  style: { title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
+  exitCombo: { title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
+  opensIn: { title: "KB opens in", words: "start fullscreen window tv mode big picture f11 l3 f10", detail: "How KB looks when it starts: in a window, fullscreen, or in TV Mode, the big-screen view with backgrounds and logos. F11 toggles fullscreen and L3 or F10 switches TV Mode at any time." },
+  intro: { title: "Start-up intro", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random sound file intros folder", detail: "An intro plays when KB starts, on the desktop and in TV Mode. Random never repeats the last one; Off skips it. Your own sound files go in the data folder's intros folder." },
+  introWatch: { title: "Watch an intro", words: "preview play intro", detail: "Pick an intro and play it to see it." },
+  animDesktop: { title: "Animations, desktop", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
+  animTv: { title: "Animations, TV Mode", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
+  launchFx: { title: "Launch animation", words: "case cartridge 3d disc game start", detail: "Opens the game's case (or puts the cartridge in its console) before the emulator starts, on the desktop and in TV Mode. Back cancels it." },
+  soundProfile: { title: "Sound profile", words: "sound effects audio tactile console retro menu clicks", detail: "The short sounds for moving, choosing, going back and starting a game. Silent while a game runs." },
+  soundDesktop: { title: "Sounds, desktop", words: "volume mute audio", detail: "Menu sounds on the desktop: off, or how loud." },
+  soundTv: { title: "Sounds, TV Mode", words: "volume mute audio", detail: "Menu sounds in TV Mode: off, or how loud." },
+  tvText: { title: "TV Mode text size", words: "small large couch", detail: "Text size in TV Mode, for reading from the couch." },
+  tvShelf: { title: "TV Mode selected game", words: "3d case flat cover shelf", detail: "TV Mode shows the selected game as a large case you can turn and flip, or a flat cover." },
+  size: { title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
+  updates: { title: "Updates", words: "version check what's new access code", detail: "Updates install only when you choose to, never while a game runs, and KB refuses any download that isn't signed. The access code lets this copy read KaneegaBell's private releases." },
+  storage: { title: "Storage and reset", words: "clear downloaded data reset backup cache space", detail: "Clear downloaded data deletes the covers, info and achievement data KB downloaded, then fetches them again. Reset goes back to the first start (a copy of the old library is kept). Neither touches your games, emulators or saves." },
+  removed: { title: "Removed games", words: "forget missing hidden deleted play time", detail: "When a game's file disappears, KB keeps it hidden if you played or favorited it, so it comes back with the file (e.g. an unplugged drive). Forgetting deletes them for good. With the switch on, scans do that right away." },
 };
 
 /**
  * One setting as a tile: name and status, then its main button(s) and its
  * on/off switch, each in a fixed slot so they line up down the column. Lists
  * and forms (`sub`) open in a panel from the `open` button. Its explanation
- * pops up when it has focus or the mouse rests on it.
+ * pops up when it has focus or the mouse rests on it. With `tile` it is a
+ * compact name-and-dot button instead (emulators, platforms), and everything
+ * it has opens in its panel, the switch included.
  */
 function Row(props: {
   k: string;
   title?: string;
   detail?: string;
+  words?: string;
+  /** What a compact tile says, when shorter than its title (the title still names its panel). */
+  label?: string;
   status?: JSX.Element;
   children?: JSX.Element;
   toggle?: JSX.Element;
+  toggleLabel?: string;
   open?: string | false;
   sub?: JSX.Element;
+  tile?: boolean;
+  dot?: "ok" | "off" | "warn";
 }) {
   const title = () => props.title ?? INFO[props.k]?.title ?? "";
+  const detail = () => props.detail ?? INFO[props.k]?.detail ?? "";
+  const words = () => props.words ?? INFO[props.k]?.words ?? "";
   const [editing, setEditing] = createSignal(false);
   // Checked by key: reading a JSX prop would build it a second time.
   const hasStatus = "status" in props;
+  const hasToggle = "toggle" in props;
   return (
-    <div class="set-item" id={`set-${props.k}`} data-title={title()} data-detail={props.detail ?? INFO[props.k]?.detail ?? ""}>
-      <div class="set-text">
-        <div class="set-name">{title()}</div>
-        {hasStatus && <div class="set-status">{props.status}</div>}
-      </div>
-      <div class="set-actions">
-        {props.children}
-        <Show when={props.open}>
-          <button class="btn" onClick={() => setEditing(true)}>
-            {props.open}
-          </button>
+    <Show
+      when={props.tile}
+      fallback={
+        <div class="set-item" id={`set-${props.k}`} data-title={title()} data-detail={detail()} data-words={words()}>
+          <div class="set-text">
+            <div class="set-name">{title()}</div>
+            {hasStatus && <div class="set-status">{props.status}</div>}
+          </div>
+          <div class="set-actions">
+            {props.children}
+            <Show when={props.open}>
+              <button class="btn" onClick={() => setEditing(true)}>
+                {props.open}
+              </button>
+            </Show>
+          </div>
+          <div class="set-toggle">{props.toggle}</div>
+          <Show when={editing()}>
+            <SetPanel title={title()} onClose={() => setEditing(false)}>
+              {props.sub}
+            </SetPanel>
+          </Show>
+        </div>
+      }
+    >
+      <div class="set-tile" id={`set-${props.k}`} data-title={title()} data-detail={detail()} data-words={words()}>
+        <button class="set-tile-btn" title={title()} onClick={() => setEditing(true)}>
+          <span class="set-dot" classList={{ ok: props.dot === "ok", warn: props.dot === "warn" }} aria-hidden="true" />
+          <span class="set-tile-name">{props.label ?? title()}</span>
+        </button>
+        <Show when={editing()}>
+          <SetPanel title={title()} onClose={() => setEditing(false)}>
+            {hasStatus && <div class="set-status">{props.status}</div>}
+            {props.sub}
+            {hasToggle && (
+              <div class="form-grid">
+                <label>{props.toggleLabel ?? "On"}</label>
+                {props.toggle}
+              </div>
+            )}
+          </SetPanel>
         </Show>
       </div>
-      <div class="set-toggle">{props.toggle}</div>
-      <Show when={editing()}>
-        <SetPanel title={title()} onClose={() => setEditing(false)}>
-          {props.sub}
-        </SetPanel>
-      </Show>
-    </div>
+    </Show>
   );
 }
 
@@ -174,11 +204,20 @@ function MissedGames(props: { games: Missed[]; label?: string }) {
   );
 }
 
+/** A titled card of settings on the one-screen Settings view. */
+function Group(props: { title: string; children: JSX.Element }) {
+  return (
+    <section class="set-group">
+      <h2 class="set-group-title">{props.title}</h2>
+      <div class="set-list">{props.children}</div>
+    </section>
+  );
+}
+
 export function SettingsView(props: { onClose: () => void }) {
   // A store reconciled by id: after each change only the edited row updates,
   // so the focused control (and controller navigation) stays put.
   const [store, setStore] = createStore<{ s: Settings | null }>({ s: null });
-  const [section, setSection] = createSignal<Section>("library");
   const [error, setError] = createSignal<string | null>(null);
   const [notice, setNotice] = createSignal<string | null>(null);
 
@@ -198,64 +237,38 @@ export function SettingsView(props: { onClose: () => void }) {
     await refresh();
   };
 
-  const cycle = (d: 1 | -1) => {
-    setQuery("");
-    const i = SECTIONS.findIndex(([id]) => id === section());
-    setSection(SECTIONS[(i + d + SECTIONS.length) % SECTIONS.length][0]);
-  };
-
-  // Search: every setting of every section, emulators and platforms by name too.
+  // Search: a setting whose name, keywords, explanation or status match lights up
+  // where it is; every other setting dims. Nothing moves or hides.
   const [query, setQuery] = createSignal("");
   let searchEl!: HTMLInputElement;
-  const sectionLabel = (id: Section) => SECTIONS.find(([s]) => s === id)?.[1] ?? "";
-  const index = createMemo(() => [
-    ...Object.entries(INFO).map(([k, v]) => ({ k, ...v })),
-    ...(store.s?.emulators ?? []).map((e) => ({
-      k: `emu-${e.id}`,
-      section: "emulators" as Section,
-      title: e.name,
-      detail: `${e.name}: where its .exe is and how KB starts it (launch template).`,
-      words: "emulator exe path template",
-    })),
-    ...(store.s?.platforms ?? []).map((p) => ({
-      k: `plat-${p.id}`,
-      section: "platforms" as Section,
-      title: p.name,
-      detail: `${p.name}: on or off, its emulators, RetroArch core, launch template and file types.`,
-      words: `${p.shortName} platform core extensions emulators ${p.coreProblem ?? ""}`,
-    })),
-  ]);
-  const results = createMemo(() => {
+  let bodyEl!: HTMLDivElement;
+  const items = () => [...bodyEl.querySelectorAll<HTMLElement>(".set-item, .set-tile")];
+  const highlight = () => {
     const words = query().toLowerCase().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [];
-    // Name and keyword matches first, then ones found only in the explanation.
-    const rank = (i: Info & { k: string }) => {
-      const head = `${i.title} ${i.words ?? ""} ${sectionLabel(i.section)}`.toLowerCase();
-      if (words.every((w) => head.includes(w))) return 0;
-      return words.every((w) => `${head} ${i.detail.toLowerCase()}`.includes(w)) ? 1 : 2;
-    };
-    return index()
-      .map((i) => ({ i, r: rank(i) }))
-      .filter((x) => x.r < 2)
-      .sort((a, b) => a.r - b.r)
-      .map((x) => x.i);
-  });
-  /** Opens a search result's section and puts focus on that setting. */
-  const jump = (k: string, s: Section) => {
-    setQuery("");
-    setSection(s);
-    // After the section has rendered (a timer: animation frames pause in a hidden window).
-    setTimeout(() => {
-      const el = document.getElementById(`set-${k}`);
-      if (!el) return;
-      el.scrollIntoView({ block: "center" });
-      el.querySelector<HTMLElement>("button, input, [tabindex]")?.focus({ preventScroll: true });
-      showFor(el, 0);
-    }, 0);
+    for (const el of items()) {
+      const hay = `${el.dataset.title ?? ""} ${el.dataset.words ?? ""} ${el.dataset.detail ?? ""} ${el.textContent ?? ""}`.toLowerCase();
+      const hit = words.length > 0 && words.every((w) => hay.includes(w));
+      el.classList.toggle("hit", hit);
+      el.classList.toggle("dim", words.length > 0 && !hit);
+    }
   };
+  // After the rows have rendered (and again whenever a setting changes).
+  createEffect(on([query, () => store.s], () => queueMicrotask(highlight)));
+  const focusIn = (el: HTMLElement | undefined) => {
+    el?.scrollIntoView({ block: "nearest" });
+    el?.querySelector<HTMLElement>("button, input, [tabindex]")?.focus({ preventScroll: true });
+  };
+  /** Moves focus into the first matching setting. */
+  const goToHit = () => focusIn(items().find((el) => el.classList.contains("hit")));
   const openSearch = () => {
     searchEl.focus();
     if (device() === "gamepad") editWithOsk(searchEl);
+  };
+  /** L1 / R1: the next or previous group. */
+  const step = (d: 1 | -1) => {
+    const groups = [...bodyEl.querySelectorAll<HTMLElement>(".set-group")];
+    const at = groups.findIndex((g) => g.contains(document.activeElement));
+    focusIn(groups[(at + d + groups.length) % groups.length]);
   };
 
   // A setting's explanation pops up beside it once focus or the mouse rests on it.
@@ -283,7 +296,7 @@ export function SettingsView(props: { onClose: () => void }) {
   onCleanup(() => clearTimeout(popTimer));
   const follow = (e: Event) => {
     const t = e.target as HTMLElement;
-    // Panels over the section explain themselves.
+    // Panels over the screen explain themselves.
     showFor(t.closest(".overlay") ? null : t.closest<HTMLElement>("[data-detail]"));
   };
 
@@ -292,7 +305,7 @@ export function SettingsView(props: { onClose: () => void }) {
       class="settings"
       onBack={() => (query() ? setQuery("") : props.onClose())}
       onMenu={props.onClose}
-      onTab={cycle}
+      onTab={step}
       onSecondary={openSearch}
     >
       <header class="topbar">
@@ -310,6 +323,8 @@ export function SettingsView(props: { onClose: () => void }) {
               if (e.key === "Escape" && query()) {
                 setQuery("");
                 e.stopPropagation();
+              } else if (e.key === "Enter") {
+                goToHit();
               }
             }}
           />
@@ -320,41 +335,8 @@ export function SettingsView(props: { onClose: () => void }) {
           </button>
         </div>
       </header>
-      <nav class="platform-tabs settings-chips" classList={{ dimmed: !!query() }}>
-        <For each={SECTIONS}>
-          {([id, label]) => (
-            <button
-              class="tab"
-              classList={{ active: !query() && section() === id }}
-              onClick={() => {
-                setQuery("");
-                setSection(id);
-              }}
-            >
-              {label}
-            </button>
-          )}
-        </For>
-      </nav>
 
-      <div class="settings-body" onFocusIn={follow} onMouseOver={follow} onMouseLeave={() => showFor(null)} onScroll={() => showFor(null)}>
-        <Show when={query()}>
-          <section class="card-section set-results">
-            <Show
-              when={results().length > 0}
-              fallback={<p class="dim">No setting matches "{query()}". Try a shorter word.</p>}
-            >
-              <For each={results()}>
-                {(r) => (
-                  <button class="set-result" data-title={r.title} data-detail={r.detail} onClick={() => jump(r.k, r.section)}>
-                    <span class="set-name">{r.title}</span>
-                    <span class="badge">{sectionLabel(r.section)}</span>
-                  </button>
-                )}
-              </For>
-            </Show>
-          </section>
-        </Show>
+      <div class="settings-body" ref={bodyEl} onFocusIn={follow} onMouseOver={follow} onMouseLeave={() => showFor(null)} onScroll={() => showFor(null)}>
         <Show when={error()}>
           <div class="banner error" role="alert">
             {error()}
@@ -365,31 +347,43 @@ export function SettingsView(props: { onClose: () => void }) {
             {notice()}
           </div>
         </Show>
-        <Show when={!query() && store.s} fallback={store.s ? null : <p>Loading…</p>}>
+        <Show when={store.s} fallback={<p>Loading…</p>}>
           {(s) => (
-            <>
-              <Show when={section() === "library"}>
-                <LibrarySection s={s()} run={run} />
-              </Show>
-              <Show when={section() === "emulators"}>
-                <EmulatorsSection s={s()} run={run} />
-              </Show>
-              <Show when={section() === "platforms"}>
-                <PlatformsSection s={s()} run={run} />
-              </Show>
-              <Show when={section() === "services"}>
-                <section class="card-section set-list">
+            <div class="set-one">
+              <div class="set-col">
+                <Group title="Library">
+                  <LibrarySection s={s()} run={run} />
+                </Group>
+                <Group title="Game info">
                   <LaunchBoxSection run={run} />
                   <WikidataSection run={run} />
                   <ServicesSection s={s()} run={run} />
                   <SteamGridDbSection run={run} />
                   <RetroAchievementsSection run={run} />
-                </section>
-              </Show>
-              <Show when={section() === "general"}>
+                </Group>
+                <Group title="Controller">
+                  <ControllerRows s={s()} run={run} />
+                </Group>
+              </div>
+              <div class="set-col">
+                <Group title="Emulators">
+                  <EmulatorsSection s={s()} run={run} />
+                </Group>
+                <Group title="Platforms">
+                  <PlatformsSection s={s()} run={run} />
+                </Group>
+                <Group title="TV Mode">
+                  <TvRows s={s()} run={run} />
+                </Group>
+                <Group title="App">
+                  <UpdatesBlock s={s()} run={run} />
+                  <StorageBlock s={s()} run={run} />
+                </Group>
+              </div>
+              <div class="set-col">
                 <GeneralSection s={s()} run={run} />
-              </Show>
-            </>
+              </div>
+            </div>
           )}
         </Show>
       </div>
@@ -407,7 +401,7 @@ export function SettingsView(props: { onClose: () => void }) {
       </Show>
       <footer class="hints">
         <Hint action="secondary" label="Search" />
-        <Hint actions={["prevPlatform", "nextPlatform"]} label="Section" />
+        <Hint actions={["prevPlatform", "nextPlatform"]} label="Group" />
         <Hint action="select" label="Select / edit" />
         <Hint action="back" label={query() ? "Clear search" : "Back"} />
       </footer>
@@ -526,7 +520,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         <Show
           when={library.scanProgress()}
           fallback={
-            <button class="btn primary big" onClick={() => void library.scan()}>
+            <button class="btn primary" onClick={() => void library.scan()}>
               Scan library
             </button>
           }
@@ -560,7 +554,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
         <Show
           when={library.artProgress()}
           fallback={
-            <button class="btn big" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
+            <button class="btn" disabled={!!library.scanProgress()} onClick={() => void library.fetchArt()}>
               Fetch missing
             </button>
           }
@@ -734,7 +728,9 @@ function EmulatorsSection(props: { s: Settings; run: Run }) {
           Find emulators…
         </button>
       </Row>
-      <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} cores={coresDir()} />}</For>
+      <div class="set-tiles">
+        <For each={builtIn()}>{(emu) => <EmulatorEditor emu={emu} run={props.run} cores={coresDir()} />}</For>
+      </div>
       <Show when={browsing()}>
         <FileBrowser
           title="Folder containing your emulators"
@@ -755,6 +751,9 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run; cores?: string }) {
   const save = (exe: string | null, tpl: string | null) => props.run(() => api.updateEmulator(props.emu.id, exe, tpl));
   return (
     <Row
+      tile
+      dot={props.emu.exeExists ? "ok" : props.emu.exePath ? "warn" : "off"}
+      words={`emulator exe path template ${props.emu.exeExists ? "found" : props.emu.exePath ? "file missing" : "not set"}`}
       k={`emu-${props.emu.id}`}
       title={props.emu.name}
       detail={`Where ${props.emu.name}'s .exe is, and how KB starts it. Leave the launch template empty for the default (shown in grey); placeholders: {emulator} {core} {rom} {rom_dir} {rom_name}.${achievementsNote(props.emu.achievements) ? ` ${achievementsNote(props.emu.achievements)} with RetroAchievements.` : ""}`}
@@ -764,7 +763,6 @@ function EmulatorEditor(props: { emu: EmulatorRow; run: Run; cores?: string }) {
           <Show when={achievementsNote(props.emu.achievements)}>{` · ${achievementsNote(props.emu.achievements)}`}</Show>
         </span>
       }
-      open={props.emu.exePath ? "Edit…" : "Set path…"}
       sub={
         <div class="set-fields">
           <label class="field-label">Executable</label>
@@ -873,9 +871,15 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
 
   return (
     <section class="card-section set-list" id="set-platforms">
+      <div class="set-tiles">
       <For each={props.s.platforms}>
         {(p) => (
           <Row
+            tile
+            dot={p.coreProblem ? "warn" : p.enabled ? "ok" : "off"}
+            words={`${p.shortName} platform core extensions emulators ${emuName(defaultOf(p))} ${p.enabled ? "on" : "off"} ${p.coreProblem ?? ""}`}
+            toggleLabel={`Use ${p.name}`}
+            label={p.shortName}
             k={`plat-${p.id}`}
             title={p.name}
             detail={
@@ -890,7 +894,6 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
                 {p.gameCount === 1 ? "" : "s"}
               </Show>
             }
-            open="Edit…"
             sub={
               <>
                 <div class="form-grid">
@@ -935,6 +938,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
           />
         )}
       </For>
+      </div>
       <Show when={props.s.platforms.find((p) => p.id === emusOf())}>
         {(p) => <PlatformEmulatorsPanel p={p()} s={props.s} run={props.run} onClose={() => setEmusOf(null)} />}
       </Show>
@@ -1543,7 +1547,8 @@ function RetroAchievementsSection(props: { run: Run }) {
   );
 }
 
-function GeneralSection(props: { s: Settings; run: Run }) {
+/** The exit combo: which buttons close the running game, and for how long to hold them. */
+function ControllerRows(props: { s: Settings; run: Run }) {
   const combo = (): ExitCombo =>
     (props.s.values.exitCombo as ExitCombo | undefined) ?? { buttons: ["back", "start"], holdMs: 1000 };
   const family = () => session.lastPad()?.family;
@@ -1551,36 +1556,14 @@ function GeneralSection(props: { s: Settings; run: Run }) {
     const buttons = on ? [...combo().buttons, b] : combo().buttons.filter((x) => x !== b);
     return props.run(() => api.setSetting("exitCombo", { ...combo(), buttons }));
   };
-
-  const [themes, { mutate }] = createResource(() => api.listThemes());
-  const current = () => themes()?.[0].find((t) => t.id === themes()?.[1]);
-
   return (
-    <section class="card-section set-list">
-      <Row k="style" status={current() ? `${current()!.name} · ${FOCUS_LOOKS[current()!.focusLook] ?? ""} focus` : ""}>
-        <Show when={themes()}>
-          {(list) => (
-            <Picker
-              title="Style"
-              value={list()[1]}
-              options={list()[0].map((t) => ({ value: t.id, label: t.name }))}
-              onChange={(id) =>
-                props.run(async () => {
-                  applyTheme(await api.setTheme(id));
-                  mutate([list()[0], id]);
-                })
-              }
-            />
-          )}
-        </Show>
-      </Row>
-      <Row
-        k="exitCombo"
-        detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}
-        status={`Hold ${combo().buttons.map((b) => buttonLabel(b, family())).join(" + ")} for ${combo().holdMs / 1000} s`}
-        open="Change…"
-        sub={
-          <>
+    <Row
+      k="exitCombo"
+      detail={`${INFO.exitCombo.detail}${session.lastPad() ? ` Labels shown for: ${session.lastPad()!.name}.` : ""}`}
+      status={`Hold ${combo().buttons.map((b) => buttonLabel(b, family())).join(" + ")} for ${combo().holdMs / 1000} s`}
+      open="Change…"
+      sub={
+        <>
           <div class="combo-grid">
             <For each={COMBO_BUTTONS}>
               {(b) => (
@@ -1604,65 +1587,100 @@ function GeneralSection(props: { s: Settings; run: Run }) {
               onChange={(v) => props.run(() => api.setSetting("exitCombo", { ...combo(), holdMs: Number(v) }))}
             />
           </div>
-          </>
-        }
-      />
-
-      <Row k="listView" status={library.listView() ? "List with details panel" : "Cover grid"}
-        toggle={
-          <OnOff
-          label="Show the library as a list with a details panel"
-          checked={library.listView()}
-          onChange={(on) => library.setListView(on)}
-        />
-        }
-      />
-      <Row k="fullscreen" status="F11 switches any time"
-        toggle={
-          <OnOff
-          label="Start fullscreen"
-          checked={props.s.values.tvMode === true}
-          onChange={(on) => void props.run(() => api.setSetting("tvMode", on))}
-        />
-        }
-      />
-      <Row k="startTv" status="L3 or F10 switches any time"
-        toggle={
-          <OnOff
-          label="Start in TV Mode"
-          checked={props.s.values.startInTv === true}
-          onChange={(on) => void props.run(() => api.setSetting("startInTv", on))}
-        />
-        }
-      />
-      <Row k="size">
-        <Picker
-          title="Interface size"
-          value={props.s.values.interfaceSize === "fixed" ? "fixed" : "auto"}
-          options={[
-            { value: "auto", label: "Fit the screen" },
-            { value: "fixed", label: "Follow Windows scaling only" },
-          ]}
-          onChange={(v) =>
-            props.run(async () => {
-              await api.setSetting("interfaceSize", v);
-              await api.refreshZoom();
-            })
-          }
-        />
-      </Row>
-
-      <AnimBlock />
-      <IntroBlock />
-      <SoundBlock />
-      <TvModeBlock s={props.s} run={props.run} />
-
-      <UpdatesBlock s={props.s} run={props.run} />
-      <StorageBlock s={props.s} run={props.run} />
-    </section>
+        </>
+      }
+    />
   );
 }
 
+/** Look and start-up, motion and sound: the groups of the right-hand column. */
+function GeneralSection(props: { s: Settings; run: Run }) {
+  const [themes, { mutate }] = createResource(() => api.listThemes());
+  const current = () => themes()?.[0].find((t) => t.id === themes()?.[1]);
+  // "Start fullscreen" and "Start in TV Mode" are one choice: only one of them is ever on.
+  const opensIn = () => (props.s.values.startInTv === true ? "tv" : props.s.values.tvMode === true ? "fullscreen" : "window");
+  const setOpensIn = (v: string) =>
+    props.run(async () => {
+      await api.setSetting("tvMode", v === "fullscreen");
+      await api.setSetting("startInTv", v === "tv");
+    });
+  return (
+    <>
+      <Group title="Look and start-up">
+        <Row k="style" status={current() ? `${current()!.name} · ${FOCUS_LOOKS[current()!.focusLook] ?? ""} focus` : ""}>
+          <Show when={themes()}>
+            {(list) => (
+              <Picker
+                dropdown title="Style"
+                value={list()[1]}
+                options={list()[0].map((t) => ({ value: t.id, label: t.name }))}
+                onChange={(id) =>
+                  props.run(async () => {
+                    applyTheme(await api.setTheme(id));
+                    mutate([list()[0], id]);
+                  })
+                }
+              />
+            )}
+          </Show>
+        </Row>
+        <Row k="size">
+          <Picker
+            dropdown title="Interface size"
+            value={props.s.values.interfaceSize === "fixed" ? "fixed" : "auto"}
+            options={[
+              { value: "auto", label: "Fit the screen" },
+              { value: "fixed", label: "Follow Windows scaling only" },
+            ]}
+            onChange={(v) =>
+              props.run(async () => {
+                await api.setSetting("interfaceSize", v);
+                await api.refreshZoom();
+              })
+            }
+          />
+        </Row>
+        <Row k="opensIn">
+          <Picker
+            dropdown title="KB opens in"
+            value={opensIn()}
+            options={[
+              { value: "window", label: "A window" },
+              { value: "fullscreen", label: "Fullscreen" },
+              { value: "tv", label: "TV Mode" },
+            ]}
+            onChange={setOpensIn}
+          />
+        </Row>
+        <IntroRows />
+      </Group>
+      <Group title="Motion">
+        <Row k="animDesktop">
+          <Picker dropdown title="Desktop animations" value={fx.get("animDesktop")} options={LEVELS} onChange={(v) => fx.set("animDesktop", v)} />
+        </Row>
+        <Row k="animTv">
+          <Picker dropdown title="TV Mode animations" value={fx.get("animTv")} options={LEVELS} onChange={(v) => fx.set("animTv", v)} />
+        </Row>
+        <Row
+          k="launchFx"
+          toggle={
+            <OnOff
+              label="Launch animation"
+              checked={fx.get("launchFxDesktop") || fx.get("launchFxTv")}
+              onChange={(on) => {
+                fx.set("launchFxDesktop", on);
+                fx.set("launchFxTv", on);
+              }}
+            />
+          }
+        />
+      </Group>
+      <Group title="Sound">
+        <SoundRows />
+      </Group>
+    </>
+  );
+}
 const size = (n: number) =>
   n >= 1073741824 ? `${(n / 1073741824).toFixed(1)} GB` : n >= 1048576 ? `${(n / 1048576).toFixed(0)} MB` : `${Math.round(n / 1024)} KB`;
 
@@ -1907,67 +1925,33 @@ const LEVELS: { value: AnimLevel; label: string }[] = [
   { value: "reduced", label: "Reduced" },
   { value: "off", label: "Off" },
 ];
-const levelName = (v: AnimLevel) => LEVELS.find((l) => l.value === v)?.label ?? v;
-
-function AnimBlock() {
-  return (
-    <Row
-      k="anim"
-      status={`Desktop ${levelName(fx.get("animDesktop"))} · TV Mode ${levelName(fx.get("animTv"))} · ${fx.get("tvShelf") === "3d" ? "3D case" : "flat cover"}`}
-      open="Change…"
-      sub={
-        <div class="form-grid">
-          <label>Desktop</label>
-          <Picker title="Desktop animations" value={fx.get("animDesktop")} options={LEVELS} onChange={(v) => fx.set("animDesktop", v)} />
-          <label>TV Mode</label>
-          <Picker title="TV Mode animations" value={fx.get("animTv")} options={LEVELS} onChange={(v) => fx.set("animTv", v)} />
-          <label>TV case</label>
-          <Picker
-            title="TV Mode case"
-            value={fx.get("tvShelf")}
-            options={[
-              { value: "3d", label: "3D cases" },
-              { value: "flat", label: "Flat covers" },
-            ]}
-            onChange={(v) => fx.set("tvShelf", v)}
-          />
-          <label>Launch animation on the desktop</label>
-          <OnOff label="Launch animation on the desktop" checked={fx.get("launchFxDesktop")} onChange={(on) => fx.set("launchFxDesktop", on)} />
-          <label>Launch animation in TV Mode</label>
-          <OnOff label="Launch animation in TV Mode" checked={fx.get("launchFxTv")} onChange={(on) => fx.set("launchFxTv", on)} />
-        </div>
-      }
-    />
-  );
-}
 
 const ONE_INTRO = (Object.entries(INTROS) as [IntroKey, { name: string }][]).map(([value, i]) => ({ value, label: i.name }));
 const INTRO_PICKS: { value: IntroPick; label: string }[] = [{ value: "random", label: "Random" }, ...ONE_INTRO, { value: "off", label: "Off" }];
-const introName = (v: IntroPick) => INTRO_PICKS.find((p) => p.value === v)?.label ?? v;
 
-function IntroBlock() {
+/** One start-up intro for the desktop and TV Mode alike, and a place to watch them. */
+function IntroRows() {
   const [preview, setPreview] = createSignal<IntroKey>("konami");
   return (
-    <Row
-      k="intro"
-      status={`Desktop ${introName(fx.get("introDesktop"))} · TV Mode ${introName(fx.get("introTv"))}`}
-      open="Change…"
-      sub={
-        <div class="form-grid">
-          <label>Desktop</label>
-          <Picker title="Start-up intro on the desktop" value={fx.get("introDesktop")} options={INTRO_PICKS} onChange={(v) => fx.set("introDesktop", v)} />
-          <label>TV Mode</label>
-          <Picker title="Start-up intro in TV Mode" value={fx.get("introTv")} options={INTRO_PICKS} onChange={(v) => fx.set("introTv", v)} />
-          <label>Watch one</label>
-          <div class="row wrap">
-            <Picker title="Intro to watch" value={preview()} options={ONE_INTRO} onChange={setPreview} />
-            <button class="btn" onClick={() => playIntro(preview())}>
-              Play
-            </button>
-          </div>
-        </div>
-      }
-    />
+    <>
+      <Row k="intro">
+        <Picker
+          dropdown title="Start-up intro"
+          value={fx.get("introDesktop")}
+          options={INTRO_PICKS}
+          onChange={(v) => {
+            fx.set("introDesktop", v);
+            fx.set("introTv", v);
+          }}
+        />
+      </Row>
+      <Row k="introWatch">
+        <Picker dropdown title="Intro to watch" value={preview()} options={ONE_INTRO} onChange={setPreview} />
+        <button class="btn" onClick={() => playIntro(preview())}>
+          Play
+        </button>
+      </Row>
+    </>
   );
 }
 
@@ -1976,80 +1960,47 @@ const PROFILES: { value: SoundProfile; label: string }[] = [
   { value: "console", label: "Console" },
   { value: "retro", label: "Retro console" },
 ];
-const VOLUMES = Array.from({ length: 10 }, (_, i) => ({ value: String((i + 1) * 10), label: `${(i + 1) * 10}%` }));
+/** Off, or how loud: one choice instead of a switch and a volume. */
+const SOUND_LEVELS = [
+  { value: "off", label: "Off" },
+  ...Array.from({ length: 10 }, (_, i) => ({ value: String((i + 1) * 10), label: `${(i + 1) * 10}%` })),
+];
 
-function SoundBlock() {
-  const where = (on: boolean, vol: number) => (on ? `${vol}%` : "off");
-  const volume = (k: "volumeDesktop" | "volumeTv") => (v: string) => {
-    fx.set(k, Number(v));
+function SoundRows() {
+  const level = (on: boolean, volume: number) => (on ? String(volume) : "off");
+  const setLevel = (onKey: "soundDesktop" | "soundTv", volumeKey: "volumeDesktop" | "volumeTv") => (v: string) => {
+    fx.set(onKey, v !== "off");
+    if (v === "off") return;
+    fx.set(volumeKey, Number(v));
     sfx("select");
   };
   return (
-    <Row
-      k="sounds"
-      status={`${PROFILES.find((p) => p.value === fx.get("soundProfile"))?.label} · desktop ${where(fx.get("soundDesktop"), fx.get("volumeDesktop"))} · TV Mode ${where(fx.get("soundTv"), fx.get("volumeTv"))}`}
-      open="Change…"
-      sub={
-        <div class="form-grid">
-          <label>Profile</label>
-          <Picker
-            title="Sound profile"
-            value={fx.get("soundProfile")}
-            options={PROFILES}
-            onChange={(v) => {
-              fx.set("soundProfile", v);
-              sfx("select");
-            }}
-          />
-          <label>On the desktop</label>
-          <OnOff label="Sounds on the desktop" checked={fx.get("soundDesktop")} onChange={(on) => fx.set("soundDesktop", on)} />
-          <label>Desktop volume</label>
-          <Picker title="Desktop volume" value={String(fx.get("volumeDesktop"))} options={VOLUMES} onChange={volume("volumeDesktop")} />
-          <label>In TV Mode</label>
-          <OnOff label="Sounds in TV Mode" checked={fx.get("soundTv")} onChange={(on) => fx.set("soundTv", on)} />
-          <label>TV Mode volume</label>
-          <Picker title="TV Mode volume" value={String(fx.get("volumeTv"))} options={VOLUMES} onChange={volume("volumeTv")} />
-          <label>Try them</label>
-          <div class="row wrap">
-            <button class="btn" onClick={() => sfx("move")}>Move</button>
-            <button class="btn" onClick={() => sfx("select")}>Choose</button>
-            <button class="btn" onClick={() => sfx("back")}>Back</button>
-            <button class="btn" onClick={() => sfx("disc")}>Disc game</button>
-            <button class="btn" onClick={() => sfx("cart")}>Cartridge</button>
-          </div>
-        </div>
-      }
-    />
+    <>
+      <Row k="soundProfile">
+        <Picker
+          dropdown title="Sound profile"
+          value={fx.get("soundProfile")}
+          options={PROFILES}
+          onChange={(v) => {
+            fx.set("soundProfile", v);
+            sfx("select");
+          }}
+        />
+      </Row>
+      <Row k="soundDesktop">
+        <Picker dropdown title="Desktop sounds" value={level(fx.get("soundDesktop"), fx.get("volumeDesktop"))} options={SOUND_LEVELS} onChange={setLevel("soundDesktop", "volumeDesktop")} />
+      </Row>
+      <Row k="soundTv">
+        <Picker dropdown title="TV Mode sounds" value={level(fx.get("soundTv"), fx.get("volumeTv"))} options={SOUND_LEVELS} onChange={setLevel("soundTv", "volumeTv")} />
+      </Row>
+    </>
   );
 }
 
-function TvModeBlock(props: { s: Settings; run: Run }) {
-  // Asked fresh each time Settings opens, so a TV that was just turned on shows up.
-  const [displays] = createResource(() => api.listDisplays().catch(() => []));
-  const chosen = () => (props.s.values.tvDisplay as string | undefined) ?? "";
-  const displayOptions = () => {
-    const list = displays() ?? [];
-    const opts = [{ value: "", label: "The display KB is on" }];
-    for (const d of list) {
-      const notes = [d.primary ? "main" : "", d.current ? "KB is here" : ""].filter(Boolean).join(", ");
-      opts.push({ value: d.id, label: `${d.name} (${d.width}×${d.height}${notes ? `, ${notes}` : ""})` });
-    }
-    // The chosen TV is off or unplugged right now: keep it selectable.
-    if (chosen() && !list.some((d) => d.id === chosen())) opts.push({ value: chosen(), label: "The TV chosen before (not connected now)" });
-    return opts;
-  };
-  const set = (key: string, v: unknown) => props.run(() => api.setSetting(key, v));
-
+function TvRows(props: { s: Settings; run: Run }) {
   return (
-    <Row
-      k="tv"
-      status={`${displayOptions().find((o) => o.value === chosen())?.label ?? "The display KB is on"} · ${{ s: "small", m: "medium", l: "large", xl: "extra large" }[(props.s.values.tvTextSize as string | undefined) ?? "m"] ?? "medium"} text${props.s.values.tvOverscan ? ` · ${props.s.values.tvOverscan}% margin` : ""}`}
-      open="Change…"
-      sub={
-      <div class="form-grid">
-        <label>Display</label>
-        <Picker title="Open TV Mode on" value={chosen()} options={displayOptions()} onChange={(v) => set("tvDisplay", v || null)} />
-        <label>Text size</label>
+    <>
+      <Row k="tvText">
         <Picker
           title="TV Mode text size"
           value={(props.s.values.tvTextSize as string | undefined) ?? "m"}
@@ -2059,23 +2010,21 @@ function TvModeBlock(props: { s: Settings; run: Run }) {
             { value: "l", label: "Large" },
             { value: "xl", label: "Extra large" },
           ]}
-          onChange={(v) => set("tvTextSize", v)}
+          onChange={(v) => props.run(() => api.setSetting("tvTextSize", v))}
         />
-        <label>Overscan margin</label>
+      </Row>
+      <Row k="tvShelf">
         <Picker
-          title="Overscan margin"
-          value={String((props.s.values.tvOverscan as number | undefined) ?? 0)}
+          title="TV Mode case"
+          value={fx.get("tvShelf")}
           options={[
-            { value: "0", label: "Off" },
-            { value: "2.5", label: "2.5%" },
-            { value: "5", label: "5%" },
-            { value: "7.5", label: "7.5%" },
+            { value: "3d", label: "3D case" },
+            { value: "flat", label: "Flat cover" },
           ]}
-          onChange={(v) => set("tvOverscan", Number(v))}
+          onChange={(v) => fx.set("tvShelf", v)}
         />
-      </div>
-      }
-    />
+      </Row>
+    </>
   );
 }
 
