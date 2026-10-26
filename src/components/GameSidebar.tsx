@@ -11,6 +11,8 @@ import { hue } from "./GameCard";
 import { openCollection } from "./Collections";
 import { lead, sentences } from "../state/summary";
 import { formatEarned } from "./Achievements";
+import { AchievementsWindow } from "./AchievementsWindow";
+import { fx } from "../state/fx";
 import { LaunchWith, playWarning } from "./EmulatorChoice";
 
 /** How long the selection must rest before the panel loads another game. */
@@ -85,6 +87,7 @@ export function GameSidebar(props: {
   const open = (url: string) => void api.openUrl(url).catch(() => {});
 
   const [launching, setLaunching] = createSignal(false);
+  const [achOpen, setAchOpen] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   createEffect(on(id, () => setLaunchError(null), { defer: true }));
 
@@ -247,7 +250,7 @@ export function GameSidebar(props: {
               <section class="dock-box">{actions(g)}</section>
               <Show when={glance()}>
                 {(a) => (
-                  <button class="dock-box dock-ach" title="Opens the details screen, which has every achievement" onClick={() => props.onMore(id())}>
+                  <button class="dock-box dock-ach" title="Opens every achievement" onClick={() => setAchOpen(true)}>
                     <div class="dock-label">Achievements</div>
                     <div class="side-ach-line">
                       <span>{a().earned} / {a().total} unlocked</span>
@@ -267,6 +270,9 @@ export function GameSidebar(props: {
                     </For>
                   </button>
                 )}
+              </Show>
+              <Show when={achOpen()}>
+                <AchievementsWindow gameId={id()} tv={fx.tv()} onClose={() => setAchOpen(false)} />
               </Show>
               <section class="dock-box dock-inline">
                 <div class="dock-label">Links</div>

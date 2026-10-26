@@ -22,7 +22,7 @@ import { pushHandler, type Action } from "../input/actions";
 import { VirtualGrid, type NavDir, type Navigator } from "../components/VirtualGrid";
 import { GameCard } from "../components/GameCard";
 import { GameListRow } from "../components/GameListRow";
-import { Hint } from "../components/Hints";
+import { Badge, Hint } from "../components/Hints";
 import { FilterPanel } from "../components/FilterPanel";
 import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
@@ -636,18 +636,41 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <img src={themeIcon()} alt="" />
         </span>
         <div class="here">
+          <Badge action="prevPlatform" />
           <span class="here-title">{here().title}</span>
           <span class="here-count">{here().count}</span>
+          <Badge action="nextPlatform" />
         </div>
         <div class="topbar-right">
           {/* Background progress lives here: the footer is full of key hints. */}
           <JobPill />
+          <span class="zoom-top" hidden={library.listView()}>
+            <Badge actions={["zoomOut", "zoomIn"]} />
+            <input
+              class="zoom-slider"
+              type="range"
+              aria-label="Card size"
+              title="Card size"
+              min={library.CARD_MIN}
+              max={library.CARD_MAX}
+              step={5}
+              value={library.cardSize()}
+              onInput={(e) => library.setCardSize(Number(e.currentTarget.value))}
+              // Give the arrow keys back to the grid once the drag ends.
+              onPointerUp={(e) => e.currentTarget.blur()}
+              tabIndex={-1}
+            />
+            <span class="zoom-pct" title="Card size (100% = the default)">
+              {Math.round((library.cardSize() / library.CARD_DEFAULT) * 100)}%
+            </span>
+          </span>
           <button
             class="search-box"
             classList={{ active: !!library.query(), "nav-focus": topFocus() === "search" }}
             onClick={openSearch}
             title="Search every platform"
           >
+            <Badge action="secondary" />
             <Icon name="search" />
             <span>{library.query() || "Search games"}</span>
           </button>
@@ -661,13 +684,20 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             onClick={() => setFilterOpen(true)}
             title="Filter games"
           >
+            <Badge action="filter" />
             <Icon name="filter" />
             <span>{filterLabel()}</span>
           </button>
+          <button class="filter-btn compact" onClick={() => library.setListView(!library.listView())} title="Switch between grid and list" tabIndex={-1}>
+            <Badge action="toggleGroups" />
+            <span>{library.listView() ? "Grid" : "List"}</span>
+          </button>
           <button class="icon-btn" classList={{ "nav-focus": topFocus() === "tv" }} onClick={props.onTvMode} title="TV Mode (L3 / F10)">
+            <Badge action="toggleTv" />
             <Icon name="tv" />
           </button>
           <button class="icon-btn" classList={{ "nav-focus": topFocus() === "settings" }} onClick={props.onOpenSettings} title="Settings">
+            <Badge action="menu" />
             <Icon name="gear" />
           </button>
         </div>
@@ -781,15 +811,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                 )}
               />
             </div>
-            <footer class="hints">
-              <Hint action="select" label="Open" />
-              <Hint action="favorite" label="Edit" />
-              <Hint action="filter" label="Sort" />
-              <Hint action="secondary" label="Search" />
-              <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
-              <Hint action="menu" label="Settings" />
-              <Hint actions={["zoomOut", "zoomIn"]} label="Tile size" />
-            </footer>
           </>
         }
       >
@@ -875,7 +896,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                   <GameCard
                     game={g}
                     focused={isFocused}
-                    showIcon={library.platform() === "recent" || !!openKey()}
                     platformLabel={showPlatformBadge() ? shortNames().get(g().platformId) : undefined}
                   />
                 }
@@ -894,38 +914,6 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           )}
         </Show>
         </div>
-        <footer class="hints">
-          <Hint action="select" label="Open" />
-          <Hint action="favorite" label={library.platform() === "recent" ? "Remove from Recent" : "Details"} />
-          <Hint action="secondary" label="Search" />
-          <Hint action="filter" label="Filter" />
-          <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
-          <Hint actions={["prevLetter", "nextLetter"]} label="Letter" />
-          <Hint action="menu" label="Settings" />
-          <Hint action="toggleTv" label="TV Mode" />
-          <Hint actions={["zoomOut", "zoomIn"]} label={library.listView() ? "Panel width" : "Card size"} />
-          <Hint action="toggleGroups" label={library.listView() ? "Grid" : "List"} />
-          <input
-            hidden={library.listView()}
-            class="zoom-slider"
-            type="range"
-            aria-label="Card size"
-            min={library.CARD_MIN}
-            max={library.CARD_MAX}
-            step={5}
-            value={library.cardSize()}
-            onInput={(e) => library.setCardSize(Number(e.currentTarget.value))}
-            // Give the arrow keys back to the grid once the drag ends.
-            onPointerUp={(e) => e.currentTarget.blur()}
-            tabIndex={-1}
-          />
-          <span class="zoom-pct" hidden={library.listView()} title="Card size (100% = the default)">
-            {Math.round((library.cardSize() / library.CARD_DEFAULT) * 100)}%
-          </span>
-          <span class="hint-count">
-            {focused() + 1} / {games().length}
-          </span>
-        </footer>
       </Show>
       </Show>
 

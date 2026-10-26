@@ -843,6 +843,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.5
+- New: with a controller, button glyphs sit on the buttons they work (search, filter, grid/list, TV Mode, Settings, platforms, card size); the bottom hint bar is gone.
+- Changed: controller glyphs are round and colored like the pad's buttons, with bolder PlayStation symbols.
+- Changed: the card size slider is in the top bar, next to Search.
+- Changed: choosing Achievements in the list view's panel opens the achievements window.
+
 ### 0.4.4
 - New: Settings is one screen, with no tabs: Library, Game info, Emulators, Platforms, Controller, TV Mode, App, Look and start-up, Motion and Sound sit side by side.
 - New: the search box at the top lights up the settings you're looking for and dims the rest.

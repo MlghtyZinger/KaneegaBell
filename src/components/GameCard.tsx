@@ -9,7 +9,7 @@ export function hue(s: string): number {
   return Math.abs(h) % 360;
 }
 
-export function GameCard(props: { game: () => GameRow; focused: () => boolean; platformLabel?: string; showIcon?: boolean }) {
+export function GameCard(props: { game: () => GameRow; focused: () => boolean; platformLabel?: string }) {
   // Cards are recycled by the grid, so remember failures per game+version.
   const [failed, setFailed] = createSignal<string | null>(null);
   const artKey = () => `${props.game().id}:${props.game().art}`;
@@ -37,9 +37,6 @@ export function GameCard(props: { game: () => GameRow; focused: () => boolean; p
           draggable={false}
           onError={() => setFailed(artKey())}
         />
-      </Show>
-      <Show when={props.showIcon && (props.game().icon ?? 0) > 0}>
-        <img class="card-icon" src={artUrl(props.game().id, props.game().icon!, "i")} alt="" loading="lazy" decoding="async" />
       </Show>
       <div class="card-badges">
         <Show when={props.platformLabel}>

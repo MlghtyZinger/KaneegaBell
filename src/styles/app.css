@@ -1107,11 +1107,41 @@ html.nav-mode input[type="checkbox"]:focus {
   margin-right: auto;
 }
 
-/* PlayStation face-button colors. */
-kbd.ps-select { color: color-mix(in srgb, #7cb2ff 75%, var(--text)); }
-kbd.ps-back { color: color-mix(in srgb, #ff6b81 75%, var(--text)); }
-kbd.ps-secondary { color: color-mix(in srgb, #f39ce0 75%, var(--text)); }
-kbd.ps-favorite { color: color-mix(in srgb, #4fe0c0 75%, var(--text)); }
+/* Pad glyphs: round colored face buttons, pill shoulders; text centered both ways. */
+.hint kbd.face, .hint kbd.pad {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1;
+  font-weight: 700;
+  padding: 0;
+  border: 0;
+}
+.hint kbd.face {
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  color: #fff;
+}
+.hint kbd.pad { height: 1.7em; padding: 0 0.7em; border-radius: 1em; background: #3a322c; color: #f3e6cf; }
+.hint kbd.f-select { background: #3fa34d; }
+.hint kbd.f-back { background: #d0453b; }
+.hint kbd.f-secondary { background: #3b78d0; }
+.hint kbd.f-favorite { background: #d9a920; color: #1a1613; }
+.hint kbd.face.ps { background: #26211d; border: 2px solid currentColor; }
+/* Small glyphs sitting on top-bar controls and buttons. */
+.topbar .hint kbd, .btn .hint kbd { font-size: 0.75rem; }
+.topbar .icon-btn:has(.hint) { display: inline-flex; gap: 6px; width: auto; padding: 0 8px; }
+/* Button text rules (e.g. .search-box span clips and shrinks) must not squeeze a glyph away. */
+.topbar .hint { flex: none; overflow: visible; }
+.zoom-top { display: inline-flex; align-items: center; gap: 8px; }
+.zoom-top[hidden] { display: none; }
+.zoom-top .zoom-slider { width: 120px; }
+.hint kbd.face.ps.f-select { color: #7f9be0; }
+.hint kbd.face.ps.f-back { color: #ec6a6f; }
+.hint kbd.face.ps.f-secondary { color: #e08ac2; }
+.hint kbd.face.ps.f-favorite { color: #5fc9a0; }
 
 /* ------------------------------------------------------------ picker */
 
