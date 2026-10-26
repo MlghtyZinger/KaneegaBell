@@ -843,6 +843,11 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.6
+- New: a redesigned game details page: cover, Play, links and the series on the left, and Overview, Achievements and Game files tabs on the right (L1 / R1 switch them).
+- Changed: the Achievements tab shows a few achievements; choose one, or See all, to open the achievements window.
+- Changed: the details page opens at its full size with everything in place, instead of growing as it loads.
+
 ### 0.4.5
 - New: with a controller, button glyphs sit on the buttons they work (search, filter, grid/list, TV Mode, Settings, platforms, card size); the bottom hint bar is gone.
 - Changed: controller glyphs are round and colored like the pad's buttons, with bolder PlayStation symbols.

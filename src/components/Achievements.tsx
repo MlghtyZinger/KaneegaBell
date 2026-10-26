@@ -19,7 +19,19 @@ function rarityText(a: Achievement): string {
  * The game's RetroAchievements: progress and the full list, unlocked ones in
  * color. Renders nothing for consoles RA doesn't cover or when RA isn't set up.
  */
-export function Achievements(props: { gameId: number; /** The game's RetroAchievements id when known (for a link). */ onRaGame?: (id: number | null) => void }) {
+export function Achievements(props: {
+  gameId: number;
+  /** The game's RetroAchievements id when known (for a link). */
+  onRaGame?: (id: number | null) => void;
+  /** Four of them in two columns (latest unlocked, then most valuable locked); each opens the window. */
+  compact?: boolean;
+}) {
+  const preview = (all: Achievement[]) => {
+    const earned = all.filter((a) => a.earned).sort((a, b) => (b.earned ?? "").localeCompare(a.earned ?? ""));
+    const locked = all.filter((a) => !a.earned).sort((a, b) => b.points - a.points);
+    const n = Math.min(2, earned.length);
+    return [...earned.slice(0, n), ...locked.slice(0, 4 - n), ...earned.slice(n)].slice(0, 4);
+  };
   const [data, setData] = createSignal<GameAchievements | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal(false);
@@ -67,7 +79,7 @@ export function Achievements(props: { gameId: number; /** The game's RetroAchiev
               {loading() ? "Checking…" : "Refresh"}
             </button>
           </Show>
-          <Show when={data()?.status === "ok"}>
+          <Show when={data()?.status === "ok" && !props.compact}>
             <button class="btn small" onClick={() => setWindowOpen(true)}>Open window</button>
           </Show>
         </div>
@@ -125,6 +137,29 @@ export function Achievements(props: { gameId: number; /** The game's RetroAchiev
               <div class="ach-bar" role="progressbar" aria-valuenow={pct()} aria-valuemin={0} aria-valuemax={100}>
                 <div style={{ width: `${pct()}%` }} />
               </div>
+              <Show when={props.compact}>
+                <div class="ach-cards">
+                  <For each={preview(p().achievements)}>
+                    {(a) => (
+                      <button class="ach-item ach-card" classList={{ earned: !!a.earned }} title="Opens the achievements window" onClick={() => setWindowOpen(true)}>
+                        <img src={raMediaUrl(a.badge)} alt="" width="64" height="64" loading="lazy" decoding="async" onError={(e) => (e.currentTarget.style.visibility = "hidden")} />
+                        <div class="ach-text">
+                          <div class="ach-title">
+                            {a.title}
+                            <span class="ach-points">{a.points}</span>
+                          </div>
+                          <div class="ach-desc">{a.description}</div>
+                          <div class="dim small">{a.earned ? `Unlocked ${formatEarned(a.earned)}${a.hardcore ? " (hardcore)" : ""}` : rarityText(a)}</div>
+                        </div>
+                      </button>
+                    )}
+                  </For>
+                </div>
+                <button class="btn ach-all" onClick={() => setWindowOpen(true)}>
+                  See all achievements ›
+                </button>
+              </Show>
+              <Show when={!props.compact}>
               <ul class="ach-list">
                 <For each={p().achievements}>
                   {(a) => (
@@ -158,6 +193,7 @@ export function Achievements(props: { gameId: number; /** The game's RetroAchiev
                   )}
                 </For>
               </ul>
+              </Show>
             </Show>
           )}
         </Show>

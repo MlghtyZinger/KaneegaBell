@@ -1405,8 +1405,229 @@ html.nav-mode input[type="checkbox"]:focus {
   margin: var(--gap) 0 6px;
 }
 
+/* Game details: one fixed-size panel. Left: cover and actions. Right: title, tabs, the tab's page.
+   The panel scrolls as a whole (the pad scrolls it too); the footer stays at the bottom. */
 .info-panel {
-  width: min(1200px, 94vw);
+  width: min(1360px, 95vw);
+  height: min(90vh, 900px);
+  max-height: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  /* A little smaller than the rest of the app, so more of the page fits. */
+  --fs-xs: clamp(12px, 1.15vh, 16px);
+  --fs-sm: clamp(13px, 1.45vh, 19px);
+  --fs-md: clamp(15px, 1.7vh, 23px);
+  --fs-lg: clamp(19px, 2.3vh, 30px);
+  --fs-xl: clamp(25px, 3.1vh, 40px);
+  font-size: var(--fs-md);
+}
+
+.dp-loading {
+  flex: 1;
+  padding: 32px;
+}
+
+.dp-body {
+  flex: 1 0 auto;
+  display: grid;
+  grid-template-columns: clamp(220px, 24%, 320px) minmax(0, 1fr);
+  gap: 40px;
+  padding: 36px 40px 24px;
+  align-items: start;
+}
+
+.dp-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dp-cover {
+  width: 100%;
+  max-height: min(38vh, 380px);
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--bg-sunken);
+}
+
+.dp-cover-empty {
+  aspect-ratio: 5 / 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border);
+}
+
+.dp-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dp-played {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+}
+
+.dp-main {
+  min-width: 0;
+}
+
+.dp-head h2 {
+  margin: 2px 0 4px;
+}
+
+.dp-head .meta-line {
+  margin: 0 0 10px;
+}
+
+.dp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 18px 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dp-tab {
+  padding: 10px 18px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dp-tab:hover {
+  color: var(--text);
+}
+
+.dp-tab.on {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+
+.dp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dp-page[hidden] {
+  display: none;
+}
+
+.dp-page .series-card {
+  margin: 0;
+}
+
+.dp-desc {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+/* Links and collections: one row each, the label then the chips. */
+.dp-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.dp-label {
+  width: 110px;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.dp-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.dp-chip:hover,
+.dp-chip:focus-visible {
+  border-color: var(--accent);
+}
+
+.dp-foot {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 40px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+
+.dp-launch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+
+/* Links under the left column's buttons. */
+.dp-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.dp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dp-links .dp-label {
+  width: auto;
+}
+
+/* Achievements tab: four cards in two columns, each opens the window. */
+.ach-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ach-card {
+  width: 100%;
+  border: 1px solid var(--border);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ach-card:hover,
+.ach-card:focus-visible {
+  border-color: var(--accent);
+}
+
+.ach-all {
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
 .info-layout {
@@ -3855,4 +4076,46 @@ button.side-series:hover {
 }
 .col-tile.drop-after {
   box-shadow: 6px 0 0 var(--accent);
+}
+
+/* Inside the details tabs: no extra margins, the tab names the section. */
+.dp-page .series-card,
+.dp-page > p,
+.dp-page > h3 {
+  margin: 0;
+}
+
+.dp-page > .cmd {
+  margin: -10px 0 0;
+}
+
+.dp-page .ach {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dp-page .ach-head h3 {
+  display: none;
+}
+
+/* The series card in the left column: logo on top, the covers wrap under it (no side scrolling). */
+.dp-side .series-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin: 6px 0 0;
+}
+
+.dp-side .series-covers {
+  max-width: none;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  overflow: visible;
+  padding: 0;
+}
+
+.dp-side .series-cover {
+  height: clamp(56px, 7.5vh, 84px);
 }

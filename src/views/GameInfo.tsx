@@ -5,7 +5,7 @@ import { formatLastPlayed, formatPlayTime } from "../state/session";
 import { library } from "../state/library";
 import { NavScope } from "../components/NavScope";
 import { MatchPicker } from "../components/MatchPicker";
-import { Hint } from "../components/Hints";
+import { Badge, Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
 import { CollectionPicker } from "../components/Collections";
 import { collections } from "../state/collections";
@@ -136,6 +136,16 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [services] = createResource(() => api.getServices().catch(() => null));
   // The game's RetroAchievements id, once the achievements section knows it.
   const [raGameId, setRaGameId] = createSignal<number | null>(null);
+  // Loaded with the game, so the page and all its links appear at once. Usually from KB's cache; a game RA
+  // hasn't been asked about yet needs one request, so the page waits 400 ms at most (the link then comes later).
+  const [glance] = createResource(
+    () => id(),
+    (gid) =>
+      Promise.race([
+        api.achievementGlance(gid).catch(() => null),
+        new Promise<null>((done) => setTimeout(() => done(null), 400)),
+      ]),
+  );
   const open = (url: string) => void api.openUrl(url).catch(() => {});
 
   // Set when Refresh left a cover the user picked.
@@ -176,6 +186,17 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     void refetchEmus();
     void refetchArgv();
   }
+  // Overview / Achievements / Game files; L1 and R1 (Q / E) switch.
+  const [tab, setTab] = createSignal<"overview" | "achievements" | "files">("overview");
+  const tabs = [
+    { id: "overview" as const, name: "Overview" },
+    { id: "achievements" as const, name: "Achievements" },
+    { id: "files" as const, name: "Game files" },
+  ];
+  const stepTab = (d: 1 | -1) => {
+    const i = tabs.findIndex((x) => x.id === tab());
+    setTab(tabs[(i + d + tabs.length) % tabs.length].id);
+  };
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
   const [favorite, setFavorite] = createSignal<boolean | null>(null);
@@ -198,6 +219,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
         setRaGameId(null);
         setRefreshing(false);
         setKept(false);
+        setTab("overview");
       },
       { defer: true },
     ),
@@ -230,177 +252,192 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
 
   return (
     <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
-      <NavScope class="panel info-panel" modal onBack={props.onClose} onFavorite={() => void toggleFavorite()}>
-        <Show when={game()} fallback={<p>Loading…</p>}>
+      <NavScope class="panel info-panel" modal onBack={props.onClose} onTab={stepTab} onFavorite={() => void toggleFavorite()}>
+        <Show when={!glance.loading && game()} fallback={<p class="dp-loading dim">Loading…</p>}>
           {(g) => (
-            <div class="info-layout">
-              <div class="info-art">
-                <Show
-                  when={g().art > 0}
-                  fallback={<div class="info-art-empty dim">No cover yet</div>}
-                >
-                  <img src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
+            <div class="dp-body">
+              <aside class="dp-side" style={{ "--series": tint() ?? undefined }}>
+                <Show when={g().art > 0} fallback={<div class="dp-cover dp-cover-empty dim">No cover yet</div>}>
+                  <img class="dp-cover" src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
                 </Show>
-                <div class="row tight">
-                  <button class="btn small" onClick={() => setStudio(true)}>
-                    Artwork…
-                  </button>
-                  <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
-                    {refreshing() ? "Looking…" : "Refresh"}
-                  </button>
-                </div>
-                <Show when={kept()}>
-                  <span class="dim small">You picked this cover, so Refresh keeps it. Artwork… picks another.</span>
-                </Show>
-                <Show when={g().artSource}>
-                  <span class="dim small">
-                    Cover:{" "}
-                    {({ launchbox: "LaunchBox", libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
-                      g().artSource!
-                    ] ?? g().artSource}
-                  </span>
-                </Show>
-                {/* Pages about the game on other sites (open in the browser). */}
-                <div class="info-links">
-                  <span class="info-links-label">Links</span>
-                  <button
-                    class="link-btn"
-                    title="Opens in your browser"
-                    onClick={() => open(backloggdUrl(g().meta.title ?? g().title, g().meta.slug))}
-                  >
-                    {g().meta.slug ? "Backloggd" : "Find on Backloggd"} <span aria-hidden="true">↗</span>
-                  </button>
-                  <Show when={g().meta.slug}>
-                    {(slug) => (
-                      <button class="link-btn" title="Opens in your browser" onClick={() => open(`https://www.igdb.com/games/${encodeURIComponent(slug())}`)}>
-                        IGDB <span aria-hidden="true">↗</span>
-                      </button>
-                    )}
-                  </Show>
-                  <Show when={raGameId()}>
-                    {(id) => (
-                      <button class="link-btn" title="Opens in your browser" onClick={() => open(`https://retroachievements.org/game/${id()}`)}>
-                        RetroAchievements <span aria-hidden="true">↗</span>
-                      </button>
-                    )}
-                  </Show>
-                </div>
-              </div>
-              <div class="info-main" style={{ "--series": tint() ?? undefined }}>
-              <Show when={mainSeries(g().meta)}>
-                {(s) => (
-                  <div class="series-eyebrow">
-                    <SeriesGlyph />
-                    <span>{s().name}</span>
-                  </div>
-                )}
-              </Show>
-              <h2>{g().title}</h2>
-              <Show when={g().variant}>
-                <p class="dim">{g().variant}</p>
-              </Show>
-              <Show when={metaLine(g())}>
-                <p class="meta-line">{metaLine(g())}</p>
-              </Show>
-              <Show when={g().meta.genres.length > 0}>
-                <div class="genre-row">
-                  <For each={g().meta.genres}>{(name) => <span class="badge">{name}</span>}</For>
-                </div>
-              </Show>
-              <div class="row">
                 <button class="btn primary big" data-autofocus disabled={launching()} onClick={() => void play()}>
                   {launching() ? "Starting…" : "▶ Play"}
                 </button>
-                <button class="btn big" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
-                  {isFavorite() ? "★ Favorite" : "☆ Favorite"}
-                </button>
-                <button class="btn big" onClick={() => setCollecting(true)}>
-                  Collections…
-                </button>
-                <span class="dim">
+                <div class="dp-pair">
+                  <button class="btn" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
+                    {isFavorite() ? "★ Favorite" : "☆ Favorite"}
+                  </button>
+                  <button class="btn" onClick={() => setCollecting(true)}>
+                    Collections…
+                  </button>
+                </div>
+                <p class="dp-played dim">
                   {g().playSeconds > 0
                     ? `${formatPlayTime(g().playSeconds)} played · Last played ${formatLastPlayed(g().lastPlayed)}`
                     : "Never played"}
-                </span>
-              </div>
-              <Show when={emus() && emus()!.options.length > 1 ? emus() : null}>
-                {(e) => (
-                  <div class="row tight launch-with">
-                    <span class="dim">Launch with</span>
-                    <LaunchWith emus={e()} onChange={(v) => void setEmulator(v)} />
-                  </div>
-                )}
-              </Show>
-              <Show when={launchError()}>
-                <p class="warn">{launchError()}</p>
-              </Show>
-              <Show when={mainSeries(g().meta)}>
-                {(s) => <SeriesCard game={g()} series={s()} onOpen={setId} />}
-              </Show>
-              <Show when={g().meta.description}>
-                <p class="description">{g().meta.description}</p>
-              </Show>
-              <div class="row tight">
-                <button class="btn small" onClick={() => setMatching(true)}>
-                  Fix match…
-                </button>
-                <span class="dim small">{matchLine(g().meta, !!services()?.igdb)}</span>
-              </div>
-              {/* Keyed: a game opened from the series loads its own achievements. */}
-              <Show when={id()} keyed>
-                {(gameId) => <Achievements gameId={gameId} onRaGame={setRaGameId} />}
-              </Show>
-              <dl class="facts">
-                <dt>Platform</dt>
-                <dd>{g().platformId.toUpperCase()}</dd>
-                <Show when={g().region}>
-                  <dt>Region</dt>
-                  <dd>{g().region}</dd>
+                </p>
+                <Show when={emus() && emus()!.options.length > 1 ? emus() : null}>
+                  {(e) => (
+                    <div class="dp-launch">
+                      <span class="dim">Launch with</span>
+                      <LaunchWith emus={e()} onChange={(v) => void setEmulator(v)} />
+                    </div>
+                  )}
                 </Show>
-                <Show when={g().serial}>
-                  <dt>Serial</dt>
-                  <dd>{g().serial}</dd>
+                <Show when={launchError()}>
+                  <p class="warn">{launchError()}</p>
                 </Show>
-                <dt>Size</dt>
-                <dd>{formatSize(g().totalSize)}</dd>
-                <dt>Launch file</dt>
-                <dd class="mono">{g().launchPath}</dd>
-                <Show when={g().files.length > 1}>
-                  <dt>Discs</dt>
-                  <dd>
-                    <For each={g().files}>
-                      {([path, disc]) => (
-                        <div class="mono">
-                          {disc ? `Disc ${disc}: ` : ""}
-                          {path}
-                        </div>
+                <div class="dp-links">
+                  <span class="dp-label">Links</span>
+                  <div class="dp-chips">
+                    <button class="dp-chip" title="Opens in your browser" onClick={() => open(backloggdUrl(g().meta.title ?? g().title, g().meta.slug))}>
+                      {g().meta.slug ? "Backloggd" : "Find on Backloggd"} ↗
+                    </button>
+                    <Show when={g().meta.slug}>
+                      {(slug) => (
+                        <button class="dp-chip" title="Opens in your browser" onClick={() => open(`https://www.igdb.com/games/${encodeURIComponent(slug())}`)}>
+                          IGDB ↗
+                        </button>
                       )}
-                    </For>
-                  </dd>
+                    </Show>
+                    <Show when={raGameId() ?? glance()?.raGameId}>
+                      {(rid) => (
+                        <button class="dp-chip" title="Opens in your browser" onClick={() => open(`https://retroachievements.org/game/${rid()}`)}>
+                          RetroAchievements ↗
+                        </button>
+                      )}
+                    </Show>
+                  </div>
+                </div>
+                <Show when={mainSeries(g().meta)}>
+                  {(s) => <SeriesCard game={g()} series={s()} onOpen={setId} />}
                 </Show>
-              </dl>
-              <h3>Launch command</h3>
-              <Show when={argv()}>
-                {(r) => {
-                  const res = r();
-                  return res.ok ? (
-                    <>
-                      <p class="dim small">Runs with {res.a.emulator}</p>
-                      <Show when={res.a.notice}>
-                        <p class="warn">{res.a.notice}</p>
+              </aside>
+
+              <div class="dp-main" style={{ "--series": tint() ?? undefined }}>
+                <header class="dp-head">
+                  <Show when={mainSeries(g().meta)}>
+                    {(s) => (
+                      <div class="series-eyebrow">
+                        <SeriesGlyph />
+                        <span>{s().name}</span>
+                      </div>
+                    )}
+                  </Show>
+                  <h2>{g().title}</h2>
+                  <Show when={g().variant}>
+                    <p class="dim">{g().variant}</p>
+                  </Show>
+                  <p class="meta-line">{[g().platformId.toUpperCase(), metaLine(g())].filter(Boolean).join(" · ")}</p>
+                  <Show when={g().meta.genres.length > 0}>
+                    <div class="genre-row">
+                      <For each={g().meta.genres}>{(name) => <span class="badge">{name}</span>}</For>
+                    </div>
+                  </Show>
+                </header>
+
+                <div class="dp-tabs" role="tablist">
+                  <Badge action="prevPlatform" />
+                  <For each={tabs}>
+                    {(t) => (
+                      <button class="dp-tab" classList={{ on: tab() === t.id }} role="tab" aria-selected={tab() === t.id} onClick={() => setTab(t.id)}>
+                        {t.name}
+                      </button>
+                    )}
+                  </For>
+                  <Badge action="nextPlatform" />
+                </div>
+
+                <section class="dp-page" hidden={tab() !== "overview"}>
+                  <Show when={g().meta.description} fallback={<p class="dim">No description yet.</p>}>
+                    <p class="dp-desc">{g().meta.description}</p>
+                  </Show>
+                </section>
+
+                {/* Keyed: a game opened from the series loads its own achievements. Always mounted so the RetroAchievements link is known. */}
+                <section class="dp-page" hidden={tab() !== "achievements"}>
+                  <Show when={id()} keyed>
+                    {(gameId) => <Achievements compact gameId={gameId} onRaGame={setRaGameId} />}
+                  </Show>
+                </section>
+
+                <Show when={tab() === "files"}>
+                  <section class="dp-page">
+                    <div class="row tight">
+                      <button class="btn small" onClick={() => setStudio(true)}>
+                        Artwork…
+                      </button>
+                      <button class="btn small" disabled={refreshing()} onClick={() => void refreshCover()}>
+                        {refreshing() ? "Looking…" : "Refresh"}
+                      </button>
+                      <button class="btn small" onClick={() => setMatching(true)}>
+                        Fix match…
+                      </button>
+                    </div>
+                    <Show when={kept()}>
+                      <p class="dim small">You picked this cover, so Refresh keeps it. Artwork… picks another.</p>
+                    </Show>
+                    <dl class="facts">
+                      <Show when={g().artSource}>
+                        <dt>Cover</dt>
+                        <dd>
+                          {({ launchbox: "LaunchBox", libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
+                            g().artSource!
+                          ] ?? g().artSource}
+                        </dd>
                       </Show>
-                      <pre class="cmd">{res.a.argv.map(showArg).join(" ")}</pre>
-                    </>
-                  ) : (
-                    <p class="warn">{res.e}</p>
-                  );
-                }}
-              </Show>
+                      <dt>Game info</dt>
+                      <dd>{matchLine(g().meta, !!services()?.igdb)}</dd>
+                      <Show when={g().region}>
+                        <dt>Region</dt>
+                        <dd>{g().region}</dd>
+                      </Show>
+                      <Show when={g().serial}>
+                        <dt>Serial</dt>
+                        <dd>{g().serial}</dd>
+                      </Show>
+                      <dt>Size</dt>
+                      <dd>{formatSize(g().totalSize)}</dd>
+                      <dt>Launch file</dt>
+                      <dd class="mono">{g().launchPath}</dd>
+                      <Show when={g().files.length > 1}>
+                        <dt>Discs</dt>
+                        <dd>
+                          <For each={g().files}>
+                            {([path, disc]) => (
+                              <div class="mono">
+                                {disc ? `Disc ${disc}: ` : ""}
+                                {path}
+                              </div>
+                            )}
+                          </For>
+                        </dd>
+                      </Show>
+                    </dl>
+                    <h3>Launch command</h3>
+                    <Show when={argv()}>
+                      {(r) => {
+                        const res = r();
+                        return res.ok ? (
+                          <>
+                            <p class="dim small">Runs with {res.a.emulator}</p>
+                            <Show when={res.a.notice}>
+                              <p class="warn">{res.a.notice}</p>
+                            </Show>
+                            <pre class="cmd">{res.a.argv.map(showArg).join(" ")}</pre>
+                          </>
+                        ) : (
+                          <p class="warn">{res.e}</p>
+                        );
+                      }}
+                    </Show>
+                  </section>
+                </Show>
               </div>
             </div>
           )}
         </Show>
-        <div class="panel-actions">
+        <footer class="dp-foot">
           <div class="hints-row">
             <Hint action="select" label="Select" />
             <Hint action="favorite" label="Favorite" />
@@ -409,7 +446,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           <button class="btn" onClick={props.onClose}>
             Close
           </button>
-        </div>
+        </footer>
       </NavScope>
       <Show when={collecting() && game()}>
         {(g) => <CollectionPicker gameId={g().id} title={g().title} onClose={() => setCollecting(false)} />}
