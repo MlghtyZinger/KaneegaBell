@@ -1,14 +1,19 @@
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { TvDescription } from "./TvDescription";
-import { api, artUrl, errorText, type Collection, type GameRow } from "../api";
+import { api, artUrl, errorText, events, type Collection, type GameRow } from "../api";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections } from "../state/collections";
-import { formatLastPlayed, formatPlayTime } from "../state/session";
+import { formatLastPlayed, formatPlayTime, session } from "../state/session";
+import { MAKERS, platformMaker } from "../state/platformGroups";
+import { themeIcon } from "../state/theme";
+import { PlatformIcon } from "../components/Icons";
+import { QuickSwitcher, TabIcon } from "./QuickSwitcher";
+import { CoverViewer } from "./CoverViewer";
 import { osk } from "../state/osk";
 import { pushHandler, type Action } from "../input/actions";
 import { GameInfo } from "./GameInfo";
 import { NavScope } from "../components/NavScope";
-import { Hint } from "../components/Hints";
+import { Badge, padShown } from "../components/Hints";
 import { ConsoleMenus, type ConsoleEntry } from "./ConsoleMenus";
 import { fx } from "../state/fx";
 import { Model, caseOf } from "../fx/Model";
@@ -48,7 +53,20 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     drag = null; setInsp({ ry: 0, rx: 0, flipped: false, spring: true });
   };
   const [platformsOpen, setPlatformsOpen] = createSignal(false);
-  const [zone, setZone] = createSignal<"games" | "actions" | "filter">("games");
+  // Overlays (details, search keyboard, menus, Settings) take the Wii or PS3 look while that style is on (tokens.css).
+  createEffect(() => (document.documentElement.dataset.tvStyle = menuStyle()));
+  onCleanup(() => delete document.documentElement.dataset.tvStyle);
+  const [viewing, setViewing] = createSignal<GameRow | null>(null);
+  // The switch bar and quick switcher: Favorites, Recent, Collections, All, then the platforms by maker.
+  const barTabs = createMemo(() => {
+    const tabs = library.platformTabs();
+    const ids = library.platforms().map((p) => p.id);
+    return [...["favorites", "recent", "collections", "all"].filter((t) => tabs.includes(t)), ...MAKERS.flatMap((m) => ids.filter((id) => platformMaker(id) === m.id))];
+  });
+  const currentTab = () => (collectionKeyOf(library.platform()) ? "collections" : library.platform());
+  const barGroup = (id: string) => (["favorites", "recent", "collections"].includes(id) ? "lib" : id === "all" ? "all" : platformMaker(id));
+  const cycle = (d: 1 | -1) => library.cyclePlatform(d, menuStyle() === "kb" ? barTabs() : library.platformTabs());
+  const [zone, setZone] = createSignal<"games" | "actions">("games");
   const [actionIndex, setActionIndex] = createSignal(0);
   const [launching, setLaunching] = createSignal(false);
   const [launchError, setLaunchError] = createSignal<string | null>(null);
@@ -115,6 +133,22 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     removeEventListener("pointermove", onDragMove);
     removeEventListener("pointerup", onDragEnd);
   });
+
+  // The right stick turns the case smoothly (one sample per frame from the backend); its step actions are ignored meanwhile.
+  // Any stick sample, centred or not, blocks the step actions for a moment: a step queued on one side
+  // could otherwise land after the stick crossed to the other side and turn the case back.
+  let stickAt = 0;
+  let movedAt = 0;
+  const offStick = events.onRightStick(([x, y]) => {
+    if (!shelf3d() || viewing() || session.running()) return;
+    const now = performance.now();
+    const dt = movedAt && now - movedAt < 100 ? (now - movedAt) / 1000 : 1 / 60;
+    stickAt = now;
+    movedAt = x || y ? now : 0;
+    if (x || y) setInsp((v) => ({ ...v, spring: false, ry: Math.max(-80, Math.min(80, v.ry + x * 200 * dt)), rx: Math.max(-25, Math.min(25, v.rx - y * 90 * dt)) }));
+  });
+  onCleanup(() => void offStick.then((off) => off()).catch(() => {}));
+  const stickBusy = () => performance.now() - stickAt < 300;
 
   const caseObserver = new ResizeObserver(([entry]) => setCaseSize({ width: entry.contentRect.width, height: entry.contentRect.height }));
   onCleanup(() => caseObserver.disconnect());
@@ -212,13 +246,6 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     });
   }
 
-  async function toggleFavorite() {
-    const g = current();
-    if (!g) return;
-    await api.setFavorite(g.id, !g.favorite);
-    await library.reload();
-  }
-
   const step = (d: number) => {
     const n = count();
     if (n === 0) return;
@@ -230,28 +257,28 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     if (a === "filter") { setStylesOpen(true); return true; }
     switch (a) {
       case "left":
-        if (zone() === "actions" && actionIndex() > 0) setActionIndex(0); else setZone("games");
+        if (zone() === "actions" && actionIndex() > 0) setActionIndex(actionIndex() - 1); else setZone("games");
         return true;
       case "right":
-        if (!overview()) { if (zone() === "actions") setActionIndex(1); else { setZone("actions"); setActionIndex(0); } }
+        if (!overview()) { if (zone() === "actions") setActionIndex(Math.min(2, actionIndex() + 1)); else { setZone("actions"); setActionIndex(0); } }
         return true;
       case "up":
         if (zone() === "actions") setZone("games");
-        else if ((overview() ? colFocused() : focused()) === 0) setZone("filter"); else step(-1);
+        else step(-1);
         return true;
       case "down":
-        if (zone() === "filter") setZone("games"); else if (zone() === "games") step(1);
+        if (zone() === "games") step(1);
         return true;
-      case "prevPlatform": library.cyclePlatform(-1, library.platformTabs()); setZone("games"); return true;
-      case "nextPlatform": library.cyclePlatform(1, library.platformTabs()); setZone("games"); return true;
+      case "prevPlatform": cycle(-1); setZone("games"); return true;
+      case "nextPlatform": cycle(1); setZone("games"); return true;
       case "prevLetter": jumpLetter(-1); return true;
       case "nextLetter": jumpLetter(1); return true;
-      case "favorite": if (!overview()) void toggleFavorite(); return true;
+      case "favorite": setPlatformsOpen(true); return true;
       case "secondary": openSearch(); return true;
       case "select": {
-        if (zone() === "filter") { setPlatformsOpen(true); return true; }
         if (!overview() && zone() === "games") { setZone("actions"); setActionIndex(0); return true; }
         if (!overview() && actionIndex() === 0) { void playCurrent(); return true; }
+        if (!overview() && actionIndex() === 2) { setViewing(current() ?? null); return true; }
         if (overview()) {
           const c = currentCol();
           if (c) library.setPlatform(`col:${c.key}`);
@@ -268,10 +295,11 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         else if (collectionKeyOf(library.platform())) library.setPlatform("collections");
         else return false; // nothing left to close: Esc falls through to the menu (actions.ts)
         return true;
-      case "turnLeft": if (shelf3d()) turn(-20); return true;
-      case "turnRight": if (shelf3d()) turn(20); return true;
-      case "zoomIn": if (shelf3d()) turn(0, 10); return true;
-      case "zoomOut": if (shelf3d()) turn(0, -10); return true;
+      // The stick's own step action can arrive just before its first sample, so steps wait a moment.
+      case "turnLeft": if (shelf3d()) setTimeout(() => !stickBusy() && turn(-20), 40); return true;
+      case "turnRight": if (shelf3d()) setTimeout(() => !stickBusy() && turn(20), 40); return true;
+      case "zoomIn": if (shelf3d()) setTimeout(() => !stickBusy() && turn(0, 10), 40); return true;
+      case "zoomOut": if (shelf3d()) setTimeout(() => !stickBusy() && turn(0, -10), 40); return true;
       case "toggleGroups":
         if (shelf3d()) {
           setInsp((v) => ({ ...v, spring: true, ry: 0, flipped: !v.flipped }));
@@ -286,7 +314,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   onCleanup(pushHandler(onAction));
 
   const onWheel = (e: WheelEvent) => {
-    if (!menuOpen() && !stylesOpen() && !platformsOpen() && !infoId() && (e.deltaY !== 0 || e.deltaX !== 0)) step((e.deltaY || e.deltaX) > 0 ? 1 : -1);
+    if (!menuOpen() && !stylesOpen() && !platformsOpen() && !infoId() && !viewing() && (e.deltaY !== 0 || e.deltaX !== 0)) step((e.deltaY || e.deltaX) > 0 ? 1 : -1);
   };
 
   const tabLabel = (id: PlatformFilter) => {
@@ -296,6 +324,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     if (id === "collections") return "Collections";
     return library.platforms().find((x) => x.id === id)?.shortName ?? id;
   };
+  const fullName = (id: string) => library.platforms().find((x) => x.id === id)?.name ?? tabLabel(id);
 
   async function playCurrent() {
     const g = current();
@@ -326,6 +355,19 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const [textSize] = createResource(() => api.getSetting<string>("tvTextSize").catch(() => null));
   const [overscan] = createResource(() => api.getSetting<number>("tvOverscan").catch(() => null));
 
+  // The menu style button: its own column in KB's bar, top right over the Wii and PS3 screens.
+  const StyleSwitch = () => (
+    <div class="tv-style-switch">
+      {/* The Select glyph in each console's own look: KB's pad glyph, the Wii Remote's − button, the PS3 pad's SELECT. */}
+      <Show when={menuStyle() === "kb"} fallback={<Show when={padShown()}><kbd class={`console-select select-${menuStyle()}`}>{menuStyle() === "wii" ? "−" : "SELECT"}</kbd></Show>}>
+        <Badge action="filter" />
+      </Show>
+      <button class={`tv-style-logo logo-${menuStyle()}`} onClick={() => setStylesOpen(true)} aria-label={`Menu style: ${styleName()}`} title="Menu style">
+        <Show when={menuStyle() === "kb"} fallback={<PlatformIcon id={menuStyle()} />}><img src={themeIcon()} alt="" /></Show>
+      </button>
+    </div>
+  );
+
   return (
     <div
       class={`tv tv-showcase tv-style-${menuStyle()}`}
@@ -345,13 +387,28 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
 
 
 
-      <button class="tv-style-switch" onClick={() => setStylesOpen(true)} aria-label="Change TV menu style">Menu style · {styleName()} ▾</button>
+      <Show when={menuStyle() !== "kb"}><StyleSwitch /></Show>
       <Show when={menuStyle() === "kb"}>
+      <nav class="tv-switchbar" aria-label="Library">
+        <span />
+        <div class="tv-switch-row">
+        <Badge action="prevPlatform" />
+        <For each={barTabs()}>{(id, i) => (
+          <>
+            <Show when={i() > 0 && barGroup(id) !== barGroup(barTabs()[i() - 1])}><span class="tv-switch-sep" /></Show>
+            <button class="tv-switch-item" classList={{ active: currentTab() === id }} aria-label={tabLabel(id)} aria-pressed={currentTab() === id}
+              onClick={() => { library.setQuery(""); library.setPlatform(id); setZone("games"); }}>
+              <TabIcon id={id} />            </button>
+          </>
+        )}</For>
+        <Badge action="nextPlatform" />
+        <span class="tv-switch-sep" />
+        <button class="tv-switch-more" onClick={() => setPlatformsOpen(true)} aria-label="Go to…"><Badge action="favorite" />Go to…</button>
+        </div>
+        <StyleSwitch />
+      </nav>
       <main class="tv-main">
         <nav class="tv-rail" aria-label="Game library">
-          <button class="tv-filter" classList={{ "nav-focus": zone() === "filter" }} onClick={() => setPlatformsOpen(true)}>
-            <span>Platform filter</span><strong>{tabLabel(collectionKeyOf(library.platform()) ? "collections" : library.platform())}</strong><span aria-hidden="true">▾</span>
-          </button>
           <Show when={library.query()}><p class="tv-search-label">Search: {library.query()}</p></Show>
           <div class="tv-rail-games">
             <For each={railWindow()}>{(i) => (
@@ -387,15 +444,15 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
               <Show when={g.art > 0} fallback={<span class="tv-case-empty">{currentCol()?.name ?? g.title}</span>}><img class="tv-flat-cover" src={artUrl(g.id, g.art, "f")} alt={g.title} decoding="async" /></Show>
             }>
               <div class="tv-case-stage" onPointerDown={(e) => { const v = insp(); drag = { x: e.clientX, y: e.clientY, ry: v.ry, rx: v.rx, moved: false }; }} onClick={() => {
-                if (dragged) { dragged = false; return; } setZone("actions"); setActionIndex(0);
+                if (dragged) { dragged = false; return; } setViewing(g);
               }}>
                 <div class="m3-turn" style={inspStyle()}><Model game={g} platformName={platformName(g.platformId)} scale={caseScale()} detail /></div>
               </div>
             </Show>
           )}</Show>
           <Show when={shelf3d()}><div class="tv-case-controls">
-            <button onClick={() => turn(-20)} aria-label="Turn case left">↶</button><button onClick={() => turn(20)} aria-label="Turn case right">↷</button>
-            <button onClick={() => setInsp((v) => ({ ...v, spring: true, flipped: !v.flipped }))}>Flip</button>
+            <button onClick={() => turn(-20)} aria-label="Turn case left"><Badge action="turnLeft" />↶</button><button onClick={() => turn(20)} aria-label="Turn case right">↷<Badge action="turnRight" /></button>
+            <button onClick={() => setInsp((v) => ({ ...v, spring: true, flipped: !v.flipped }))}>Flip<Badge action="toggleGroups" /></button>
           </div></Show>
         </div>
         <section class="tv-info" aria-live="polite">
@@ -411,7 +468,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
               <Show when={detail()?.id === g().id && detail()?.meta.description} fallback={<p class="tv-desc tv-desc-empty">{detail.loading ? "Loading description…" : "No description available."}</p>}>
                 <TvDescription text={detail()!.meta.description!} lines={textSize() === "xl" ? 3 : 4} />
               </Show>
-              <div class="tv-actions"><button class="tv-play-button" classList={{ "nav-focus": zone() === "actions" && actionIndex() === 0 }} disabled={launching()} onClick={() => void playCurrent()}>{launching() ? "Starting…" : "▶ Play"}</button><button class="tv-more" classList={{ "nav-focus": zone() === "actions" && actionIndex() === 1 }} onClick={() => setInfoId(g().id)}>More…</button></div>
+              <div class="tv-actions"><button class="tv-play-button" classList={{ "nav-focus": zone() === "actions" && actionIndex() === 0 }} disabled={launching()} onClick={() => void playCurrent()}>{launching() ? "Starting…" : "▶ Play"}</button><button class="tv-more" classList={{ "nav-focus": zone() === "actions" && actionIndex() === 1 }} onClick={() => setInfoId(g().id)}>More…</button><button class="tv-more" classList={{ "nav-focus": zone() === "actions" && actionIndex() === 2 }} onClick={() => setViewing(g())}>Cover</button></div>
               <Show when={launchError()}><p class="warn">{launchError()}</p></Show>
               <Show when={g().screenshot || g().hero}>
                 <div class="tv-artwork" classList={{ "is-screenshot": !!g().screenshot }}>
@@ -425,27 +482,6 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         </section>
       </main>
 
-      <footer class="tv-hints">
-        <Hint action="select" label={overview() ? "Open" : zone() === "games" ? "Actions" : zone() === "filter" ? "Platforms" : actionIndex() === 0 ? "Play" : "More…"} />
-        <Hint action="secondary" label="Search" />
-        <Hint action="filter" label="Menu style" />
-        <Show when={!overview()}>
-          <Hint action="favorite" label="Favorite" />
-        </Show>
-        <Show when={shelf3d()}>
-          <Hint actions={["turnLeft", "turnRight"]} label="Turn" />
-          <Hint action="toggleGroups" label="Flip" />
-        </Show>
-        <Hint actions={["prevPlatform", "nextPlatform"]} label="Platform" />
-        <button class="hint-btn" onClick={() => setMenuOpen(true)}><Hint action="menu" label="Menu" /></button>
-        {/* Clickable too, for the mouse. */}
-        <button class="hint-btn" onClick={props.onExit} title="Back to the desktop view">
-          <Hint action="toggleTv" label="Desktop mode" />
-        </button>
-        <span class="tv-count">
-          {count() > 0 ? `${(overview() ? colFocused() : focused()) + 1} / ${count()}` : ""}
-        </span>
-      </footer>
       </Show>
       <Show when={menuStyle() !== "kb"}>
         <ConsoleMenus style={menuStyle() === "wii" ? "wii" : "ps3"} count={count()} focused={overview() ? colFocused() : focused()} entry={consoleEntry}
@@ -487,26 +523,19 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         />
       </Show>
       <Show when={platformsOpen()}>
-        <div class="overlay tv-menu-overlay" onClick={(e) => e.target === e.currentTarget && setPlatformsOpen(false)}>
-          <NavScope class="tv-menu tv-platform-picker" modal onBack={() => { setPlatformsOpen(false); setZone("games"); }}>
-            <h2>Platforms</h2>
-            <div class="tv-platform-grid">
-              <For each={library.platformTabs()}>
-                {(id) => {
-                  const active = () => library.platform() === id || (id === "collections" && !!collectionKeyOf(library.platform()));
-                  return (
-                    <button class="tv-menu-item" classList={{ active: active() }} data-autofocus={active() ? "" : undefined} onClick={() => {
-                      library.setQuery("");
-                      library.setPlatform(id);
-                      setPlatformsOpen(false);
-                      setZone("games");
-                    }}><span>{tabLabel(id)}</span><small>{platformCount(id)} {id === "collections" ? "collections" : "games"}</small></button>
-                  );
-                }}
-              </For>
-            </div>
-          </NavScope>
-        </div>
+        <QuickSwitcher style={menuStyle()} tabs={barTabs()} current={currentTab()} label={fullName}
+          count={(id) => `${platformCount(id)} ${id === "collections" ? "collections" : "games"}`}
+          onPick={(id) => { library.setQuery(""); library.setPlatform(id); setPlatformsOpen(false); setZone("games"); }}
+          onClose={() => { setPlatformsOpen(false); setZone("games"); }}
+          game={menuStyle() === "ps3" && !overview() && current() ? {
+            title: current()!.title,
+            play: () => { setPlatformsOpen(false); void playCurrent(); },
+            info: () => { setPlatformsOpen(false); setInfoId(current()!.id); },
+            cover: () => { setPlatformsOpen(false); setViewing(current() ?? null); },
+          } : undefined} />
+      </Show>
+      <Show when={viewing()} keyed>
+        {(g) => <CoverViewer game={g} platformName={platformName(g.platformId)} onClose={() => setViewing(null)} />}
       </Show>
       <Show when={infoId()} keyed>
         {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}

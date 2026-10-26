@@ -1,7 +1,5 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Icon, PlatformIcon } from "../components/Icons";
-import { Hint } from "../components/Hints";
-import { NavScope } from "../components/NavScope";
 import { pushHandler, useGamepadPointer } from "../input/actions";
 import { session } from "../state/session";
 import { events } from "../api";
@@ -44,7 +42,6 @@ interface Props {
 /** Console screens have their own navigation, rather than rearranging Showcase panels. */
 export function ConsoleMenus(props: Props) {
   const [opened, setOpened] = createSignal(false);
-  const [options, setOptions] = createSignal(false);
   const [closing, setClosing] = createSignal(false);
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   const closeChannel = () => {
@@ -79,15 +76,11 @@ export function ConsoleMenus(props: Props) {
   const move = (delta: number) => props.select(Math.max(0, Math.min(props.count - 1, props.focused + delta)));
   const chooseCategory = (index: number) => {
     const id = tabs()[Math.max(0, Math.min(tabs().length - 1, index))];
-    library.setQuery(""); library.setPlatform(id); setOptions(false);
+    library.setQuery(""); library.setPlatform(id);
   };
   createEffect(() => {
     props.style;
-    clearTimeout(closeTimer); setClosing(false); setOpened(false); setOptions(false); setDock(-1); clearPointer();
-  });
-  createEffect(() => {
-    current()?.key;
-    setOptions(false);
+    clearTimeout(closeTimer); setClosing(false); setOpened(false); setDock(-1); clearPointer();
   });
   createEffect(() => {
     if (session.running()) return;
@@ -158,7 +151,15 @@ export function ConsoleMenus(props: Props) {
     if (props.style === "wii") {
       if (opened()) {
         if (action === "back") { closeChannel(); return true; }
-        return false; // The channel's NavScope handles Start / Wii Menu / More.
+        // Fixed directions, not nearest-button: ← Wii Menu, → Start, ↓ Game information, ↑ back to Start.
+        const [menu, start, info] = Array.from(surface.querySelectorAll<HTMLButtonElement>(".wii-channel-buttons button"));
+        const on = document.activeElement;
+        if (action === "left") { menu?.focus(); return true; }
+        if (action === "right") { start?.focus(); return true; }
+        if (action === "down") { info?.focus(); return true; }
+        if (action === "up") { if (on === info) start?.focus(); return true; }
+        if (action === "select") { (on instanceof HTMLButtonElement && surface.contains(on) ? on : start)?.click(); return true; }
+        return false;
       }
       if (dock() >= 0) {
         if (action === "left" || action === "right") { focusDock(Math.max(0, Math.min(2, dock() + (action === "left" ? -1 : 1)))); return true; }
@@ -175,7 +176,6 @@ export function ConsoleMenus(props: Props) {
       if (action === "left" || action === "right") { chooseCategory(category() + (action === "left" ? -1 : 1)); return true; }
       if (action === "up" || action === "down") { move(action === "up" ? -1 : 1); return true; }
       if (action === "select") { if (current()) props.play(); return true; }
-      if (action === "favorite") { if (current()) setOptions(true); return true; }
       if (action === "back") { return false; }
     }
     // Do not rotate an invisible 3D case from either console menu.
@@ -213,7 +213,6 @@ export function ConsoleMenus(props: Props) {
           </button>
         }</Show>}</For></div>
       }</Show>
-      <div class="xmb-keys"><Hint action="select" label="Enter" /><Hint action="back" label="Back" /><button onClick={() => setOptions(true)}><Hint action="favorite" label="Options" /></button><button onClick={props.styles}><Hint action="filter" label="Menu style" /></button></div>
     </>}>
       <Show when={Math.floor(props.focused / 12) + 1} keyed>{(_page) => <div class="wii-channels" aria-label="Channels"><For each={channels()}>{(index) => <Show when={props.entry(index)}>{(entry) =>
         <button class="wii-channel" classList={{ active: index === props.focused }} aria-label={entry().title} aria-pressed={index === props.focused} onClick={() => { setDock(-1); props.select(index); setOpened(true); sfx("select"); }}>
@@ -226,13 +225,10 @@ export function ConsoleMenus(props: Props) {
       <div class="wii-dock"><button class="wii-round" classList={{ "dock-focused": dock() === 0 }} onClick={props.settings} aria-label="Wii options">Wii</button><button class="wii-platforms" classList={{ "dock-focused": dock() === 1 }} onClick={props.platforms} aria-label="Platforms"><Icon name="stack" /></button><div class="wii-clock"><span>{time()}</span><small>{date()}</small></div><button class="wii-round" classList={{ "dock-focused": dock() === 2 }} onClick={props.styles} aria-label="Menu style"><Icon name="tv" /></button></div>
       <Show when={opened() && current()}>{(entry) => <div class="wii-channel-open" classList={{ "wii-channel-closing": closing() }}>
         <div class="wii-channel-banner"><Show when={entry().banner}><img class="wii-banner-scene" src={entry().banner} alt="" decoding="async" /></Show><Show when={logo(entry())} fallback={<h1>{entry().title}</h1>}>{(url) => <img class="wii-banner-logo" src={url()} alt={entry().title} decoding="async" />}</Show><p>{entry().subtitle}</p></div>
-        <NavScope class="wii-channel-buttons" modal onBack={closeChannel}><button onClick={closeChannel}>Wii Menu</button><button data-autofocus disabled={props.launching} onClick={props.play}>{props.launching ? "Starting…" : "Start"}</button><button class="wii-more" onClick={props.more}>Game information</button></NavScope>
+        <div class="wii-channel-buttons"><button onClick={closeChannel}>Wii Menu</button><button ref={(el) => queueMicrotask(() => el.focus())} disabled={props.launching} onClick={props.play}>{props.launching ? "Starting…" : "Start"}</button><button class="wii-more" onClick={props.more}>Game information</button></div>
       </div>}</Show>
     </Show>
     <Show when={props.count === 0}><p class="console-empty">No games here. <button onClick={props.platforms}>Choose a platform</button></p></Show>
-    <Show when={options()}><div class="xmb-options-overlay" onClick={(event) => event.target === event.currentTarget && setOptions(false)}><NavScope class="xmb-options" modal onBack={() => setOptions(false)}>
-      <p>{current()?.title ?? "Game"}</p><button data-autofocus disabled={!current() || props.launching} onClick={props.play}>{props.launching ? "Starting…" : "Start"}</button><button disabled={!current()} onClick={() => { setOptions(false); props.more(); }}>Information</button><button onClick={() => { setOptions(false); props.platforms(); }}>Platforms</button><button onClick={() => { setOptions(false); props.styles(); }}>Menu style</button><button onClick={() => setOptions(false)}>Back</button>
-    </NavScope></div></Show>
     <div class="console-platform-name">{platformName()} · {props.count} games</div>
     <Show when={props.style === "wii" && pointer().visible}><div class="wii-pointer" aria-hidden="true" style={{ transform: `translate3d(${pointer().x}px,${pointer().y}px,0)` }}><img src={pointerImage} alt="" /><small>1</small></div></Show>
     <Show when={props.error}><p class="console-error" role="alert">{props.error}</p></Show>

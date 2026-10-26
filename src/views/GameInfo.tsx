@@ -7,7 +7,7 @@ import { NavScope } from "../components/NavScope";
 import { MatchPicker } from "../components/MatchPicker";
 import { Badge, Hint } from "../components/Hints";
 import { Achievements } from "../components/Achievements";
-import { CollectionPicker } from "../components/Collections";
+import { CoverViewer } from "./CoverViewer";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
@@ -132,7 +132,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
   const [refreshing, setRefreshing] = createSignal(false);
   const [studio, setStudio] = createSignal(false);
   const [matching, setMatching] = createSignal(false);
-  const [collecting, setCollecting] = createSignal(false);
+  const [viewing, setViewing] = createSignal(false);
+  const row = () => library.games().find((g) => g.id === id());
   const [services] = createResource(() => api.getServices().catch(() => null));
   // The game's RetroAchievements id, once the achievements section knows it.
   const [raGameId, setRaGameId] = createSignal<number | null>(null);
@@ -267,8 +268,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                   <button class="btn" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
                     {isFavorite() ? "★ Favorite" : "☆ Favorite"}
                   </button>
-                  <button class="btn" onClick={() => setCollecting(true)}>
-                    Collections…
+                  <button class="btn" disabled={!row()} onClick={() => setViewing(true)}>
+                    View cover
                   </button>
                 </div>
                 <p class="dp-played dim">
@@ -448,8 +449,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
           </button>
         </footer>
       </NavScope>
-      <Show when={collecting() && game()}>
-        {(g) => <CollectionPicker gameId={g().id} title={g().title} onClose={() => setCollecting(false)} />}
+      <Show when={viewing() && row()}>
+        {(g) => <CoverViewer game={g()} platformName={library.platforms().find((p) => p.id === g().platformId)?.name ?? g().platformId} onClose={() => setViewing(false)} />}
       </Show>
       <Show when={matching() && game()}>
         {(g) => (

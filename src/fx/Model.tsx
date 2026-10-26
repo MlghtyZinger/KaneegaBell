@@ -62,6 +62,8 @@ export function Model(props: {
   detail?: boolean;
   /** Include the cartridge and the console slot (the launch animation). */
   launch?: boolean;
+  /** Use the large cover picture (the cover viewer). */
+  hires?: boolean;
   class?: string;
   ref?: (el: HTMLDivElement) => void;
 }) {
@@ -205,7 +207,7 @@ export function Model(props: {
       <div class="f sb"><Edge at={1} /></div>
       <Show when={front}>
         <div class="f bf">
-          <Art big={props.launch} />
+          <Art big={props.launch || props.hires} />
           <div class="sheen" />
         </div>
       </Show>
@@ -249,7 +251,7 @@ export function Model(props: {
             </div>
             <div class="lid">
               <div class="f lf">
-                <Art big={props.launch} />
+                <Art big={props.launch || props.hires} />
                 <div class="sheen" />
               </div>
               <div class="f lb" />

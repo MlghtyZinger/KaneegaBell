@@ -843,6 +843,15 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.4.8
+- New: TV Mode's KB style has a bar with every platform, Favorites, Recent and Collections at the top (L1 / R1 move along it).
+- New: △ opens a quick switcher in every TV menu style; in PS3 style it also has the game's options.
+- New: a cover viewer in TV Mode: the case fills the screen, turn it any way, flip it, zoom in and move around.
+- Changed: the menu style button shows the style's logo, and Select opens it.
+- Improved: the case turns smoothly with the right stick.
+- Fixed: the disc no longer shows before the cover while scrolling, the shine stays on the cover, and titles' descenders aren't cut off.
+- Changed: a new PS3 logo everywhere in the app.
+
 ### 0.4.6
 - New: a redesigned game details page: cover, Play, links and the series on the left, and Overview, Achievements and Game files tabs on the right (L1 / R1 switch them).
 - Changed: the Achievements tab shows a few achievements; choose one, or See all, to open the achievements window.

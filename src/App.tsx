@@ -19,7 +19,7 @@ import { collections } from "./state/collections";
 import { fx } from "./state/fx";
 import { Intros } from "./fx/Intro";
 import { LaunchHost } from "./fx/LaunchFx";
-import { sfx, warmUp } from "./fx/audio";
+import { movesMuted, sfx, warmUp } from "./fx/audio";
 import "./styles/app.css";
 import "./styles/fx.css";
 
@@ -37,7 +37,7 @@ export default function App() {
     const role = a === "select" ? "select" : a === "back" ? "back" : ["up", "down", "left", "right", "prevPlatform", "nextPlatform"].includes(a) ? "move" : null;
     const now = performance.now();
     // Held directions repeat fast; one tick per 45 ms is plenty.
-    if (!role || (role === "move" && now - lastSound < 45)) return;
+    if (!role || (role === "move" && (now - lastSound < 45 || movesMuted()))) return;
     lastSound = now;
     sfx(role);
   });

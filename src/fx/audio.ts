@@ -1,6 +1,7 @@
 // KB's sounds: menu moves, game starts and the start-up intros. Menu and launch
 // sounds use CC0 recordings; bundled intros use the owner's recordings. An override
 // comes from data\intros. Played through Web Audio so they start on time.
+import { createSignal } from "solid-js";
 import { fx } from "../state/fx";
 import { session } from "../state/session";
 
@@ -78,6 +79,9 @@ export function hush() {
   setTimeout(() => old.disconnect(), 400);
   wire();
 }
+
+/** The cover viewer moves the picture with the d-pad: no move ticks while it's open. */
+export const [movesMuted, setMovesMuted] = createSignal(false);
 
 let lastCue = "";
 let lastCueAt = 0;

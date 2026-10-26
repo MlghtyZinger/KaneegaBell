@@ -33,3 +33,42 @@
   --radius: 6px;
   --focus-ring: 0 0 0 4px var(--focus), 0 0 24px 4px color-mix(in srgb, var(--focus) 35%, transparent);
 }
+
+/* TV Mode's console styles: overlays (details, search keyboard, menus, Settings) take the console's look
+   while the style is on (TvMode sets html[data-tv-style]). The console screens draw their own colors. */
+html[data-tv-style="wii"] {
+  color-scheme: light;
+  --bg: #e8ecef;
+  --bg-raised: #fbfcfd;
+  --bg-sunken: #dfe4e9;
+  --surface: #ffffff;
+  --surface-hover: #eaf6fc;
+  --border: #cfd5db;
+  --text: #4f575e;
+  --text-dim: #737b83;
+  --text-faint: #9aa1a8;
+  --accent: #2aa7e0;
+  --accent-strong: #1b86b8;
+  --on-accent: #ffffff;
+  --focus: #2aa7e0;
+  --radius: 16px;
+  --focus-ring: 0 0 0 3px #2aa7e0, 0 0 18px 2px rgb(42 167 224 / .45);
+}
+html[data-tv-style="ps3"] {
+  color-scheme: dark;
+  --bg: #071a33;
+  --bg-raised: #0b2342;
+  --bg-sunken: #04101f;
+  --surface: #12305a;
+  --surface-hover: #1b4275;
+  --border: rgb(255 255 255 / .18);
+  --text: #ffffff;
+  --text-dim: #c9dceb;
+  --text-faint: #8fa8bd;
+  --accent: #4fb6e8;
+  --accent-strong: #b9f4ff;
+  --on-accent: #04101f;
+  --focus: #e8f8ff;
+  --radius: 4px;
+  --focus-ring: 0 0 0 2px rgb(255 255 255 / .85), 0 0 16px 4px rgb(185 244 255 / .55);
+}

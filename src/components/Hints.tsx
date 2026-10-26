@@ -46,7 +46,7 @@ function psShape(a: Action) {
 }
 
 // The last keyboard-or-pad input decides; a stray mouse move doesn't hide the glyphs.
-const padShown = createRoot(() => {
+export const padShown = createRoot(() => {
   let last = device();
   return createMemo(() => {
     const d = device();

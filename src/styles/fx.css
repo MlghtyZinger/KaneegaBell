@@ -83,6 +83,9 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3 .st { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); }
 .m3 .sb { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
 .m3 .bf { transform: translateZ(calc(var(--d) / 2)); }
+/* The sheen stays on the cover; an opaque lid hides the disc until the cover picture has loaded. */
+.m3 .bf, .m3 .lf { overflow: hidden; }
+.m3 .lf { background: hsl(var(--hue) 30% 14%); }
 
 .m3 .art { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 9%; overflow: hidden; }
 .m3 .art b { font: 700 calc(var(--w) * .12)/1 var(--display); text-shadow: 0 1px 6px rgb(0 0 0 / .6); }
@@ -90,8 +93,9 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 
 /* lid (front cover) on a hinge at the left edge, the tray with the disc behind it */
 .m3 .lid { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: left center;
-  transform: translateZ(calc(var(--d) / 2 + .5px)); transition: transform .95s cubic-bezier(.3,.7,.2,1); }
-.m3.open .lid { transform: translateZ(calc(var(--d) / 2 + .5px)) rotateY(-122deg); }
+  transform: translateZ(calc(var(--d) / 2 + .5px)); }
+/* Only opening animates: a case's depth changes when its spine picture loads, and an animated lid would sit behind the disc meanwhile. */
+.m3.open .lid { transform: translateZ(calc(var(--d) / 2 + .5px)) rotateY(-122deg); transition: transform .95s cubic-bezier(.3,.7,.2,1); }
 .m3 .lb { transform: rotateY(180deg); }
 .m3 .tray { position: absolute; inset: 0; transform: translateZ(calc(var(--d) / 2 - 1px)); display: grid; place-items: center; backface-visibility: hidden; transform-style: preserve-3d; }
 .m3 .dwrap { position: relative; width: min(84%, calc(var(--h) * .84)); aspect-ratio: 1; transform-style: preserve-3d; transition: transform .6s cubic-bezier(.2,.8,.2,1); }
@@ -287,3 +291,15 @@ html[data-anim="reduced"] .tv-shelf3d .si { transition: opacity .2s; }
 .m3.pf-other .box .f:not(.back) { background: #141518; }
 /* A launching cartridge's box has the cover's own shape (its --w and --h are set in Model.tsx) */
 .m3 .box.own { inset: auto; left: 50%; top: 50%; width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }
+
+/* Cover viewer (0.4.8): the case fills the screen over its own blurred cover. */
+.cv { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; overflow: hidden; background: #0d0a09; color: #f2e8d8; perspective: 1800px; cursor: grab; touch-action: none; --display: "Bahnschrift Condensed","Arial Narrow",sans-serif; --body: var(--font); }
+.cv-bg { position: absolute; inset: -6%; width: 112%; height: 112%; object-fit: cover; filter: blur(60px) brightness(.55) saturate(1.2); pointer-events: none; }
+.cv-stage { position: relative; transform-style: preserve-3d; }
+.cv-stage .m3-turn { transform-style: preserve-3d; }
+.cv-title { position: absolute; top: calc(3vh + var(--tv-pad-y, 0px)); left: 3vw; pointer-events: none; text-shadow: 0 2px 8px rgb(0 0 0 / .7); }
+.cv-logo { display: block; max-width: 22vw; max-height: 12vh; object-fit: contain; object-position: left top; filter: drop-shadow(0 2px 8px rgb(0 0 0 / .7)); }
+.cv-title h1 { margin: .3vh 0 0; font-size: clamp(22px,3.2vh,48px); font-weight: 600; line-height: 1.25; }
+.cv-chips { position: absolute; top: 3vh; right: 3vw; display: flex; align-items: center; gap: .6vw; }
+.cv-chips > * { display: inline-flex; align-items: center; gap: .4vw; padding: .7vh .9vw; border: 0; border-radius: 99px; background: rgb(0 0 0 / .5); color: inherit; font: inherit; font-size: clamp(12px,1.6vh,22px); cursor: pointer; }
+.cv-chips > span { font-variant-numeric: tabular-nums; min-width: 4.5ch; justify-content: center; cursor: default; }
