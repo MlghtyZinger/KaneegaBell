@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.3",
+    "pdfjs-dist": "4.10.38",
     "solid-js": "^1.9.17"
   },
   "devDependencies": {

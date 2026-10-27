@@ -1563,6 +1563,40 @@ html.nav-mode input[type="checkbox"]:focus {
   border-color: var(--accent);
 }
 
+/* The title and subtitle, each with a small pencil to rename it. */
+.dp-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.dp-pencil {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.dp-pencil .icon {
+  width: 1em;
+  height: 1em;
+}
+.dp-pencil:hover,
+.dp-pencil:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.dp-sub-add {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
 .dp-foot {
   position: sticky;
   bottom: 0;
@@ -4119,3 +4153,7 @@ button.side-series:hover {
 .dp-side .series-cover {
   height: clamp(56px, 7.5vh, 84px);
 }
+
+/* The Manual button greyed out (downloads off, or none found): still reachable, so it can say why. */
+.manual-off { opacity: .5; }
+.manual-why { margin: 0; max-width: 40ch; }

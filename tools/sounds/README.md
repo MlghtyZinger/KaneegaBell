@@ -7,16 +7,12 @@ recordings (no synthesized "game" sounds, owner's request 2026-10-21):
 |---|---|---|
 | [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) (Versilian Studios) | CC0 | intros: glockenspiel, marimba, piano, timpani, strings, horns, gong, cymbals |
 | [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library) | CC0 | earlier Rockstar intro drafts |
-| [Kenney Interface Sounds and UI Audio](https://kenney.nl/assets) | CC0 | menu clicks and switches (sound profiles) |
 
-To rebuild, download the three into `tools/sounds/snd/` (`vsco/`, `guns/`, `kenney/interface/`, `kenney/ui/`;
-not committed), set `FFMPEG` to ffmpeg's path if it isn't on PATH, then:
+KB's own menu/launch sound profiles were removed (owner, 2026-10-27); only the Wii/PS3 menu sounds remain.
 
-- `python build_sounds.py`: the intros (`snd/out/<intro>.ogg`; also older drafts the app doesn't use);
-- `python make_profiles.py`: the three sound profiles (`snd/out/prof_<profile>_<move|select|back|disc|cart>.ogg`).
-
-Copy the results into `src/assets/sounds`: intros as `intro_<key>.ogg` (`xbox` becomes `intro_xbox360.ogg`),
-profiles under their own names. `make_system.py` holds the tone helpers `make_profiles.py` uses.
+To rebuild the old intro mixes, download the first two into `tools/sounds/snd/` (`vsco/`, `guns/`; not
+committed), set `FFMPEG` to ffmpeg's path if it isn't on PATH, then run `python build_sounds.py`
+(`snd/out/<intro>.ogg`). Copy results into `src/assets/sounds` as `intro_<key>.ogg`.
 
 A user's own intro sounds don't come from here: KB plays `data\intros\<intro>.ogg|mp3|wav|m4a|flac` when it
 exists (see Settings → General → Start-up intro). These optional overrides are never shipped.

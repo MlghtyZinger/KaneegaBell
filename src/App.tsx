@@ -8,6 +8,9 @@ import { LibraryView } from "./views/Library";
 const TvMode = lazy(() => import("./views/TvMode").then((m) => ({ default: m.TvMode })));
 // Loaded the first time Settings opens, so starting KB doesn't parse it.
 const SettingsView = lazy(() => import("./views/Settings").then((m) => ({ default: m.SettingsView })));
+// Loaded with pdf.js the first time a manual opens.
+const ManualViewer = lazy(() => import("./views/ManualViewer").then((m) => ({ default: m.ManualViewer })));
+import { manual } from "./state/manual";
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
 import { ScanToast } from "./components/ScanToast";
@@ -17,7 +20,7 @@ import { WhatsNew } from "./components/WhatsNew";
 import { whatsNew } from "./state/whatsNew";
 import { collections } from "./state/collections";
 import { fx } from "./state/fx";
-import { Intros } from "./fx/Intro";
+import { Intros, playTvIntro } from "./fx/Intro";
 import { LaunchHost } from "./fx/LaunchFx";
 import { movesMuted, sfx, warmUp } from "./fx/audio";
 import "./styles/app.css";
@@ -55,6 +58,7 @@ export default function App() {
   async function setTvMode(on: boolean) {
     if (on === tv()) return;
     setTv(on);
+    if (on) playTvIntro();
     await syncTvWindow(on);
   }
   async function syncTvWindow(on: boolean) {
@@ -78,6 +82,10 @@ export default function App() {
     .getStartupNotice()
     .then((n) => n && showNotice(n))
     .catch(() => {});
+  // The game ended while its manual was open over it: the manual goes with it.
+  createEffect(() => {
+    if (manual.open()?.overlay && !session.running()) manual.close();
+  });
   // A launch whose emulator closed right away: say why, once.
   createEffect(() => {
     const f = session.failure();
@@ -125,6 +133,12 @@ export default function App() {
     void events.onNav((a) => dispatchFromGamepad(a as Action));
     // The update access code is missing (said once) or stopped working.
     void events.onUpdateAccess((message) => showNotice(message, 20_000));
+    // Select + △ held during a game: its manual over the game, and away again.
+    void events.onManualOverlay(({ gameId, open, backdrop }) => {
+      if (!open) return manual.close();
+      const title = library.games().find((g) => g.id === gameId)?.title ?? session.running()?.title ?? "";
+      manual.show(gameId, title, true, backdrop);
+    });
     library
       .reload()
       // Two frames later the grid has been laid out and painted: the app is interactive.
@@ -158,6 +172,22 @@ export default function App() {
             OK
           </button>
         </div>
+      </Show>
+      <Show when={manual.open()} keyed>
+        {(m) => (
+          <ManualViewer
+            gameId={m.gameId}
+            title={m.title}
+            overlay={m.overlay}
+            backdrop={m.backdrop}
+            onClose={() => {
+              if (!m.overlay) return manual.close();
+              // KB fades out over the game first; its event closes the manual (or this, if none comes).
+              void api.manualOverlayClose().catch(() => {});
+              setTimeout(() => manual.open() === m && manual.close(), 1500);
+            }}
+          />
+        )}
       </Show>
       <UpdateDialog />
       <WhatsNew />

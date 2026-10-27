@@ -189,6 +189,12 @@ pub fn set_favorite(state: State<'_, AppState>, id: i64, favorite: bool) -> Resu
     queries::set_favorite(&state.db(), id, favorite)
 }
 
+/// The user's own title and subtitle for a game (blank title, or the file's: follow the file again).
+#[tauri::command]
+pub fn rename_game(state: State<'_, AppState>, id: i64, title: String, variant: String) -> Result<()> {
+    queries::rename_game(&state.db(), id, &title, &variant)
+}
+
 #[tauri::command]
 pub fn forget_recent(state: State<'_, AppState>, id: i64) -> Result<()> {
     queries::forget_recent(&state.db(), id)
@@ -807,6 +813,9 @@ pub fn resume_art_on_startup(app: AppHandle) {
             Ok((art, meta_wanted(&conn)?, ra_wanted(&conn)?, sgdb_wanted(&conn)?, lb, wd, icons))
         })();
         let (art, meta, ra, sgdb, lb, wd, icons) = pending.unwrap_or_default();
+        if crate::manuals::downloads_on(&state.db()) {
+            spawn_manual_match(app.clone());
+        }
         if art || meta || ra || sgdb || lb || wd || icons {
             state.lb_pending.fetch_or(lb, Ordering::AcqRel);
             state.wd_pending.fetch_or(wd, Ordering::AcqRel);
@@ -1619,6 +1628,143 @@ impl AppState {
         }
         Ok(WorkerSlot(&self.scanning))
     }
+}
+
+// ---------------------------------------------------------------- manuals (see `manuals`)
+
+#[tauri::command]
+pub fn manual_status(state: State<'_, AppState>, id: i64) -> Result<crate::manuals::Status> {
+    crate::manuals::status(&state.db(), state.data_dir(), id)
+}
+
+/// Gets a manual ready to read; may look it up and download it (off the UI thread, on its own connection).
+#[tauri::command]
+pub async fn manual_open(app: AppHandle, id: i64) -> Result<crate::manuals::Opened> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        let running = state.input.game_running.load(Ordering::Acquire);
+        crate::manuals::open(&conn, state.data_dir(), &crate::manuals::Downloader::new(), id, running)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// The manual's PDF, for the viewer to draw.
+#[tauri::command]
+pub async fn manual_file(app: AppHandle, id: i64) -> Result<tauri::ipc::Response> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        crate::manuals::pdf_bytes(&conn, state.data_dir(), id).map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// Page `n` of the user's own CBZ manual.
+#[tauri::command]
+pub async fn manual_page(app: AppHandle, id: i64, n: u32) -> Result<tauri::ipc::Response> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        crate::manuals::cbz_page(&conn, id, n).map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+/// One page image the viewer made from a downloaded PDF (the body is the WebP; game and page in headers).
+#[tauri::command]
+pub fn manual_save_page(state: State<'_, AppState>, request: tauri::ipc::Request<'_>) -> Result<()> {
+    let header = |k: &str| request.headers().get(k).and_then(|v| v.to_str().ok()).and_then(|v| v.parse::<i64>().ok());
+    let (Some(id), Some(n)) = (header("x-game"), header("x-page")) else {
+        return Err(Error::msg("missing page details"));
+    };
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err(Error::msg("expected the page image"));
+    };
+    let n = u32::try_from(n).map_err(|_| Error::msg("bad page number"))?;
+    crate::manuals::save_page(&state.db(), state.data_dir(), id, n, bytes)
+}
+
+#[tauri::command]
+pub fn manual_finish(state: State<'_, AppState>, id: i64, pages: u32, outline: Option<serde_json::Value>) -> Result<()> {
+    crate::manuals::finish(&state.db(), state.data_dir(), id, pages, outline.as_ref())
+}
+
+#[tauri::command]
+pub async fn manual_candidates(app: AppHandle, id: i64, query: Option<String>) -> Result<Vec<crate::manuals::sources::Entry>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        if !crate::manuals::downloads_on(&conn) {
+            return Err(Error::msg("Manual downloads are off, so KB doesn't look online. Turn them on in Settings → Game info, or pick a file of your own."));
+        }
+        crate::manuals::candidates(&conn, &art::http::Http::new(), id, query.as_deref())
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
+}
+
+#[tauri::command]
+pub fn manual_choose(state: State<'_, AppState>, id: i64, url: String, label: String) -> Result<()> {
+    crate::manuals::choose(&state.db(), state.data_dir(), id, &url, &label)
+}
+
+#[tauri::command]
+pub fn manual_choose_file(state: State<'_, AppState>, id: i64, path: String) -> Result<()> {
+    crate::manuals::choose_file(&state.db(), state.data_dir(), id, &clean_path(Path::new(&path)).to_string_lossy())
+}
+
+#[tauri::command]
+pub fn manual_remove(state: State<'_, AppState>, id: i64) -> Result<()> {
+    crate::manuals::remove(&state.db(), state.data_dir(), id)
+}
+
+/// The manual over a running game was closed: back behind the game.
+#[tauri::command]
+pub fn manual_overlay_close(app: AppHandle, state: State<'_, AppState>) {
+    state.launcher.close_manual(&app);
+}
+
+/// The manual over a game has drawn the game's picture: KB can come into view.
+#[tauri::command]
+pub fn manual_overlay_shown(app: AppHandle, state: State<'_, AppState>) {
+    state.launcher.manual_shown(&app);
+}
+
+/// Matches every game's manual in the background (downloads just turned on), so the buttons know.
+#[tauri::command]
+pub fn manuals_match(app: AppHandle) {
+    spawn_manual_match(app);
+}
+
+fn spawn_manual_match(app: AppHandle) {
+    static RUNNING: AtomicBool = AtomicBool::new(false);
+    if RUNNING.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let started = std::thread::Builder::new().name("manuals".into()).spawn(move || {
+        let state = app.state::<AppState>();
+        let result = db::open(&state.db_path).and_then(|conn| {
+            crate::manuals::match_all(&conn, &art::http::Http::new(), &|| !crate::manuals::downloads_on(&conn) || state.input.game_running.load(Ordering::Acquire))
+        });
+        match result {
+            Ok(n) => log::info!("manuals: {n} games matched"),
+            Err(e) => log::warn!("manual matching: {e}"),
+        }
+        RUNNING.store(false, Ordering::Release);
+    });
+    if started.is_err() {
+        RUNNING.store(false, Ordering::Release);
+    }
+}
+
+/// Settings → Storage: deletes every downloaded manual (the user's own files stay).
+#[tauri::command]
+pub fn delete_manuals(state: State<'_, AppState>) -> Result<()> {
+    crate::manuals::clear(&state.db(), state.data_dir())
 }
 
 #[tauri::command]

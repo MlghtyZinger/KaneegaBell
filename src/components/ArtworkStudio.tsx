@@ -9,10 +9,10 @@ import { FileBrowser } from "./FileBrowser";
 import { Hint } from "./Hints";
 import "../styles/artwork.css";
 
-const ORDER: Slot[] = ["cover", "hero", "logo", "icon", "back", "spine", "disc"];
+const ORDER: Slot[] = ["cover", "hero", "logo", "icon", "back", "spine", "disc", "manual"];
 /** Wide pictures on the top row, the case and icon below. */
 const TOP: Slot[] = ["hero", "logo"];
-const BOTTOM: Slot[] = ["cover", "back", "spine", "disc", "icon"];
+const BOTTOM: Slot[] = ["cover", "back", "spine", "disc", "icon", "manual"];
 const NAMES: Record<Slot, string> = {
   cover: "Front cover",
   hero: "Background",
@@ -21,7 +21,10 @@ const NAMES: Record<Slot, string> = {
   back: "Back cover",
   spine: "Spine",
   disc: "Disc",
+  manual: "Manual",
 };
+
+const mb = (n: number | null) => (n ? ` · ${Math.max(1, Math.round(n / 1048576))} MB` : "");
 
 /**
  * The artwork studio: every picture of one game on one screen. Pick a card to
@@ -51,8 +54,14 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
   const query = () => queries()[active()] ?? null;
   const [candidates] = createResource(
     () => ({ id: props.gameId, slot: active(), q: query(), t: tick() }),
-    ({ id, slot, q }) => api.coverCandidates(id, q, slot).catch((e) => Promise.reject(new Error(errorText(e)))),
+    ({ id, slot, q }) =>
+      (slot === "manual"
+        ? api.manualCandidates(id, q).then((list) => list.map((e): CoverCandidate => ({ source: "manual", name: e.name, url: e.url, preview: null, label: e.label + mb(e.size) })))
+        : api.coverCandidates(id, q, slot)
+      ).catch((e) => Promise.reject(new Error(errorText(e)))),
   );
+  // The manual has no picture: its card says where it comes from.
+  const [manualNow, { refetch: refetchManual }] = createResource(() => props.gameId, (id) => api.manualStatus(id).catch(() => undefined));
   const options = () =>
     candidates.state === "ready" ? candidates().filter((c) => !broken().has(c.url)) : [];
 
@@ -68,16 +77,22 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
       case "back": return artUrl(r.id, caseRev(), "b");
       case "spine": return artUrl(r.id, caseRev(), "s");
       case "disc": return artUrl(r.id, caseRev(), "d");
+      case "manual": return null;
     }
+  };
+
+  const manualText = () => {
+    const s = manualNow();
+    return s?.source ?? (s?.state === "off" ? "None (downloads off)" : s?.state === "none" ? "None found" : "Looked up when opened");
   };
 
   /** The picture a slot shows: its staged choice, or the current one. */
   const shown = (s: Slot): { url: string | null; text: string | null; staged: boolean } => {
     const p = staged()[s];
-    if (!p || (peek() && active() === s)) return { url: currentUrl(s), text: null, staged: false };
+    if (!p || (peek() && active() === s)) return { url: currentUrl(s), text: s === "manual" ? manualText() : null, staged: false };
     switch (p.op) {
       case "option": return { url: p.c.preview, text: p.c.label, staged: true };
-      case "file": return { url: null, text: "Your image", staged: true };
+      case "file": return { url: null, text: s === "manual" ? "Your file" : "Your image", staged: true };
       case "remove": return { url: null, text: "Removed", staged: true };
       case "useCover": return { url: currentUrl("cover"), text: "The cover", staged: true };
     }
@@ -109,7 +124,7 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
       await api.lbBrowse(options().filter((x) => x.source === "lbgame").map((x) => Number(x.url)));
       for (let i = 0; i < 450 && alive; i++) {
         await new Promise((r) => setTimeout(r, 2000));
-        const now = await api.coverCandidates(props.gameId, query(), active());
+        const now = await api.coverCandidates(props.gameId, query(), active() as Exclude<Slot, "manual">);
         if (!now.some((x) => x.source === "lbgame")) {
           if (alive) setTick((t) => t + 1);
           return;
@@ -153,11 +168,15 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
     try {
       for (const [slot, p] of entries) {
         const call = applyCall(slot, p);
-        if (call.op === "set") await api.setCover(props.gameId, call.source, call.name, call.url, slot);
+        if (call.op === "manualPick") await api.manualChoose(props.gameId, call.url, call.label);
+        else if (call.op === "manualFile") await api.manualChooseFile(props.gameId, call.path);
+        else if (call.op === "manualRemove") await api.manualRemove(props.gameId);
+        else if (call.op === "set") await api.setCover(props.gameId, call.source, call.name, call.url, slot as Exclude<Slot, "manual">);
         else if (call.op === "removeCover") await api.removeCover(props.gameId);
         else if (call.op === "removeExtra") await api.removeExtra(props.gameId, call.kind);
         else await api.useCoverIcon(props.gameId);
         if (CASE_SLOTS.includes(slot)) bumpCaseRev();
+        if (slot === "manual") void refetchManual();
         const next = { ...staged() };
         delete next[slot];
         setStaged(next);
@@ -180,7 +199,8 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
     setPeek(false);
   }
 
-  const canRemove = () => REMOVABLE.includes(active()) && !!currentUrl(active());
+  const canRemove = () =>
+    REMOVABLE.includes(active()) && (active() === "manual" ? ["ready", "available"].includes(manualNow()?.state ?? "") : !!currentUrl(active()));
   const canFile = () => FILE_SLOTS.includes(active());
 
   const card = (s: Slot) => {
@@ -259,7 +279,7 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
             <div class="row tight">
               <button class="btn small" onClick={search}>Search…</button>
               <Show when={canFile()}>
-                <button class="btn small" onClick={() => setBrowsing(true)}>Image file…</button>
+                <button class="btn small" onClick={() => setBrowsing(true)}>{active() === "manual" ? "PDF or CBZ file…" : "Image file…"}</button>
               </Show>
             </div>
             <Show when={candidates.error}>
@@ -293,7 +313,7 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
             </Show>
             <Show when={canRemove()}>
               <button class="btn small danger" disabled={busy()} onClick={() => choose({ op: "remove" })}>
-                {active() === "cover" ? "Remove cover" : active() === "icon" ? "Remove icon" : active() === "hero" ? "No background" : "No logo"}
+                {active() === "cover" ? "Remove cover" : active() === "icon" ? "Remove icon" : active() === "hero" ? "No background" : active() === "manual" ? "Forget this manual" : "No logo"}
               </button>
             </Show>
             <Show when={staged()[active()]}>
@@ -319,9 +339,9 @@ export function ArtworkStudio(props: { gameId: number; title: string; cart: bool
       </NavScope>
       <Show when={browsing()}>
         <FileBrowser
-          title={`Choose an image for the ${NAMES[active()].toLowerCase()}`}
+          title={active() === "manual" ? "Choose the manual (a PDF or CBZ file)" : `Choose an image for the ${NAMES[active()].toLowerCase()}`}
           mode="file"
-          extensions={["png", "jpg", "jpeg", "webp"]}
+          extensions={active() === "manual" ? ["pdf", "cbz"] : ["png", "jpg", "jpeg", "webp"]}
           onPick={(path) => {
             setBrowsing(false);
             choose({ op: "file", path });

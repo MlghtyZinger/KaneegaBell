@@ -403,6 +403,33 @@ Everything works without accounts or API keys:
   the app only uses the documented API. Games not found are retried weekly.
 - MobyGames isn't used: its API now requires a paid subscription.
 
+## Manuals
+
+Every game has a **Manual** button (details screen, sidebar, List view panel, and the PS3-style
+△ menu in TV Mode). The manual opens as a book with the cover viewer's controls: L1 / R1 or the
+right stick (or a click on a page) turn the page, R2 / L2 or the wheel zoom, the D-pad / left stick
+(or a drag) move it around, ✕ resets, ○ closes, and △ opens **Contents** when the PDF has bookmarks
+(sub-chapters shown as bullets). The page turn follows the animation level.
+
+- **Your own files first:** pick a PDF or CBZ in the game's Artwork → **Manual**. It's read where
+  it is (never copied or changed), always wins, and works with downloads off.
+- **Downloads (Settings → Game info → Manuals, off by default):** KB finds manuals from
+  [Retrokit](https://github.com/obrie/retrokit)'s hand-catalogued collection, then the Internet
+  Archive's [Console Manuals](https://archive.org/details/consolemanuals) sets (Kirkland's scans
+  included). Only same-title matches are used automatically; Artwork → Manual lists the near ones
+  and searches the Internet Archive. A manual downloads only when it's opened, only from
+  archive.org, up to 200 MB, and only if it really is a PDF or CBZ. The viewer then turns it into
+  page images (WebP, at most 2,400 px tall, 3-4 times smaller) in `data\manuals` and drops the PDF.
+  Settings → Game info → Manuals → Space… sets a size limit (the least recently opened go first)
+  and deletes the downloads; your own files never count.
+- **During a game:** hold **Select + △ (Y)** for a second to read the game's manual over it, fullscreen
+  on the game's screen, over a softly blurred picture of the game; it opens where you left it. The same
+  combo or ○ sends KB back behind the game (and its window back where it was).
+- Holding L1 / R1 flips through pages quickly. Emulators set to pause when they lose focus pause
+  meanwhile (RetroArch does by default). A game in exclusive fullscreen may minimize instead.
+- PDFs are drawn with [pdf.js](https://mozilla.github.io/pdf.js/) (Apache-2.0), display only:
+  no scripts, no eval, nothing fetched from outside the file.
+
 ## Collections
 
 The **Collections** tab (next to Favorites and Recent) holds:
@@ -508,9 +535,8 @@ Settings → General:
   `gamecube`, `ps1`, `ps2`, `ps3`, `psp` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
   stays open until the recording finishes. Files in data\intros override a video's embedded soundtrack and are never shipped. Overrides start with the video; use the embedded soundtrack for the reviewed cue timing.
-- **Sounds**: three profiles (Tactile, the default: real buttons and latches; Console: soft system
-  tones; Retro console: warm filtered beeps and chunky switches) for moving, choosing, going back
-  and starting a disc or cartridge game. On/off and volume for the desktop and TV Mode separately;
+- **Sounds**: KB's own menus and game starts are silent; the Wii and PS3 TV menus play their own
+  menu sounds. On/off and volume for the desktop and TV Mode separately;
   silent while a game runs.
 
 ## Screens, scaling and monitors
@@ -635,14 +661,13 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   facet lines and the PSP were redrawn from them). Saturn: the logo from
   [Simple Icons](https://simpleicons.org) (CC0).
 - The app icon (`src-tauri/icons`) and the emulator badges are drawn for KB.
-- Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
+- Manuals: from [Retrokit](https://github.com/obrie/retrokit) and the
+  [Internet Archive](https://archive.org/details/consolemanuals) (downloaded only on request; the
+  scans keep their original rights). PDF drawing by [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0).- Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
   (no logos).
 - Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled.
 - Startup audio (`src/assets/sounds/intro_*.ogg`): converted from the owner-provided recordings in `audio files` using `tools/sounds/import-intros.ps1` (PSP joins part 1 and part 2).
 - The RDR1 intro clip (`src/assets/intros/rdr1.mp4`) uses the soundtrack from the [reference video supplied by the owner](https://www.youtube.com/watch?v=_C4NevyqF0o). This reference recording retains its original ownership and is not claimed to be CC0.
-- Menu and launch sounds (`src/assets/sounds/prof_*.ogg`, made with `tools/sounds`): CC0 sources include [VSCO 2 Community Edition](https://github.com/sgossner/VSCO-2-CE) by Versilian Studios,
-  [The Free Firearm Sound Library](https://opengameart.org/content/the-free-firearm-sound-library)
-  and [Kenney](https://kenney.nl)'s Interface Sounds and UI Audio.
 
 ## Styles
 
@@ -842,6 +867,15 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] s (part 2). Wikidata: series and franchises without a key
 
 ## Patch notes
+
+### 0.5.0
+- New: game manuals. A Manual button on every game opens its manual as a book with paper-like page turns, zoom and Contents.
+- New: use your own PDF or CBZ manuals (Artwork → Manual), or turn on manual downloads from Retrokit and the Internet Archive in Settings → Game info (off by default).
+- New: hold Select + △ during a game to read its manual over the game.
+- New: rename a game and its subtitle (the pencils next to them on the details screen); rescans keep your name, and a blank title goes back to the file's.
+- Changed: KB's menu and game-start sounds are gone (the Wii and PS3 menus keep theirs).
+- Changed: the start-up intro has its own setting for the desktop and for TV Mode, and the TV Mode one also plays when you switch into TV Mode.
+- Changed: Interface size works like Windows' Scale: it follows Windows by default, or pick 100%–300% (Fit the screen is still there).
 
 ### 0.4.8
 - New: TV Mode's KB style has a bar with every platform, Favorites, Recent and Collections at the top (L1 / R1 move along it).

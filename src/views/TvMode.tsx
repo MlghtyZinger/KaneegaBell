@@ -532,6 +532,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
             play: () => { setPlatformsOpen(false); void playCurrent(); },
             info: () => { setPlatformsOpen(false); setInfoId(current()!.id); },
             cover: () => { setPlatformsOpen(false); setViewing(current() ?? null); },
+            id: current()!.id,
           } : undefined} />
       </Show>
       <Show when={viewing()} keyed>

@@ -10,8 +10,8 @@ const FILES = import.meta.glob<string>("../assets/intros/*.mp4", { eager: true, 
 const KEYS = Object.keys(INTROS) as IntroKey[];
 const videoUrl = (key: IntroKey) => FILES[`../assets/intros/${key === "rockstar" ? "rdr1" : key}.mp4`];
 
-function pick(): IntroKey | null {
-  const p = fx.startInTv() ? fx.get("introTv") : fx.get("introDesktop");
+function pick(tv: boolean): IntroKey | null {
+  const p = tv ? fx.get("introTv") : fx.get("introDesktop");
   if (p === "off" || session.running()) return null;
   // Retired choices (such as Xbox 360) fall back to the current lineup.
   if (Object.hasOwn(INTROS, p)) return p as IntroKey;
@@ -28,19 +28,24 @@ function lastIntro(): string | null {
 }
 
 const runs = createRoot(() => {
-  const [run, setRun] = createSignal<{ key: IntroKey | null } | null>({ key: null });
+  // `tv`: pick by the TV Mode setting (else by where KB opened).
+  const [run, setRun] = createSignal<{ key: IntroKey | null; tv?: boolean } | null>({ key: null });
   return { run, setRun };
 });
 /** Menu music waits until the intro has finished or been skipped. */
 export const introPlaying = () => runs.run() !== null;
 export const playIntro = (key: IntroKey) => runs.setRun({ key });
+/** Switching into TV Mode plays its start-up intro (owner, 2026-10-27), unless one is playing already. */
+export const playTvIntro = () => {
+  if (!runs.run()) runs.setRun({ key: null, tv: true });
+};
 
 export function Intros() {
-  return <Show when={runs.run()} keyed>{(r) => <IntroHost forced={r.key} />}</Show>;
+  return <Show when={runs.run()} keyed>{(r) => <IntroHost forced={r.key} tv={r.tv} />}</Show>;
 }
 
 /** Reviewed clips keep their embedded audio and video on a single media clock. */
-function IntroHost(props: { forced: IntroKey | null }) {
+function IntroHost(props: { forced: IntroKey | null; tv?: boolean }) {
   const [key, setKey] = createSignal<IntroKey | null>(null);
   const [leaving, setLeaving] = createSignal(false);
   const [customSound, setCustomSound] = createSignal(false);
@@ -81,7 +86,7 @@ function IntroHost(props: { forced: IntroKey | null }) {
   onMount(async () => {
     if (!props.forced) await fx.load();
     if (disposed) return;
-    const selected = props.forced ?? pick();
+    const selected = props.forced ?? pick(props.tv ?? fx.startInTv());
     if (!selected) return finish();
     if (fx.soundOn() && !session.running()) {
       const own = await api.introSound(selected).catch(() => null);

@@ -41,6 +41,8 @@ impl Default for ExitCombo {
 pub struct InputShared {
     pub app_focused: AtomicBool,
     pub game_running: AtomicBool,
+    /// The manual is open over a running game: menu navigation works again.
+    pub overlay: AtomicBool,
     combo: Mutex<ExitCombo>,
     combo_changed: AtomicBool,
 }
@@ -111,11 +113,17 @@ struct Pad {
     lt: AxisLatch,
     rt: AxisLatch,
     combo: Combo<Button>,
+    manual: Combo<Button>,
 }
 
 fn build_combo(c: &ExitCombo) -> Combo<Button> {
     let buttons = c.buttons.iter().filter_map(|n| button_from_name(n)).collect();
     Combo::new(buttons, Duration::from_millis(c.hold_ms.clamp(200, 5000)))
+}
+
+/// Select + △/Y held a second, while a game runs: the game's manual over it (and away again).
+fn manual_combo() -> Combo<Button> {
+    Combo::new(vec![Button::Back, Button::North], Duration::from_millis(1000))
 }
 
 #[derive(Clone, Serialize)]
@@ -127,10 +135,11 @@ struct PadInfo {
 }
 
 /// Starts the controller thread. `on_exit_combo` runs (on the input thread)
-/// when the combo is held while a game is running.
-pub fn spawn(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + Send + Sync>) {
+/// when the combo is held while a game is running; `on_manual_combo` likewise
+/// for the manual's combo.
+pub fn spawn(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + Send + Sync>, on_manual_combo: Arc<dyn Fn() + Send + Sync>) {
     let result = std::thread::Builder::new().name("gamepad".into()).spawn(move || {
-        if let Err(e) = run(app, shared, on_exit_combo) {
+        if let Err(e) = run(app, shared, on_exit_combo, on_manual_combo) {
             log::error!("controller input disabled: {e}");
         }
     });
@@ -139,7 +148,7 @@ pub fn spawn(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn
     }
 }
 
-fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + Send + Sync>) -> Result<(), String> {
+fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + Send + Sync>, on_manual_combo: Arc<dyn Fn() + Send + Sync>) -> Result<(), String> {
     use sdl3::hint;
     // Keep receiving input while an emulator has focus.
     hint::set("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1");
@@ -169,7 +178,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
 
     loop {
         let running = shared.game_running.load(Ordering::Acquire);
-        let nav_enabled = shared.app_focused.load(Ordering::Acquire) && !running;
+        let nav_enabled = shared.app_focused.load(Ordering::Acquire) && (!running || shared.overlay.load(Ordering::Acquire));
         if nav_enabled != nav_was_enabled {
             repeater.release_all();
             nav_was_enabled = nav_enabled;
@@ -183,6 +192,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
         if !running {
             for p in pads.values_mut() {
                 p.combo.reset();
+                p.manual.reset();
             }
         }
 
@@ -217,6 +227,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                                 lt: AxisLatch::default(),
                                 rt: AxisLatch::default(),
                                 combo: build_combo(&combo_cfg),
+                                manual: manual_combo(),
                             },
                         );
                     }
@@ -232,6 +243,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                     if let Some(p) = pads.get_mut(&id) {
                         p.held.insert(button);
                         p.combo.update(&p.held, now);
+                        p.manual.update(&p.held, now);
                     }
                     if let Some(a) = button_action(button) {
                         fire(a, id, now, &mut repeater);
@@ -242,6 +254,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
                     if let Some(p) = pads.get_mut(&id) {
                         p.held.remove(&button);
                         p.combo.update(&p.held, now);
+                        p.manual.update(&p.held, now);
                     }
                     if let Some(a) = button_action(button) {
                         repeater.release(a);
@@ -305,6 +318,11 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
             log::info!("exit combo held");
             on_exit_combo();
         }
+        // Each pad is polled (not `any`), so a twin pad's hold can't fire it a second time later.
+        if running && pads.values_mut().fold(false, |hit, p| p.manual.poll(now) || hit) {
+            log::info!("manual combo held");
+            on_manual_combo();
+        }
 
         let interval = if running {
             Duration::from_millis(16)
@@ -314,7 +332,7 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
             Duration::from_millis(150)
         };
         // Wake early for a pending repeat or combo deadline.
-        let deadline = [repeater.next_due(), pads.values().filter_map(|p| p.combo.due_at()).min()]
+        let deadline = [repeater.next_due(), pads.values().filter_map(|p| p.combo.due_at().into_iter().chain(p.manual.due_at()).min()).min()]
             .into_iter()
             .flatten()
             .min()

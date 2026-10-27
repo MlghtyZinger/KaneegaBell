@@ -14,7 +14,7 @@ import { device } from "../input/actions";
 import { editWithOsk } from "../state/osk";
 import { EmulatorBadge } from "../components/Icons";
 import { applyTheme, FOCUS_LOOKS } from "../state/theme";
-import { fx, INTROS, type AnimLevel, type IntroKey, type IntroPick, type SoundProfile } from "../state/fx";
+import { fx, INTROS, type AnimLevel, type IntroKey, type IntroPick } from "../state/fx";
 import { playIntro } from "../fx/Intro";
 import { sfx } from "../fx/audio";
 
@@ -34,23 +34,24 @@ const INFO: Record<string, Info> = {
   platforms: { title: "Platforms", words: "core template extensions file types override enable disable", detail: "Overrides are optional; empty fields use the defaults shown in grey. Core and launch template are for each platform's built-in emulator; emulators you add have their own. Extension changes apply on the next scan." },
   launchbox: { title: "LaunchBox Games Database", words: "covers logos backgrounds info description genres free no account", detail: "Covers, logos, backgrounds, back covers, discs and spines, descriptions, release dates, developers and genres, without a key. It comes first; anything you pick yourself always stays. KB downloads its database (about 100 MB) once and keeps it in its folder, so adding games never downloads it again; it keeps only your games' details and fetches pictures just for your games. Data from the LaunchBox Games Database community." },
   wikidata: { title: "Wikidata", words: "series franchise collections free no account", detail: "Which series and franchise each game belongs to, shown in the game details and Collections. Asked once per platform with games, then only for new games or, monthly, for games it couldn't find. Free data (CC0)." },
+  manuals: { title: "Manuals", words: "manual booklet instructions pdf cbz retrokit internet archive kirkland download size limit", detail: "Each game's Manual button opens its manual as a book. Your own PDF or CBZ (Artwork → Manual) always comes first and needs nothing online. With downloads on, KB finds manuals from Retrokit, then the Internet Archive's Console Manuals, and downloads one only when you open it, shrunk to page images about 3-4 times smaller. In a game, hold Select + △ (Y) to read its manual over the game. Manuals from Retrokit and the Internet Archive." },
   igdb: { title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
   sgdb: { title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
   ra: { title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
   style: { title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
   exitCombo: { title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
   opensIn: { title: "KB opens in", words: "start fullscreen window tv mode big picture f11 l3 f10", detail: "How KB looks when it starts: in a window, fullscreen, or in TV Mode, the big-screen view with backgrounds and logos. F11 toggles fullscreen and L3 or F10 switches TV Mode at any time." },
-  intro: { title: "Start-up intro", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random sound file intros folder", detail: "An intro plays when KB starts, on the desktop and in TV Mode. Random never repeats the last one; Off skips it. Your own sound files go in the data folder's intros folder." },
+  intro: { title: "Start-up intro, desktop", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random sound file intros folder", detail: "The intro when KB opens on the desktop. Random never repeats the last one; Off skips it. Your own sound files go in the data folder's intros folder." },
+  introTv: { title: "Start-up intro, TV Mode", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random tv", detail: "The intro when KB opens in TV Mode, or when you switch into TV Mode. Random never repeats the last one; Off skips it." },
   introWatch: { title: "Watch an intro", words: "preview play intro", detail: "Pick an intro and play it to see it." },
   animDesktop: { title: "Animations, desktop", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
   animTv: { title: "Animations, TV Mode", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
   launchFx: { title: "Launch animation", words: "case cartridge 3d disc game start", detail: "Opens the game's case (or puts the cartridge in its console) before the emulator starts, on the desktop and in TV Mode. Back cancels it." },
-  soundProfile: { title: "Sound profile", words: "sound effects audio tactile console retro menu clicks", detail: "The short sounds for moving, choosing, going back and starting a game. Silent while a game runs." },
   soundDesktop: { title: "Sounds, desktop", words: "volume mute audio", detail: "Menu sounds on the desktop: off, or how loud." },
   soundTv: { title: "Sounds, TV Mode", words: "volume mute audio", detail: "Menu sounds in TV Mode: off, or how loud." },
   tvText: { title: "TV Mode text size", words: "small large couch", detail: "Text size in TV Mode, for reading from the couch." },
   tvShelf: { title: "TV Mode selected game", words: "3d case flat cover shelf", detail: "TV Mode shows the selected game as a large case you can turn and flip, or a flat cover." },
-  size: { title: "Interface size", words: "zoom scaling dpi 4k display", detail: "\"Fit the screen\" makes big screens at low Windows scaling (like a 4K TV at 100%) look like 1080p instead of tiny. Screens up to 1080p, or with scaling turned up, look the same either way." },
+  size: { title: "Interface size", words: "zoom scaling dpi 4k display text size font bigger smaller", detail: "How big text and everything else is, like Windows' Scale setting. \"Like Windows\" follows your display's scaling; a percentage sets KB's own (100% suits 1080p, about 200-300% a 4K screen). \"Fit the screen\" lays any screen out like 1080p, for a 4K TV at 100%." },
   updates: { title: "Updates", words: "version check what's new access code", detail: "Updates install only when you choose to, never while a game runs, and KB refuses any download that isn't signed. The access code lets this copy read KaneegaBell's private releases." },
   storage: { title: "Storage and reset", words: "clear downloaded data reset backup cache space", detail: "Clear downloaded data deletes the covers, info and achievement data KB downloaded, then fetches them again. Reset goes back to the first start (a copy of the old library is kept). Neither touches your games, emulators or saves." },
   removed: { title: "Removed games", words: "forget missing hidden deleted play time", detail: "When a game's file disappears, KB keeps it hidden if you played or favorited it, so it comes back with the file (e.g. an unplugged drive). Forgetting deletes them for good. With the switch on, scans do that right away." },
@@ -357,6 +358,7 @@ export function SettingsView(props: { onClose: () => void }) {
                 <Group title="Game info">
                   <LaunchBoxSection run={run} />
                   <WikidataSection run={run} />
+                  <ManualsSection s={s()} run={run} />
                   <ServicesSection s={s()} run={run} />
                   <SteamGridDbSection run={run} />
                   <RetroAchievementsSection run={run} />
@@ -1199,6 +1201,63 @@ function WikidataSection(props: { run: Run }) {
   );
 }
 
+/** Settings → Game info → Manuals: downloads (off by default), a size limit, and deleting the downloads. */
+function ManualsSection(props: { s: Settings; run: Run }) {
+  const [stored, { refetch }] = createResource(() => api.getStorage().catch(() => null));
+  const on = () => props.s.values.manualDownloads === true;
+  const cap = () => Number(props.s.values.manualCap ?? 0) || 0;
+  return (
+    <section class="card-section set-list">
+      <Row
+        k="manuals"
+        status={`${on() ? "Downloads on" : "Downloads off"}${stored()?.manualsBytes ? ` · ${size(stored()!.manualsBytes)} kept` : ""}${cap() ? ` · limit ${cap() >= 1024 ? `${cap() / 1024} GB` : `${cap()} MB`}` : ""}`}
+        open="Space…"
+        sub={
+          <>
+            <div class="row wrap">
+              <Picker
+                title="Keep downloaded manuals up to"
+                value={String(cap())}
+                options={[0, 1024, 2048, 5120].map((mb) => ({ value: String(mb), label: mb ? `${mb / 1024} GB (the oldest opened go first)` : "No limit" }))}
+                onChange={(v) => void props.run(() => api.setSetting("manualCap", Number(v) || null))}
+              />
+              <Show when={stored()?.manualsBytes}>
+                <button
+                  class="btn"
+                  onClick={() =>
+                    void props.run(
+                      async () => {
+                        await api.deleteManuals();
+                        await refetch();
+                      },
+                      { notice: "Downloaded manuals deleted. Each downloads again when you open it; your own files stay." },
+                    )
+                  }
+                >
+                  Delete downloaded manuals
+                </button>
+              </Show>
+            </div>
+            <p class="dim small">Your own manual files never count toward the limit and are never deleted.</p>
+          </>
+        }
+        toggle={
+          <OnOff
+            label="Download manuals"
+            checked={on()}
+            onChange={(v) =>
+              void props.run(async () => {
+                await api.setSetting("manualDownloads", v);
+                if (v) await api.manualsMatch();
+              })
+            }
+          />
+        }
+      />
+    </section>
+  );
+}
+
 function ServicesSection(props: { s: Settings; run: Run }) {
   const [services, { refetch }] = createResource(() => api.getServices());
   const [clientId, setClientId] = createSignal("");
@@ -1627,11 +1686,8 @@ function GeneralSection(props: { s: Settings; run: Run }) {
         <Row k="size">
           <Picker
             dropdown title="Interface size"
-            value={props.s.values.interfaceSize === "fixed" ? "fixed" : "auto"}
-            options={[
-              { value: "auto", label: "Fit the screen" },
-              { value: "fixed", label: "Follow Windows scaling only" },
-            ]}
+            value={SIZES.some((o) => o.value === props.s.values.interfaceSize) ? (props.s.values.interfaceSize as string) : "windows"}
+            options={SIZES}
             onChange={(v) =>
               props.run(async () => {
                 await api.setSetting("interfaceSize", v);
@@ -1764,6 +1820,12 @@ function StorageBlock(props: { s: Settings; run: Run }) {
                       <td>Web cache (picker previews)</td>
                       <td class="num">{size(st().webCacheBytes)}</td>
                     </tr>
+                    <Show when={st().manualsBytes}>
+                      <tr>
+                        <td>Downloaded manuals (Game info → Manuals)</td>
+                        <td class="num">{size(st().manualsBytes)}</td>
+                      </tr>
+                    </Show>
                     <Show when={st().launchboxBytes}>
                       <tr>
                         <td>LaunchBox game database (kept so new games need no download)</td>
@@ -1929,21 +1991,16 @@ const LEVELS: { value: AnimLevel; label: string }[] = [
 const ONE_INTRO = (Object.entries(INTROS) as [IntroKey, { name: string }][]).map(([value, i]) => ({ value, label: i.name }));
 const INTRO_PICKS: { value: IntroPick; label: string }[] = [{ value: "random", label: "Random" }, ...ONE_INTRO, { value: "off", label: "Off" }];
 
-/** One start-up intro for the desktop and TV Mode alike, and a place to watch them. */
+/** The start-up intro when KB opens on the desktop, and when it opens in TV Mode; a place to watch them. */
 function IntroRows() {
   const [preview, setPreview] = createSignal<IntroKey>("konami");
   return (
     <>
       <Row k="intro">
-        <Picker
-          dropdown title="Start-up intro"
-          value={fx.get("introDesktop")}
-          options={INTRO_PICKS}
-          onChange={(v) => {
-            fx.set("introDesktop", v);
-            fx.set("introTv", v);
-          }}
-        />
+        <Picker dropdown title="Start-up intro, desktop" value={fx.get("introDesktop")} options={INTRO_PICKS} onChange={(v) => fx.set("introDesktop", v)} />
+      </Row>
+      <Row k="introTv">
+        <Picker dropdown title="Start-up intro, TV Mode" value={fx.get("introTv")} options={INTRO_PICKS} onChange={(v) => fx.set("introTv", v)} />
       </Row>
       <Row k="introWatch">
         <Picker dropdown title="Intro to watch" value={preview()} options={ONE_INTRO} onChange={setPreview} />
@@ -1955,12 +2012,13 @@ function IntroRows() {
   );
 }
 
-const PROFILES: { value: SoundProfile; label: string }[] = [
-  { value: "tactile", label: "Tactile" },
-  { value: "console", label: "Console" },
-  { value: "retro", label: "Retro console" },
-];
 /** Off, or how loud: one choice instead of a switch and a volume. */
+/** Interface size: Windows' scale list, plus following Windows and the 1080p-like fit. */
+const SIZES = [
+  { value: "windows", label: "Like Windows" },
+  ...[100, 125, 150, 175, 200, 225, 250, 300].map((p) => ({ value: String(p), label: `${p}%` })),
+  { value: "fit", label: "Fit the screen" },
+];
 const SOUND_LEVELS = [
   { value: "off", label: "Off" },
   ...Array.from({ length: 10 }, (_, i) => ({ value: String((i + 1) * 10), label: `${(i + 1) * 10}%` })),
@@ -1976,17 +2034,6 @@ function SoundRows() {
   };
   return (
     <>
-      <Row k="soundProfile">
-        <Picker
-          dropdown title="Sound profile"
-          value={fx.get("soundProfile")}
-          options={PROFILES}
-          onChange={(v) => {
-            fx.set("soundProfile", v);
-            sfx("select");
-          }}
-        />
-      </Row>
       <Row k="soundDesktop">
         <Picker dropdown title="Desktop sounds" value={level(fx.get("soundDesktop"), fx.get("volumeDesktop"))} options={SOUND_LEVELS} onChange={setLevel("soundDesktop", "volumeDesktop")} />
       </Row>

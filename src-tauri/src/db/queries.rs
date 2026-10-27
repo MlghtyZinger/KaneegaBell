@@ -64,7 +64,8 @@ fn is_zero(v: &i64) -> bool {
 /// the one payload the UI needs at startup; ~100 bytes/game.
 pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT g.id, g.platform_id, g.title, g.variant, g.region, g.favorite, g.play_seconds,
+        "SELECT g.id, g.platform_id, COALESCE(g.user_title, g.title), CASE WHEN g.user_variant IS NULL THEN g.variant ELSE NULLIF(g.user_variant, '') END,
+                g.region, g.favorite, g.play_seconds,
                 g.last_played, g.is_multidisc, CASE WHEN g.art_status = 'ok' THEN g.art_version ELSE 0 END,
                 CASE WHEN g.art_status = 'ok' AND a.width > 0 AND a.height > 0
                      THEN ROUND(CAST(a.height AS REAL) / a.width, 3) END,
@@ -84,7 +85,7 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
          LEFT JOIN metadata m ON m.game_id = g.id
          LEFT JOIN wd_games w ON w.qid = g.wd_id AND g.wd_status = 'ok'
          WHERE g.missing = 0 AND p.enabled = 1
-         ORDER BY p.sort_order, g.sort_title, g.id",
+         ORDER BY p.sort_order, COALESCE(g.user_sort, g.sort_title), g.id",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok(GameRow {
@@ -146,13 +147,18 @@ pub struct GameDetail {
     /// Where the art came from ("libretro", "igdb", "sgdb").
     pub art_source: Option<String>,
     pub files: Vec<(String, Option<u32>)>,
+    /// The name and subtitle read from the file (`title`/`variant` are what KB shows: the user's rename, if any).
+    pub file_title: String,
+    pub file_variant: Option<String>,
 }
 
 pub fn game_detail(conn: &Connection, id: i64) -> Result<GameDetail> {
     let mut d = conn.query_row(
-        "SELECT id, platform_id, title, variant, region, serial, launch_path, total_size, is_multidisc,
+        "SELECT id, platform_id, COALESCE(user_title, title), CASE WHEN user_variant IS NULL THEN variant ELSE NULLIF(user_variant, '') END,
+                region, serial, launch_path, total_size, is_multidisc,
                 play_seconds, last_played, CASE WHEN art_status = 'ok' THEN art_version ELSE 0 END,
-                (SELECT source FROM artwork a WHERE a.game_id = games.id AND a.kind = 'boxart' AND a.selected = 1)
+                (SELECT source FROM artwork a WHERE a.game_id = games.id AND a.kind = 'boxart' AND a.selected = 1),
+                title, variant
          FROM games WHERE id = ?1",
         [id],
         |r| {
@@ -171,12 +177,29 @@ pub fn game_detail(conn: &Connection, id: i64) -> Result<GameDetail> {
                 art: r.get(11)?,
                 art_source: r.get(12)?,
                 files: Vec::new(),
+                file_title: r.get(13)?,
+                file_variant: r.get(14)?,
             })
         },
     )?;
     let mut stmt = conn.prepare_cached("SELECT path, disc_no FROM game_files WHERE game_id = ?1 ORDER BY disc_no, path")?;
     d.files = stmt.query_map([id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?;
     Ok(d)
+}
+
+/// The user's name for a game (title and subtitle). A part left as the file has it (or a blank title) goes
+/// back to following the file; a blank subtitle hides it.
+pub fn rename_game(conn: &Connection, id: i64, title: &str, variant: &str) -> Result<()> {
+    let (file_title, file_variant): (String, Option<String>) =
+        conn.query_row("SELECT title, variant FROM games WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let (title, variant) = (title.trim(), variant.trim());
+    let user_title = (!title.is_empty() && title != file_title).then_some(title);
+    let user_variant = (variant != file_variant.as_deref().unwrap_or("")).then_some(variant);
+    conn.execute(
+        "UPDATE games SET user_title = ?2, user_variant = ?3, user_sort = ?4 WHERE id = ?1",
+        params![id, user_title, user_variant, user_title.map(crate::scanner::normalize::sort_title)],
+    )?;
+    Ok(())
 }
 
 pub fn start_session(conn: &Connection, game_id: i64, now: i64) -> Result<()> {

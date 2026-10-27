@@ -15,6 +15,8 @@ const mockThemes: Record<string, MockTheme> = Object.fromEntries(
   ]),
 );
 let mockTheme = "ember";
+/** Renamed games' names as the file has them. */
+const mockFileNames = new Map<number, { title: string; variant: string | null }>();
 
 const PLATFORMS = [
   ["snes", "Super Nintendo", "SNES"],
@@ -266,13 +268,25 @@ export function installMockIpc() {
       }
       case "get_library":
         return lib;
+      case "rename_game": {
+        const { id, title, variant } = args as { id: number; title: string; variant: string };
+        const g = lib.games.find((x) => x.id === id)!;
+        const file = mockFileNames.get(id) ?? { title: g.title, variant: g.variant };
+        mockFileNames.set(id, file);
+        g.title = title.trim() || file.title;
+        g.variant = variant.trim() || null;
+        return null;
+      }
       case "get_settings":
         return settings;
       case "get_game": {
         const g = lib.games.find((x) => x.id === (args as { id: number }).id)!;
         const genre = lib.genres.find((x) => g.genres?.includes(x.id));
+        const file = mockFileNames.get(g.id) ?? { title: g.title, variant: g.variant };
         return {
           ...g,
+          fileTitle: file.title,
+          fileVariant: file.variant,
           serial: null,
           launchPath: `E:\\Games\\${g.title}.iso`,
           totalSize: 1.4e9,
@@ -389,7 +403,35 @@ export function installMockIpc() {
           { igdbId: 2, name: "Okami HD", year: 2012, cover: null, onPlatform: false, summary: "A remaster." },
         ];
       case "get_storage":
-        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data", resetBackupBytes: 9_175_040, webCacheBytes: 31_457_280, launchboxBytes: 103_809_024 };
+        return { downloadedBytes: 182_452_224, dataDir: "C:\\Games\\KaneegaBell\\data", resetBackupBytes: 9_175_040, webCacheBytes: 31_457_280, launchboxBytes: 103_809_024, manualsBytes: 48_234_496 };
+      // Manuals: odd game ids have one (a drawn 12-page "CBZ"), even ones show the greyed button.
+      case "manual_status":
+        return Number(a.id) % 2 ? { state: "ready", source: "Retrokit (Internet Archive)" } : { state: "off", source: null };
+      case "manual_open":
+        // Every third game: a real (tiny) PDF with bookmarks, drawn by pdf.js.
+        if (Number(a.id) % 3 === 0) return { kind: "pdf", pages: null, source: "Your file: Mock.pdf", version: 0, convert: false, outline: null };
+        return {
+          kind: "cbz",
+          pages: 12,
+          source: "Retrokit (Internet Archive)",
+          version: 1,
+          convert: false,
+          outline: [
+            { title: "Getting started", page: 3, items: [{ title: "Controls", page: 4 }] },
+            { title: "The story", page: 5, items: [{ title: "Characters", page: 6 }] },
+            { title: "Playing", page: 7, items: [{ title: "Menus", page: 7 }, { title: "Saving", page: 8 }] },
+            { title: "Credits", page: 11 },
+          ],
+        };
+      case "manual_page":
+        return mockManualPage(Number(a.n));
+      case "manual_file":
+        return mockPdf();
+      case "manual_candidates":
+        return [
+          { name: "Mock Game (USA)", url: "https://archive.org/download/x/a.pdf", label: "Retrokit · Mock Game (en)", size: 9_502_415 },
+          { name: "Mock Game", url: "ia:mock", label: "Internet Archive search · Mock Game Instruction Booklet", size: 31_000_000 },
+        ];
       case "clear_downloaded":
         return 182_452_224;
       case "clear_web_cache":
@@ -461,6 +503,48 @@ export function installMockIpc() {
     }
   });
   console.info(`[mock] Tauri IPC mocked with ${n} games`);
+}
+
+/** A three-page PDF with two bookmarks, written out by hand (offsets computed). */
+function mockPdf(): ArrayBuffer {
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R /Outlines 9 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
+    ...[6, 7, 8].map((c) => `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 560] /Contents ${c} 0 R /Resources << /Font << /F1 12 0 R >> >> >>`),
+    ...["Mock PDF manual", "Controls", "Credits"].map((t) => {
+      const s = `BT /F1 28 Tf 40 480 Td (${t}) Tj ET`;
+      return `<< /Length ${s.length} >>\nstream\n${s}\nendstream`;
+    }),
+    "<< /Type /Outlines /First 10 0 R /Last 11 0 R /Count 2 >>",
+    "<< /Title (Controls) /Parent 9 0 R /Next 11 0 R /Dest [4 0 R /Fit] >>",
+    "<< /Title (Credits) /Parent 9 0 R /Prev 10 0 R /Dest [5 0 R /Fit] >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const at: number[] = [];
+  objs.forEach((o, i) => {
+    at.push(out.length);
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map((n) => `${String(n).padStart(10, "0")} 00000 n \n`).join("")}`;
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return new TextEncoder().encode(out).buffer as ArrayBuffer;
+}
+
+/** A manual page drawn on the spot (PNG bytes), like a scan from a CBZ. */
+async function mockManualPage(n: number): Promise<ArrayBuffer> {
+  const c = new OffscreenCanvas(820, 1104);
+  const g = c.getContext("2d")!;
+  const cover = n === 0 || n === 11;
+  g.fillStyle = cover ? "#1a1210" : "#f2e9d8";
+  g.fillRect(0, 0, 820, 1104);
+  g.fillStyle = cover ? "#f3e6cf" : "#2a211c";
+  g.font = "bold 56px Georgia";
+  g.fillText(cover ? (n ? "Back cover" : "MOCK GAME") : `Page ${n + 1}`, 68, 180);
+  g.fillStyle = cover ? "#4a3c33" : "#cdbfa6";
+  for (let k = 0; k < 14; k++) g.fillRect(68, 240 + k * 40, 380 + ((n * 53 + k * 71) % 300), 16);
+  return (await c.convertToBlob({ type: "image/png" })).arrayBuffer();
 }
 
 /** A few games a source "couldn't match", for Settings → Game info. */

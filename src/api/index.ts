@@ -43,7 +43,7 @@ export interface PlatformSummary {
 
 export interface CoverCandidate {
   /** "lbgame": a LaunchBox entry found by name whose pictures aren't stored yet (`url` is its id; see `lbBrowse`). */
-  source: "launchbox" | "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "lbgame";
+  source: "launchbox" | "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "lbgame" | "manual";
   name: string;
   url: string;
   preview: string | null;
@@ -292,6 +292,43 @@ export interface Storage {
   webCacheBytes: number;
   /** LaunchBox's kept game database file (~100 MB), once downloaded. */
   launchboxBytes: number | null;
+  /** Downloaded manuals (the user's own files aren't counted). */
+  manualsBytes: number;
+}
+
+/** What a game's Manual button shows (never goes online to find out). */
+export interface ManualStatus {
+  /** ready: opens now · available: found, downloads when opened · unknown: looked up when opened ·
+   *  none: no manual found · off: downloads are off and there's no file of the user's own. */
+  state: "ready" | "available" | "unknown" | "none" | "off";
+  /** "Your file: X.pdf", "Retrokit (Internet Archive)"… */
+  source: string | null;
+}
+
+/** One entry of a manual's contents (from the PDF's bookmarks); `page` counts from 1. */
+export interface ManualOutlineItem {
+  title: string;
+  page: number;
+  items?: ManualOutlineItem[];
+}
+
+export interface ManualOpened {
+  /** pages: page images · pdf: the PDF from manualFile · cbz: the user's own CBZ, page by page. */
+  kind: "pages" | "pdf" | "cbz";
+  pages: number | null;
+  outline: ManualOutlineItem[] | null;
+  source: string;
+  version: number;
+  /** Turn the PDF into page images while it's open (downloaded manuals only). */
+  convert: boolean;
+}
+
+export interface ManualCandidate {
+  name: string;
+  /** A download address, or "ia:<item>". */
+  url: string;
+  label: string;
+  size: number | null;
 }
 
 export interface UpdateInfo {
@@ -428,6 +465,9 @@ export interface GameDetail {
   art: number;
   artSource: "launchbox" | "libretro" | "gametdb" | "igdb" | "sgdb" | "local" | "file" | null;
   files: [string, number | null][];
+  /** The name and subtitle read from the file (`title`/`variant` show the user's rename, if any). */
+  fileTitle: string;
+  fileVariant: string | null;
   meta: GameMetadata;
 }
 
@@ -451,6 +491,14 @@ export interface ArtSummary {
  */
 export function artUrl(gameId: number, version: number, size: "t" | "f" | "h" | "l" | "i" | "d" | "b" | "s" | "q" = "t"): string {
   return `${THUMB_BASE}/${size}/${gameId}?v=${version}`;
+}
+
+/** The picture of the running game taken when its manual came up over it. */
+export const overlayBackdropUrl = () => `${THUMB_BASE}/overlay-bg?t=${Date.now()}`;
+
+/** A downloaded manual's page image (`n` counts from 0). */
+export function manualPageUrl(gameId: number, n: number, version: number): string {
+  return `${THUMB_BASE}/mp/${gameId}/${n}?v=${version}`;
 }
 
 /** The game's Backloggd page (by its IGDB slug), or a Backloggd search for its title. */
@@ -637,6 +685,8 @@ export const api = {
   getLibrary: () => invoke<Library>("get_library"),
   getGame: (id: number) => invoke<GameDetail>("get_game", { id }),
   setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),
+  /** The user's own title and subtitle; the file's (or a blank title) follows the file again, a blank subtitle hides it. */
+  renameGame: (id: number, title: string, variant: string) => invoke<void>("rename_game", { id, title, variant }),
   forgetRecent: (id: number) => invoke<void>("forget_recent", { id }),
   previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
   /** `emulator`: this launch only (else the game's pick or the platform's default). */
@@ -760,6 +810,25 @@ export const api = {
   /** Deletes the library copy the last reset kept. */
   deleteResetBackup: () => invoke<void>("delete_reset_backup"),
   deleteLaunchboxFile: () => invoke<void>("delete_launchbox_file"),
+  manualStatus: (id: number) => invoke<ManualStatus>("manual_status", { id }),
+  /** May look the manual up and download it first (seconds to a minute). */
+  manualOpen: (id: number) => invoke<ManualOpened>("manual_open", { id }),
+  manualFile: (id: number) => invoke<ArrayBuffer>("manual_file", { id }),
+  manualPage: (id: number, n: number) => invoke<ArrayBuffer>("manual_page", { id, n }),
+  manualSavePage: (id: number, n: number, webp: Uint8Array) =>
+    invoke<void>("manual_save_page", webp, { headers: { "x-game": String(id), "x-page": String(n) } }),
+  manualFinish: (id: number, pages: number, outline: ManualOutlineItem[] | null) => invoke<void>("manual_finish", { id, pages, outline }),
+  manualCandidates: (id: number, query: string | null) => invoke<ManualCandidate[]>("manual_candidates", { id, query }),
+  manualChoose: (id: number, url: string, label: string) => invoke<void>("manual_choose", { id, url, label }),
+  manualChooseFile: (id: number, path: string) => invoke<void>("manual_choose_file", { id, path }),
+  manualRemove: (id: number) => invoke<void>("manual_remove", { id }),
+  /** The manual over a running game was closed: KB goes back behind the game. */
+  manualOverlayClose: () => invoke<void>("manual_overlay_close"),
+  /** The manual over a game has drawn the game's picture: KB's window comes into view. */
+  manualOverlayShown: () => invoke<void>("manual_overlay_shown"),
+  /** Matches every game's manual in the background (after downloads are turned on). */
+  manualsMatch: () => invoke<void>("manuals_match"),
+  deleteManuals: () => invoke<void>("delete_manuals"),
   /** Back to a first start (keeps a copy of the library); reload the page afterwards. */
   resetApp: (forgetKeys: boolean) => invoke<void>("reset_app", { forgetKeys }),
   /** Looks for a newer KB release; null when up to date. */
@@ -834,6 +903,11 @@ export const events = {
   onRightStick: (cb: (axes: [number, number]) => void): Promise<UnlistenFn> => listen<[number, number]>("right-stick", (e) => cb(e.payload)),
   onGamepadConnected: (cb: (p: PadInfo) => void): Promise<UnlistenFn> =>
     listen<PadInfo>("gamepad-connected", (e) => cb(e.payload)),
+  /** Select + △ held during a game: the manual opens over it (or closes). */
+  onManualOverlay: (cb: (p: { gameId: number; open: boolean; backdrop: boolean }) => void): Promise<UnlistenFn> =>
+    listen<{ gameId: number; open: boolean; backdrop: boolean }>("manual-overlay", (e) => cb(e.payload)),
+  /** Select + △ held again over a game: the manual fades back to the game, then closes. */
+  onManualOverlayLeave: (cb: () => void): Promise<UnlistenFn> => listen("manual-overlay-leave", () => cb()),
 };
 
 /** Errors from commands arrive as plain strings. */

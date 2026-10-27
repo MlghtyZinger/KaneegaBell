@@ -11,6 +11,7 @@ mod input;
 mod launchbox;
 mod launcher;
 mod maintenance;
+mod manuals;
 mod metadata;
 mod migrate;
 #[cfg(test)]
@@ -85,6 +86,9 @@ fn webview_args() -> String {
         // The start-up intro plays its sound before anyone has pressed anything.
         "--autoplay-policy=no-user-gesture-required".to_string(),
     ];
+    // The manual over a game is drawn while KB's window is still hidden (cloaked); Chromium would otherwise
+    // count it as covered and stop drawing until it's shown, flashing old content.
+    disable.push("CalculateNativeWinOcclusion".to_string());
     if let Ok(extra) = std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") {
         std::env::remove_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS");
         merge_browser_args(&extra, &mut disable, &mut enable, &mut other);
@@ -285,10 +289,12 @@ pub fn run() {
             updates::check_on_startup(app.handle().clone());
 
             let handle = app.handle().clone();
+            let handle2 = app.handle().clone();
             input::gamepad::spawn(
                 app.handle().clone(),
                 input,
                 Arc::new(move || handle.state::<commands::AppState>().launcher.request_exit()),
+                Arc::new(move || handle2.state::<commands::AppState>().launcher.toggle_manual(&handle2)),
             );
             Ok(())
         })
@@ -410,6 +416,21 @@ pub fn run() {
             commands::remove_collection_hero,
             commands::fetch_wikidata,
             commands::set_wd_enabled,
+            commands::manual_status,
+            commands::manual_open,
+            commands::manual_file,
+            commands::manual_page,
+            commands::manual_save_page,
+            commands::manual_finish,
+            commands::manual_candidates,
+            commands::manual_choose,
+            commands::manual_choose_file,
+            commands::manual_remove,
+            commands::rename_game,
+            commands::manual_overlay_close,
+            commands::manual_overlay_shown,
+            commands::manuals_match,
+            commands::delete_manuals,
             updates::check_for_update,
             updates::install_update,
             updates::set_update_code,

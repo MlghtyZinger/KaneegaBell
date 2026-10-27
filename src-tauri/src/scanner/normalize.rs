@@ -204,7 +204,7 @@ pub fn search_key(s: &str) -> String {
     out
 }
 
-fn sort_title(title: &str) -> String {
+pub fn sort_title(title: &str) -> String {
     let key = search_key(title);
     let key = LEADING_ARTICLE.replace(&key, "");
     DIGITS

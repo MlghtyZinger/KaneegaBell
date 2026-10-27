@@ -1,0 +1,45 @@
+/* The manual viewer: a book on a dark stage, chips top right like the cover viewer. */
+.mv { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; overflow: hidden; background: var(--bg-sunken); color: var(--text); font-family: var(--font); touch-action: none; user-select: none; }
+/* Over a game: the game's own picture, softly blurred (its cover, more blurred, when no picture could be taken). */
+.mv-bg { position: absolute; inset: -3%; width: 106%; height: 106%; object-fit: cover; filter: blur(10px) brightness(.55); pointer-events: none; }
+.mv-bg.cover { filter: blur(48px) brightness(.45) saturate(1.2); }
+/* Over a game: the sharp picture of the game's screen underneath; everything else fades in over it once KB
+   is on screen (.mv-in), and out again before KB goes, so neither step shows a seam. */
+.mv-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.mv-over-game > :not(.mv-shot) { opacity: 0; transition: opacity .3s ease; }
+.mv-over-game.mv-in > :not(.mv-shot) { opacity: 1; }
+.mv-over-game > .mv-stage { transform: translateY(1.5vh); transition: opacity .3s ease, transform .35s cubic-bezier(.2, .8, .2, 1); }
+.mv-over-game.mv-in > .mv-stage { transform: none; }.mv-head { position: absolute; top: 3vh; left: 3vw; display: flex; align-items: baseline; gap: 1vw; max-width: 45vw; pointer-events: none; }
+.mv-tag { font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.mv-title { font-size: var(--fs-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mv-source { font-size: var(--fs-xs); color: var(--text-dim); white-space: nowrap; }
+.mv-msg { max-width: 60ch; text-align: center; font-size: var(--fs-md); color: var(--text-dim); line-height: 1.5; }
+.mv-error { display: grid; gap: var(--gap); justify-items: center; color: var(--text); }
+.mv-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+.mv-zoom { transform-origin: center; will-change: transform; }
+.mv-book { position: relative; perspective: 2600px; }
+.mv-half { position: absolute; top: 0; height: 100%; background-color: #efe6d4; background-repeat: no-repeat; box-shadow: 0 2.4vh 6vh rgb(0 0 0 / .55); }
+.mv-half.l { left: 0; }
+.mv-half.blank { background: none; box-shadow: none; }
+.mv-half.waiting::after, .mv-face.waiting::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / .25) 50%, transparent 70%) #e4d9c4; }
+.mv-cast { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+.mv-half.l .mv-cast { background: linear-gradient(270deg, rgb(0 0 0 / .55), rgb(0 0 0 / .12) 55%, transparent); }
+.mv-half.r .mv-cast { background: linear-gradient(90deg, rgb(0 0 0 / .55), rgb(0 0 0 / .12) 55%, transparent); }
+.mv-leaf { position: absolute; top: 0; height: 100%; transform-style: preserve-3d; z-index: 2; pointer-events: none; visibility: hidden; }
+.mv-strip { position: absolute; left: 0; top: 0; height: 100%; transform-origin: 0 50%; transform-style: preserve-3d; will-change: transform; }
+.mv-face { position: absolute; inset: 0; backface-visibility: hidden; background-color: #efe6d4; background-repeat: no-repeat; }
+.mv-face.blank { background: none; }
+.mv-back { transform: rotateY(180deg); }
+.mv-shade { position: absolute; inset: 0; background: #000; opacity: 0; }
+.mv-chips { position: absolute; top: 3vh; right: 3vw; display: flex; align-items: center; gap: .6vw; }
+.mv-chips > * { display: inline-flex; align-items: center; gap: .4vw; padding: .7vh .9vw; border: 0; border-radius: 99px; background: rgb(0 0 0 / .5); color: #f2e8d8; font: inherit; font-size: clamp(12px, 1.6vh, 22px); cursor: pointer; }
+.mv-chips > span { font-variant-numeric: tabular-nums; min-width: 4.5ch; justify-content: center; cursor: default; }
+.mv-chips > button:disabled { opacity: .4; cursor: default; }
+.mv-toc { position: absolute; top: 10vh; bottom: 6vh; left: 3vw; width: min(30vw, 520px); display: flex; flex-direction: column; background: var(--bg-raised); border: 1px solid var(--border); border-radius: calc(var(--radius) * 2); box-shadow: 0 2vh 6vh rgb(0 0 0 / .5); z-index: 5; overflow: hidden; }
+.mv-toc h2 { margin: 0; padding: 2vh 1.4vw 1vh; font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.mv-toc ul { list-style: none; margin: 0; padding: 0 .6vw 1.4vh; overflow-y: auto; }
+.mv-toc button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 1vw; border: 0; border-radius: var(--radius); background: transparent; color: var(--text); font: inherit; font-size: var(--fs-sm); text-align: left; padding: 0 1vw; cursor: pointer; }
+.mv-toc button.sub { padding-left: 2.4vw; color: var(--text-dim); font-size: var(--fs-xs); }
+.mv-toc button.sub::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); margin-left: -1.1vw; flex-shrink: 0; }
+.mv-toc .pg { margin-left: auto; color: var(--text-faint); font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
+.mv-toc button.here { background: var(--surface); box-shadow: inset 3px 0 0 var(--accent); }

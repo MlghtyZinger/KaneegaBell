@@ -80,6 +80,11 @@ fn fit(img: &DynamicImage, (w, h): (u32, u32)) -> DynamicImage {
     }
 }
 
+/// A manual page (a scan from a CBZ): at most 2,400 px tall, still sharp at 2× zoom on a 4K TV.
+pub fn manual_page(bytes: &[u8]) -> Result<Vec<u8>> {
+    webp(&fit(&decode(bytes)?, (4800, 2400)), 82.0)
+}
+
 pub fn process(bytes: &[u8]) -> Result<Processed> {
     let img = image::load_from_memory(bytes).map_err(|e| Error::msg(format!("bad image: {e}")))?;
     Ok(Processed {

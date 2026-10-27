@@ -12,6 +12,9 @@ import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
 import { caseOf } from "../fx/Model";
+import { ManualButton } from "../components/ManualButton";
+import { osk } from "../state/osk";
+import { Icon } from "../components/Icons";
 const ArtworkStudio = lazy(() => import("../components/ArtworkStudio").then((m) => ({ default: m.ArtworkStudio })));
 
 function formatSize(bytes: number): string {
@@ -233,6 +236,28 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     await library.reload();
   }
 
+  /** The title or the subtitle on the on-screen keyboard (the pencils); scans never undo it. */
+  function rename(g: GameDetail, part: "title" | "subtitle") {
+    const save = (title: string, variant: string) =>
+      void api
+        .renameGame(g.id, title, variant)
+        .then(() => Promise.all([refetch(), library.reload()]))
+        .catch((e) => setLaunchError(errorText(e)));
+    if (part === "title")
+      return osk.open({
+        title: "Rename",
+        value: g.title,
+        status: () => `From the file: ${g.fileTitle} (leave blank to use it)`,
+        onDone: (title) => save(title, g.variant ?? ""),
+      });
+    osk.open({
+      title: "Subtitle",
+      value: g.variant ?? "",
+      status: () => `From the file: ${g.fileVariant ?? "none"} (leave blank for none)`,
+      onDone: (variant) => save(g.title, variant),
+    });
+  }
+
   async function play() {
     if (launching()) return;
     setLaunching(true);
@@ -272,6 +297,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     View cover
                   </button>
                 </div>
+                <ManualButton gameId={g().id} title={g().title} />
+
                 <p class="dp-played dim">
                   {g().playSeconds > 0
                     ? `${formatPlayTime(g().playSeconds)} played · Last played ${formatLastPlayed(g().lastPlayed)}`
@@ -325,10 +352,18 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                       </div>
                     )}
                   </Show>
-                  <h2>{g().title}</h2>
-                  <Show when={g().variant}>
-                    <p class="dim">{g().variant}</p>
-                  </Show>
+                  <h2 class="dp-name">
+                    {g().title}
+                    <button class="dp-pencil" title="Rename" aria-label="Rename" onClick={() => rename(g(), "title")}>
+                      <Icon name="pencil" />
+                    </button>
+                  </h2>
+                  <p class="dim dp-name dp-sub">
+                    {g().variant ?? <span class="dp-sub-add">Add a subtitle</span>}
+                    <button class="dp-pencil" title="Edit subtitle" aria-label="Edit subtitle" onClick={() => rename(g(), "subtitle")}>
+                      <Icon name="pencil" />
+                    </button>
+                  </p>
                   <p class="meta-line">{[g().platformId.toUpperCase(), metaLine(g())].filter(Boolean).join(" · ")}</p>
                   <Show when={g().meta.genres.length > 0}>
                     <div class="genre-row">

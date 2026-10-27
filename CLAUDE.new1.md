@@ -346,6 +346,14 @@ credit; each can be turned off. All downloads stay in the background worker, cac
   matches refetch once by id (`metadata.series_checked`).
 - **Manuals are not game content** (owner, 2026-10-25): on-demand downloads from Retrokit (Internet Archive) are allowed,
   built in 0.5.0 as before.
+- **0.5.0 Manuals, decided (owner, 2026-10-27):** book spread with the paper page turn from the artifact "KB Manual Page
+  Turn" (always full bend; speed/animation levels kept); Contents from PDF bookmarks only when the file has them. Sources in
+  order: the user's own PDF/CBZ (Artwork → Manual, file browser, never copied), Retrokit, then the Internet Archive's
+  Console Manuals sets incl. Kirkland's (owner: "it is from the Internet Archive"), then an Internet Archive search picker;
+  each manual says where it's from. Downloads **off by default** (`manualDownloads`); the Manual button always shows, greyed
+  with "downloads off" when off. Downloads only on open, then shrunk to WebP pages (`data\manuals`); optional size cap
+  (`manualCap`, MB, default none). In-game: hold Select + △ 1 s (owner OK'd "Yes"). Code: `src-tauri/src/manuals/`,
+  migration 027, `src/views/ManualViewer.tsx`, `pdfjs-dist` 4.10.38.
 
 ## Explicit non-goals (updated)
 - No ROM, BIOS, firmware, key or game-content downloading of any kind (unchanged)
@@ -479,6 +487,8 @@ Each milestone is runnable and tested, and passes the perf gate.
       black), PS3 (name on the right), PSP (line → blue waves → white screen, grey text on the last riff), Xbox 360 (a
       big X behind the orb), Switch. Menu sounds: three profiles, **Tactile (default)**, Console, Retro console, each
       with move/select/back + disc start + cartridge start (Kenney CC0 clicks + generated tones, `make_profiles.py`).
+      **(changed, owner, 2026-10-27: "remove all of Kenney's sounds, from everywhere")** Tactile removed, Console is the
+      default, Console/Retro re-rendered from generated tones only; the manual's page sounds were dropped too.
       Cartridges, consoles and handhelds drawn from the real hardware as SVG (no logos; handhelds whole: GBA front,
       DS Lite and 3DS closed, Switch with Joy-Con). TV shelf cases can be inspected (turn ±80°, tilt, flip to the back).
       **The owner's own intro recordings** (`C:\Emulator files\audio files`, never committed): the owner calls them

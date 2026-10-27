@@ -54,7 +54,7 @@ export async function readyAudio(): Promise<void> {
   if (c?.state === "suspended") await c.resume().catch(() => {});
 }
 
-/** Plays a decoded sound now (or `delayMs` from now), if sound is on. */
+/** Plays a decoded sound now (or `delayMs` from now), if sound is on and no game is running. */
 export function playBuffer(buf: AudioBuffer | null, delayMs = 0) {
   const c = audio();
   if (!c || !buf || !master || !fx.soundOn() || session.running()) return;
@@ -86,10 +86,12 @@ export const [movesMuted, setMovesMuted] = createSignal(false);
 let lastCue = "";
 let lastCueAt = 0;
 
-/** The current profile's sound for a menu move, a choice, going back, or a disc / cartridge game starting. */
+/** The Wii / PS3 TV menu's sound for a move, a choice or going back. KB's own menus and game starts
+ *  are silent (owner, 2026-10-27: the generated profiles were removed). */
 export function sfx(role: "move" | "select" | "back" | "disc" | "cart", delayMs = 0) {
   const style = fx.tv() ? fx.get("tvMenu") : "kb";
-  const name = style !== "kb" && ["move", "select", "back"].includes(role) ? `menu_${style}_${role}` : `prof_${fx.get("soundProfile")}_${role}`;
+  if (style === "kb" || role === "disc" || role === "cart") return;
+  const name = `menu_${style}_${role}`;
   const now = performance.now();
   if (lastCue === name && now - lastCueAt < 35) return;
   lastCue = name; lastCueAt = now;
@@ -98,7 +100,7 @@ export function sfx(role: "move" | "select" | "back" | "disc" | "cart", delayMs 
 
 /** Decodes the menu sounds ahead of time, so the first press isn't late. */
 export function warmUp() {
-  if (!fx.soundOn()) return;
   const style = fx.tv() ? fx.get("tvMenu") : "kb";
-  for (const r of ["move", "select", "back"]) void load(style !== "kb" ? `menu_${style}_${r}` : `prof_${fx.get("soundProfile")}_${r}`);
+  if (!fx.soundOn() || style === "kb") return;
+  for (const r of ["move", "select", "back"]) void load(`menu_${style}_${r}`);
 }

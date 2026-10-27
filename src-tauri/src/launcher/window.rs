@@ -7,6 +7,7 @@
 //! standard workaround used by launchers.
 
 use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CLOAK, DWMWA_TRANSITIONS_FORCEDISABLED};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_MENU,
 };
@@ -103,6 +104,82 @@ pub fn focus_game(hwnd: HWND) {
         let inputs = [key(KEYBD_EVENT_FLAGS(0)), key(KEYEVENTF_KEYUP)];
         SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
         let _ = SetForegroundWindow(hwnd);
+    }
+}
+
+/// The game window's place on screen (physical pixels): left, top, width, height.
+pub fn window_rect(hwnd: HWND) -> Option<(i32, i32, i32, i32)> {
+    let mut r = windows::Win32::Foundation::RECT::default();
+    unsafe { windows::Win32::UI::WindowsAndMessaging::GetWindowRect(hwnd, &mut r).ok()? };
+    let (w, h) = (r.right - r.left, r.bottom - r.top);
+    (w > 0 && h > 0).then_some((r.left, r.top, w, h))
+}
+
+/// The whole screen the game window is on (physical pixels): left, top, width, height.
+pub fn monitor_rect(hwnd: HWND) -> Option<(i32, i32, i32, i32)> {
+    use windows::Win32::Graphics::Gdi::*;
+    let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+    // SAFETY: plain calls with a valid out-struct.
+    unsafe { GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mut info).ok().ok()? };
+    let r = info.rcMonitor;
+    let (w, h) = (r.right - r.left, r.bottom - r.top);
+    (w > 0 && h > 0).then_some((r.left, r.top, w, h))
+}
+
+/// What's on screen in this area, as RGBA (the game behind its manual). Copied from the screen, so a
+/// game in exclusive fullscreen may come out black (the caller checks).
+pub fn capture((x, y, w, h): (i32, i32, i32, i32)) -> Option<image::RgbaImage> {
+    use windows::Win32::Graphics::Gdi::*;
+    // SAFETY: plain GDI calls on handles created and released here.
+    unsafe {
+        let screen = GetDC(None);
+        let mem = CreateCompatibleDC(Some(screen));
+        let bmp = CreateCompatibleBitmap(screen, w, h);
+        let old = SelectObject(mem, bmp.into());
+        let copied = BitBlt(mem, 0, 0, w, h, Some(screen), x, y, SRCCOPY).is_ok();
+        let mut info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: w,
+                biHeight: -h, // top-down rows
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut px = vec![0u8; (w * h * 4) as usize];
+        let rows = if copied { GetDIBits(mem, bmp, 0, h as u32, Some(px.as_mut_ptr().cast()), &mut info, DIB_RGB_COLORS) } else { 0 };
+        SelectObject(mem, old);
+        let _ = DeleteObject(bmp.into());
+        let _ = DeleteDC(mem);
+        ReleaseDC(None, screen);
+        if rows == 0 {
+            return None;
+        }
+        for p in px.chunks_exact_mut(4) {
+            p.swap(0, 2); // BGRA -> RGBA
+            p[3] = 255;
+        }
+        image::RgbaImage::from_raw(w as u32, h as u32, px)
+    }
+}
+
+/// Hides the window from the screen while it keeps drawing (DWM cloak): KB moves and resizes over a
+/// game unseen, then shows up in one frame.
+pub fn set_cloaked(hwnd: HWND, cloaked: bool) {
+    let v = cloaked as i32;
+    unsafe {
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &v as *const i32 as *const std::ffi::c_void, 4);
+    }
+}
+
+/// Windows' own zoom when the window is minimized or restored; off while KB comes up over a game.
+pub fn set_transitions(hwnd: HWND, on: bool) {
+    let off = (!on) as i32;
+    unsafe {
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &off as *const i32 as *const std::ffi::c_void, 4);
     }
 }
 

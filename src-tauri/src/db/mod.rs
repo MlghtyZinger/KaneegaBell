@@ -36,6 +36,8 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/024_igdb_series.sql"),
     include_str!("migrations/025_wikidata_series_first.sql"),
     include_str!("migrations/026_series_parents.sql"),
+    include_str!("migrations/027_manuals.sql"),
+    include_str!("migrations/028_game_names.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {
@@ -133,6 +135,36 @@ mod tests {
         assert_eq!((last, secs), (None, 60));
         let running: Option<i64> = conn.query_row("SELECT last_played FROM games WHERE id = 2", [], |r| r.get(0)).unwrap();
         assert_eq!(running, Some(100), "a running game keeps its last-played time until it exits");
+    }
+
+    #[test]
+    fn a_renamed_game_shows_and_sorts_by_its_new_name_until_reset() {
+        let conn = super::test_db();
+        conn.execute(
+            "INSERT INTO games (platform_id, title, variant, sort_title, search_key, launch_path, added_at)
+             VALUES ('snes', 'Breath of Fire 2', 'Definitive Edition v2.2', 'breath of fire 00002', 'breath of fire 2', 'b.sfc', 0),
+                    ('snes', 'Chrono Trigger', NULL, 'chrono trigger', 'chrono trigger', 'c.sfc', 0)",
+            [],
+        )
+        .unwrap();
+        let shown = || super::queries::library(&conn).unwrap().into_iter().map(|g| (g.title, g.variant)).collect::<Vec<_>>();
+        // New title and subtitle; it now sorts under its new name (without "The", like every title).
+        super::queries::rename_game(&conn, 1, "  The Wings of Fire II ", "Fan translation").unwrap();
+        assert_eq!(shown()[1], ("The Wings of Fire II".into(), Some("Fan translation".into())));
+        // A blank subtitle hides it; the file's title is kept for matching.
+        super::queries::rename_game(&conn, 1, "Breath of Fire II", "").unwrap();
+        assert_eq!(shown()[0], ("Breath of Fire II".into(), None));
+        let d = super::queries::game_detail(&conn, 1).unwrap();
+        assert_eq!((d.file_title.as_str(), d.file_variant.as_deref()), ("Breath of Fire 2", Some("Definitive Edition v2.2")));
+        // The file's own name (or a blank title) follows the file again.
+        super::queries::rename_game(&conn, 1, "", "Definitive Edition v2.2").unwrap();
+        let reset: (Option<String>, Option<String>, Option<String>) =
+            conn.query_row("SELECT user_title, user_variant, user_sort FROM games WHERE id = 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(reset, (None, None, None));
+        // A scan of the same file never undoes a rename.
+        super::queries::rename_game(&conn, 2, "Chrono Trigger (Retranslated)", "").unwrap();
+        conn.execute("UPDATE games SET title = 'Chrono Trigger', variant = NULL WHERE id = 2", []).unwrap();
+        assert_eq!(super::queries::game_detail(&conn, 2).unwrap().title, "Chrono Trigger (Retranslated)");
     }
 
     #[test]

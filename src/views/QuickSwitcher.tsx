@@ -2,6 +2,7 @@ import { For, Show } from "solid-js";
 import { Icon, PlatformIcon } from "../components/Icons";
 import { Hint } from "../components/Hints";
 import { NavScope } from "../components/NavScope";
+import { ManualButton } from "../components/ManualButton";
 
 const LIB = ["favorites", "recent", "collections"];
 
@@ -23,15 +24,17 @@ export function QuickSwitcher(props: {
   count: (id: string) => string;
   onPick: (id: string) => void;
   onClose: () => void;
-  game?: { title: string; play: () => void; info: () => void; cover: () => void };
+  game?: { title: string; play: () => void; info: () => void; cover: () => void; id: number };
 }) {
   const lib = () => props.tabs.filter((id) => LIB.includes(id));
   const rest = () => props.tabs.filter((id) => !LIB.includes(id));
+  // PS3 style lists the game's options first: start there, at the top of the panel.
+  const gameFirst = () => props.style === "ps3" && !!props.game;
   const Item = (p: { id: string; big?: boolean }) => (
     <button
       class="qs-item"
       classList={{ "qs-big": p.big, active: props.current === p.id }}
-      data-autofocus={props.current === p.id ? "" : undefined}
+      data-autofocus={props.current === p.id && !gameFirst() ? "" : undefined}
       onClick={() => props.onPick(p.id)}
     >
       <TabIcon id={p.id} />
@@ -45,9 +48,10 @@ export function QuickSwitcher(props: {
           {(g) => (
             <div class="qs-game">
               <p>{g().title}</p>
-              <button class="qs-item" onClick={g().play}>Start</button>
+              <button class="qs-item" data-autofocus onClick={g().play}>Start</button>
               <button class="qs-item" onClick={g().info}>Information</button>
               <button class="qs-item" onClick={g().cover}>View cover</button>
+              <ManualButton gameId={g().id} title={g().title} class="qs-item" />
             </div>
           )}
         </Show>

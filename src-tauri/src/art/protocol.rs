@@ -72,8 +72,35 @@ fn ra_media(path: &str) -> Option<(&str, &str)> {
     matches!(kind, "ra" | "rai").then_some((kind, name))
 }
 
+/// A manual's page image (`/mp/{game_id}/{n}`, see `manuals`).
+fn manual_page(path: &str) -> Option<(i64, u32)> {
+    let rest = path.split('?').next()?.strip_prefix("/mp/")?;
+    let (id, n) = rest.split_once('/')?;
+    Some((id.parse().ok()?, n.parse().ok()?))
+}
+
 pub fn respond(data_dir: &Path, path: &str) -> tauri::http::Response<Vec<u8>> {
     let builder = tauri::http::Response::builder();
+    if path.split('?').next() == Some("/overlay-bg") {
+        let shot = crate::launcher::OVERLAY_BG.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        return match shot {
+            Some(bytes) => builder.status(200).header("Content-Type", "image/png").header("Cache-Control", "private, max-age=600").body(bytes),
+            None => builder.status(404).body(Vec::new()),
+        }
+        .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()));
+    }
+    if let Some((id, n)) = manual_page(path) {
+        return match std::fs::read(crate::manuals::page_path(data_dir, id, n)) {
+            Ok(bytes) => builder
+                .status(200)
+                .header("Content-Type", "image/webp")
+                .header("Cache-Control", "public, max-age=31536000, immutable")
+                .header("Access-Control-Allow-Origin", "*")
+                .body(bytes),
+            Err(_) => builder.status(404).body(Vec::new()),
+        }
+        .unwrap_or_else(|_| tauri::http::Response::new(Vec::new()));
+    }
     let (found, mime) = match ra_media(path) {
         Some((kind, name)) => {
             // One client for every badge request, so they share connections.
@@ -118,6 +145,9 @@ mod tests {
         assert_eq!(parse("/x/1"), None);
         assert_eq!(parse("/t/../../secret"), None);
         assert_eq!(parse("/t/"), None);
+        assert_eq!(manual_page("/mp/12/3?v=9"), Some((12, 3)));
+        assert_eq!(manual_page("/mp/12/../x"), None);
+        assert_eq!(manual_page("/mp/x/1"), None);
     }
 
     #[test]

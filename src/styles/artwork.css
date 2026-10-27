@@ -48,7 +48,7 @@
   grid-template-columns: 1.6fr 1fr;
 }
 .art-row.bottom {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .art-card {

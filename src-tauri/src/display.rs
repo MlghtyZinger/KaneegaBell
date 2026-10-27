@@ -77,6 +77,18 @@ pub fn auto_zoom(width: f64, height: f64) -> f64 {
     (z * 100.0).round() / 100.0
 }
 
+/// Page zoom for the Interface size setting (owner, 2026-10-27: "like Windows"). Unset (or the old
+/// "auto"/"fixed"): Windows' own display scaling, as Windows shows everything else. "fit": big screens
+/// laid out like 1080p. A percentage ("150"): that scale, as if Windows were set to it.
+pub fn zoom_for(setting: Option<&str>, width: f64, height: f64, windows_scale: f64) -> f64 {
+    let zoom = match setting {
+        Some("fit") => auto_zoom(width, height),
+        Some(v) => v.parse::<f64>().map(|pct| pct / 100.0 / windows_scale.max(0.5)).unwrap_or(1.0),
+        None => 1.0,
+    };
+    (zoom.clamp(0.25, 5.0) * 100.0).round() / 100.0
+}
+
 // ---------------------------------------------------------------- placement
 
 /// Puts the window back where it was (called during startup, before the
@@ -208,12 +220,11 @@ pub fn apply_zoom(app: &AppHandle) {
     if size.width == 0 || size.height == 0 {
         return; // minimized
     }
-    let auto = app
+    let setting = app
         .try_state::<crate::commands::AppState>()
-        .and_then(|s| queries::get_setting::<String>(&s.db(), "interfaceSize").ok().flatten())
-        .is_none_or(|v| v != "fixed");
+        .and_then(|s| queries::get_setting::<String>(&s.db(), "interfaceSize").ok().flatten());
     let logical = size.to_logical::<f64>(scale);
-    let zoom = if auto { auto_zoom(logical.width, logical.height) } else { 1.0 };
+    let zoom = zoom_for(setting.as_deref(), logical.width, logical.height, scale);
     if ZOOM.swap(zoom.to_bits(), Ordering::AcqRel) != zoom.to_bits() {
         log::info!("page zoom {zoom} for a {:.0}x{:.0} window", logical.width, logical.height);
         if let Err(e) = window.set_zoom(zoom) {
@@ -455,6 +466,19 @@ mod tests {
         assert_eq!(auto_zoom(5120.0, 1440.0), 1.33, "32:9 is limited by its height");
         assert_eq!(auto_zoom(1600.0, 1400.0), 1.0, "a tall window is limited by its width");
         assert_eq!(auto_zoom(960.0, 540.0), 1.0);
+    }
+
+    #[test]
+    fn interface_size_works_like_windows_scaling() {
+        // Default (and the old values): Windows' scaling as is.
+        for old in [None, Some("auto"), Some("fixed")] {
+            assert_eq!(zoom_for(old, 2560.0, 1440.0, 1.5), 1.0);
+        }
+        assert_eq!(zoom_for(Some("fit"), 3840.0, 2160.0, 1.0), 2.0);
+        // A percentage replaces Windows' scale (here 4K at Windows 150%, then 1080p at 100%).
+        assert_eq!(zoom_for(Some("300"), 2560.0, 1440.0, 1.5), 2.0);
+        assert_eq!(zoom_for(Some("100"), 2560.0, 1440.0, 1.5), 0.67);
+        assert_eq!(zoom_for(Some("150"), 1920.0, 1080.0, 1.0), 1.5);
     }
 
     /// Prints this PC's displays: `cargo test --lib os_names -- --ignored --nocapture`

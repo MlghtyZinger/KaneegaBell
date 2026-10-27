@@ -14,6 +14,7 @@ import { formatEarned } from "./Achievements";
 import { AchievementsWindow } from "./AchievementsWindow";
 import { fx } from "../state/fx";
 import { LaunchWith, playWarning } from "./EmulatorChoice";
+import { ManualButton } from "./ManualButton";
 
 /** How long the selection must rest before the panel loads another game. */
 const SETTLE_MS = 100;
@@ -129,6 +130,7 @@ export function GameSidebar(props: {
         <button class="btn big" onClick={() => props.onMore(g().id)}>
           More…
         </button>
+        <ManualButton gameId={g().id} title={row()?.title ?? ""} class="btn big" />
       </div>
       <Show when={otherEmulators()}>
         {(e) => (

@@ -67,7 +67,15 @@ impl Action {
     pub fn repeats(self) -> bool {
         matches!(
             self,
-            Action::Up | Action::Down | Action::Left | Action::Right | Action::PrevLetter | Action::NextLetter
+            Action::Up
+                | Action::Down
+                | Action::Left
+                | Action::Right
+                | Action::PrevLetter
+                | Action::NextLetter
+                // Held L1 / R1 flip through a manual quickly (and step along tabs).
+                | Action::PrevPlatform
+                | Action::NextPlatform
         )
     }
 }

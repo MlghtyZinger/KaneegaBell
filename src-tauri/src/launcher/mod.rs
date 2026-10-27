@@ -187,6 +187,34 @@ pub struct Session {
 #[derive(Default)]
 pub struct Launcher {
     current: Mutex<Option<Arc<Session>>>,
+    /// KB's window before the manual came up over the game (position, size, fullscreen), restored after.
+    before_manual: Arc<Mutex<Option<Before>>>,
+}
+
+type Before = (tauri::PhysicalPosition<i32>, tauri::PhysicalSize<u32>, bool);
+
+/// The picture of the game's screen behind its manual (PNG), served as `/overlay-bg`.
+pub static OVERLAY_BG: Mutex<Option<Vec<u8>>> = Mutex::new(None);
+
+/// Counts manual openings over a game, so a late fallback doesn't act on a newer one.
+static OVERLAY_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// The game's whole screen at full size, as it is now (KB shows it sharp first, so coming up over the
+/// game is seamless, then blurred); None when the capture is (nearly) black.
+#[cfg(windows)]
+fn game_backdrop(session: &Session) -> Option<Vec<u8>> {
+    let hwnd = windows::Win32::Foundation::HWND(*session.tracker.windows().first()? as *mut std::ffi::c_void);
+    let shot = window::capture(window::monitor_rect(hwnd)?)?;
+    let small = image::imageops::thumbnail(&shot, 64, 64);
+    let mean = small.pixels().map(|p| p.0[..3].iter().map(|&c| c as u64).sum::<u64>()).sum::<u64>() / (small.len() as u64 / 4).max(1);
+    if mean < 6 {
+        return None;
+    }
+    // Fast PNG: a 4K screen in a few dozen ms, sharp (it must match the game exactly).
+    let mut out = Vec::new();
+    let enc = image::codecs::png::PngEncoder::new_with_quality(&mut out, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Sub);
+    image::ImageEncoder::write_image(enc, shot.as_raw(), shot.width(), shot.height(), image::ExtendedColorType::Rgba8).ok()?;
+    Some(out)
 }
 
 #[derive(Clone, Serialize)]
@@ -222,6 +250,150 @@ impl Launcher {
             notice: s.notice.clone(),
         })
     }
+
+    /// Select + △ held while a game runs: KB comes up over the game with its manual
+    /// (page awake, always on top); held again, or the manual closed, KB goes back behind the game.
+    pub fn toggle_manual(&self, app: &AppHandle) {
+        if !app.state::<crate::commands::AppState>().input.overlay.load(Ordering::Acquire) {
+            return self.set_manual(app, true);
+        }
+        // The page fades back to the game's picture first, then calls `close_manual`; closed anyway if it doesn't.
+        let gen = OVERLAY_GEN.load(Ordering::Acquire);
+        let _ = app.emit("manual-overlay-leave", ());
+        let app = app.clone();
+        let _ = std::thread::Builder::new().name("manual-leave".into()).spawn(move || {
+            std::thread::sleep(Duration::from_millis(900));
+            if OVERLAY_GEN.load(Ordering::Acquire) == gen {
+                app.state::<crate::commands::AppState>().launcher.close_manual(&app);
+            }
+        });
+    }
+
+    /// The page has drawn the game's picture over the whole screen: KB can be seen now.
+    pub fn manual_shown(&self, app: &AppHandle) {
+        #[cfg(windows)]
+        if let Some(w) = app.get_webview_window("main") {
+            if app.state::<crate::commands::AppState>().input.overlay.load(Ordering::Acquire) {
+                if let Ok(hwnd) = w.hwnd() {
+                    window::set_cloaked(hwnd, false);
+                }
+            }
+        }
+    }
+
+    pub fn close_manual(&self, app: &AppHandle) {
+        if app.state::<crate::commands::AppState>().input.overlay.load(Ordering::Acquire) {
+            self.set_manual(app, false);
+        }
+    }
+
+    fn set_manual(&self, app: &AppHandle, open: bool) {
+        let Some(session) = self.current.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return };
+        if session.exiting.load(Ordering::Acquire) {
+            return;
+        }
+        let input = app.state::<crate::commands::AppState>().input.clone();
+        input.overlay.store(open, Ordering::Release);
+        let gen = OVERLAY_GEN.fetch_add(1, Ordering::AcqRel) + 1;
+        let Some(w) = app.get_webview_window("main") else { return };
+        #[cfg(windows)]
+        let hwnd = w.hwnd().ok();
+        if open {
+            // The game's screen as it is now, before KB covers it.
+            #[allow(unused_mut, unused_assignments)]
+            let mut backdrop = false;
+            #[cfg(windows)]
+            {
+                let shot = game_backdrop(&session);
+                backdrop = shot.is_some();
+                *OVERLAY_BG.lock().unwrap_or_else(|e| e.into_inner()) = shot;
+                window::set_webview_suspended(&w, false);
+                window::set_webview_low_memory(&w, false);
+                // Unseen while it moves into place: shown (`manual_shown`) once the page shows that picture.
+                if let Some(h) = hwnd {
+                    window::set_transitions(h, false);
+                    window::set_cloaked(h, true);
+                }
+            }
+            let _ = w.unminimize();
+            let _ = w.show();
+            // Fullscreen on the game's screen; put back as it was afterwards.
+            let mut before = self.before_manual.lock().unwrap_or_else(|e| e.into_inner());
+            if let (None, Ok(pos), Ok(size)) = (before.as_ref(), w.outer_position(), w.outer_size()) {
+                *before = Some((pos, size, w.is_fullscreen().unwrap_or(false)));
+            }
+            drop(before);
+            let _ = w.set_fullscreen(false);
+            #[cfg(windows)]
+            if let Some((x, y, _, _)) = session.tracker.windows().first().and_then(|h| window::window_rect(windows::Win32::Foundation::HWND(*h as *mut std::ffi::c_void))) {
+                let _ = w.set_position(tauri::PhysicalPosition::new(x + 40, y + 40));
+            }
+            let _ = w.set_fullscreen(true);
+            let _ = w.set_always_on_top(true);
+            // In place: the page draws the manual over the game's picture, then asks to be seen.
+            let _ = app.emit("manual-overlay", serde_json::json!({ "gameId": session.game_id, "open": true, "backdrop": backdrop }));
+            #[cfg(windows)]
+            if let Some(h) = hwnd {
+                window::bring_to_front(h);
+                // Shown anyway if the page never says it's ready.
+                let h = h.0 as isize;
+                let input = input.clone();
+                let _ = std::thread::Builder::new().name("manual-show".into()).spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1200));
+                    if OVERLAY_GEN.load(Ordering::Acquire) == gen && input.overlay.load(Ordering::Acquire) {
+                        window::set_cloaked(windows::Win32::Foundation::HWND(h as *mut std::ffi::c_void), false);
+                    }
+                });
+            }
+        } else {
+            // Gone in one frame (the page already faded to the game's picture), then put back behind the game unseen.
+            #[cfg(windows)]
+            if let Some(h) = hwnd {
+                window::set_cloaked(h, true);
+            }
+            let _ = w.set_always_on_top(false);
+            restore_window(&w, &self.before_manual);
+            let _ = w.minimize();
+            let _ = app.emit("manual-overlay", serde_json::json!({ "gameId": session.game_id, "open": false, "backdrop": false }));
+            #[cfg(windows)]
+            {
+                window::set_webview_low_memory(&w, true);
+                if let Some(h) = session.tracker.windows().first() {
+                    window::focus_game(windows::Win32::Foundation::HWND(*h as *mut std::ffi::c_void));
+                }
+                let w = w.clone();
+                let _ = std::thread::Builder::new().name("suspend-page".into()).spawn(move || {
+                    // Uncloaked once it's down (a minimized window isn't seen), so the taskbar can show it again.
+                    std::thread::sleep(Duration::from_millis(300));
+                    if !input.overlay.load(Ordering::Acquire) {
+                        if let Ok(h) = w.hwnd() {
+                            window::set_cloaked(h, false);
+                            window::set_transitions(h, true);
+                        }
+                    }
+                    std::thread::sleep(Duration::from_millis(1200));
+                    if input.game_running.load(Ordering::Acquire) && !input.overlay.load(Ordering::Acquire) {
+                        window::set_webview_suspended(&w, true);
+                    }
+                });
+            }
+        }
+    }
+}
+
+/// KB's window back to where and how it was before the manual came up.
+fn restore_window(w: &tauri::WebviewWindow, before: &Mutex<Option<Before>>) {
+    if let Some((pos, size, fs)) = before.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        let _ = w.set_fullscreen(false);
+        let _ = w.set_position(pos);
+        let _ = w.set_size(size);
+        if fs {
+            let _ = w.set_fullscreen(true);
+        }
+    }
+}
+
+impl Launcher {
 
     /// Starts a game with its own emulator pick, else the platform's default.
     pub fn launch(self: &Arc<Self>, app: &AppHandle, game_id: i64) -> Result<Started> {
@@ -346,6 +518,7 @@ impl Launcher {
         *self.current.lock().unwrap_or_else(|e| e.into_inner()) = None;
         let state = app.state::<crate::commands::AppState>();
         state.input.game_running.store(false, Ordering::Release);
+        state.input.overlay.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
         // Closed on its own within seconds: the game never ran.
         let failed = (played < QUICK_EXIT && !session.exiting.load(Ordering::Acquire))
@@ -362,8 +535,16 @@ impl Launcher {
             None => log::info!("{} exited after {secs} s", session.title),
         }
         if let Some(w) = app.get_webview_window("main") {
+            // The manual open (or still fading out) over the game: KB back as it was, solid again.
+            let _ = w.set_always_on_top(false);
+            restore_window(&w, &self.before_manual);
+            *OVERLAY_BG.lock().unwrap_or_else(|e| e.into_inner()) = None;
             #[cfg(windows)]
             {
+                if let Ok(hwnd) = w.hwnd() {
+                    window::set_cloaked(hwnd, false);
+                    window::set_transitions(hwnd, true);
+                }
                 // Awake before the page hears that the game exited.
                 window::set_webview_suspended(&w, false);
                 window::set_webview_low_memory(&w, false);
@@ -442,6 +623,8 @@ mod tests {
             art: 0,
             art_source: None,
             files: files.iter().enumerate().map(|(i, f)| (f.to_string(), Some(i as u32 + 1))).collect(),
+            file_title: "Final Fantasy VII".into(),
+            file_variant: None,
         }
     }
 

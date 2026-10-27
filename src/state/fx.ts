@@ -5,7 +5,6 @@ import { api } from "../api";
 export type AnimLevel = "full" | "reduced" | "off";
 /** Start-up intro: one picked at random, a fixed one, or none. */
 export type IntroPick = "random" | "off" | IntroKey;
-export type SoundProfile = "tactile" | "console" | "retro";
 
 /** The retained video intros, in the order Settings lists them. */
 export const INTROS = {
@@ -36,7 +35,6 @@ const DEFAULTS = {
   soundTv: true,
   volumeDesktop: 60,
   volumeTv: 60,
-  soundProfile: "tactile" as SoundProfile,
 };
 type Fx = typeof DEFAULTS;
 

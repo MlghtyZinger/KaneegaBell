@@ -29,6 +29,8 @@ pub struct Storage {
     pub web_cache_bytes: u64,
     /// LaunchBox's kept game database file, if it has been downloaded.
     pub launchbox_bytes: Option<u64>,
+    /// Downloaded manuals (`data\manuals`; the user's own files aren't counted).
+    pub manuals_bytes: u64,
 }
 
 /// Where WebView2 keeps its disk cache inside KB's folder.
@@ -63,6 +65,7 @@ pub fn storage(conn: &Connection, data_dir: &Path) -> Result<Storage> {
         reset_backup_bytes: reset_backup_bytes(data_dir),
         web_cache_bytes: dir_size(&web_cache_dir(data_dir)),
         launchbox_bytes: crate::launchbox::zip_bytes(data_dir),
+        manuals_bytes: crate::manuals::bytes(data_dir),
     })
 }
 
@@ -156,6 +159,7 @@ pub fn prune_leftovers(conn: &Connection, data_dir: &Path) -> Result<()> {
         prune_images(&data_dir.join("art").join(d), &keep)?;
     }
     crate::achievements::prune_removed(conn, data_dir)?;
+    crate::manuals::prune(conn, data_dir)?;
     Ok(())
 }
 
@@ -206,6 +210,8 @@ pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
     // Discs, backs and spines: the downloaded ones (the user's picks stay).
     crate::art::images::clear_case_art(data_dir);
     remove_dir(&data_dir.join("ra"))?;
+    // Downloaded manuals (they download again when opened; the user's own files stay).
+    crate::manuals::clear(conn, data_dir)?;
     // Give the space back (best effort: another connection may be reading).
     if let Err(e) = conn.execute_batch("VACUUM") {
         log::info!("couldn't compact the library after clearing: {e}");
@@ -248,7 +254,7 @@ pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
     crate::platforms::seed(&tx)?;
     tx.commit()?;
 
-    for dir in ["art", "ra", "playlists"] {
+    for dir in ["art", "ra", "playlists", "manuals"] {
         remove_dir(&data_dir.join(dir))?;
     }
     if let Err(e) = conn.execute_batch("VACUUM") {
