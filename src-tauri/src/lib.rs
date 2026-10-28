@@ -234,6 +234,7 @@ pub fn run() {
         .setup(|app| {
             let dir = DATA_DIR.get_or_init(|| choose_data_dir(app.handle())).clone();
             std::fs::create_dir_all(&dir)?;
+            commands::perf_log(&dir, "setup_start");
             secrets::init(&dir);
             // The installed app's own library: keys saved by earlier versions
             // move from Windows Credential Manager into the data folder.
@@ -246,10 +247,12 @@ pub fn run() {
             }
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
+            commands::perf_log(&dir, "db_ready");
             // The window is made here (not from the config) so WebView2 keeps
             // its own files in the data folder too, instead of AppData.
             trim_web_cache(&conn, &dir);
             remove_unused_web_components(&conn, &dir.join("webview"));
+            commands::perf_log(&dir, "web_cleanup_done");
             let (theme_id, theme) = themes::current(&conn);
             let window = match app.config().app.windows.iter().find(|w| w.label == "main") {
                 Some(cfg) => Some(
@@ -261,6 +264,7 @@ pub fn run() {
                 ),
                 None => app.get_webview_window("main"),
             };
+            commands::perf_log(&dir, "window_built");
             // Back where the window was last time, before the first paint.
             if let Some(w) = &window {
                 display::restore(w, &conn);
@@ -296,6 +300,7 @@ pub fn run() {
                 Arc::new(move || handle.state::<commands::AppState>().launcher.request_exit()),
                 Arc::new(move || handle2.state::<commands::AppState>().launcher.toggle_manual(&handle2)),
             );
+            commands::perf_log(&dir, "setup_done");
             Ok(())
         })
         .on_window_event(|window, event| match event {

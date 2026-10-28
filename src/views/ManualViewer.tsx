@@ -91,6 +91,10 @@ export function ManualViewer(props: { gameId: number; title: string; overlay?: b
     onCleanup(() => unlisten?.());
   }
   const cover = () => library.games().find((g) => g.id === props.gameId);
+  const bgUrl = () => {
+    const g = cover();
+    return g?.hero ? artUrl(props.gameId, g.hero, "h") : g?.art ? artUrl(props.gameId, g.art, "f") : null;
+  };
   const [phase, setPhase] = createSignal<"loading" | "ready" | "error">("loading");
   const [error, setError] = createSignal("");
   const [info, setInfo] = createSignal<ManualOpened | null>(null);
@@ -502,10 +506,9 @@ export function ManualViewer(props: { gameId: number; title: string; overlay?: b
       {/* Over a game: the game's screen as it was when the manual came up, first sharp (KB appears without a
           seam), then softly blurred behind the book; without that picture, the game's cover, more blurred. */}
       <Show when={props.overlay && shot()}>{(src) => <img class="mv-shot" src={src()} alt="" />}</Show>
-      <Show when={props.overlay}>
-        <Show when={props.backdrop ? shot() : cover()?.art ? artUrl(props.gameId, cover()!.art, "f") : null}>
-          {(src) => <img class="mv-bg" classList={{ cover: !props.backdrop }} src={src()} alt="" />}
-        </Show>
+      {/* Otherwise (and over a game with no picture): the game's background, else its cover, more blurred. */}
+      <Show when={props.backdrop ? shot() : bgUrl()}>
+        {(src) => <img class="mv-bg" classList={{ cover: !props.backdrop && !cover()?.hero }} src={src()} alt="" decoding="async" />}
       </Show>
       <header class="mv-head">
         <span class="mv-tag">Manual</span>

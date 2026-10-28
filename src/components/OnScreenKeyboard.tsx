@@ -54,6 +54,14 @@ function OnScreenKeyboard(props: { req: OskRequest }) {
   // A physical keyboard types straight into the on-screen one.
   onMount(() => {
     setKeyInterceptor((e) => {
+      if (e.ctrlKey) {
+        // Ctrl+V is the window's paste event below; copy and cut write the clipboard here.
+        const k = e.key.toLowerCase();
+        if (k !== "c" && k !== "x") return false;
+        void navigator.clipboard.writeText(value()).catch(() => {});
+        if (k === "x") update("");
+        return true;
+      }
       if (e.key === "Enter") done();
       else if (e.key === "Escape") cancel();
       else if (e.key === "Backspace") backspace();
@@ -62,7 +70,16 @@ function OnScreenKeyboard(props: { req: OskRequest }) {
       return true;
     });
   });
-  onCleanup(() => setKeyInterceptor(null));
+  const onPaste = (e: ClipboardEvent) => {
+    e.preventDefault();
+    const t = e.clipboardData?.getData("text/plain").replace(/\s+/g, " ");
+    if (t) update(value() + t);
+  };
+  window.addEventListener("paste", onPaste);
+  onCleanup(() => {
+    setKeyInterceptor(null);
+    window.removeEventListener("paste", onPaste);
+  });
 
   const rows = () => (symbols() ? [ROWS[0], ...SYMBOLS, ROWS[3]] : ROWS);
 

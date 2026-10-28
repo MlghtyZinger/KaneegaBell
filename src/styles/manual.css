@@ -18,9 +18,13 @@
 .mv-stage { position: absolute; inset: 0; display: grid; place-items: center; }
 .mv-zoom { transform-origin: center; will-change: transform; }
 .mv-book { position: relative; perspective: 2600px; }
-.mv-half { position: absolute; top: 0; height: 100%; background-color: #efe6d4; background-repeat: no-repeat; box-shadow: 0 2.4vh 6vh rgb(0 0 0 / .55); }
+.mv-half { position: absolute; top: 0; height: 100%; background-color: #efe6d4; background-repeat: no-repeat; }
+/* The drop shadow sits behind both pages (z-index -1 in the book's stacking context), so the right page's
+   shadow can't spill over the left page's edge at the spine. */
+.mv-half::before { content: ""; position: absolute; inset: 0; z-index: -1; box-shadow: 0 2.4vh 6vh rgb(0 0 0 / .55); pointer-events: none; }
 .mv-half.l { left: 0; }
-.mv-half.blank { background: none; box-shadow: none; }
+.mv-half.blank { background: none; }
+.mv-half.blank::before { display: none; }
 .mv-half.waiting::after, .mv-face.waiting::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / .25) 50%, transparent 70%) #e4d9c4; }
 .mv-cast { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 .mv-half.l .mv-cast { background: linear-gradient(270deg, rgb(0 0 0 / .55), rgb(0 0 0 / .12) 55%, transparent); }

@@ -4,9 +4,46 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KaneegaBell</title>
+    <!-- Start-up splash: the KB emblem and a loading bar, removed by App.tsx once the library grid is painted. -->
+    <style>
+      #splash { position: fixed; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center; gap: 5vh; background: var(--bg-sunken, #0e1014); }
+      #splash svg { width: min(20vh, 180px); height: auto; }
+      #splash .bar { width: min(34vh, 300px); height: 4px; border-radius: 2px; overflow: hidden; background: rgb(255 255 255 / 0.12); }
+      #splash .bar i { display: block; width: 40%; height: 100%; border-radius: 2px; background: var(--accent, #d2462a); animation: splash-bar 1s ease-in-out infinite; }
+      @keyframes splash-bar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="splash" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+        <defs>
+          <linearGradient id="sp-ember" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d2462a"/><stop offset="1" stop-color="#5a140a"/></linearGradient>
+          <linearGradient id="sp-horn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf4e0"/><stop offset="1" stop-color="#e3cf98"/></linearGradient>
+          <g id="sp-horns">
+            <path d="M92 118 C52 120 22 100 30 36 C40 70 64 88 102 92 Z"/>
+            <path d="M164 118 C184 119 201.5 114.5 213 102 L206 96 L214 88 L200.5 75 C188.5 84.5 173 90 154 92 Z"/>
+          </g>
+          <path id="sp-head" d="M128 70 C152 70 172 76 180 92 C188 108 192 124 186 140 C180 156 168 166 164 180 C162 196 166 206 160 216 C152 230 104 230 96 216 C90 206 94 196 92 180 C88 166 76 156 70 140 C64 124 68 108 76 92 C84 76 104 70 128 70 Z"/>
+          <path id="sp-ears" d="M74 112 C54 108 40 116 30 130 C48 136 62 134 78 126 Z M182 112 C202 108 216 116 226 130 C208 136 194 134 178 126 Z"/>
+          <path id="sp-tuft" d="M100 78 L110 58 L119 72 L128 52 L137 72 L146 58 L156 78 Z"/>
+        </defs>
+        <rect width="256" height="256" rx="56" fill="url(#sp-ember)"/>
+        <g fill="none" stroke="#f3e6c4" stroke-width="10" stroke-linejoin="round">
+          <use href="#sp-horns"/><use href="#sp-ears"/><use href="#sp-head"/><use href="#sp-tuft"/>
+        </g>
+        <use href="#sp-horns" fill="url(#sp-horn)"/>
+        <use href="#sp-ears" fill="#17181d"/>
+        <use href="#sp-tuft" fill="#17181d"/>
+        <use href="#sp-head" fill="#17181d"/>
+        <path d="M92 126 C100 119 112 121 119 131 C110 133 100 133 92 126 Z M164 126 C156 119 144 121 137 131 C146 133 156 133 164 126 Z" fill="#f7e4a0"/>
+        <path d="M100 184 C100 172 156 172 156 184 L158 206 C158 221 98 221 98 206 Z" fill="#3b3d48"/>
+        <ellipse cx="114" cy="196" rx="5" ry="7.5" fill="#0b0b0e"/>
+        <ellipse cx="142" cy="196" rx="5" ry="7.5" fill="#0b0b0e"/>
+        <circle cx="128" cy="214" r="16" fill="none" stroke="#efb446" stroke-width="8"/>
+      </svg>
+      <div class="bar"><i></i></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

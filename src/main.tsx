@@ -3,9 +3,10 @@ import App from "./App";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import { initTheme } from "./state/theme";
+import { api } from "./api";
 
 async function start() {
-  // Outside Tauri (plain browser during development) serve fake data instead.
+  void api.perfMark("script_start").catch(() => {});  // Outside Tauri (plain browser during development) serve fake data instead.
   if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) {
     (await import("./dev/mockIpc")).installMockIpc();
     // Test hook: simulate controller actions in the mock (no Rust gamepad thread).

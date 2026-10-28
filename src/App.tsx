@@ -124,6 +124,7 @@ export default function App() {
   // It isn't started hidden: on Windows, WebView2 sometimes never paints a
   // webview whose window is shown later. TV-mode fullscreen is applied in Rust.
   onMount(() => {
+    void api.perfMark("app_mounted").catch(() => {});
     library.listenForScans();
     collections.listen();
     updates.listen();
@@ -142,8 +143,15 @@ export default function App() {
     library
       .reload()
       // Two frames later the grid has been laid out and painted: the app is interactive.
-      .then(() => requestAnimationFrame(() => requestAnimationFrame(() => void api.perfMark("interactive").catch(() => {}))))
-      .catch((e) => console.error("library load failed", e));
+      .then(() => void api.perfMark("library_loaded").catch(() => {}))
+      .then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.getElementById("splash")?.remove();
+        void api.perfMark("interactive").catch(() => {});
+      })))
+      .catch((e) => {
+        document.getElementById("splash")?.remove();
+        console.error("library load failed", e);
+      });
     // Just updated: show what changed (once), after the first paint.
     setTimeout(() => void whatsNew.showIfUpdated().catch(() => {}), 1500);
   });

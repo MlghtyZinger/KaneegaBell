@@ -38,6 +38,15 @@ const DEFAULTS = {
 };
 type Fx = typeof DEFAULTS;
 
+const OFF_KEY = "kb.introsOff";
+/** Remembered from the last run, so start-up can skip the black wait when both intros are off (the settings arrive later). */
+export const introsOffCached = () => {
+  try { return localStorage.getItem(OFF_KEY) === "1"; } catch { return false; }
+};
+const rememberIntrosOff = (v: Pick<Fx, "introDesktop" | "introTv">) => {
+  try { localStorage.setItem(OFF_KEY, v.introDesktop === "off" && v.introTv === "off" ? "1" : "0"); } catch { /* private mode: the wait stays */ }
+};
+
 function createFx() {
   const [values, setValues] = createSignal<Fx>({ ...DEFAULTS });
   // Settles once the saved values are read (the start-up intro waits for it).
@@ -67,6 +76,7 @@ function createFx() {
         if (v[k] !== "random" && v[k] !== "off" && !Object.hasOwn(INTROS, v[k])) v[k] = "random";
       }
       setValues(v);
+      rememberIntrosOff(v);
       setStartInTv(stored.startInTv === true);
     } catch {
       // Browser dev mock without settings: the defaults stand.
@@ -76,7 +86,9 @@ function createFx() {
   }
 
   function set<K extends keyof Fx>(k: K, v: Fx[K]) {
-    setValues((o) => ({ ...o, [k]: v }));
+    const next = { ...values(), [k]: v };
+    setValues(next);
+    rememberIntrosOff(next);
     mark();
     void api.setSetting(k, v).catch(() => {});
   }

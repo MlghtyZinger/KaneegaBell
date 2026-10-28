@@ -2001,6 +2001,11 @@ fn ms_since_process_start() -> Option<u128> {
 /// to `perf.log` in the data folder as `name ms-since-process-start`.
 #[tauri::command]
 pub fn perf_mark(state: State<'_, AppState>, name: String) {
+    perf_log(state.data_dir(), &name);
+}
+
+/// The same, from Rust (start-up stages before the page exists).
+pub fn perf_log(dir: &std::path::Path, name: &str) {
     if std::env::var_os("KB_PERF").is_none() && std::env::var_os("EMU_PERF").is_none() {
         return;
     }
@@ -2010,7 +2015,7 @@ pub fn perf_mark(state: State<'_, AppState>, name: String) {
     let _ = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(state.data_dir().join("perf.log"))
+        .open(dir.join("perf.log"))
         .and_then(|mut f| f.write_all(line.as_bytes()));
 }
 

@@ -69,12 +69,15 @@ type Handler = (action: Action) => boolean;
 
 // Topmost handler gets the action first (overlays sit above views).
 const stack: Handler[] = [];
+/** Asked before the stack whatever was pushed last (the start-up intro: a lazy-loaded screen mounting after it must not take its keys). */
+const first: Handler[] = [];
 
-export function pushHandler(h: Handler): () => void {
-  stack.push(h);
+export function pushHandler(h: Handler, priority = false): () => void {
+  const list = priority ? first : stack;
+  list.push(h);
   return () => {
-    const i = stack.lastIndexOf(h);
-    if (i >= 0) stack.splice(i, 1);
+    const i = list.lastIndexOf(h);
+    if (i >= 0) list.splice(i, 1);
   };
 }
 
@@ -85,11 +88,12 @@ export function setActionTap(f: ((action: Action) => void) | null) {
 }
 
 export function dispatch(action: Action): boolean {
-  for (let i = stack.length - 1; i >= 0; i--)
-    if (stack[i](action)) {
-      tap?.(action);
-      return true;
-    }
+  for (const list of [first, stack])
+    for (let i = list.length - 1; i >= 0; i--)
+      if (list[i](action)) {
+        tap?.(action);
+        return true;
+      }
   return false;
 }
 
@@ -110,6 +114,11 @@ export function setKeyInterceptor(f: ((e: KeyboardEvent) => boolean) | null) {
 
 export function installKeyboard(): () => void {
   const onKey = (e: KeyboardEvent) => {
+    // The on-screen keyboard handles Ctrl+C / Ctrl+X itself (its text isn't in a real field).
+    if (e.ctrlKey && !e.altKey && !e.metaKey && keyInterceptor?.(e)) {
+      e.preventDefault();
+      return;
+    }
     // Ctrl +/- zoom the card grid (like a browser zooms a page).
     if (e.ctrlKey && !e.altKey && !e.metaKey && !isTextField(e.target)) {
       const zoom = ({ "+": "zoomIn", "=": "zoomIn", "-": "zoomOut" } as Record<string, Action>)[e.key];

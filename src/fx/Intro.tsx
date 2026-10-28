@@ -1,7 +1,7 @@
 import { createEffect, createRoot, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { api } from "../api";
 import { pushHandler } from "../input/actions";
-import { fx, INTROS, type IntroKey } from "../state/fx";
+import { fx, INTROS, introsOffCached, type IntroKey } from "../state/fx";
 import { session } from "../state/session";
 import { hush, load, playBuffer, readyAudio } from "./audio";
 import "../styles/intro.css";
@@ -29,7 +29,8 @@ function lastIntro(): string | null {
 
 const runs = createRoot(() => {
   // `tv`: pick by the TV Mode setting (else by where KB opened).
-  const [run, setRun] = createSignal<{ key: IntroKey | null; tv?: boolean } | null>({ key: null });
+  // Nothing covers the library while the settings load when both intros were off last time.
+  const [run, setRun] = createSignal<{ key: IntroKey | null; tv?: boolean } | null>(introsOffCached() ? null : { key: null });
   return { run, setRun };
 });
 /** Menu music waits until the intro has finished or been skipped. */
@@ -66,7 +67,7 @@ function IntroHost(props: { forced: IntroKey | null; tv?: boolean }) {
   };
   const skip = () => key() ? leave() : finish();
 
-  onCleanup(pushHandler(() => { skip(); return true; }));
+  onCleanup(pushHandler(() => { skip(); return true; }, true));
   onCleanup(() => {
     disposed = true;
     timers.forEach(clearTimeout);

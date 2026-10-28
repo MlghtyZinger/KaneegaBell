@@ -868,6 +868,15 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.5.1
+- Improved: the manual screen now shows the game's background behind the book (its cover, blurred, when it has none).
+- Fixed: the right page's shadow no longer darkens the left page at the spine in the manual.
+- New: Ctrl+C, Ctrl+X and Ctrl+V work in the on-screen keyboard's text.
+- Fixed: no black wait at start-up when both start-up intros are off (from the second start).
+- New: a KB emblem and loading bar show while KB starts, instead of a blank window.
+- Fixed: the start-up intro can be skipped when it plays while switching into TV Mode.
+- Improved: the Switch intro is a little slower, so the Joy-Con is seen sliding in before the click.
+
 ### 0.5.0
 - New: game manuals. A Manual button on every game opens its manual as a book with paper-like page turns, zoom and Contents.
 - New: use your own PDF or CBZ manuals (Artwork → Manual), or turn on manual downloads from Retrokit and the Internet Archive in Settings → Game info (off by default).
