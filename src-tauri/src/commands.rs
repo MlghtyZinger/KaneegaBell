@@ -726,7 +726,7 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
         match extra_kind(kind.as_deref())? {
             PickerKind::Cover => art::apply_choice(&conn, state.data_dir(), &http, id, &source, &name, &url),
             k @ (PickerKind::Back | PickerKind::Disc | PickerKind::Spine) => {
-                let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that picture is no longer available"))? };
+                let bytes = if matches!(source.as_str(), "file" | "local") { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that picture is no longer available"))? };
                 let case = case_of(k);
                 if source == "gametdb" {
                     // A full cover: the back or the spine is cut out of it.
@@ -738,7 +738,7 @@ pub async fn set_cover(app: AppHandle, id: i64, source: String, name: String, ur
                 }
             }
             PickerKind::Icon => {
-                let bytes = if source == "file" { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that icon is no longer available"))? };
+                let bytes = if matches!(source.as_str(), "file" | "local") { std::fs::read(&url)? } else { http.get(&url)?.ok_or_else(|| Error::msg("that icon is no longer available"))? };
                 art::icons::set_manual(&conn, state.data_dir(), id, &bytes)
             }
             kind => {
@@ -854,11 +854,16 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let wd_pending = state.wd_pending.clone();
     let wd_force = state.wd_force.clone();
     let cancel = state.scan_cancel.clone();
+    let input = state.input.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
     std::thread::Builder::new()
         .name("library-jobs".into())
         .spawn(move || loop {
+            // Queued passes wait for the game to end (a pass already running finishes first).
+            while input.game_running.load(Ordering::Acquire) {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
             cancel.store(false, Ordering::Release);
             // Order: scan, LaunchBox (it decides covers, so before them),
             // covers (what people wait to see), Wikidata (after LaunchBox,

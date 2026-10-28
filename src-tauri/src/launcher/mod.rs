@@ -450,7 +450,10 @@ impl Launcher {
         *slot = Some(session.clone());
         drop(slot);
 
-        queries::start_session(&state.db(), game_id, queries::now())?;
+        // Not fatal: returning here would leave the session saved with nothing waiting for it to end.
+        if let Err(e) = queries::start_session(&state.db(), game_id, queries::now()) {
+            log::error!("couldn't record the session start: {e}");
+        }
         state.input.game_running.store(true, Ordering::Release);
         let started = Started { game_id, title: game.title.clone(), emulator: cfg.emulator_name.clone(), notice };
         let _ = app.emit("game-started", &started);

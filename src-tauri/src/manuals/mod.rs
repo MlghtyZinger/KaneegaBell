@@ -407,16 +407,12 @@ pub fn finish(conn: &Connection, data_dir: &Path, game_id: i64, pages: u32, outl
         return Err(Error::msg("Some pages are missing; the manual stays as a PDF for now."));
     }
     let _ = fs::remove_file(source_pdf(data_dir, game_id));
-    let bytes = dir_size(&dir(data_dir, game_id));
+    let bytes = crate::maintenance::dir_size(&dir(data_dir, game_id));
     conn.execute(
         "UPDATE game_manuals SET pages = ?2, outline = ?3, bytes = ?4, checked_at = ?5, opened_at = ?5 WHERE game_id = ?1",
         rusqlite::params![game_id, pages, outline.map(|o| o.to_string()), bytes as i64, queries::now()],
     )?;
     enforce_cap(conn, data_dir, Some(game_id))
-}
-
-fn dir_size(dir: &Path) -> u64 {
-    fs::read_dir(dir).map(|it| it.flatten().filter_map(|e| e.metadata().ok()).filter(|m| m.is_file()).map(|m| m.len()).sum()).unwrap_or(0)
 }
 
 /// The size cap: the least recently opened downloads go first (they download again when opened).
@@ -501,19 +497,7 @@ pub fn candidates(conn: &Connection, fetch: &dyn Fetch, game_id: i64, query: Opt
 
 /// Downloaded manuals' size on disk (the user's own files aren't KB's).
 pub fn bytes(data_dir: &Path) -> u64 {
-    fn walk(d: &Path) -> u64 {
-        fs::read_dir(d)
-            .map(|it| {
-                it.flatten()
-                    .map(|e| match e.file_type() {
-                        Ok(t) if t.is_dir() => walk(&e.path()),
-                        _ => e.metadata().map(|m| m.len()).unwrap_or(0),
-                    })
-                    .sum()
-            })
-            .unwrap_or(0)
-    }
-    walk(&data_dir.join("manuals"))
+    crate::maintenance::dir_size(&data_dir.join("manuals"))
 }
 
 /// Deletes every downloaded manual (they download again when opened). The user's own picks stay.

@@ -2,7 +2,8 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $recordings = Join-Path $repoRoot 'audio files'
-$assets = Join-Path $repoRoot 'src\assets\sounds'
+$assets = Join-Path $repoRoot 'audio files\converted'
+New-Item -ItemType Directory -Force $assets | Out-Null
 $sources = [ordered]@{
     konami = 'konami.mp3'
     rockstar = 'rdr2_shotgun_blast.mp3'

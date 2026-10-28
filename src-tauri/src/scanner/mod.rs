@@ -584,6 +584,11 @@ pub fn run(conn: &mut Connection, progress: &dyn Fn(Progress), cancel: &AtomicBo
             summary.cancelled = true;
             break;
         }
+        // Removed while it was being scanned: nothing to write.
+        let still_there: i64 = conn.query_row("SELECT COUNT(*) FROM rom_sources WHERE id = ?1", [src.id], |r| r.get(0))?;
+        if still_there == 0 {
+            continue;
+        }
         let tx = conn.transaction()?;
         let r = queries::apply_scan(&tx, src.id, &candidates, &known)?;
         tx.commit()?;

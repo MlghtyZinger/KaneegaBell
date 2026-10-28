@@ -38,7 +38,7 @@ pub fn web_cache_dir(data_dir: &Path) -> PathBuf {
     data_dir.join("webview").join("EBWebView").join("Default").join("Cache")
 }
 
-fn dir_size(dir: &Path) -> u64 {
+pub(crate) fn dir_size(dir: &Path) -> u64 {
     let Ok(entries) = fs::read_dir(dir) else { return 0 };
     entries
         .flatten()
@@ -225,11 +225,15 @@ pub fn clear_downloaded(conn: &mut Connection, data_dir: &Path) -> Result<u64> {
 /// caller.
 pub fn reset(conn: &mut Connection, data_dir: &Path) -> Result<PathBuf> {
     let backup = data_dir.join(RESET_BACKUP);
-    match fs::remove_file(&backup) {
-        Err(e) if e.kind() != ErrorKind::NotFound => return Err(e.into()),
-        _ => {}
+    // An empty library never replaces an earlier backup (a second reset must not wipe the only copy).
+    let empty = conn.query_row("SELECT COUNT(*) FROM games", [], |r| r.get::<_, i64>(0))? == 0;
+    if !(empty && backup.exists()) {
+        match fs::remove_file(&backup) {
+            Err(e) if e.kind() != ErrorKind::NotFound => return Err(e.into()),
+            _ => {}
+        }
+        conn.execute("VACUUM INTO ?1", [backup.to_string_lossy()])?;
     }
-    conn.execute("VACUUM INTO ?1", [backup.to_string_lossy()])?;
 
     let tx = conn.transaction()?;
     // Games first: their files, art, details and genres go with them.
@@ -511,9 +515,17 @@ mod tests {
         assert_eq!(count(&old, "SELECT COUNT(*) FROM rom_sources"), 1);
         drop(old);
 
-        // A second reset replaces the backup.
+        // A second reset of the now-empty library keeps the backup with the games.
         reset(&mut conn, data).unwrap();
         let old = Connection::open(&backup).unwrap();
-        assert_eq!(count(&old, "SELECT COUNT(*) FROM games"), 0);
+        assert_eq!(count(&old, "SELECT COUNT(*) FROM games"), 1);
+        drop(old);
+
+        // A reset of a library that has games replaces it.
+        add_game(&conn, "Other");
+        add_game(&conn, "Another");
+        reset(&mut conn, data).unwrap();
+        let old = Connection::open(&backup).unwrap();
+        assert_eq!(count(&old, "SELECT COUNT(*) FROM games"), 2);
     }
 }

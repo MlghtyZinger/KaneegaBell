@@ -30,7 +30,7 @@ def envelope(path):
 def main():
     out = Path(sys.argv[1])
     out.mkdir(parents=True, exist_ok=True)
-    files = sorted((ROOT / "src/assets/sounds").glob("intro_*.ogg"))
+    files = sorted((ROOT / "audio files/converted").glob("intro_*.ogg"))
     image = Image.new("RGB", (1500, 130 * len(files)), "white")
     draw = ImageDraw.Draw(image)
     results = []

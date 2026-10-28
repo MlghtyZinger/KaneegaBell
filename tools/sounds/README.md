@@ -31,7 +31,7 @@ The check uses the browser's generated library, never an owner library.
 
 ## Legacy startup recordings
 
-The legacy `intro_*.ogg` files use the owner-provided recordings in `audio files`; they are retained as source material and excluded from the app bundle.
+The legacy `intro_*.ogg` files use the owner-provided recordings in `audio files`; they are kept in `audio filesnverted` (git-ignored, never committed) and excluded from the app bundle.
 Rebuild them with `& "C:\Emulator files\tools\sounds\import-intros.ps1"`.
 The script leaves the original MP3s untouched, converts them to 48 kHz stereo Opus,
 and joins PSP part 1 then part 2. It preserves the full recordings, including silence.

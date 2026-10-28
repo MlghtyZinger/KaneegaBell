@@ -51,7 +51,11 @@ pub struct UpdateProgress {
 /// development.
 pub fn is_dev_build() -> bool {
     std::env::current_exe()
-        .map(|p| p.components().any(|c| c.as_os_str().eq_ignore_ascii_case("target")))
+        .map(|p| {
+            // cargo's layout: targetelease or target\debug (also under deps for tests).
+            let parts: Vec<_> = p.components().map(|c| c.as_os_str().to_ascii_lowercase()).collect();
+            parts.windows(2).any(|w| w[0] == "target" && (w[1] == "release" || w[1] == "debug"))
+        })
         .unwrap_or(false)
 }
 
