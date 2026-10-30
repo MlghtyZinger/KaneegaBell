@@ -17,7 +17,7 @@ export function TabIcon(props: { id: string }) {
 
 /** △ in TV Mode: every library tab at once, drawn in the current menu style. PS3 also lists the focused game's options, as its own △ menu does. */
 export function QuickSwitcher(props: {
-  style: "kb" | "wii" | "ps3";
+  style: "kb" | "wii" | "ps3" | "ps2";
   tabs: string[];
   current: string;
   label: (id: string) => string;

@@ -17,6 +17,7 @@ export const INTROS = {
   ps3: { name: "PlayStation 3" },
   psp: { name: "PSP" },
   switch: { name: "Switch" },
+  onepiece: { name: "One Piece (Romance Dawn)" },
 } as const;
 export type IntroKey = keyof typeof INTROS;
 
@@ -29,7 +30,7 @@ const DEFAULTS = {
   launchFxDesktop: true,
   launchFxTv: true,
   tvShelf: "3d" as "3d" | "flat",
-  tvMenu: "kb" as "kb" | "wii" | "ps3",
+  tvMenu: "kb" as "kb" | "wii" | "ps3" | "ps2",
   consoleFeedbackReady: false,
   soundDesktop: true,
   soundTv: true,

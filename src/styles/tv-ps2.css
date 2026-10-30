@@ -1,0 +1,156 @@
+/* PS2 orb menu, isolated from other TV styles. Full screen at any aspect; sizes follow the screen's height (cqh).
+   Font: TeX Gyre Heros (GUST Font License), a free Helvetica clone: the real menu font is Helvetica-style and lives in
+   the console's ROM. `block` so the menu never shows a fallback font while it loads. */
+@font-face{font-family:KBPS2Menu;src:url('../assets/ps2/texgyreheros-regular.otf') format('opentype');font-weight:400;font-display:block}
+html[data-tv-style="ps2"]{color-scheme:dark;--bg:#030915;--bg-raised:#09182f;--bg-sunken:#01040b;--surface:#0b1e38;--surface-hover:#15345b;--border:#38557a;--text:#e4edff;--text-dim:#9cb4d4;--text-faint:#6885ab;--accent:#659ee8;--accent-strong:#adcfff;--focus:#9bcaff}
+.tv-style-ps2{display:block;background:#000;font-family:KBPS2Menu,Arial,sans-serif}.tv-style-ps2>.tv-bg,.tv-style-ps2>.tv-shade{display:none}
+.tv-style-ps2 .tv-style-switch{top:calc(4vh + var(--tv-pad-y));z-index:3}.select-ps2{display:none}
+
+.ps2-runtime{position:absolute;inset:0;container-type:size;overflow:hidden;color:#c8cedb;font-family:KBPS2Menu,Arial,sans-serif;font-weight:400;letter-spacing:.03em}
+.ps2-runtime>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;transition:opacity .6s}
+/* The orb ring is the Browser's only backdrop: it glides from the centre of home to a small emblem just left of the
+   "Browser" title, dimmer, and keeps circling there (origin = the ring's centre in the 16:9 frame). */
+/* (".ps2-runtime>" so this wins over the canvas rule above, which would otherwise drop the transform transition.) */
+.ps2-runtime>.ps2-ring{transform-origin:40.6% 47%;transition:opacity .6s,transform .9s cubic-bezier(.2,.8,.2,1);mix-blend-mode:screen}
+.ps2-runtime:not([data-view=home])>.ps2-ring{opacity:.7;transform:translate(-33.6%,-37%) scale(.4)}
+.ps2-runtime button{font:inherit;letter-spacing:inherit;background:none;border:0;color:inherit;cursor:pointer;padding:0}.ps2-runtime button:focus-visible{outline:1px solid #68d9ff;outline-offset:.6cqh}
+.ps2-runtime h1,.ps2-runtime h2{font-weight:400;margin:0}
+
+/* Home: the two choices right of the orb ring (ring centre at 40.6% / 47% of a 16:9 frame). */
+.ps2-home{position:absolute;left:53%;top:47%;translate:0 -50%;display:flex;flex-direction:column;align-items:flex-start;gap:2.4cqh}
+.ps2-home button{font-size:calc(4.2cqh * var(--tv-text));color:#717178;letter-spacing:.06em;white-space:nowrap;text-shadow:1px 2px 2px #000;transition:color .2s,text-shadow .2s}
+.ps2-home button.active{color:#2ecdfc;text-shadow:0 0 .4cqh #0f7eac,2px 2px 3px #000}
+
+/* Browser */
+.ps2-browser{position:absolute;inset:0;padding:calc(7cqh + var(--tv-pad-y)) calc(6cqw + var(--tv-pad-x)) calc(8cqh + var(--tv-pad-y))}
+.ps2-browser header{display:flex;align-items:baseline;gap:3cqh}.ps2-browser header h1{font-size:calc(4.6cqh * var(--tv-text));color:#e5edf9;margin-left:8cqh}
+.ps2-browser header nav{margin-left:auto;display:flex;gap:3cqh}.ps2-browser header button{color:#38ccf7;font-size:calc(2.1cqh * var(--tv-text))}
+/* Tall enough that the selected, enlarged object never reaches the edge of the side-fade mask (which clips). */
+.ps2-shelf{position:absolute;left:0;right:0;top:10cqh;height:60cqh;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+.ps2-game{--o:0;position:absolute;left:50%;top:12cqh;width:26cqh;margin-left:-13cqh;display:flex;flex-direction:column;align-items:center;gap:8cqh;color:#758297!important;text-align:center;
+  transform:translateX(calc(var(--o) * 30cqh)) scale(.86);transform-origin:50% 11cqh;opacity:.55;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .35s,color .25s}
+.ps2-game.active{color:#fff!important;opacity:1;transform:translateX(0) scale(1.18)}
+.ps2-label{display:block;font-size:calc(1.9cqh * var(--tv-text));line-height:1.3;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ps2-game.active .ps2-label{opacity:0}
+.ps2-next{position:absolute;right:7cqw;top:calc(23cqh - .9cqh);width:0;height:0;border-top:.9cqh solid transparent;border-bottom:.9cqh solid transparent;border-left:1.2cqh solid #36c9ff;filter:drop-shadow(0 0 .5cqh #7be6ff) drop-shadow(0 0 1.4cqh #168fff);pointer-events:none}
+/* A faint floor of light under the row; each object stands on it with a reflection. */
+.ps2-browser::before{content:"";position:absolute;left:10%;right:10%;top:34cqh;height:22cqh;background:radial-gradient(closest-side,#1a4f9a3a,transparent);pointer-events:none}
+.p2o{-webkit-box-reflect:below 1.2cqh linear-gradient(transparent 62%,#ffffff2e)}
+.ps2-copy{position:absolute;left:0;right:0;top:64cqh;text-align:center;padding:0 10cqw}
+.ps2-desc{max-width:min(62cqw,110cqh);margin:1.4cqh auto 1cqh!important;font-size:calc(1.85cqh * var(--tv-text))!important;line-height:1.45;color:#8494ad!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Top: where you are in the library (current tab lit, neighbours fading). Bottom: a thin line with a light marking
+   how far through the list the selected game is. */
+/* Five fixed slots, the current tab always in the middle one. */
+.ps2-tabs{position:absolute;left:50%;top:14cqh;width:min(90cqw,130cqh);translate:-50% 0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2cqh;text-align:center}
+.ps2-tabs button{overflow:hidden;text-overflow:ellipsis}
+.ps2-tabs button{--d:0;font-size:calc(1.9cqh * var(--tv-text));color:#55678a;opacity:calc(1 - var(--d) * .28);white-space:nowrap;transition:color .2s}
+.ps2-tabs button.active{color:#38ccf7;text-shadow:0 0 1cqh #168fff88}
+.ps2-track{position:absolute;left:14cqw;right:14cqw;bottom:calc(6cqh + var(--tv-pad-y));height:1px;background:linear-gradient(90deg,transparent,#2a4468 10%,#2a4468 90%,transparent)}
+.ps2-track i{position:absolute;left:0;top:-.45cqh;width:1cqh;height:1cqh;margin-left:-.5cqh;border-radius:50%;background:#bdefff;box-shadow:0 0 1cqh #37b5ff,0 0 2.2cqh #37b5ff88;transform:translateX(calc(var(--p) * 72cqw));transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.ps2-track small{position:absolute;right:0;top:1.2cqh;font-size:calc(1.6cqh * var(--tv-text));color:#566a89}
+.ps2-copy h2{font-size:calc(3.6cqh * var(--tv-text));color:#e5edf9}.ps2-copy p{font-size:calc(2cqh * var(--tv-text));color:#7188a9;margin:1cqh 0}
+.ps2-runtime .ps2-played{font-size:calc(1.8cqh * var(--tv-text));color:#5d7aa0;margin:.4cqh 0 1cqh}
+.ps2-copy button{font-size:calc(2.2cqh * var(--tv-text));color:#36c9ff;padding:.6cqh 1cqh}.ps2-copy small{display:block;margin-top:.6cqh;font-size:calc(1.7cqh * var(--tv-text));color:#566a89}
+
+/* 3D object: the picture repeated in depth (darker inside), a front face and a back face. */
+/* Its own perspective, so the dimmed (opacity) neighbours keep their depth. */
+.p2o{--size:22cqh;--t:.5cqh;position:relative;display:block;width:var(--size);height:var(--size);perspective:70cqh}
+.p2o.p2-cart{--t:1.6cqh}.p2o.p2-cover{--t:.4cqh}
+.p2spin{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(8deg) rotateY(-26deg);transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.p2spin>*{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;backface-visibility:hidden}
+.p2l{transform:translateZ(calc(var(--t) * (2 * (var(--i) + 1) / (var(--n) + 1) - 1)));filter:brightness(.38);backface-visibility:visible!important}
+.p2f{transform:translateZ(var(--t))}
+.p2b{transform:rotateY(180deg) translateZ(var(--t));filter:brightness(.6)}
+.p2-disc .p2spin>*{border-radius:50%}
+.p2-disc span.p2b{filter:none;background:radial-gradient(circle,#000 0 7%,#9aa1ab 7.5% 15%,transparent 15.5%),conic-gradient(from 30deg,#cfd6e0,#e6d3f0,#bfe3f2,#e9e6c8,#d6dbe6,#cfd6e0)}
+.p2-disc .p2l{filter:brightness(.55) saturate(.3)}
+/* A glow behind the selected object (a filter on .p2spin would flatten its 3D). */
+.ps2-game::before{content:"";position:absolute;left:50%;top:11cqh;width:30cqh;height:30cqh;margin:-15cqh;border-radius:50%;background:radial-gradient(circle,#267bcc40,transparent 65%);opacity:0;transition:opacity .35s}
+.ps2-game.active::before{opacity:1}
+.p2-title{position:absolute;inset:10%;display:grid;place-items:center;border:1px solid #284367;color:#9cb4d4;font-size:2cqh;padding:1cqh}
+
+/* Game options: no box. The other games fade out, the selected object moves left and grows, and the title,
+   details and choices stand beside it; the chosen line carries a blue light bar, like System Configuration. */
+:is(.ps2-runtime[data-view=options],.ps2-runtime[data-view=info]) .ps2-game:not(.active){opacity:0;pointer-events:none}
+:is(.ps2-runtime[data-view=options],.ps2-runtime[data-view=info]) .ps2-game.active{transform:translateX(-24cqw) scale(1.5)}
+:is(.ps2-runtime[data-view=options],.ps2-runtime[data-view=info]) :is(.ps2-copy,.ps2-next,.ps2-tabs,.ps2-track){opacity:0;pointer-events:none}
+.ps2-copy,.ps2-next,.ps2-tabs,.ps2-track{transition:opacity .25s}
+.ps2-options{position:absolute;z-index:2;left:46cqw;right:calc(7cqw + var(--tv-pad-x));top:21cqh}
+.ps2-options h2{font-size:calc(4.2cqh * var(--tv-text));color:#e5edf9;line-height:1.15}
+.ps2-options .ps2-meta{font-size:calc(2cqh * var(--tv-text));color:#7188a9;margin:1.2cqh 0 .2cqh}
+.ps2-option-list{margin-top:4cqh;border-top:1px solid #1b3150}
+.ps2-option-list button{position:relative;display:block;width:100%;text-align:left;padding:1.5cqh 2.2cqh;border-bottom:1px solid #0f1d33!important;color:#8e9bb0;transition:color .2s}
+.ps2-option-list button::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#1f6fd8c0,#1f6fd830 55%,transparent);box-shadow:inset 3px 0 #6fd3ff;opacity:0;transform:scaleX(.5);transform-origin:left;transition:opacity .2s,transform .3s cubic-bezier(.2,.8,.2,1)}
+.ps2-option-list button.active{color:#fff}.ps2-option-list button.active::before{opacity:1;transform:none}
+.ps2-option-list span,.ps2-option-list small{position:relative;display:block}
+.ps2-option-list span{font-size:calc(2.8cqh * var(--tv-text))}
+.ps2-option-list small{font-size:calc(1.7cqh * var(--tv-text));color:#8fc4f0;margin-top:.4cqh;display:none}
+.ps2-option-list button.active small{display:block;animation:ps2-fade .25s ease-out both}
+.ps2-option-list button:disabled{opacity:.6}
+/* Information: the same side layout as Game options, as plain labelled lines. */
+.ps2-info{position:absolute;z-index:2;left:46cqw;right:calc(7cqw + var(--tv-pad-x));top:14cqh}
+.ps2-info h2{font-size:calc(4cqh * var(--tv-text));color:#e5edf9;line-height:1.15;margin-bottom:2.4cqh}
+.ps2-info dl{margin:0;border-top:1px solid #1b3150}
+.ps2-info dl>div{display:flex;gap:3cqh;padding:.9cqh 0;border-bottom:1px solid #0f1d33}
+.ps2-info dt{flex:0 0 16cqh;color:#6d83a6;font-size:calc(1.9cqh * var(--tv-text))}
+.ps2-info dd{margin:0;color:#dbe6f7;font-size:calc(2.1cqh * var(--tv-text))}
+.ps2-runtime .ps2-info .ps2-desc{text-align:left;max-width:none;margin:2cqh 0 1.4cqh!important;font-size:calc(1.9cqh * var(--tv-text))!important;-webkit-line-clamp:13}
+.ps2-info>button{font-size:calc(2.2cqh * var(--tv-text));color:#36c9ff;padding:.6cqh 0}
+/* System Configuration: a list of settings, each with its current value. */
+.ps2-runtime .ps2-config{left:27cqw;right:27cqw;top:23cqh}
+.ps2-config h2{font-size:calc(4cqh * var(--tv-text));color:#e5edf9;margin-bottom:0}
+.ps2-config .ps2-option-list{margin-top:3cqh}
+.ps2-config .ps2-option-list button{display:flex;justify-content:space-between;align-items:baseline;gap:4cqh}
+.ps2-config .ps2-option-list em{position:relative;font-style:normal;font-size:calc(2.2cqh * var(--tv-text));color:#8fc4f0}
+/* A date and time, like the real menu's clock. */
+.ps2-clock{position:absolute;top:calc(7cqh + var(--tv-pad-y));right:calc(10cqw + var(--tv-pad-x));font-size:calc(2cqh * var(--tv-text));letter-spacing:.08em;color:#8c98ad;white-space:nowrap}
+/* Start game: the orb ring flows back to the centre, the disc glides there and rushes into the screen, growing until even a
+   tall cover fills it while the black comes in over it (the black holds while the game launches). Reduced only fades. */
+.ps2-runtime::after{content:"";position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:5}
+.ps2-runtime.starting::after{opacity:1}
+.ps2-runtime.starting :is(.ps2-options,.ps2-info,.ps2-copy,.ps2-tabs,.ps2-track,.ps2-browser header,.ps2-clock){opacity:0;transition:opacity .25s}
+.ps2-runtime.starting>.ps2-ring{opacity:1;transform:none}
+html[data-anim=full] .ps2-runtime.starting .ps2-game.active{animation:ps2-launch-disc 1.05s both}
+html[data-anim=full] .ps2-runtime::after{transition:opacity .4s}
+html[data-anim=full] .ps2-runtime.starting::after{transition:opacity .55s .5s ease-in}
+html[data-anim=reduced] .ps2-runtime::after{transition:opacity .25s}
+html[data-anim=reduced] .ps2-runtime.starting .ps2-game.active{opacity:0;transition:opacity .25s}
+@keyframes ps2-launch-disc{0%{transform:translateX(-24cqw) scale(1.5);animation-timing-function:cubic-bezier(.2,.8,.3,1)}40%{transform:translate(-9.4cqw,14cqh) scale(2.2);animation-timing-function:cubic-bezier(.6,0,.9,.4)}100%{transform:translate(-9.4cqw,14cqh) scale(16)}}
+
+/* Motion follows KB's own animation level for TV Mode: Full moves, Reduced only fades, Off is still. */
+html[data-anim=full] .ps2-home{animation:ps2-home-in .5s cubic-bezier(.2,.8,.2,1) both}
+html[data-anim=full] .ps2-browser{animation:ps2-browser-in .45s cubic-bezier(.2,.8,.2,1) both}
+html[data-anim=full] :is(.ps2-options,.ps2-info){animation:ps2-panel-in .3s cubic-bezier(.2,.8,.2,1) both}
+html[data-anim=full] .ps2-copy{animation:ps2-copy-in .3s ease-out both}
+/* Switching platforms: the new games and the tab row slide in from the side you moved toward. */
+html[data-anim=full] .ps2-shelf{animation:ps2-row-in .5s cubic-bezier(.2,.8,.2,1) both}
+html[data-anim=full] .ps2-tabs{animation:ps2-tabs-in .45s cubic-bezier(.2,.8,.2,1) both}
+html[data-anim=reduced] :is(.ps2-shelf,.ps2-tabs){animation:ps2-fade .2s ease-out both}
+html[data-anim=full] .ps2-game.active .p2spin{animation:ps2-spin 7s linear infinite}
+html[data-anim=full] .ps2-game.active .p2-cart .p2spin,html[data-anim=full] .ps2-game.active .p2-cover .p2spin{animation:ps2-sway 5s ease-in-out infinite alternate}
+html[data-anim=full] .ps2-next{animation:ps2-nudge 1.4s ease-in-out infinite alternate}
+/* The chosen line breathes, as on the real menus: it dims by half and glows, over about 2 seconds. */
+html[data-anim=full] :is(.ps2-home button.active,.ps2-copy button,.ps2-info>button){animation:ps2-breathe 1.9s ease-in-out infinite alternate}
+html[data-anim=full] .ps2-option-list button.active::before{animation:ps2-bar-breathe 1.9s ease-in-out infinite alternate}
+html[data-anim=full] .ps2-option-list button.active span{animation:ps2-glow 1.9s ease-in-out infinite alternate}
+/* Every disc and cartridge floats gently, each a little out of step with its neighbours. */
+html[data-anim=full] .p2o{animation:ps2-float 3.6s ease-in-out infinite alternate;animation-delay:calc(var(--o,0) * -.9s)}
+html[data-anim=reduced] :is(.ps2-home,.ps2-browser,.ps2-options,.ps2-info,.ps2-copy){animation:ps2-fade .2s ease-out both}
+html[data-anim=reduced] .ps2-game{transition:opacity .2s}
+html[data-anim=reduced] .p2spin{transition:none}
+html[data-anim=reduced] .ps2-runtime>.ps2-ring{transition:opacity .3s}
+html[data-anim=off] .ps2-runtime *{animation:none!important;transition:none!important}
+@keyframes ps2-fade{from{opacity:0}}
+@keyframes ps2-row-in{from{opacity:0;transform:translateX(calc(var(--dir,0) * 14cqw)) scale(.97)}}
+@keyframes ps2-tabs-in{from{opacity:.2;transform:translateX(calc(var(--dir,0) * 20cqh))}}
+@keyframes ps2-home-in{from{opacity:0;transform:translateX(3cqh)}}
+@keyframes ps2-browser-in{from{opacity:0;transform:scale(1.04)}}
+@keyframes ps2-panel-in{from{opacity:0;transform:translateX(4cqh)}}
+@keyframes ps2-copy-in{from{opacity:0;transform:translateY(1cqh)}}
+@keyframes ps2-spin{from{transform:rotateX(8deg) rotateY(0deg)}to{transform:rotateX(8deg) rotateY(360deg)}}
+@keyframes ps2-sway{from{transform:rotateX(6deg) rotateY(-38deg)}to{transform:rotateX(10deg) rotateY(38deg)}}
+@keyframes ps2-nudge{to{transform:translateX(.8cqh)}}
+@keyframes ps2-breathe{from{opacity:1;text-shadow:0 0 1.2cqh #37b5ff99}to{opacity:.45;text-shadow:none}}
+@keyframes ps2-bar-breathe{from{opacity:1}to{opacity:.3}}
+@keyframes ps2-glow{from{text-shadow:0 0 1.4cqh #7fd0ff}to{text-shadow:none}}
+@keyframes ps2-float{from{transform:translateY(-.9cqh)}to{transform:translateY(.9cqh)}}

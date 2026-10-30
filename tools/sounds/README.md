@@ -31,6 +31,10 @@ The check uses the browser's generated library, never an owner library.
 
 ## Legacy startup recordings
 
+The PS2 intro was replaced by the approved `docs/intro-video-previews/ps2-orb-reference/kb-ps2-orb-intro-v6.mp4`: top-down towers, moving fog, colored lights gathering into the blue-white ring, softened low-resolution presentation and wider outlined company text. Its source is the owner's existing PS2 recording. It is 16:9 and fills the screen like the PS2 menu, so its last orb ring is where the menu's ring starts. The player fades the video to black before revealing desktop or a non-PS2 TV style; the PS2 TV menu uses the normal direct reveal. `node tools/perf/intro-exit.mjs` checks that exit decision and sequencing.
+
+The additional One Piece (Romance Dawn) intro is `src/assets/intros/onepiece.mp4`, copied from the approved `docs/intro-video-previews/one-piece-eyecatch/kb-romance-dawn-v4.mp4`. It is seven seconds at full 16:9 1080p/30 fps with embedded AAC audio. The background/layer and poster generation prompts, renderer and source attribution are retained in that preview folder. Audio: Luffy eyecatch clip, uploaded by Duckpiece at https://www.voicy.network/sounds/moxwaqS8Zkyy2oNGD32duQ-luffys-eyecatcher-theme . This recording retains its respective ownership; it is not CC0. User overrides use `data/intros/onepiece.<extension>`.
+
 The legacy `intro_*.ogg` files use the owner-provided recordings in `audio files`; they are kept in `audio filesnverted` (git-ignored, never committed) and excluded from the app bundle.
 Rebuild them with `& "C:\Emulator files\tools\sounds\import-intros.ps1"`.
 The script leaves the original MP3s untouched, converts them to 48 kHz stereo Opus,

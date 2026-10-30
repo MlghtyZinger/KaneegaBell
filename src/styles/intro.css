@@ -8,5 +8,10 @@
   cursor: none;
 }
 .intro-video { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* The PS2 intro fills the screen exactly as its menu does (object-fit: cover), so there are no bars and its last ring sits
+   where the menu's ring starts at any window shape. */
+.intro-video.fill { object-fit: cover; }
 .intro.leave { animation: intro-out .3s ease-in forwards; }
+.intro.black-out .intro-video { animation: intro-to-black .35s ease-in forwards; }
+@keyframes intro-to-black { to { opacity: 0; } }
 @keyframes intro-out { to { opacity: 0; } }

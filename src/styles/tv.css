@@ -67,7 +67,11 @@ html.nav-mode .tv-menu-item:focus { box-shadow: 0 0 0 3px var(--focus); }
 .tv-style-logo.logo-kb img { width: 78%; height: 78%; }
 .tv-style-logo.logo-wii { aspect-ratio: 2.1; border-radius: 16px; border: 3px solid #b8c0c7; background: #fff; color: #8b929a; }
 .tv-style-logo.logo-ps3 { aspect-ratio: 1; border-radius: 10px; border: 1px solid rgb(255 255 255 / .4); background: rgb(255 255 255 / .1); color: #fff; }
+.tv-style-logo.logo-ps2 { aspect-ratio: 1; border-radius: 10px; border: 1px solid #284367; background: #000; color: #fff; }
 .tv-style-logo .platform-icon { width: 82%; height: 82%; color: inherit; }
+/* Each choice in the style picker shows its style's mark. */
+.tv-style-picker .tv-menu-item:has(> .tv-style-logo) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 1.6vh; align-items: center; }
+.tv-style-picker .tv-menu-item > .tv-style-logo { grid-row: 1 / 3; cursor: inherit; }
 
 /* KB style's switch bar: every library tab and platform at once; L1 / R1 move along it. */
 .tv-style-kb { grid-template-rows: auto minmax(0,1fr); }

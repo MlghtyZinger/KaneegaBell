@@ -5,7 +5,9 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-const approved = JSON.parse(readFileSync('docs/intro-videos-0.3.16.json')).clips;
+const approved = [...JSON.parse(readFileSync('docs/intro-videos-0.3.16.json')).clips.map(clip=>clip.key==='ps2'?{...clip,preview:'ps2-orb-reference/kb-ps2-orb-intro-v6.mp4',sha256:'61c664ea255cf6b6b3b2d7164600691a49e40094f3baa65f36e529dd30ef8efc'}:clip),
+  {key:'onepiece',preview:'one-piece-eyecatch/kb-romance-dawn-v4.mp4',sha256:'3b98cd6123180298ca9559fe3c54c613c9bb6c6ed7ebd7b5956d5da293f1c9dd',fps:30},
+];
 const sources = Object.fromEntries(approved.map(r=>[r.key,r.preview]));
 const output = process.argv[2];
 if (!output) throw Error('Usage: node tools/perf/intro-videos.mjs <output-folder> [Vite URL]');
@@ -23,7 +25,8 @@ for(const [key,preview] of Object.entries(sources)) {
   if (existsSync(source)) assert.equal(hash(asset),hash(source),`${key}: packaged clip differs from approved export`);
   const info=JSON.parse(run('ffprobe',['-v','error','-show_entries','stream=codec_type,codec_name,width,height,r_frame_rate,duration,start_time:format=duration','-of','json',asset]));
   const video=info.streams.find(s=>s.codec_type==='video'),audio=info.streams.find(s=>s.codec_type==='audio');
-  assert.equal(video.codec_name,'h264');assert.equal(video.width,1920);assert.equal(video.height,1080);assert.equal(video.r_frame_rate,'60/1');
+  const fps=approved.find(r=>r.key===key).fps??60;
+  assert.equal(video.codec_name,'h264');assert.equal(video.width,1920);assert.equal(video.height,1080);assert.equal(video.r_frame_rate,`${fps}/1`);
   assert.ok(['aac','opus'].includes(audio.codec_name));
   assert.ok(Math.abs(+video.duration- +audio.duration)<1/60,`${key}: audio/video duration mismatch`);
   assert.ok(Math.abs(+video.start_time- +audio.start_time)<.025,`${key}: media start offset`);

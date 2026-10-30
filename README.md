@@ -528,11 +528,11 @@ Settings → General:
   cover use LaunchBox's pictures when it has them, else the cover. Back cancels it.
 - **TV case**: a large 3D case (turn it with the right stick or by dragging, tilt with right stick
   up/down, flip to the back with R3/V) or flat covers.
-- **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Nine intros in the spirit
+- **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
   of famous ones: Konami (Metal Gear), Rockstar (Red Dead Redemption), Game Boy Advance,
-  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP and Switch. Rockstar's RDR1 sequence includes its reference audio; the other defaults use the owner-provided recordings, and PSP plays both parts in order. Any button skips.
+  GameCube, PlayStation, PlayStation 2, PlayStation 3, PSP, Switch and One Piece (Romance Dawn). The One Piece eyecatch has an animated sunset shore, flying KB wanted posters and Luffy's eyecatch jingle. Rockstar's RDR1 sequence includes its reference audio; the console defaults use the owner-provided recordings, and PSP plays both parts in order. Any button skips.
   **Your own sound for an intro:** put a file named after it (`konami`, `rockstar`, `gba`,
-  `gamecube`, `ps1`, `ps2`, `ps3`, `psp` or `switch`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
+  `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `switch` or `onepiece`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
   stays open until the recording finishes. Files in data\intros override a video's embedded soundtrack and are never shipped. Overrides start with the video; use the embedded soundtrack for the reviewed cue timing.
 - **Sounds**: KB's own menus and game starts are silent; the Wii and PS3 TV menus play their own
@@ -665,7 +665,7 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
   [Internet Archive](https://archive.org/details/consolemanuals) (downloaded only on request; the
   scans keep their original rights). PDF drawing by [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0).- Game cases, cartridges and consoles in the launch animation and the 3D shelf are drawn for KB
   (no logos).
-- Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled.
+- Console menu sounds (`src/assets/sounds/menu_*`): standalone audio from [danintosh/Wii-Menu-HTML](https://github.com/danintosh/Wii-Menu-HTML) (hover, channel hover, page scroll, Wii menu background music) and [JMRDev0/XMB-PS3-Icons-Sounds-Pack-](https://github.com/JMRDev0/XMB-PS3-Icons-Sounds-Pack-) (up, OK, cancel). Nintendo/Sony assets remain their respective owners’ property; these are not CC0. No firmware or code from these projects is bundled. The PS2 menu sounds (`menu_ps2_*`) are rendered from the sound bank of a PS2 BIOS the owner owns (the BIOS itself is not included), and the PS2 menu's background audio (`src/assets/ps2/*.ogg`) is cut from the owner's own recording; both remain Sony's and their owners' property, not CC0. The PS2 menu's font is TeX Gyre Heros (GUST Font License, `src/assets/ps2/`).
 - Startup audio (`src/assets/sounds/intro_*.ogg`): converted from the owner-provided recordings in `audio files` using `tools/sounds/import-intros.ps1` (PSP joins part 1 and part 2).
 - The RDR1 intro clip (`src/assets/intros/rdr1.mp4`) uses the soundtrack from the [reference video supplied by the owner](https://www.youtube.com/watch?v=_C4NevyqF0o). This reference recording retains its original ownership and is not claimed to be CC0.
 
@@ -867,6 +867,12 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] s (part 2). Wikidata: series and franchises without a key
 
 ## Patch notes
+
+### 0.5.5
+- New: a PS2 TV menu style with the PS2's own look: the orb ring home screen with drifting lights, a Browser with 3D discs and cartridges, an Information screen, System Configuration, the date and time, and a start animation that zooms your game into the screen.
+- New: the PS2 start-up intro plays every time you switch to the PS2 style, and its orb ring flows straight into the menu.
+- New: One Piece (Romance Dawn) start-up intro, for the desktop and TV Mode.
+- New: the TV menu style picker shows each style's logo.
 
 ### 0.5.1
 - Improved: the manual screen now shows the game's background behind the book (its cover, blurred, when it has none).

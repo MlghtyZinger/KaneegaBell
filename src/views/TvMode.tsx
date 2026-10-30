@@ -14,11 +14,14 @@ import { pushHandler, type Action } from "../input/actions";
 import { GameInfo } from "./GameInfo";
 import { NavScope } from "../components/NavScope";
 import { Badge, padShown } from "../components/Hints";
+import { Ps2Menu } from "./Ps2Menu";
 import { ConsoleMenus, type ConsoleEntry } from "./ConsoleMenus";
 import { fx } from "../state/fx";
 import { Model, caseOf } from "../fx/Model";
 import { launchAnimation, launchDone } from "../fx/LaunchFx";
+import { playIntro } from "../fx/Intro";
 import "../styles/tv.css";
+import "../styles/tv-ps2.css";
 import { sfx } from "../fx/audio";
 import { showcaseScale, showcaseWindow } from "./tvShowcase";
 
@@ -46,10 +49,13 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const [infoId, setInfoId] = createSignal<number | null>(null);
   const [menuOpen, setMenuOpen] = createSignal(false);
   const [stylesOpen, setStylesOpen] = createSignal(false);
-  const menuStyle = () => { const value = fx.get("tvMenu"); return value === "wii" || value === "ps3" ? value : "kb"; };
-  const styleName = () => ({ kb: "KB", wii: "Wii", ps3: "PS3" })[menuStyle()];
-  const changeStyle = (value: "kb" | "wii" | "ps3") => {
+  const menuStyle = () => { const value = fx.get("tvMenu"); return value === "wii" || value === "ps3" || value === "ps2" ? value : "kb"; };
+  const styleName = () => ({ kb: "KB", wii: "Wii", ps3: "PS3", ps2: "PS2" })[menuStyle()];
+  const changeStyle = (value: "kb" | "wii" | "ps3" | "ps2") => {
+    const switching = value !== menuStyle();
     fx.set("tvMenu", value); setStylesOpen(false); setZone("games");
+    // Switching to PS2 always plays its intro; the menu's ring continues from the intro's last frame.
+    if (switching && value === "ps2") playIntro("ps2");
     drag = null; setInsp({ ry: 0, rx: 0, flipped: false, spring: true });
   };
   const [platformsOpen, setPlatformsOpen] = createSignal(false);
@@ -95,7 +101,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   });
 
   const railWindow = createMemo(() => showcaseWindow(overview() ? colFocused() : focused(), count()));
-  const shelf3d = () => fx.shelf3d() && !overview() && menuStyle() === "kb";
+  const shelf3d = () => fx.shelf3d() && !overview() && (menuStyle() === "kb" || menuStyle() === "ps2");
   const [caseSize, setCaseSize] = createSignal({ width: 400, height: 600 });
   const caseScale = () => {
     const g = current();
@@ -257,16 +263,20 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     if (a === "filter") { setStylesOpen(true); return true; }
     switch (a) {
       case "left":
+        if (menuStyle() === "ps2" && zone() === "games") { step(-1); return true; }
         if (zone() === "actions" && actionIndex() > 0) setActionIndex(actionIndex() - 1); else setZone("games");
         return true;
       case "right":
+        if (menuStyle() === "ps2" && zone() === "games") { step(1); return true; }
         if (!overview()) { if (zone() === "actions") setActionIndex(Math.min(2, actionIndex() + 1)); else { setZone("actions"); setActionIndex(0); } }
         return true;
       case "up":
+        if (menuStyle() === "ps2" && zone() === "games" && !overview()) { setZone("actions"); setActionIndex(0); return true; }
         if (zone() === "actions") setZone("games");
         else step(-1);
         return true;
       case "down":
+        if (menuStyle() === "ps2") { setZone("games"); return true; }
         if (zone() === "games") step(1);
         return true;
       case "prevPlatform": cycle(-1); setZone("games"); return true;
@@ -330,7 +340,8 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
     const g = current();
     if (!g || launching() || overview()) return;
     setLaunching(true); setLaunchError(null);
-    try { if (await launchAnimation(g.id)) await api.launchGame(g.id); }
+    // The PS2 style has its own start animation (in its menu), so KB's case animation is skipped there.
+    try { if (menuStyle() === "ps2" || await launchAnimation(g.id)) await api.launchGame(g.id); }
     catch (e) { launchDone(); setLaunchError(errorText(e)); }
     finally { setLaunching(false); }
   }
@@ -483,7 +494,19 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
       </main>
 
       </Show>
-      <Show when={menuStyle() !== "kb"}>
+      <Show when={menuStyle() === "ps2"}>
+        <Ps2Menu count={count()} focused={overview() ? colFocused() : focused()} entry={consoleEntry}
+          game={i => overview() ? undefined : games()[i]}
+          select={i => { if (overview()) setColFocused(i); else setFocused(i); }}
+          play={() => { if (overview()) { const c=currentCol(); if(c) library.setPlatform(`col:${c.key}`); } else void playCurrent(); }}
+          more={() => { const g=current(); if(g) setInfoId(g.id); }} cover={() => setViewing(current() ?? null)}
+          settings={props.onOpenSettings}
+          launching={launching()} error={launchError()}
+          tabs={library.platformTabs()} tab={currentTab()} tabLabel={(id) => tabLabel(id as PlatformFilter)}
+          chooseTab={(id) => { library.setQuery(""); library.setPlatform(id as PlatformFilter); }}
+          detail={!overview() && detail()?.id === current()?.id ? detail()?.meta : null} />
+      </Show>
+      <Show when={menuStyle() === "wii" || menuStyle() === "ps3"}>
         <ConsoleMenus style={menuStyle() === "wii" ? "wii" : "ps3"} count={count()} focused={overview() ? colFocused() : focused()} entry={consoleEntry}
           select={(index) => { if (index < 0) return; if (overview()) setColFocused(index); else setFocused(index); }}
           play={() => { if (overview()) { const c = currentCol(); if (c) library.setPlatform("col:" + c.key); } else void playCurrent(); }}
@@ -496,7 +519,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         <div class="overlay tv-menu-overlay" onClick={(e) => e.target === e.currentTarget && setStylesOpen(false)}>
           <NavScope class="tv-menu tv-style-picker" modal onBack={() => setStylesOpen(false)}>
             <h2>TV menu style</h2>
-            <For each={["kb", "wii", "ps3"] as const}>{(value) => <button class="tv-menu-item" data-autofocus={menuStyle() === value ? "" : undefined} aria-pressed={menuStyle() === value} onClick={() => changeStyle(value)}><strong>{{ kb: "KB · KaneegaBell", wii: "Wii", ps3: "PS3" }[value]}</strong><small>{{ kb: "Large case, logo list and gameplay preview", wii: "Twelve channels per page", ps3: "XMB categories, game list and options" }[value]}</small></button>}</For>
+            <For each={["kb", "wii", "ps3", "ps2"] as const}>{(value) => <button class="tv-menu-item" data-autofocus={menuStyle() === value ? "" : undefined} aria-pressed={menuStyle() === value} onClick={() => changeStyle(value)}><span class={`tv-style-logo logo-${value}`} aria-hidden="true"><Show when={value === "kb"} fallback={<PlatformIcon id={value} />}><img src={themeIcon()} alt="" /></Show></span><strong>{{ kb: "KB · KaneegaBell", wii: "Wii", ps3: "PS3", ps2: "PS2" }[value]}</strong><small>{{ kb: "Large case, logo list and gameplay preview", wii: "Twelve channels per page", ps3: "XMB categories, game list and options", ps2: "Classic orb home screen, real discs and cartridges" }[value]}</small></button>}</For>
           </NavScope>
         </div>
       </Show>
