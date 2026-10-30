@@ -1,0 +1,11 @@
+{
+  "version": "0.5.5",
+  "notes": "- New: a PS2 TV menu style with the PS2's own look: the orb ring home screen with drifting lights, a Browser with 3D discs and cartridges, an Information screen, System Configuration, the date and time, and a start animation that zooms your game into the screen.\n- New: the PS2 start-up intro plays every time you switch to the PS2 style, and its orb ring flows straight into the menu.\n- New: One Piece (Romance Dawn) start-up intro, for the desktop and TV Mode.\n- New: the TV menu style picker shows each style's logo.",
+  "pub_date": "2026-10-30T04:44:19Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVNTb0NoOXo3UlBzQW5DOHZGRk1iOTd5UDBkVEF3WStNYTVaOTZFWTYyY2RWUUpkMzA0dklMeGgvTzVpQVYrRVp3VWJPSitOVEp2c3VtUTloWGFuRHdBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzMzM1NDQ1CWZpbGU6S2FuZWVnYUJlbGxfMC41LjVfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNS41Cm03b2pjVWpVak41SWJYTnNRTjltYkhVQ3dheDhyWEdRUkRFK0dKSTFSN2IzaDlwRjF3MUVIeEhyK0JuWFdJTG5sM3ZSUHhYSXNDRzZpZ1UzejNBOUJnPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.5.5_x64-setup.exe?ref=updates"
+    }
+  }
+}

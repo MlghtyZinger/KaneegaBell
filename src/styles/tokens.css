@@ -1,0 +1,31 @@
+/* Dark, TV-distance design tokens. Sizes scale with viewport height so a 1080p TV
+   and a 1440p monitor both read comfortably from the couch. */
+:root {
+  color-scheme: dark;
+
+  --bg: #0e1014;
+  --bg-raised: #171a21;
+  --bg-sunken: #0a0b0e;
+  --surface: #1f232c;
+  --surface-hover: #272c37;
+  --border: #2c313c;
+  --text: #eef0f4;
+  --text-dim: #a3a9b6;
+  --text-faint: #6b7280;
+  --accent: #5b9dff;
+  --accent-strong: #8ab8ff;
+  --focus: #ffd75e;
+  --danger: #ff6b6b;
+  --ok: #5fd38d;
+
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --fs-xs: clamp(13px, 1.25vh, 18px);
+  --fs-sm: clamp(15px, 1.55vh, 22px);
+  --fs-md: clamp(18px, 1.9vh, 26px);
+  --fs-lg: clamp(22px, 2.5vh, 34px);
+  --fs-xl: clamp(28px, 3.4vh, 46px);
+
+  --gap: clamp(10px, 1.2vh, 18px);
+  --radius: 10px;
+  --focus-ring: 0 0 0 4px var(--focus), 0 0 24px 4px rgb(255 215 94 / 0.35);
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KaneegaBell",
+  "mainBinaryName": "KaneegaBell",
+  "version": "0.2.3",
+  "identifier": "com.kaneegabell.kb",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "KaneegaBell",
+        "width": 1600,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 540,
+        "backgroundColor": "#0e1014"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' thumb: http://thumb.localhost https://thumbnails.libretro.com https://art.gametdb.com https://images.igdb.com https://*.steamgriddb.com data:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5MkQyQThEOUYzNjhDNTEKUldSUmpEYWZqU290ZWNSajJVMGxpV0pnQTJXbHFDbjJyQXJIV0xSOVBwSDUwWitPbStuclZhcDYK",
+      "endpoints": ["https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/latest.json?ref=updates"],
+      "windows": { "installMode": "passive" }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper" },
+      "nsis": { "installMode": "currentUser", "installerHooks": "windows/hooks.nsh" }
+    },
+    "publisher": "KaneegaBell",
+    "copyright": "© 2026 KaneegaBell",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
+  }
+}

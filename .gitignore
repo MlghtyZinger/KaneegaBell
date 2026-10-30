@@ -1,0 +1,34 @@
+# Build output
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/target-*/
+src-tauri/gen/schemas/
+
+# Machine-local cargo config (e.g. CMAKE path for the SDL3 source build)
+.cargo/
+
+# Local config / secrets (API keys live in the OS keychain; never commit fallbacks)
+*.local.json
+*.local.toml
+.env
+.env.*
+secrets.*
+# ...but not the code that talks to the keychain.
+!src-tauri/src/secrets.rs
+
+# Generated test libraries (milestone f)
+tools/gen-library/out/
+perf-lib/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+Thumbs.db
+.DS_Store
+
+# Release builds (tools/release/release.ps1) and signing keys
+/release/
+*.key
