@@ -13,6 +13,8 @@ export const FOCUS_LOOKS: Record<string, string> = {
   brackets: "Brackets",
   bar: "Bar",
   spotlight: "Spotlight",
+  halo: "Halo",
+  wii: "Channel edge",
 };
 
 /** The bull in each style's colors, the same pictures as the window icon. */
@@ -21,13 +23,16 @@ const ICONS = Object.fromEntries(
     ([path, url]) => [path.split("/").pop()!.replace(".png", ""), url],
   ),
 );
-const [icon, setIcon] = createSignal("ember");
-export const themeIcon = () => ICONS[icon()] ?? ICONS.ember;
+const [icon, setIcon] = createSignal("forge");
+export const [desktopStyle, setDesktopStyle] = createSignal("forge");
+export const themeIcon = (id = icon()) => ICONS[id] ?? ICONS.forge;
 
 /** Marks the page with the start-up style's focus look and icon (its colors are already in place). */
 export function initTheme() {
   document.documentElement.dataset.focusLook = loaded()?.focusLook ?? "brackets";
-  setIcon(loaded()?.icon ?? "ember");
+  setIcon(loaded()?.icon ?? "forge");
+  setDesktopStyle(loaded()?.id ?? "forge");
+  document.documentElement.dataset.desktopStyle = desktopStyle();
 }
 
 /** Swaps in another style without reloading the page. */
@@ -40,5 +45,7 @@ export function applyTheme(t: AppliedTheme) {
   sheet.replaceSync(t.css);
   (window as unknown as { __kbTheme: Loaded }).__kbTheme = { ...t, sheet };
   document.documentElement.dataset.focusLook = t.focusLook;
+  document.documentElement.dataset.desktopStyle = t.id;
+  setDesktopStyle(t.id);
   setIcon(t.icon);
 }

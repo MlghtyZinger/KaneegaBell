@@ -12,9 +12,9 @@ const mockThemes: Record<string, MockTheme> = Object.fromEntries(
   Object.entries(import.meta.glob<MockTheme>("../../src-tauri/themes/*.json", { eager: true, import: "default" })).map(([p, t]) => [
     p.split("/").pop()!.replace(".json", ""),
     t,
-  ]),
+  ]).filter(([id]) => ["forge", "starlight", "obsidian", "aurora", "ps3", "wii", "ps2"].includes(String(id))),
 );
-let mockTheme = "ember";
+let mockTheme = "forge";
 /** Renamed games' names as the file has them. */
 const mockFileNames = new Map<number, { title: string; variant: string | null }>();
 
@@ -262,9 +262,10 @@ export function installMockIpc() {
         return [Object.entries(mockThemes).map(([id, t]) => ({ id, name: t.name, focusLook: t.focusLook, swatches: [t.colors.bg, t.colors.accent, t.colors.focus] })), mockTheme];
       case "set_theme": {
         mockTheme = (args as { id: string }).id;
-        const t = mockThemes[mockTheme];
+        const id = mockTheme === "random" ? "starlight" : mockTheme;
+        const t = mockThemes[id];
         const vars = Object.entries(t.colors).map(([k, v]) => `--${k}:${v};`).join("");
-        return { id: mockTheme, css: `:root{color-scheme:${t.scheme};--radius:${t.radius}px;${vars}}`, focusLook: t.focusLook, icon: mockTheme };
+        return { id, css: `:root{color-scheme:${t.scheme};--radius:${t.radius}px;${vars}}`, focusLook: t.focusLook, icon: id };
       }
       case "get_library":
         return lib;

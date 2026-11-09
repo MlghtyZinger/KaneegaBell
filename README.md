@@ -519,13 +519,13 @@ Settings → General:
 - **Animations**: Full / Reduced / Off, for the desktop and TV Mode separately (both start at Full;
   Windows' "Show animations" setting isn't used, KB only has its own). Full adds the sidebar
   sliding in, dialogs growing in, toasts rising and covers fading in on the desktop; Reduced only
-  fades; Off keeps everything still. Only `transform` and `opacity` animate, nothing loops on the
-  desktop, and everything stops while a game runs.
+  fades; Off keeps everything still. Full adds animated style backgrounds using transform and
+  opacity. Background motion pauses when unfocused or hidden and while a game runs.
 - **Launch animation** (desktop and TV Mode, each on/off): when you press Play, the game's case
-  opens and the disc spins up, or the cartridge goes into its console, then the emulator starts.
+  opens and the disc spins up, or the cartridge goes into its console, while the emulator starts immediately.
   Each platform has its own case (CD jewel case, DVD/Blu-ray keep cases, the GameCube mini disc,
   the PSP's UMD) or cartridge and console (SNES, N64, GBA, DS, 3DS, Switch). The disc and the back
-  cover use LaunchBox's pictures when it has them, else the cover. Back cancels it.
+  cover use LaunchBox's pictures when it has them, else the cover. Back skips only the animation.
 - **TV case**: a large 3D case (turn it with the right stick or by dragging, tilt with right stick
   up/down, flip to the back with R3/V) or flat covers.
 - **Start-up intro** (desktop and TV Mode): Random, one fixed, or Off. Ten intros in the spirit
@@ -535,8 +535,7 @@ Settings → General:
   `gamecube`, `ps1`, `ps2`, `ps3`, `psp`, `switch` or `onepiece`, as `.ogg`, `.mp3`, `.wav`, `.m4a`
   or `.flac`) in `data\intros` next to `KaneegaBell.exe`; the intro plays it from the start and
   stays open until the recording finishes. Files in data\intros override a video's embedded soundtrack and are never shipped. Overrides start with the video; use the embedded soundtrack for the reviewed cue timing.
-- **Sounds**: KB's own menus and game starts are silent; the Wii and PS3 TV menus play their own
-  menu sounds. On/off and volume for the desktop and TV Mode separately;
+- **Sounds**: KB Console provides menu and game-start sounds on desktop and in KB TV mode; PS3, Wii and PS2 styles use their console menu sounds. On/off and volume for the desktop and TV Mode separately;
   silent while a game runs.
 
 ## Screens, scaling and monitors
@@ -672,8 +671,9 @@ EMU_REAL_SOURCES="E:\Games\GBA=gba;E:\Hacks=auto" cargo test --manifest-path src
 ## Styles
 
 Settings → General → **Style** switches KB's look at once: colors, corner shape, how the
-focused game is marked, and the bull's colors in the window and taskbar (the exe and
-installer keep Ember's). Ember is the default; Midnight is the look of 0.3.10 and earlier.
+focused game is marked, typography, frames, backgrounds, and the bull's colors in the window and taskbar. Choose **Forge** (the default), **Starlight**, **Obsidian**, **Aurora**, **PS3**, **Wii**, or **PS2**. Full adds subtle flickering Forge embers, gently moving Starlight stars, Obsidian scanning light, Aurora light curtains, and flowing PS3 XMB ribbons with daily background colors and the original PS2 menu orb ring. Wii stays static. Reduced and Off keep backgrounds still. Wii includes its pointer and clock dock. **Random** picks a different style each app launch and keeps it for the session. The same Style setting controls UI colors in desktop and KaneegaBell TV. KB TV keeps its original artwork background without decorative scenery. Console menu layouts remain separately selectable. The exe and installer use Forge's icon.
+Old style choices map to their replacements once: Ember → Forge, Midnight → Starlight, Daylight / Chrome → Obsidian, High contrast → PS3, Moss → Wii, Storm → PS2.
+Cinzel, Josefin Sans, Orbitron and Exo 2 are bundled from the Google Fonts repository under the SIL Open Font License; each license is included in `src/assets/fonts/`. The PS2 style reuses TeX Gyre Heros under the GUST Font License.
 Styles are data only, checked for readable text and a visible focus ring before use. The
 format is documented in [docs/themes.md](docs/themes.md) (with a JSON Schema). After changing a
 style's icon colors in `tools/theme-icons.mjs`, run `node tools/theme-icons.mjs`.
@@ -867,6 +867,15 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] s (part 2). Wikidata: series and franchises without a key
 
 ## Patch notes
+
+### 0.6.0
+- New: KB Console menu and game-start sounds for desktop and KB TV mode, with a Settings preview.
+- Fixed: KB TV mode now uses the matching PS2, PS3 or Wii menu sounds when that Style is selected.
+- New: Forge, Starlight, Obsidian, Aurora, PS3, Wii and PS2 desktop styles, with distinct backgrounds, frames, fonts, focus looks and bull icons; console styles use their menu sounds.
+- Changed: removed the cover travel into game details and the sliding cover grid on platform changes.
+- Fixed: saved animation, sound and TV style preferences load even when both start-up intros are off.
+- Improved: focus, platform switches, game details, collections, list information, Play, favorite stars, achievement bars and Settings now have finite animations that follow Full / Reduced / Off.
+- Changed: games begin loading as soon as Play is pressed while the launch animation finishes; Back skips the animation and keeps the game loading, including in the PS2 TV menu.
 
 ### 0.5.5
 - New: a PS2 TV menu style with the PS2's own look: the orb ring home screen with drifting lights, a Browser with 3D discs and cartridges, an Information screen, System Configuration, the date and time, and a start animation that zooms your game into the screen.

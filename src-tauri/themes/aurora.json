@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "name": "Aurora",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.5.5",
+  "scheme": "dark",
+  "radius": 14,
+  "focusLook": "glow",
+  "icon": "aurora",
+  "colors": {
+    "bg": "#071c1c",
+    "bg-raised": "#102c2b",
+    "bg-sunken": "#061515",
+    "surface": "#173a35",
+    "surface-hover": "#244d43",
+    "border": "#41695e",
+    "text": "#e2faf3",
+    "text-dim": "#b0d4c8",
+    "text-faint": "#8eb9ad",
+    "accent": "#9aecc9",
+    "accent-strong": "#6dccaa",
+    "on-accent": "#10271e",
+    "focus": "#9aecc9",
+    "gold": "#e5d397",
+    "danger": "#ff9f9a",
+    "ok": "#9de0ab"
+  }
+}

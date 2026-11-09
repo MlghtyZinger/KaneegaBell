@@ -1,3 +1,4 @@
+import { Ps3Background } from "../components/Ps3Background";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { Icon, PlatformIcon } from "../components/Icons";
 import { pushHandler, useGamepadPointer } from "../input/actions";
@@ -190,15 +191,7 @@ export function ConsoleMenus(props: Props) {
   return <div ref={surface} class={`console-menu console-${props.style}`} classList={{ "console-paused": !!session.running() }}>
     <audio ref={music} class="console-menu-music" loop preload="none" />
     <Show when={props.style === "wii"} fallback={<>
-      <svg class="xmb-wave" viewBox="0 0 1440 500" preserveAspectRatio="none" aria-hidden="true">
-        <defs><linearGradient id="xmb-ribbon" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#b9f4ff" stop-opacity=".04" /><stop offset=".6" stop-color="#b9f4ff" stop-opacity=".18" /><stop offset="1" stop-color="#b9f4ff" stop-opacity="0" /></linearGradient></defs>
-        <path fill="url(#xmb-ribbon)" d="M0 90 C400 -20 580 110 870 200 S1250 310 1440 230 L1440 285 C1120 380 1010 280 790 240 S300 70 0 165 Z" />
-        <path fill="url(#xmb-ribbon)" d="M0 150 C360 15 590 135 870 220 S1200 330 1440 255 L1440 300 C1150 350 1000 300 800 255 S280 100 0 235 Z" />
-        <path fill="none" stroke="#c2f5ff" stroke-opacity=".24" stroke-width="1.5" d="M0 145 C400 15 590 130 870 215 S1210 330 1440 250" />
-      </svg>
-      <div class="xmb-sparkles" aria-hidden="true"><For each={Array.from({ length: 42 }, (_, i) => i)}>{(i) =>
-        <i style={{ left: ((i * 37 + 3) % 100) + "%", top: (32 + (i * 13) % 30) + "%", "--spark-time": (5 + i % 5) + "s", "--spark-delay": (-i * .71) + "s" }} />
-      }</For></div>
+      <Ps3Background />
       <div class="xmb-status">{date()}　{time()}</div>
       <nav class="xmb-categories" aria-label="Consoles"><For each={tabs()}>{(id, index) =>
         <button class="xmb-category" classList={{ active: library.platform() === id }} aria-label={tabName(id)} aria-pressed={library.platform() === id} style={{ transform: `translateX(calc(${index() - category()} * var(--xmb-category-gap)))` }} onClick={() => { chooseCategory(index()); sfx("move"); }}>

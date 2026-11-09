@@ -1,0 +1,9 @@
+{
+  "format": 1, "name": "PS3", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "dark", "radius": 5, "focusLook": "halo", "icon": "ps3",
+  "colors": {
+    "bg": "#071a33", "bg-raised": "#0b2342", "bg-sunken": "#04101f", "surface": "#12305a", "surface-hover": "#1b4275", "border": "#446387",
+    "text": "#ffffff", "text-dim": "#c9dceb", "text-faint": "#9db6ca", "accent": "#69c6ed", "accent-strong": "#b9f4ff", "on-accent": "#04101f",
+    "focus": "#e8f8ff", "gold": "#e8cf85", "danger": "#ff9eaa", "ok": "#a1dbc1"
+  }
+}

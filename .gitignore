@@ -40,3 +40,6 @@ Thumbs.db
 tools/sounds/snd/
 
 # ScreenScraper probe output
+
+# Generated local verification output
+/test-output/

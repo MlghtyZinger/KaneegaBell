@@ -690,7 +690,8 @@ export const api = {
   forgetRecent: (id: number) => invoke<void>("forget_recent", { id }),
   previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
   /** `emulator`: this launch only (else the game's pick or the platform's default). */
-  launchGame: (id: number) => invoke<RunningGame>("launch_game", { id }),
+  launchGame: (id: number, presenting = false) => invoke<RunningGame>("launch_game", { id, presenting }),
+  finishLaunch: (id: number) => invoke<void>("finish_launch", { id }),
   gameEmulators: (id: number) => invoke<GameEmulators>("game_emulators", { id }),
   /** null: follow the platform's default. */
   setGameEmulator: (id: number, emulator: string | null) => invoke<void>("set_game_emulator", { id, emulator }),

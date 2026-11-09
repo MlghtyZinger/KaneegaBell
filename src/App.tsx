@@ -21,10 +21,11 @@ import { whatsNew } from "./state/whatsNew";
 import { collections } from "./state/collections";
 import { fx } from "./state/fx";
 import { Intros, playTvIntro } from "./fx/Intro";
-import { LaunchHost } from "./fx/LaunchFx";
+import { LaunchHost, launchPresenting } from "./fx/LaunchFx";
 import { movesMuted, sfx, warmUp } from "./fx/audio";
 import "./styles/app.css";
 import "./styles/fx.css";
+import "./styles/desktop-themes.css";
 
 type View = "library" | "settings";
 
@@ -124,6 +125,7 @@ export default function App() {
   // It isn't started hidden: on Windows, WebView2 sometimes never paints a
   // webview whose window is shown later. TV-mode fullscreen is applied in Rust.
   onMount(() => {
+    void fx.load(); // Saved animation/style preferences also load when both intros are off.
     void api.perfMark("app_mounted").catch(() => {});
     library.listenForScans();
     collections.listen();
@@ -160,7 +162,7 @@ export default function App() {
     <main class="app">
       <Switch>
         {/* While a game runs the library is unmounted entirely: no grid, no work. */}
-        <Match when={session.running()} keyed>
+        <Match when={launchPresenting() ? null : session.running()} keyed>
           {(g) => <NowPlaying game={g} />}
         </Match>
         <Match when={view() === "library" && tv()}>

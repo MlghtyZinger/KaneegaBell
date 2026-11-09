@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "name": "Obsidian",
+  "author": "KaneegaBell",
+  "version": "1.0",
+  "minAppVersion": "0.5.5",
+  "scheme": "dark",
+  "radius": 3,
+  "focusLook": "brackets",
+  "icon": "obsidian",
+  "colors": {
+    "bg": "#101416",
+    "bg-raised": "#171e22",
+    "bg-sunken": "#0b1012",
+    "surface": "#202a2e",
+    "surface-hover": "#2c3b40",
+    "border": "#43565e",
+    "text": "#e7eef0",
+    "text-dim": "#b1c1c6",
+    "text-faint": "#8eaaaf",
+    "accent": "#77e5cf",
+    "accent-strong": "#50c7b0",
+    "on-accent": "#10201d",
+    "focus": "#77e5cf",
+    "gold": "#e6c676",
+    "danger": "#ff8f93",
+    "ok": "#83d6a4"
+  }
+}

@@ -1,9 +1,9 @@
-// KB's sounds: menu moves, game starts and the start-up intros. Menu and launch
-// sounds use CC0 recordings; bundled intros use the owner's recordings. An override
-// comes from data\intros. Played through Web Audio so they start on time.
+// Menu and launch sources are documented in assets/sounds/menu-sources.md.
 import { createSignal } from "solid-js";
 import { fx } from "../state/fx";
 import { session } from "../state/session";
+import { desktopStyle } from "../state/theme";
+import { soundName, soundProfile, type SoundRole } from "./soundProfile";
 
 const FILES = Object.fromEntries(
   Object.entries(import.meta.glob<string>(["../assets/sounds/*.ogg", "!../assets/sounds/intro_*.ogg"], { eager: true, query: "?url", import: "default" })).map(
@@ -55,9 +55,9 @@ export async function readyAudio(): Promise<void> {
 }
 
 /** Plays a decoded sound now (or `delayMs` from now), if sound is on and no game is running. */
-export function playBuffer(buf: AudioBuffer | null, delayMs = 0) {
+export function playBuffer(buf: AudioBuffer | null, delayMs = 0, launch = false) {
   const c = audio();
-  if (!c || !buf || !master || !fx.soundOn() || session.running()) return;
+  if (!c || !buf || !master || !fx.soundOn() || (session.running() && !(launch && document.documentElement.classList.contains("launch-presenting")))) return;
   master.gain.value = fx.volume();
   const s = c.createBufferSource();
   s.buffer = buf;
@@ -86,21 +86,32 @@ export const [movesMuted, setMovesMuted] = createSignal(false);
 let lastCue = "";
 let lastCueAt = 0;
 
-/** The Wii / PS3 TV menu's sound for a move, a choice or going back. KB's own menus and game starts
- *  are silent (owner, 2026-10-27: the generated profiles were removed). */
-export function sfx(role: "move" | "select" | "back" | "disc" | "cart", delayMs = 0) {
-  const style = fx.tv() ? fx.get("tvMenu") : "kb";
-  if (style === "kb" || role === "disc" || role === "cart") return;
-  const name = `menu_${style}_${role}`;
+const profile = () => soundProfile(fx.tv(), fx.get("tvMenu"), desktopStyle(), fx.get("menuSounds"));
+
+export function sfx(role: SoundRole, delayMs = 0) {
+  if (!fx.soundOn()) return;
+  const name = soundName(profile(), role);
+  if (!name) return;
   const now = performance.now();
   if (lastCue === name && now - lastCueAt < 35) return;
   lastCue = name; lastCueAt = now;
-  play(name, delayMs);
+  const launch = role === "cart" || role === "disc";
+  void load(name).then((b) => playBuffer(b, delayMs, launch));
 }
 
 /** Decodes the menu sounds ahead of time, so the first press isn't late. */
 export function warmUp() {
-  const style = fx.tv() ? fx.get("tvMenu") : "kb";
-  if (!fx.soundOn() || style === "kb") return;
-  for (const r of ["move", "select", "back"]) void load(`menu_${style}_${r}`);
+  const style = profile();
+  if (!fx.soundOn()) return;
+  for (const r of ["move", "select", "back", "error", "cart", "disc"] as const) {
+    const name = soundName(style, r);
+    if (name) void load(name);
+  }
+}
+
+export async function previewMenuSounds() {
+  if (!fx.soundOn()) return;
+  const style = fx.get("menuSounds");
+  const clips = await Promise.all(["move", "select", "back"].map((r) => load(`menu_${style}_${r}`)));
+  clips.forEach((clip, i) => playBuffer(clip, [0, 400, 1500][i]));
 }

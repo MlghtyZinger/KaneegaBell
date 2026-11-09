@@ -30,6 +30,22 @@ html[data-anim="full"] .toast { animation: fx-rise .28s cubic-bezier(.2,.8,.2,1)
 html[data-anim="full"] .card-art { animation: fx-fade .2s ease-out both; }
 html[data-anim="reduced"] :is(.game-side:not(.docked), .overlay, .overlay > .panel, .toast) { animation: fx-fade .16s ease-out both; }
 
+/* 0.6.0: finite feedback only; no additional desktop idle work. */
+@keyframes fx-focus { from { opacity: 0; transform: scale(1.12); } }
+@keyframes fx-bar { from { opacity: 0; transform: scaleX(0); } }
+@keyframes fx-pop { 0% { transform: scale(.65); } 60% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes fx-press { 50% { transform: scale(.94); } }
+html[data-anim="full"] :is(.card, .col-tile).focused::after,
+html[data-anim="full"] .tv-card.focused .tv-card-face::after { animation: fx-focus .22s ease-out; }
+html[data-anim="full"][data-focus-look="bar"] :is(.card, .col-tile).focused::after { animation-name: fx-bar; transform-origin: left; }
+.favorite-star { display: inline-block; }
+html[data-anim="full"] :is(.fav-on .favorite-star, .badge.fav) { animation: fx-pop .32s ease-out; }
+html[data-anim="full"] .fx-pressed { animation: fx-press .18s ease-out; }
+html[data-anim="full"] :is(.ach-bar, .side-ach-bar) > div { transform-origin: left; animation: fx-bar .5s ease-out; }
+html[data-anim="full"] .set-pop { animation: fx-fade .18s ease-out; }
+html[data-anim="reduced"] :is(.fav-on .favorite-star, .badge.fav, .set-pop, .ach-bar > div, .side-ach-bar > div) { animation: fx-fade .14s ease-out; }
+html[data-anim="reduced"] :is(.card, .col-tile).focused { transform: none; transition: opacity .14s; }
+
 /* ----------------------------------------------------------- the launch scene */
 .launch-fx {
   position: fixed;

@@ -1,39 +1,63 @@
-import { createEffect, createRoot, createSignal, onCleanup, Show } from "solid-js";
-import type { GameRow } from "../api";
+import { createRoot, createSignal, onCleanup, Show } from "solid-js";
+import { api, type GameRow } from "../api";
 import { pushHandler } from "../input/actions";
 import { fx } from "../state/fx";
 import { library } from "../state/library";
-import { session } from "../state/session";
 import { hush, sfx } from "./audio";
 import { caseOf, Model } from "./Model";
 import { Stage } from "./Stage";
 
 interface Run {
   game: GameRow;
-  /** Starts the game (true) or not (false, cancelled with Back). */
+  /** Finishes or skips the presentation; the game is already starting. */
   go: (start: boolean) => void;
 }
 
 const store = createRoot(() => {
   const [run, setRun] = createSignal<Run | null>(null);
-  // Gone once the game is running (KB is minimized by then) or the start failed.
-  createEffect(() => session.running() && setRun(null));
   return { run, setRun };
 });
 
-/**
- * Plays the launch animation for a game (if it's on for this mode): its case
- * opens and the disc spins, or the cartridge goes into its console. Resolves
- * when it's time to start the emulator; false if the player went back.
- * Call `launchDone()` if the start then fails.
- */
-export function launchAnimation(gameId: number): Promise<boolean> {
+/** The existing case/cartridge timeline, now concurrent with emulator startup. */
+function launchAnimation(gameId: number): Promise<boolean> {
   const game = library.games().find((g) => g.id === gameId);
   if (!fx.launchFx() || !game || store.run()) return Promise.resolve(true);
   return new Promise((resolve) => store.setRun({ game, go: resolve }));
 }
 
 export const launchDone = () => store.setRun(null);
+
+const [presenting, setPresenting] = createRoot(() => createSignal(false));
+export const launchPresenting = presenting;
+
+/** Spawn immediately, keeping the presentation visible until completion or Back. */
+export async function playGame(gameId: number, ps2Duration?: number) {
+  if (presenting()) return;
+  setPresenting(true);
+  document.documentElement.classList.add("launch-presenting");
+  const game = library.games().find((g) => g.id === gameId);
+  if (game && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let skip = () => {};
+  const animation = ps2Duration === undefined ? launchAnimation(gameId) : new Promise<boolean>((resolve) => {
+    skip = () => resolve(true);
+    timer = setTimeout(skip, ps2Duration);
+  });
+  const remove = pushHandler((a) => {
+    if (a === "back") { store.run()?.go(true); launchDone(); skip(); }
+    return true;
+  }, true);
+  try {
+    await Promise.all([api.launchGame(gameId, true), animation]);
+    await api.finishLaunch(gameId);
+  } finally {
+    clearTimeout(timer);
+    remove();
+    launchDone();
+    document.documentElement.classList.remove("launch-presenting");
+    setPresenting(false);
+  }
+}
 
 export function LaunchHost() {
   return (
@@ -52,7 +76,6 @@ function Launch(props: { run: Run }) {
   const timers: ReturnType<typeof setTimeout>[] = [];
   const at = (ms: number, f: () => void) => timers.push(setTimeout(f, ms));
   const add = (c: string) => setStep((s) => [...s, c]);
-  let started = false;
   onCleanup(() => timers.forEach(clearTimeout));
 
   sfx("select");
@@ -81,17 +104,17 @@ function Launch(props: { run: Run }) {
     });
   }
   at(cart ? 3300 : 2400, () => {
-    started = true;
     props.run.go(true);
+    launchDone();
   });
 
   // Back cancels while it plays; once the emulator is starting, input waits.
   onCleanup(
     pushHandler((a) => {
-      if (a === "back" && !started) {
+      if (a === "back") {
         hush();
         sfx("back");
-        props.run.go(false);
+        props.run.go(true);
         launchDone();
       }
       return true;

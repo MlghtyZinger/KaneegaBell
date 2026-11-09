@@ -13,7 +13,7 @@ use crate::error::{Error, Result};
 
 /// The theme format this build reads.
 const FORMAT: u32 = 1;
-pub const DEFAULT: &str = "ember";
+pub const DEFAULT: &str = "forge";
 
 /// Every color a theme sets, in the order of `tokens.css`.
 pub const COLORS: &[&str] = &[
@@ -22,10 +22,18 @@ pub const COLORS: &[&str] = &[
 ];
 
 /// How the focused cover is marked (other controls always get a ring).
-pub const FOCUS_LOOKS: &[&str] = &["glow", "ring", "lift", "brackets", "bar", "spotlight"];
+pub const FOCUS_LOOKS: &[&str] = &["glow", "ring", "lift", "brackets", "bar", "spotlight", "halo", "wii"];
 
 /// The bull icons, one per built-in style (`icons/themes/<id>.png`).
 pub const ICONS: &[(&str, &[u8])] = &[
+    ("forge", include_bytes!("../icons/themes/forge.png")),
+    ("starlight", include_bytes!("../icons/themes/starlight.png")),
+    ("obsidian", include_bytes!("../icons/themes/obsidian.png")),
+    ("aurora", include_bytes!("../icons/themes/aurora.png")),
+    ("chrome", include_bytes!("../icons/themes/chrome.png")),
+    ("ps3", include_bytes!("../icons/themes/ps3.png")),
+    ("wii", include_bytes!("../icons/themes/wii.png")),
+    ("ps2", include_bytes!("../icons/themes/ps2.png")),
     ("ember", include_bytes!("../icons/themes/ember.png")),
     ("midnight", include_bytes!("../icons/themes/midnight.png")),
     ("daylight", include_bytes!("../icons/themes/daylight.png")),
@@ -36,12 +44,13 @@ pub const ICONS: &[(&str, &[u8])] = &[
 
 /// The built-in styles, in the picker's order (the default first).
 const BUILT_IN: &[(&str, &str)] = &[
-    ("ember", include_str!("../themes/ember.json")),
-    ("midnight", include_str!("../themes/midnight.json")),
-    ("daylight", include_str!("../themes/daylight.json")),
-    ("contrast", include_str!("../themes/contrast.json")),
-    ("moss", include_str!("../themes/moss.json")),
-    ("storm", include_str!("../themes/storm.json")),
+    ("forge", include_str!("../themes/forge.json")),
+    ("starlight", include_str!("../themes/starlight.json")),
+    ("obsidian", include_str!("../themes/obsidian.json")),
+    ("aurora", include_str!("../themes/aurora.json")),
+    ("ps3", include_str!("../themes/ps3.json")),
+    ("wii", include_str!("../themes/wii.json")),
+    ("ps2", include_str!("../themes/ps2.json")),
 ];
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -237,12 +246,44 @@ pub fn list() -> Vec<Summary> {
 pub fn current(conn: &rusqlite::Connection) -> (String, Theme) {
     let id: Option<String> = crate::db::queries::get_setting(conn, "theme").ok().flatten();
     if let Some(id) = id {
-        if let Some(t) = built_in(&id) {
-            return (id, t);
+        if id == "random" {
+            let picked = random_style(conn);
+            return (picked.into(), built_in(picked).unwrap());
+        }
+        let next = replacement(&id);
+        if let Some(t) = built_in(next) {
+            if next != id {
+                if let Err(e) = crate::db::queries::set_setting(conn, "theme", &serde_json::json!(next)) {
+                    log::warn!("couldn't save replacement style: {e}");
+                }
+            }
+            return (next.into(), t);
         }
         log::warn!("unknown theme {id}: using {DEFAULT}");
     }
     (DEFAULT.into(), built_in(DEFAULT).expect("the default theme is valid"))
+}
+
+/// One pick per process, excluding the previous launch's pick.
+fn random_style(conn: &rusqlite::Connection) -> &'static str {
+    static PICK: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+    PICK.get_or_init(|| {
+        let previous: Option<String> = crate::db::queries::get_setting(conn, "lastRandomStyle").ok().flatten();
+        let choices: Vec<_> = BUILT_IN.iter().map(|(id, _)| *id).filter(|id| Some(*id) != previous.as_deref()).collect();
+        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
+        let picked = choices[(seed % choices.len() as u128) as usize];
+        if let Err(e) = crate::db::queries::set_setting(conn, "lastRandomStyle", &serde_json::json!(picked)) {
+            log::warn!("couldn't remember random style: {e}");
+        }
+        picked
+    })
+}
+
+fn replacement(id: &str) -> &str {
+    match id {
+        "ember" => "forge", "midnight" => "starlight", "daylight" | "chrome" => "obsidian",
+        "contrast" => "ps3", "moss" => "wii", "storm" => "ps2", _ => id,
+    }
 }
 
 pub fn applied(id: &str, theme: &Theme) -> Applied {
@@ -277,10 +318,11 @@ pub fn set_window_icon(app: &AppHandle, theme: &Theme) {
 
 /// Saves the choice and returns what the page applies.
 pub fn choose(app: &AppHandle, conn: &rusqlite::Connection, id: &str) -> Result<Applied> {
-    let theme = built_in(id).ok_or_else(|| Error::msg(format!("there's no style called {id}")))?;
+    let resolved = if id == "random" { random_style(conn) } else { id };
+    let theme = built_in(resolved).ok_or_else(|| Error::msg(format!("there's no style called {id}")))?;
     crate::db::queries::set_setting(conn, "theme", &serde_json::Value::String(id.into()))?;
     set_window_icon(app, &theme);
-    Ok(applied(id, &theme))
+    Ok(applied(resolved, &theme))
 }
 
 #[cfg(test)]
@@ -290,7 +332,7 @@ mod tests {
     #[test]
     fn built_ins_are_valid_and_readable() {
         for (id, json) in BUILT_IN {
-            let t = Theme::parse_for(json, "0.3.11").unwrap_or_else(|e| panic!("{id}: {e}"));
+            let t = Theme::parse_for(json, env!("CARGO_PKG_VERSION")).unwrap_or_else(|e| panic!("{id}: {e}"));
             assert_eq!(t.icon, *id, "{id} uses its own icon");
         }
         assert_eq!(list().len(), BUILT_IN.len());
@@ -349,7 +391,7 @@ mod tests {
     #[test]
     fn css_has_every_token() {
         let css = ember().css();
-        assert!(css.starts_with(":root{color-scheme:dark;--radius:6px;"));
+        assert!(css.starts_with(":root{color-scheme:dark;--radius:4px;"));
         for c in COLORS {
             assert!(css.contains(&format!("--{c}:#")), "{c}");
         }
@@ -361,5 +403,27 @@ mod tests {
         assert!((contrast("#000000", "#ffffff") - 21.0).abs() < 0.01);
         assert!((contrast("#777777", "#777777") - 1.0).abs() < 0.001);
         assert!(newer("0.4.0", "0.3.11") && !newer("0.3.11", "0.3.11") && !newer("0.3.2", "0.3.11"));
+    }
+
+    #[test]
+    fn old_style_ids_migrate_once_without_losing_the_choice() {
+        for (old, new) in [("ember", "forge"), ("midnight", "starlight"), ("daylight", "obsidian"), ("chrome", "obsidian"), ("contrast", "ps3"), ("moss", "wii"), ("storm", "ps2")] {
+            assert_eq!(replacement(old), new);
+            assert_eq!(replacement(new), new);
+            assert!(built_in(new).is_some());
+        }
+    }
+
+    #[test]
+    fn random_style_changes_last_pick_but_stays_fixed_for_this_launch() {
+        let mut conn = crate::db::open_in_memory().unwrap();
+        crate::db::migrate(&mut conn).unwrap();
+        crate::db::queries::set_setting(&conn, "theme", &serde_json::json!("random")).unwrap();
+        crate::db::queries::set_setting(&conn, "lastRandomStyle", &serde_json::json!("forge")).unwrap();
+        let first = current(&conn).0;
+        assert_ne!(first, "forge");
+        assert!(built_in(&first).is_some());
+        assert_eq!(current(&conn).0, first);
+        assert_eq!(crate::db::queries::get_setting::<String>(&conn, "theme").unwrap().as_deref(), Some("random"));
     }
 }

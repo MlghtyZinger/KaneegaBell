@@ -8,28 +8,18 @@ into the CSS variables its stylesheets already use (`src/styles/tokens.css`).
 The built-in styles are in [`src-tauri/themes/`](../src-tauri/themes/) and follow this exact
 format. The schema is [`theme.schema.json`](theme.schema.json).
 
-KB 0.3.11 ships the built-in styles only. Making and importing your own themes in the app
-comes in 0.3.12.
+KB 0.6.0 includes Forge, Starlight, Obsidian, Aurora, PS3, Wii and PS2. Their bundled backgrounds, fonts and frames live in the application; color data still uses format 1. There is no theme editor or import/export. Desktop and KaneegaBell TV share the Style choice, including Random (changes each app launch, excluding the previous choice). Reduced and Off keep backgrounds still; background motion pauses while hidden or unfocused.
 
 ## Example
 
 ```json
 {
-  "format": 1,
-  "name": "Ember",
-  "author": "KaneegaBell",
-  "version": "1.0",
-  "minAppVersion": "0.3.11",
-  "scheme": "dark",
-  "radius": 6,
-  "focusLook": "brackets",
-  "icon": "ember",
+  "format": 1, "name": "Forge", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "dark", "radius": 4, "focusLook": "brackets", "icon": "forge",
   "colors": {
-    "bg": "#0d0a09", "bg-raised": "#17110e", "bg-sunken": "#070504",
-    "surface": "#221915", "surface-hover": "#2d211b", "border": "#33261f",
-    "text": "#f2e8d8", "text-dim": "#bfae97", "text-faint": "#8a7a68",
-    "accent": "#e2582b", "accent-strong": "#ff8a5c", "on-accent": "#140805",
-    "focus": "#f2e8d8", "gold": "#d9a52b", "danger": "#ff6a5a", "ok": "#8fcf7a"
+    "bg": "#100e0d", "bg-raised": "#1c1815", "bg-sunken": "#080706", "surface": "#29221d", "surface-hover": "#3a2c22", "border": "#524033",
+    "text": "#f6ead8", "text-dim": "#c8b49b", "text-faint": "#a18b73", "accent": "#ed783f", "accent-strong": "#ffb076", "on-accent": "#160b07",
+    "focus": "#ffbd80", "gold": "#e8b65e", "danger": "#ff8979", "ok": "#a2cc8e"
   }
 }
 ```
@@ -43,8 +33,8 @@ comes in 0.3.12.
 | `minAppVersion` | The oldest KB that can use it, like `"0.3.11"`. |
 | `scheme` | `"dark"` or `"light"`: scrollbars and text boxes follow it. |
 | `radius` | Corner rounding in pixels, 0 to 24. |
-| `focusLook` | How the focused cover is marked: `glow`, `ring` (with a gap), `lift`, `brackets`, `bar` or `spotlight` (the other covers dim). Buttons and rows always get a ring in the `focus` color. |
-| `icon` | The bull used for the window and taskbar: `ember`, `midnight`, `daylight`, `contrast`, `moss` or `storm`. |
+| `focusLook` | How the focused cover is marked: `glow`, `ring` (with a gap), `lift`, `brackets`, `bar`, `spotlight` (the other covers dim), `halo` or `wii`. Buttons and rows always get a ring in the `focus` color. |
+| `icon` | The bull used for the window and taskbar: `forge`, `starlight`, `obsidian`, `aurora`, `ps3`, `wii` or `ps2`. Legacy icon IDs remain readable. |
 | `colors` | All 16 colors below, each `#rrggbb`. |
 | `tv` | Optional. Colors that differ in TV Mode, any of the 16. |
 
@@ -85,3 +75,5 @@ Ratios are WCAG contrast ratios. With `tv` colors, the same checks run again for
 
 Paste this file into a chat and describe the look, for example "deep red with gold accents,
 for a dark room". Ask for a `theme.json` that passes the checks above.
+
+The single Style picker in Settings > General controls desktop and KaneegaBell TV UI colors. KB TV uses its original game artwork background without decorative desktop scenery. TV Menu Style retains the KB, Wii, PS3 and PS2 layout choices. PS3 uses one shared flowing-ribbon background with daily local-calendar colors, refreshing at midnight or after sleep. Desktop PS3 keeps the cover grid.

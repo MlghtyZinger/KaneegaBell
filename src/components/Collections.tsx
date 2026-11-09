@@ -8,6 +8,7 @@ import { FileBrowser } from "./FileBrowser";
 import { FilterPanel } from "./FilterPanel";
 import { Hint } from "./Hints";
 import { Icon } from "./Icons";
+import { growFrom } from "../fx/motion";
 
 const KIND_LABEL = { mine: "Collection", series: "Series", franchise: "Franchise", smart: "Smart" } as const;
 
@@ -560,4 +561,11 @@ export function CollectionPicker(props: { gameId: number; title: string; onClose
 }
 
 /** Opens a collection from the overview (used by tiles and the banner). */
-export const openCollection = (key: string) => library.setPlatform(`col:${key}`);
+export const openCollection = (key: string) => {
+  const source = document.querySelector(".col-tile.focused")?.getBoundingClientRect();
+  library.setPlatform(`col:${key}`);
+  queueMicrotask(() => {
+    const page = document.querySelector<HTMLElement>(".lib-main");
+    if (page && source) growFrom(page, source);
+  });
+};

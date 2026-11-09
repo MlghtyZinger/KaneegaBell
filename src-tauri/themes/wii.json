@@ -1,0 +1,9 @@
+{
+  "format": 1, "name": "Wii", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "light", "radius": 22, "focusLook": "wii", "icon": "wii",
+  "colors": {
+    "bg": "#eef2f5", "bg-raised": "#ffffff", "bg-sunken": "#dce4eb", "surface": "#f8fafc", "surface-hover": "#e0f3fc", "border": "#b9c9d5",
+    "text": "#414c55", "text-dim": "#606b75", "text-faint": "#677784", "accent": "#007ba6", "accent-strong": "#00678d", "on-accent": "#ffffff",
+    "focus": "#007eae", "gold": "#80600a", "danger": "#b43d44", "ok": "#29714c"
+  }
+}

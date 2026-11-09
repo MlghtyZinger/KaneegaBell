@@ -14,8 +14,8 @@
     "minAppVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
     "scheme": { "enum": ["dark", "light"] },
     "radius": { "type": "integer", "minimum": 0, "maximum": 24 },
-    "focusLook": { "enum": ["glow", "ring", "lift", "brackets", "bar", "spotlight"] },
-    "icon": { "enum": ["ember", "midnight", "daylight", "contrast", "moss", "storm"] },
+    "focusLook": { "enum": ["glow", "ring", "lift", "brackets", "bar", "spotlight", "halo", "wii"] },
+    "icon": { "enum": ["forge", "starlight", "obsidian", "aurora", "chrome", "ps3", "wii", "ps2", "ember", "midnight", "daylight", "contrast", "moss", "storm"] },
     "colors": {
       "type": "object",
       "additionalProperties": false,

@@ -1,0 +1,84 @@
+/* Bundled OFL display faces; text stays readable and everything works offline. */
+@font-face{font-family:KBCinzel;src:url('../assets/fonts/cinzel.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:KBJosefin;src:url('../assets/fonts/josefinsans.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:KBOrbitron;src:url('../assets/fonts/orbitron.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:KBExo;src:url('../assets/fonts/exo2.ttf') format('truetype');font-weight:100 900;font-display:swap}
+@font-face{font-family:KBPS2Menu;src:url('../assets/ps2/texgyreheros-regular.otf') format('opentype');font-weight:400;font-display:swap}
+
+html:not([data-tv-style]) .library{position:relative;isolation:isolate;background:var(--desktop-background,var(--bg))}
+.desktop-scenery{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden;isolation:isolate}
+html:not([data-tv-style]) :is(.here-title,.side-title,.dp-name,.set-group-title){font-family:var(--desktop-title-font,var(--font))}
+
+html[data-desktop-style="forge"]:not([data-tv-style]){--desktop-title-font:KBCinzel,Georgia,serif;--desktop-background:radial-gradient(ellipse at 90% 100%,#79361938,transparent 65%),repeating-linear-gradient(135deg,#ffffff02 0 1px,transparent 1px 5px),#100e0d;--motion-ease:cubic-bezier(.2,.8,.2,1)}
+html[data-desktop-style="forge"]:not([data-tv-style]) :is(.card,.col-tile){border:2px solid #74533a;box-shadow:inset 0 1px #f4c28b55,0 6px 12px #0008;border-radius:4px}
+html[data-desktop-style="forge"]:not([data-tv-style]) .topbar{background:linear-gradient(#272018,#171310);border-bottom:2px solid #725036}
+html[data-desktop-style="forge"]:not([data-tv-style]) .btn{box-shadow:inset 0 1px #ffe2b322,0 2px 3px #0006}
+
+html[data-desktop-style="starlight"]:not([data-tv-style]){--desktop-title-font:KBJosefin,'Segoe UI',sans-serif;--desktop-background:radial-gradient(ellipse at 85% 15%,#7052a83d,transparent 65%),radial-gradient(circle at 30px 40px,#d7c7ff70 1px,transparent 1.5px) 0 0/173px 157px,radial-gradient(circle at 70px 20px,#b9c8ff60 1px,transparent 1.5px) 0 0/239px 223px,#100f24;--motion-ease:cubic-bezier(.16,1,.3,1)}
+html[data-desktop-style="starlight"]:not([data-tv-style]) :is(.card,.col-tile){border:1px solid #8573b988;box-shadow:0 4px 16px #07041488;border-radius:12px}
+html[data-desktop-style="starlight"]:not([data-tv-style]) .topbar{background:linear-gradient(110deg,#26203e,#19182e)}
+html[data-desktop-style="starlight"]:not([data-tv-style]) .panel{background:linear-gradient(145deg,#25203b,#151329)}
+
+
+html[data-desktop-style="ps3"]:not([data-tv-style]){--desktop-title-font:KBExo,'Segoe UI',sans-serif;--desktop-background:radial-gradient(ellipse at 85% -25%,#228e96,transparent 70%),linear-gradient(120deg,#0c1438,#182b54 55%,#071122);--motion-ease:cubic-bezier(.22,.75,.25,1)}
+html[data-desktop-style="ps3"]:not([data-tv-style]) .topbar{background:#080910ee;border-bottom:1px solid #ffffff30}
+html[data-desktop-style="ps3"]:not([data-tv-style]) :is(.card,.col-tile){border:1px solid #badfff66;border-radius:5px;box-shadow:0 4px 12px #0005}
+html[data-desktop-style="ps3"]:not([data-tv-style]) .panel{background:linear-gradient(145deg,#15365a,#06162f);border-color:#b9eaff66}
+
+html[data-desktop-style="wii"]:not([data-tv-style]){--desktop-title-font:'Segoe UI',sans-serif;--desktop-background:repeating-linear-gradient(#eff1f3 0 2px,#f8f9fa 2px 4px);--motion-ease:cubic-bezier(.2,.8,.2,1);cursor:url('../assets/wii-pointer.svg') 17 2,auto}
+html[data-desktop-style="wii"]:not([data-tv-style]) :is(button,.card,.col-tile){cursor:url('../assets/wii-pointer.svg') 17 2,pointer}
+html[data-desktop-style="wii"]:not([data-tv-style]) .topbar{background:linear-gradient(#fff,#e5edf3);border-bottom:2px solid #b8ccd9}
+html[data-desktop-style="wii"]:not([data-tv-style]) :is(.card,.col-tile){border:3px solid #b7c5d1;border-radius:22px;box-shadow:0 3px 4px #62788a38}
+html[data-desktop-style="wii"]:not([data-tv-style]) :is(.btn,.picker){border-radius:999px;background:linear-gradient(#fff,#e7eff5);border:2px solid #b8cbd9;color:var(--text)}
+html[data-desktop-style="wii"]:not([data-tv-style]) .btn.primary{background:linear-gradient(#008db9,#006f99);border-color:#007ba6;color:#fff}
+html[data-desktop-style="wii"]:not([data-tv-style]) .panel{border:3px solid #208eb8;border-radius:28px;box-shadow:0 12px 35px #354f6830}
+.desktop-wii-dock{flex:none;height:clamp(64px,9vh,100px);display:flex;align-items:center;justify-content:space-between;padding:5px 6%;border-top:3px solid #b8c8d5;border-radius:40% 40% 0 0/15% 15% 0 0;background:linear-gradient(#fbfcfd,#d9e1e7);box-shadow:0 -3px 12px #fff;color:#647580}
+.desktop-wii-clock{display:grid;justify-items:center;line-height:1.2}
+.desktop-wii-clock time{font-size:clamp(24px,3.8vh,42px);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.desktop-wii-clock span{font-size:var(--fs-xs)}
+.desktop-wii-word{font-size:clamp(22px,3vh,36px);font-weight:500;letter-spacing:-.06em;color:#6c8495}
+
+html[data-desktop-style="ps2"]:not([data-tv-style]){--font:KBPS2Menu,Arial,sans-serif;--desktop-title-font:KBPS2Menu,Arial,sans-serif;--desktop-background:radial-gradient(ellipse at 85% 25%,#15365988,transparent 50%),linear-gradient(150deg,#000,#061024 70%,#010309);--motion-ease:cubic-bezier(.2,.8,.2,1)}
+html[data-desktop-style="ps2"]:not([data-tv-style]) .topbar{background:linear-gradient(90deg,#02050c,#0b1b35);border-bottom:1px solid #426b9c}
+html[data-desktop-style="ps2"]:not([data-tv-style]) :is(.card,.col-tile){border:1px solid #4b6f9e;border-radius:2px;box-shadow:0 3px 12px #000a}
+html[data-desktop-style="ps2"]:not([data-tv-style]) .rail-row.active{background:linear-gradient(90deg,#c2deff25,transparent);color:var(--text);border-radius:0;box-shadow:inset 3px 0 #9ac7ff}
+
+html[data-focus-look="halo"] :is(.card,.col-tile).focused{transform:none;box-shadow:0 0 0 2px var(--focus),0 0 24px 4px color-mix(in srgb,var(--focus) 40%,transparent)}
+html[data-focus-look="wii"] :is(.card,.col-tile).focused{transform:none;border-color:var(--focus);box-shadow:0 0 0 3px #8cd4f0,0 4px 10px #37759655}
+html[data-desktop-style][data-focus-look="glow"]:not([data-tv-style]) :is(.card,.col-tile).focused{box-shadow:var(--focus-ring)}
+html[data-anim="full"] :is(.card,.col-tile){transition-timing-function:var(--motion-ease,ease-out)}
+/* Full motion has distinct silhouettes, travel and timing; Reduced/Off keep a still scene. */
+.forge-embers i{position:absolute;width:2px;height:3px;border-radius:50%;background:#ffdf85;box-shadow:0 0 5px 1px #ff6b2288;opacity:.35}
+.forge-embers i:nth-child(3n){width:2px;height:3px}
+html[data-anim="full"] .forge-embers i{animation:forge-ember var(--duration) linear var(--delay) infinite}
+@keyframes forge-ember{0%,100%{transform:translate(0,0);opacity:.15}50%{transform:translate(3px,-8px);opacity:.6}}
+.star-field i{position:absolute;width:var(--star-size);height:var(--star-size);border-radius:50%;background:#f4ecff;box-shadow:0 0 7px 1px #c2afff88;opacity:.7}
+.star-field i:nth-child(9n)::before,.star-field i:nth-child(9n)::after{content:"";position:absolute;left:-150%;top:37%;width:400%;height:25%;background:linear-gradient(90deg,transparent,#eee7ff,transparent)}
+.star-field i:nth-child(9n)::after{transform:rotate(90deg)}
+html[data-anim="full"] .star-field{animation:star-drift 24s ease-in-out infinite alternate}
+html[data-anim="full"] .star-field i{animation:star-twinkle var(--duration) ease-in-out var(--delay) infinite alternate}
+@keyframes star-drift{from{transform:translate(-2%,1%)}to{transform:translate(3%,-2%)}}
+@keyframes star-twinkle{from{opacity:.3;transform:translate(0,0)}to{opacity:.75;transform:translate(5px,-8px)}}
+.scenery-paused *, .scenery-paused *::before,.scenery-paused *::after{animation-play-state:paused!important}
+.tv-style-picker{max-height:90vh;overflow-y:auto}
+
+html[data-desktop-style="obsidian"]:not([data-tv-style]){--desktop-title-font:KBOrbitron,'Segoe UI',sans-serif;--desktop-background:repeating-linear-gradient(115deg,#ffffff03 0 1px,transparent 1px 5px),#101416;--motion-ease:cubic-bezier(.2,.8,.2,1)}
+html[data-desktop-style="obsidian"]:not([data-tv-style]) .topbar{background:linear-gradient(#1e282c,#141c20);border-bottom:1px solid #43565e}
+html[data-desktop-style="obsidian"]:not([data-tv-style]) :is(.card,.col-tile){border:1px solid #43565e;border-radius:3px;box-shadow:0 5px 12px #0007}
+html[data-desktop-style="obsidian"]:not([data-tv-style]) :is(.btn,.picker,.panel){border-radius:3px}
+html[data-desktop-style="obsidian"]:not([data-tv-style]) .tv-rail-item.active{box-shadow:inset 3px 0 #77e5cf}
+.obsidian-grid{position:absolute;inset:0;background:linear-gradient(#75dec50c 1px,transparent 1px) 0 0/48px 48px,linear-gradient(90deg,#75dec50c 1px,transparent 1px) 0 0/48px 48px}
+.obsidian-scan{position:absolute;inset:-50% 0;background:linear-gradient(180deg,transparent 44%,#74d9c412 49%,#74d9c430 50%,transparent 52%);transform:translateY(-30%)}
+html[data-anim="full"] .obsidian-scan{animation:obsidian-scan 7s linear infinite}
+@keyframes obsidian-scan{to{transform:translateY(35%)}}
+html[data-desktop-style="aurora"]:not([data-tv-style]){--desktop-title-font:KBJosefin,'Segoe UI',sans-serif;--desktop-background:radial-gradient(ellipse at top right,#254847,transparent 70%),#071c1c;--motion-ease:cubic-bezier(.16,1,.3,1)}
+html[data-desktop-style="aurora"]:not([data-tv-style]) .topbar{background:linear-gradient(110deg,#123c34,#0c2425);border-bottom:1px solid #41695e}
+html[data-desktop-style="aurora"]:not([data-tv-style]) :is(.card,.col-tile){border:1px solid #41695e;border-radius:14px;box-shadow:0 6px 18px #0005}
+html[data-desktop-style="aurora"]:not([data-tv-style]) .panel{background:linear-gradient(145deg,#173a35,#0b2625);border-color:#41695e;border-radius:18px}
+html[data-desktop-style="aurora"]:not([data-tv-style]) .tv-rail-item.active{box-shadow:0 0 22px #9aecc933}
+.aurora-curtain{position:absolute;left:-20%;top:-40%;width:130%;height:140%;border-radius:50%;background:linear-gradient(125deg,transparent 30%,#59d49a20 43%,#a2efad66 46%,#589dff33 49%,transparent 53%);filter:blur(16px);transform:rotate(-22deg)}
+.aurora-second{transform:rotate(8deg);opacity:.6}
+html[data-anim="full"] .aurora-curtain{animation:aurora-curtain 12s ease-in-out infinite alternate}
+html[data-anim="full"] .aurora-second{animation-delay:-6s}
+@keyframes aurora-curtain{to{transform:translate(10%,8%) rotate(15deg) scale(1.2)}}
+.forge-embers,.star-field{position:absolute;inset:0}

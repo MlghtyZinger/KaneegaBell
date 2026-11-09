@@ -2,6 +2,7 @@ import { createEffect, createResource, createSignal, For, on, onCleanup, onMount
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
 import { library } from "../state/library";
+import { moveIn } from "../fx/motion";
 import { updates } from "../state/updates";
 import { whatsNew } from "../state/whatsNew";
 import { buttonLabel, COMBO_BUTTONS, session } from "../state/session";
@@ -16,7 +17,8 @@ import { EmulatorBadge } from "../components/Icons";
 import { applyTheme, FOCUS_LOOKS } from "../state/theme";
 import { fx, INTROS, type AnimLevel, type IntroKey, type IntroPick } from "../state/fx";
 import { playIntro } from "../fx/Intro";
-import { sfx } from "../fx/audio";
+import { sfx, previewMenuSounds } from "../fx/audio";
+import { MENU_SOUNDS } from "../fx/soundProfile";
 
 type Run = (fn: () => Promise<unknown>, opts?: { notice?: string; reloadLibrary?: boolean }) => Promise<void>;
 
@@ -38,7 +40,7 @@ const INFO: Record<string, Info> = {
   igdb: { title: "IGDB", words: "twitch key client id secret metadata genres fix match", detail: "Optional. Descriptions, release dates, developers, publishers and genres from IGDB, plus Fix match. Free for personal use with your own key from Twitch (dev.twitch.tv/console). Keys stay in KB's folder, encrypted with your Windows login." },
   sgdb: { title: "SteamGridDB", words: "key backgrounds heroes logos covers artwork", detail: "Optional. Community artwork: wide backgrounds and logos (TV Mode, sidebar), more covers to choose from, and covers the other sources lack. Free key from steamgriddb.com/profile/preferences." },
   ra: { title: "RetroAchievements", words: "achievements key username badges hardcore", detail: "Optional. Each game's achievements and your unlocks. Games are recognized by RetroAchievements' own fingerprint of the file, whatever it's called. Needs your username and Web API key from retroachievements.org/settings." },
-  style: { title: "Style", words: "theme colors colours look appearance dark light contrast focus icon ember midnight daylight moss storm", detail: "KaneegaBell's colors, corner shape and how the focused game is marked. The window and taskbar icon change with it. Built-in styles: Ember (the default), Midnight, Daylight, High contrast, Moss and Storm." },
+  style: { title: "Style", words: "theme colors colours look appearance dark light focus icon forge starlight obsidian aurora ps3 wii ps2 desktop", detail: "Styles for desktop and KaneegaBell TV: Forge (the default), Starlight, Obsidian, Aurora, PS3, Wii and PS2. Each has its own background, frames, typography, focus and bull icon. Animated backgrounds follow Full / Reduced / Off. Random changes each app launch. KaneegaBell TV uses these UI colors with its original game-art background. Console menu layouts are selected separately." },
   exitCombo: { title: "Exit combo", words: "close game buttons hold controller quit", detail: "Hold these buttons together on one controller to close the running game, even while the emulator has focus. Pick at least two, and avoid combos your games use. KB asks the emulator to close, then ends it after 4 s." },
   opensIn: { title: "KB opens in", words: "start fullscreen window tv mode big picture f11 l3 f10", detail: "How KB looks when it starts: in a window, fullscreen, or in TV Mode, the big-screen view with backgrounds and logos. F11 toggles fullscreen and L3 or F10 switches TV Mode at any time." },
   intro: { title: "Start-up intro, desktop", words: "boot animation splash konami rockstar red dead redemption rdr1 playstation gamecube switch random sound file intros folder", detail: "The intro when KB opens on the desktop. Random never repeats the last one; Off skips it. Your own sound files go in the data folder's intros folder." },
@@ -46,8 +48,9 @@ const INFO: Record<string, Info> = {
   introWatch: { title: "Watch an intro", words: "preview play intro", detail: "Pick an intro and play it to see it." },
   animDesktop: { title: "Animations, desktop", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
   animTv: { title: "Animations, TV Mode", words: "motion reduced off", detail: "Full moves the most, Reduced only fades, Off keeps everything still." },
-  launchFx: { title: "Launch animation", words: "case cartridge 3d disc game start", detail: "Opens the game's case (or puts the cartridge in its console) before the emulator starts, on the desktop and in TV Mode. Back cancels it." },
+  launchFx: { title: "Launch animation", words: "case cartridge 3d disc game start", detail: "Opens the game's case (or puts the cartridge in its console) while the emulator starts, on the desktop and in TV Mode. Back skips the animation; the game keeps loading." },
   soundDesktop: { title: "Sounds, desktop", words: "volume mute audio", detail: "Menu sounds on the desktop: off, or how loud." },
+  menuSounds: { title: "KB menu sounds", words: "audio console", detail: "Shared by desktop and KB TV mode. PS2, PS3 and Wii styles keep their own sounds." },
   soundTv: { title: "Sounds, TV Mode", words: "volume mute audio", detail: "Menu sounds in TV Mode: off, or how loud." },
   tvText: { title: "TV Mode text size", words: "small large couch", detail: "Text size in TV Mode, for reading from the couch." },
   tvShelf: { title: "TV Mode selected game", words: "3d case flat cover shelf", detail: "TV Mode shows the selected game as a large case you can turn and flip, or a flat cover." },
@@ -270,6 +273,8 @@ export function SettingsView(props: { onClose: () => void }) {
     const groups = [...bodyEl.querySelectorAll<HTMLElement>(".set-group")];
     const at = groups.findIndex((g) => g.contains(document.activeElement));
     focusIn(groups[(at + d + groups.length) % groups.length]);
+    const group = groups[(at + d + groups.length) % groups.length];
+    if (group) moveIn(group, [{ opacity: 0, transform: `translateX(${d * 20}px)` }, { opacity: 1, transform: "none" }], 220);
   };
 
   // A setting's explanation pops up beside it once focus or the mouse rests on it.
@@ -1672,7 +1677,7 @@ function GeneralSection(props: { s: Settings; run: Run }) {
               <Picker
                 dropdown title="Style"
                 value={list()[1]}
-                options={list()[0].map((t) => ({ value: t.id, label: t.name }))}
+                options={[...list()[0].map((t) => ({ value: t.id, label: t.name })), { value: "random", label: "Random · changes each launch" }]}
                 onChange={(id) =>
                   props.run(async () => {
                     applyTheme(await api.setTheme(id));
@@ -2034,6 +2039,10 @@ function SoundRows() {
   };
   return (
     <>
+      <Row k="menuSounds">
+        <Picker dropdown title="KB menu sounds" value={fx.get("menuSounds")} options={MENU_SOUNDS} onChange={(v) => { if (v === "kb") fx.set("menuSounds", v); }} />
+        <button onClick={() => void previewMenuSounds()}>Preview sounds</button>
+      </Row>
       <Row k="soundDesktop">
         <Picker dropdown title="Desktop sounds" value={level(fx.get("soundDesktop"), fx.get("volumeDesktop"))} options={SOUND_LEVELS} onChange={setLevel("soundDesktop", "volumeDesktop")} />
       </Row>

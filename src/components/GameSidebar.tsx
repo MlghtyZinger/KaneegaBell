@@ -1,4 +1,5 @@
-import { launchAnimation, launchDone } from "../fx/LaunchFx";
+import { playGame } from "../fx/LaunchFx";
+import { moveIn } from "../fx/motion";
 import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, raMediaUrl } from "../api";
 import { library } from "../state/library";
@@ -39,6 +40,10 @@ export function GameSidebar(props: {
 }) {
   // The game shown follows `id` once it has settled for a moment.
   const [id, setId] = createSignal(props.id);
+  let sideEl: HTMLDivElement | undefined;
+  createEffect(on(id, () => queueMicrotask(() => {
+    if (props.docked && sideEl) moveIn(sideEl, [{ opacity: 0 }, { opacity: 1 }], 180);
+  }), { defer: true }));
   let timer = 0;
   createEffect(
     on(
@@ -97,13 +102,9 @@ export function GameSidebar(props: {
     setLaunching(true);
     setLaunchError(null);
     try {
-      // The case opens (or the cartridge goes in) first; Back there cancels.
-      if (await launchAnimation(id())) {
-        await api.launchGame(id());
-        props.onClose(); // the Now Playing screen takes over
-      }
+      await playGame(id());
+      props.onClose(); // the Now Playing screen takes over
     } catch (e) {
-      launchDone();
       setLaunchError(errorText(e));
     } finally {
       setLaunching(false);
@@ -121,11 +122,11 @@ export function GameSidebar(props: {
   const actions = (g: () => { favorite: boolean; id: number; playSeconds: number; lastPlayed: number | null }) => (
     <>
       <div class="side-actions">
-        <button class="btn primary big" data-autofocus disabled={launching()} onClick={() => void play()}>
+        <button class="btn primary big" classList={{ "fx-pressed": launching() }} data-autofocus disabled={launching()} onClick={() => void play()}>
           {launching() ? "Starting…" : "▶ Play"}
         </button>
         <button class="btn big" classList={{ "fav-on": g().favorite }} onClick={() => void toggleFavorite()}>
-          {g().favorite ? "★ Favorite" : "☆ Favorite"}
+          <span class="favorite-star">{g().favorite ? "★" : "☆"}</span> Favorite
         </button>
         <button class="btn big" onClick={() => props.onMore(g().id)}>
           More…
@@ -319,7 +320,7 @@ export function GameSidebar(props: {
   );
 
   return (
-    <Show when={!props.docked || props.active} fallback={<div class="game-side docked">{content()}</div>}>
+    <Show when={!props.docked || props.active} fallback={<div class="game-side docked" ref={sideEl}>{content()}</div>}>
       <NavScope class={props.docked ? "game-side docked active" : "game-side"} modal onBack={props.onClose} onFavorite={() => props.onMore(id())} onMenu={props.onSettings}>
         {content()}
       </NavScope>

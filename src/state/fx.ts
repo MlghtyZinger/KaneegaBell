@@ -33,6 +33,7 @@ const DEFAULTS = {
   tvMenu: "kb" as "kb" | "wii" | "ps3" | "ps2",
   consoleFeedbackReady: false,
   soundDesktop: true,
+  menuSounds: "kb" as "kb",
   soundTv: true,
   volumeDesktop: 60,
   volumeTv: 60,
@@ -64,7 +65,9 @@ function createFx() {
 
   const mark = () => (document.documentElement.dataset.anim = anim());
 
-  async function load() {
+  let loading: Promise<void> | undefined;
+  const load = () => loading ??= read();
+  async function read() {
     try {
       const keys = Object.keys(DEFAULTS) as (keyof Fx)[];
       const stored = await api.getSettingValues([...keys, "startInTv"]);
@@ -76,6 +79,8 @@ function createFx() {
       for (const k of ["introDesktop", "introTv"] as const) {
         if (v[k] !== "random" && v[k] !== "off" && !Object.hasOwn(INTROS, v[k])) v[k] = "random";
       }
+      v.menuSounds = "kb";
+      if (!["kb", "wii", "ps3", "ps2"].includes(v.tvMenu)) v.tvMenu = "kb";
       setValues(v);
       rememberIntrosOff(v);
       setStartInTv(stored.startInTv === true);

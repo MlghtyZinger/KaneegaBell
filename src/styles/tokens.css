@@ -3,24 +3,24 @@
 :root {
   color-scheme: dark;
 
-  /* Ember, the default style. A chosen style replaces these before the first
+  /* Forge, the default style. A chosen style replaces these before the first
      paint (src-tauri/src/themes.rs); they apply only if that fails. */
-  --bg: #0d0a09;
-  --bg-raised: #17110e;
-  --bg-sunken: #070504;
-  --surface: #221915;
-  --surface-hover: #2d211b;
-  --border: #33261f;
-  --text: #f2e8d8;
-  --text-dim: #bfae97;
-  --text-faint: #8a7a68;
-  --accent: #e2582b;
-  --accent-strong: #ff8a5c;
-  --on-accent: #140805;
-  --focus: #f2e8d8;
-  --gold: #d9a52b;
-  --danger: #ff6a5a;
-  --ok: #8fcf7a;
+  --bg: #100e0d;
+  --bg-raised: #1c1815;
+  --bg-sunken: #080706;
+  --surface: #29221d;
+  --surface-hover: #3a2c22;
+  --border: #524033;
+  --text: #f6ead8;
+  --text-dim: #c8b49b;
+  --text-faint: #a18b73;
+  --accent: #ed783f;
+  --accent-strong: #ffb076;
+  --on-accent: #160b07;
+  --focus: #ffbd80;
+  --gold: #e8b65e;
+  --danger: #ff8979;
+  --ok: #a2cc8e;
 
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --fs-xs: clamp(13px, 1.25vh, 18px);
@@ -30,7 +30,7 @@
   --fs-xl: clamp(28px, 3.4vh, 46px);
 
   --gap: clamp(10px, 1.2vh, 18px);
-  --radius: 6px;
+  --radius: 4px;
   --focus-ring: 0 0 0 4px var(--focus), 0 0 24px 4px color-mix(in srgb, var(--focus) 35%, transparent);
 }
 

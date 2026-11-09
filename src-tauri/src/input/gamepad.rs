@@ -41,6 +41,7 @@ impl Default for ExitCombo {
 pub struct InputShared {
     pub app_focused: AtomicBool,
     pub game_running: AtomicBool,
+    pub launch_presenting: AtomicBool,
     /// The manual is open over a running game: menu navigation works again.
     pub overlay: AtomicBool,
     combo: Mutex<ExitCombo>,
@@ -178,7 +179,8 @@ fn run(app: AppHandle, shared: Arc<InputShared>, on_exit_combo: Arc<dyn Fn() + S
 
     loop {
         let running = shared.game_running.load(Ordering::Acquire);
-        let nav_enabled = shared.app_focused.load(Ordering::Acquire) && (!running || shared.overlay.load(Ordering::Acquire));
+        let nav_enabled = shared.launch_presenting.load(Ordering::Acquire)
+            || (shared.app_focused.load(Ordering::Acquire) && (!running || shared.overlay.load(Ordering::Acquire)));
         if nav_enabled != nav_was_enabled {
             repeater.release_all();
             nav_was_enabled = nav_enabled;

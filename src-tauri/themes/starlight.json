@@ -1,0 +1,9 @@
+{
+  "format": 1, "name": "Starlight", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "dark", "radius": 12, "focusLook": "glow", "icon": "starlight",
+  "colors": {
+    "bg": "#100f24", "bg-raised": "#1a1834", "bg-sunken": "#080817", "surface": "#292444", "surface-hover": "#38315b", "border": "#494366",
+    "text": "#f1edff", "text-dim": "#c3badf", "text-faint": "#9b92bd", "accent": "#bca7ef", "accent-strong": "#e5cfff", "on-accent": "#171126",
+    "focus": "#e1d5ff", "gold": "#e9ca82", "danger": "#ff9baf", "ok": "#a4d8b6"
+  }
+}

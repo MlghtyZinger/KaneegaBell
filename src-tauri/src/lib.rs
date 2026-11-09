@@ -329,6 +329,7 @@ pub fn run() {
             commands::forget_recent,
             commands::preview_launch,
             commands::launch_game,
+            commands::finish_launch,
             commands::exit_game,
             commands::get_running,
             commands::get_settings,

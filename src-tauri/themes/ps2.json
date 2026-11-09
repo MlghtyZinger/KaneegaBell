@@ -1,0 +1,9 @@
+{
+  "format": 1, "name": "PS2", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "dark", "radius": 2, "focusLook": "halo", "icon": "ps2",
+  "colors": {
+    "bg": "#02040a", "bg-raised": "#091324", "bg-sunken": "#010207", "surface": "#0d2039", "surface-hover": "#19375c", "border": "#28476b",
+    "text": "#e5efff", "text-dim": "#a6bad4", "text-faint": "#7b94b4", "accent": "#9ac7ff", "accent-strong": "#d1e6ff", "on-accent": "#041024",
+    "focus": "#9ac7ff", "gold": "#d9bf86", "danger": "#ef9aa6", "ok": "#95ccbb"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "format": 1, "name": "Forge", "author": "KaneegaBell", "version": "1.0", "minAppVersion": "0.5.5",
+  "scheme": "dark", "radius": 4, "focusLook": "brackets", "icon": "forge",
+  "colors": {
+    "bg": "#100e0d", "bg-raised": "#1c1815", "bg-sunken": "#080706", "surface": "#29221d", "surface-hover": "#3a2c22", "border": "#524033",
+    "text": "#f6ead8", "text-dim": "#c8b49b", "text-faint": "#a18b73", "accent": "#ed783f", "accent-strong": "#ffb076", "on-accent": "#160b07",
+    "focus": "#ffbd80", "gold": "#e8b65e", "danger": "#ff8979", "ok": "#a2cc8e"
+  }
+}

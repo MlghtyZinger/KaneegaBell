@@ -33,15 +33,9 @@
 .wii-channel-buttons button { border: 3px solid #8fbad2; border-radius: 99px; background: linear-gradient(#fff,#e5edf4); color: #536270; padding: 1.2vh 2vw; box-shadow: inset 0 0 0 3px #fff; font-size: calc(var(--tv-text) * clamp(20px,3vh,48px)); }
 .console-wii .wii-channel-buttons .wii-more { position: absolute; top: calc(100% + 1vh); left: 30%; width: 40%; border: 0; background: none; box-shadow: none; font-size: calc(var(--tv-text) * clamp(13px,1.8vh,28px)); padding: .3vh; }
 html.nav-mode .console-wii .wii-channel-buttons .wii-more:focus { box-shadow: var(--focus-ring); }
-.console-ps3 { background: radial-gradient(ellipse at 85% -25%,#228e96,transparent 70%),linear-gradient(155deg,#184d67,#061b48 65%,#164367); color: #f6f6fb; }
-.xmb-wave { position: absolute; z-index: -1; pointer-events: none; width: 140%; height: 60%; left: -20%; top: 22%; opacity: .9; animation: xmb-wave 10s ease-in-out infinite alternate; }
+.console-ps3 { background:#010104; color:#f6f6fb; font-family:Arial,"Segoe UI",sans-serif; }
 .console-menu-music { display: none; }
-.xmb-sparkles { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-.xmb-sparkles i { position: absolute; width: clamp(1px,.17vh,4px); height: clamp(1px,.17vh,4px); border-radius: 50%; background: #e8fcff; box-shadow: 0 0 5px 1px #aeeeff88; opacity: 0; animation: xmb-sparkle var(--spark-time) linear var(--spark-delay) infinite; }
-.xmb-sparkles i:nth-child(7n)::before, .xmb-sparkles i:nth-child(7n)::after { content: ""; position: absolute; left: -150%; top: 0; width: 400%; height: 100%; background: linear-gradient(90deg,transparent,#e8fcff,transparent); }
-.xmb-sparkles i:nth-child(7n)::after { transform: rotate(90deg); }
-@keyframes xmb-sparkle { 0% { opacity: 0; transform: translate3d(-.5vw,1vh,0) scale(.6); } 35% { opacity: .8; } 70% { opacity: .4; } 100% { opacity: 0; transform: translate3d(2vw,-3vh,0) scale(1); } }
-.xmb-status { position: absolute; top: calc(8% + var(--tv-pad-y)); right: var(--tv-pad-x); color: #dedfe5; font-size: calc(var(--tv-text) * clamp(14px,1.8vh,28px)); }
+.xmb-status { position: absolute; top: calc(8% + var(--tv-pad-y)); right: var(--tv-pad-x); min-width:27%; text-align:right; padding:.45vh 1vw; border:1px solid #ffffff30; background:#0003; color: #dedfe5; font-size: calc(var(--tv-text) * clamp(14px,1.8vh,28px)); }
 .xmb-categories { overflow: clip; overflow-clip-margin: 2vh; position: absolute; inset: calc(22% + var(--tv-pad-y)) 0 auto; height: 12%; }
 /* Both rows use the same axis. Thumbnail centers and the active category center cannot drift apart. */
 .xmb-category { position: absolute; left: calc(var(--xmb-axis) - 4vw); top: 0; width: 8vw; display: flex; flex-direction: column; align-items: center; gap: 1vh; border: 0; padding: 0; background: none; color: #dddde6; opacity: .6; transition: transform .26s cubic-bezier(.2,.8,.2,1),opacity .2s; }
@@ -68,7 +62,7 @@ html.nav-mode .console-wii .wii-channel-buttons .wii-more:focus { box-shadow: va
 .console-empty { position: absolute; left: 15%; right: 15%; top: 46%; text-align: center; font-size: calc(var(--tv-text) * clamp(18px,2.5vh,40px)); }
 .console-empty button { border: 0; background: none; text-decoration: underline; }
 .console-error { position: absolute; z-index: 8; left: 15%; right: 15%; bottom: 3%; margin: 0; padding: 1vh 1vw; border-radius: 8px; background: #451c21; color: #fff2ed; font-size: calc(var(--tv-text) * clamp(14px,1.8vh,30px)); }
-.console-paused *, html[data-anim="off"] .console-menu *, html[data-anim="reduced"] .xmb-wave { animation-play-state: paused !important; }
+.console-paused *, html[data-anim="off"] .console-menu * { animation-play-state: paused !important; }
 html[data-anim="off"] .console-menu * { animation: none !important; transition: none !important; }
 html[data-anim="reduced"] .console-menu * { animation: none !important; transition: opacity .15s !important; }
 @media(prefers-reduced-motion:reduce) { html:not([data-anim="full"]) .console-menu * { animation: none !important; transition: none !important; } }
@@ -76,7 +70,6 @@ html[data-anim="reduced"] .console-menu * { animation: none !important; transiti
 @keyframes wii-channel-open { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
 @keyframes console-item-enter { from { opacity: 0; } }
 @keyframes xmb-options-in { from { opacity: 0; transform: translateX(25%); } to { opacity: 1; transform: translateX(0); } }
-@keyframes xmb-wave { from { transform: translate3d(-1vw,-1vh,0) rotate(-2deg); } to { transform: translate3d(1vw,3vh,0) rotate(2deg); } }
 
 .wii-channels { animation: wii-page-in .24s ease-out both; }
 .wii-channel-closing { pointer-events: none; animation: wii-channel-close .18s ease-in both; }
@@ -109,3 +102,6 @@ html[data-tv-style="wii"] .btn.primary { border-color: #2aa7e0; background: line
 /* PS3 look for overlays: dark blue glass with thin light edges. */
 html[data-tv-style="ps3"] .panel { background: linear-gradient(160deg, rgb(14 42 80 / .97), rgb(5 18 38 / .97)); border: 1px solid rgb(255 255 255 / .22); border-radius: 6px; }
 html[data-tv-style="ps3"] .overlay { background: rgb(2 10 24 / .55); }
+
+.console-ps3 .xmb-category .platform-icon{filter:grayscale(1) brightness(1.7);opacity:.85}
+.console-ps3 .xmb-category.active .platform-icon{filter:grayscale(1) brightness(2.2) drop-shadow(0 0 6px #fff5);opacity:1}

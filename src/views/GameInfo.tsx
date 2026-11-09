@@ -1,4 +1,4 @@
-import { launchAnimation, launchDone } from "../fx/LaunchFx";
+import { playGame } from "../fx/LaunchFx";
 import { createEffect, createResource, createSignal, For, lazy, on, onCleanup, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, events, type GameDetail, type Series } from "../api";
 import { formatLastPlayed, formatPlayTime } from "../state/session";
@@ -263,13 +263,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
     setLaunching(true);
     setLaunchError(null);
     try {
-      // The case opens (or the cartridge goes in) first; Back there cancels.
-      if (await launchAnimation(id())) {
-        await api.launchGame(id());
-        props.onClose(); // the Now Playing screen takes over
-      }
+      await playGame(id());
+      props.onClose(); // the Now Playing screen takes over
     } catch (e) {
-      launchDone();
       setLaunchError(errorText(e));
     } finally {
       setLaunching(false);
@@ -286,12 +282,12 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                 <Show when={g().art > 0} fallback={<div class="dp-cover dp-cover-empty dim">No cover yet</div>}>
                   <img class="dp-cover" src={artUrl(g().id, g().art, "f")} alt={`${g().title} cover`} decoding="async" />
                 </Show>
-                <button class="btn primary big" data-autofocus disabled={launching()} onClick={() => void play()}>
+                <button class="btn primary big" classList={{ "fx-pressed": launching() }} data-autofocus disabled={launching()} onClick={() => void play()}>
                   {launching() ? "Starting…" : "▶ Play"}
                 </button>
                 <div class="dp-pair">
                   <button class="btn" classList={{ "fav-on": isFavorite() }} onClick={() => void toggleFavorite()}>
-                    {isFavorite() ? "★ Favorite" : "☆ Favorite"}
+                    <span class="favorite-star">{isFavorite() ? "★" : "☆"}</span> Favorite
                   </button>
                   <button class="btn" disabled={!row()} onClick={() => setViewing(true)}>
                     View cover

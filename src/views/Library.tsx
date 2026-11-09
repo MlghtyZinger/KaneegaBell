@@ -27,6 +27,8 @@ import { FilterPanel } from "../components/FilterPanel";
 import { Picker } from "../components/Picker";
 import { GameInfo } from "./GameInfo";
 import { GameSidebar } from "../components/GameSidebar";
+import { moveIn } from "../fx/motion";
+import { DesktopBackground, DesktopDock } from "../components/DesktopStyle";
 import { api, errorText, type GameRow } from "../api";
 
 /** What the background worker is doing (one job at a time). */
@@ -97,6 +99,12 @@ function initial(title: string): string {
 }
 
 export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () => void }) {
+  let mainEl!: HTMLDivElement;
+  createEffect(on(library.platform, (next) => {
+    queueMicrotask(() => {
+      if (!collectionKeyOf(next)) moveIn(mainEl, [{ opacity: 0 }, { opacity: 1 }], 160);
+    });
+  }, { defer: true }));
   const { focused, setFocused } = library;
   // The full details screen (△ / F / right-click) and the sidebar (A / Enter / double-click).
   const [infoId, setInfoId] = createSignal<number | null>(null);
@@ -631,6 +639,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   return (
     <div class="library">
+      <DesktopBackground />
       <header class="topbar slim">
         <span class="kb-mark" aria-hidden="true">
           <img src={themeIcon()} alt="" />
@@ -748,7 +757,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
           <span class="rail-name">{RAIL_MODES[railMode()].label}</span>
         </button>
       </nav>
-      <div class="lib-main" classList={{ "focus-away": railFocus() !== null || topFocus() !== null || bannerFocus() !== null || sideOpen() }}>
+      <div class="lib-main" ref={mainEl} classList={{ "focus-away": railFocus() !== null || topFocus() !== null || bannerFocus() !== null || sideOpen() }}>
 
       <Show
         when={!overview()}
@@ -930,6 +939,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       </Show>
       </div>
 
+      <DesktopDock />
       <Show when={infoId()} keyed>
         {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}
       </Show>

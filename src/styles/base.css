@@ -36,9 +36,9 @@ textarea {
 }
 
 /* While a game is running the app pauses all animation work. */
-.paused *,
-.paused *::before,
-.paused *::after {
+.paused:not(.launch-presenting) *,
+.paused:not(.launch-presenting) *::before,
+.paused:not(.launch-presenting) *::after {
   animation-play-state: paused !important;
   transition: none !important;
 }

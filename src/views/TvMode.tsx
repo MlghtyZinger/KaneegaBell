@@ -18,7 +18,7 @@ import { Ps2Menu } from "./Ps2Menu";
 import { ConsoleMenus, type ConsoleEntry } from "./ConsoleMenus";
 import { fx } from "../state/fx";
 import { Model, caseOf } from "../fx/Model";
-import { launchAnimation, launchDone } from "../fx/LaunchFx";
+import { playGame } from "../fx/LaunchFx";
 import { playIntro } from "../fx/Intro";
 import "../styles/tv.css";
 import "../styles/tv-ps2.css";
@@ -61,7 +61,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   const [platformsOpen, setPlatformsOpen] = createSignal(false);
   // Overlays (details, search keyboard, menus, Settings) take the Wii or PS3 look while that style is on (tokens.css).
   createEffect(() => (document.documentElement.dataset.tvStyle = menuStyle()));
-  onCleanup(() => delete document.documentElement.dataset.tvStyle);
+  onCleanup(() => { delete document.documentElement.dataset.tvStyle; });
   const [viewing, setViewing] = createSignal<GameRow | null>(null);
   // The switch bar and quick switcher: Favorites, Recent, Collections, All, then the platforms by maker.
   const barTabs = createMemo(() => {
@@ -336,13 +336,13 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
   };
   const fullName = (id: string) => library.platforms().find((x) => x.id === id)?.name ?? tabLabel(id);
 
-  async function playCurrent() {
+  async function playCurrent(ps2Duration?: number) {
     const g = current();
     if (!g || launching() || overview()) return;
     setLaunching(true); setLaunchError(null);
     // The PS2 style has its own start animation (in its menu), so KB's case animation is skipped there.
-    try { if (menuStyle() === "ps2" || await launchAnimation(g.id)) await api.launchGame(g.id); }
-    catch (e) { launchDone(); setLaunchError(errorText(e)); }
+    try { await playGame(g.id, menuStyle() === "ps2" ? (ps2Duration ?? 0) : undefined); }
+    catch (e) { setLaunchError(errorText(e)); }
     finally { setLaunching(false); }
   }
   const platformCount = (id: PlatformFilter) => id === "all" ? library.games().length : id === "favorites" ? library.favorites().length : id === "recent" ? library.recent().length : id === "collections" ? cols().length : library.platforms().find((p) => p.id === id)?.count ?? 0;
@@ -498,7 +498,7 @@ export function TvMode(props: { onExit: () => void; onOpenSettings: () => void }
         <Ps2Menu count={count()} focused={overview() ? colFocused() : focused()} entry={consoleEntry}
           game={i => overview() ? undefined : games()[i]}
           select={i => { if (overview()) setColFocused(i); else setFocused(i); }}
-          play={() => { if (overview()) { const c=currentCol(); if(c) library.setPlatform(`col:${c.key}`); } else void playCurrent(); }}
+          play={(duration) => { if (overview()) { const c=currentCol(); if(c) library.setPlatform(`col:${c.key}`); } else void playCurrent(duration); }}
           more={() => { const g=current(); if(g) setInfoId(g.id); }} cover={() => setViewing(current() ?? null)}
           settings={props.onOpenSettings}
           launching={launching()} error={launchError()}

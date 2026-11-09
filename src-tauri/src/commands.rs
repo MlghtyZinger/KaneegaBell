@@ -231,8 +231,13 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
 
 /// Starts a game with its own emulator pick, else the platform's default.
 #[tauri::command]
-pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<launcher::Started> {
-    state.launcher.launch(&app, id)
+pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64, presenting: Option<bool>) -> Result<launcher::Started> {
+    state.launcher.launch(&app, id, presenting.unwrap_or(false))
+}
+
+#[tauri::command]
+pub fn finish_launch(app: AppHandle, state: State<'_, AppState>, id: i64) {
+    state.launcher.finish_launch(&app, id);
 }
 
 #[derive(Serialize)]
@@ -1921,7 +1926,9 @@ pub fn refresh_zoom(app: AppHandle) {
 /// The styles to pick from, and the one in use.
 #[tauri::command]
 pub fn list_themes(state: State<'_, AppState>) -> (Vec<crate::themes::Summary>, String) {
-    (crate::themes::list(), crate::themes::current(&state.db()).0)
+    let conn = state.db();
+    let choice = crate::db::queries::get_setting::<String>(&conn, "theme").ok().flatten();
+    (crate::themes::list(), choice.filter(|id| id == "random").unwrap_or_else(|| crate::themes::current(&conn).0))
 }
 
 #[tauri::command]

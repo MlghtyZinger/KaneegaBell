@@ -180,6 +180,7 @@ pub struct Session {
     bios: Option<String>,
     tracker: Tracker,
     exiting: AtomicBool,
+    presenting: AtomicBool,
     /// Restored when the game exits (minimize/restore drops fullscreen).
     was_fullscreen: bool,
 }
@@ -396,7 +397,7 @@ fn restore_window(w: &tauri::WebviewWindow, before: &Mutex<Option<Before>>) {
 impl Launcher {
 
     /// Starts a game with its own emulator pick, else the platform's default.
-    pub fn launch(self: &Arc<Self>, app: &AppHandle, game_id: i64) -> Result<Started> {
+    pub fn launch(self: &Arc<Self>, app: &AppHandle, game_id: i64, presenting: bool) -> Result<Started> {
         let state = app.state::<crate::commands::AppState>();
         let mut slot = self.current.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(s) = slot.as_ref() {
@@ -445,6 +446,7 @@ impl Launcher {
             bios: bios_warning(&cfg, &game.platform_id),
             tracker,
             exiting: AtomicBool::new(false),
+            presenting: AtomicBool::new(true),
             was_fullscreen,
         });
         *slot = Some(session.clone());
@@ -454,27 +456,21 @@ impl Launcher {
         if let Err(e) = queries::start_session(&state.db(), game_id, queries::now()) {
             log::error!("couldn't record the session start: {e}");
         }
+        state.input.launch_presenting.store(presenting, Ordering::Release);
+        if presenting {
+            if let Some(w) = &window { let _ = w.set_always_on_top(true); }
+        }
         state.input.game_running.store(true, Ordering::Release);
         let started = Started { game_id, title: game.title.clone(), emulator: cfg.emulator_name.clone(), notice };
         let _ = app.emit("game-started", &started);
-        if let Some(w) = window {
-            // Minimized, WebView2 stops rendering; it also gets out of the
-            // emulator's way. (Hiding the window instead risks WebView2 not
-            // repainting when it's shown again.)
-            let _ = w.minimize();
-            #[cfg(windows)]
-            {
-                window::set_webview_low_memory(&w, true);
-                // Once the page has swapped the library for the "now playing"
-                // screen, suspend it (unless the game is already over).
-                let state_flag = app.state::<crate::commands::AppState>().input.clone();
-                let _ = std::thread::Builder::new().name("suspend-page".into()).spawn(move || {
-                    std::thread::sleep(Duration::from_millis(1500));
-                    if state_flag.game_running.load(Ordering::Acquire) {
-                        window::set_webview_suspended(&w, true);
-                    }
-                });
-            }
+        if !presenting { self.finish_launch(app, game_id); }
+        else {
+            // A crashed/reloaded UI must never leave KB pinned above the game.
+            let me = self.clone(); let app = app.clone(); let expected = session.clone();
+            let _ = std::thread::Builder::new().name("launch-fallback".into()).spawn(move || {
+                std::thread::sleep(Duration::from_secs(5));
+                if expected.presenting.load(Ordering::Acquire) { me.finish_launch(&app, game_id); }
+            });
         }
 
         // The emulator often opens behind everything (KB was just minimized and
@@ -483,12 +479,19 @@ impl Launcher {
         #[cfg(windows)]
         {
             let session = session.clone();
+            let presentation_window = window.clone();
             let _ = std::thread::Builder::new().name("game-focus".into()).spawn(move || {
                 let mut seen: Vec<isize> = Vec::new();
                 for _ in 0..40 {
                     std::thread::sleep(Duration::from_millis(500));
                     if session.exiting.load(Ordering::Acquire) {
                         return;
+                    }
+                    if session.presenting.load(Ordering::Acquire) {
+                        if let Some(w) = &presentation_window {
+                            let _ = w.set_focus();
+                        }
+                        continue;
                     }
                     let now = session.tracker.windows();
                     if now.is_empty() && !session.tracker.is_running() {
@@ -517,10 +520,38 @@ impl Launcher {
         Ok(started)
     }
 
+    /// Release the launch presentation after its timeline completes or the player skips.
+    pub fn finish_launch(&self, app: &AppHandle, game_id: i64) {
+        let slot = self.current.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(session) = slot.as_ref().filter(|s| s.game_id == game_id) else { return; };
+        if !session.presenting.swap(false, Ordering::AcqRel) { return; }
+        let state = app.state::<crate::commands::AppState>();
+        state.input.launch_presenting.store(false, Ordering::Release);
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.set_always_on_top(false);
+            let _ = w.minimize();
+            #[cfg(windows)]
+            {
+                window::set_webview_low_memory(&w, true);
+                let expected = session.clone(); let app = app.clone();
+                let _ = std::thread::Builder::new().name("suspend-page".into()).spawn(move || {
+                    std::thread::sleep(Duration::from_millis(1500));
+                    let launcher = &app.state::<crate::commands::AppState>().launcher;
+                    let current = launcher.current.lock().unwrap_or_else(|e| e.into_inner());
+                    if current.as_ref().is_some_and(|s| Arc::ptr_eq(s, &expected)) && !expected.exiting.load(Ordering::Acquire) {
+                        window::set_webview_suspended(&w, true);
+                    }
+                });
+            }
+        }
+    }
+
     fn finish(&self, app: &AppHandle, session: &Session, played: Duration) {
+        session.presenting.store(false, Ordering::Release);
         *self.current.lock().unwrap_or_else(|e| e.into_inner()) = None;
         let state = app.state::<crate::commands::AppState>();
         state.input.game_running.store(false, Ordering::Release);
+        state.input.launch_presenting.store(false, Ordering::Release);
         state.input.overlay.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
         // Closed on its own within seconds: the game never ran.
