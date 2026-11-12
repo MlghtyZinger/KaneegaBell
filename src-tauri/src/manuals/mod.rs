@@ -18,7 +18,6 @@ pub mod zip;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use rusqlite::{Connection, OptionalExtension};
 use serde::Serialize;
@@ -57,12 +56,7 @@ pub struct Downloader {
 
 impl Downloader {
     pub fn new() -> Self {
-        let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(600)))
-            .user_agent(concat!("KaneegaBell/", env!("CARGO_PKG_VERSION"), " (personal game library; manuals on request)"))
-            .build()
-            .into();
-        Self { agent }
+        Self { agent: crate::art::http::agent(600, "personal game library; manuals on request") }
     }
 }
 
@@ -379,13 +373,23 @@ pub fn pdf_bytes(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<Vec
     Ok(bytes)
 }
 
+/// The last CBZ read (path, bytes, pages), so turning pages doesn't reread and reparse the whole archive.
+type OpenCbz = (String, std::sync::Arc<Vec<u8>>, Vec<zip::Entry>);
+static LAST_CBZ: std::sync::Mutex<Option<OpenCbz>> = std::sync::Mutex::new(None);
+
 /// Page `n` of the user's own CBZ, as it is in the archive.
 pub fn cbz_page(conn: &Connection, game_id: i64, n: u32) -> Result<Vec<u8>> {
     let r = row(conn, game_id)?.filter(|r| r.source == "file").ok_or_else(|| Error::msg("This game has no CBZ manual."))?;
-    let zip_bytes = read_capped(Path::new(r.url.as_deref().unwrap_or_default()))?;
-    let entries = zip::pages(&zip_bytes)?;
+    let path = r.url.unwrap_or_default();
+    let mut last = LAST_CBZ.lock().unwrap_or_else(|e| e.into_inner());
+    if last.as_ref().is_none_or(|(p, _, _)| *p != path) {
+        let bytes = read_capped(Path::new(&path))?;
+        let entries = zip::pages(&bytes)?;
+        *last = Some((path, std::sync::Arc::new(bytes), entries));
+    }
+    let (_, bytes, entries) = last.as_ref().expect("just filled");
     let e = entries.get(n as usize).ok_or_else(|| Error::msg("That page isn't in the manual."))?;
-    zip::read(&zip_bytes, e)
+    zip::read(bytes, e)
 }
 
 /// Stores one page image the viewer made from a downloaded PDF.

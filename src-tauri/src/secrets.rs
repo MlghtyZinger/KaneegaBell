@@ -4,20 +4,12 @@
 //! by another Windows user or on another PC; keys are re-entered there.
 //! Elsewhere (non-Windows builds) it's a plain `secrets.local.json` readable
 //! only by the user.
-//!
-//! Keys saved by earlier versions live in Windows Credential Manager
-//! ("KaneegaBell:..." or, before the rename, "EmuFrontend:..."). The
-//! installed app moves them into the file once (copied, read back, then
-//! removed from Credential Manager); see `import_from_credential_manager`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
 use crate::error::{Error, Result};
-
-/// Every key name the app stores (for the one-time import).
-const KNOWN: &[&str] = &["igdb-client-id", "igdb-client-secret", "igdb-token", "sgdb-key", "ra-user", "ra-web-api-key"];
 
 static FILE: OnceLock<PathBuf> = OnceLock::new();
 /// Serializes read-modify-write of the file.
@@ -72,44 +64,6 @@ mod crypt {
     }
 }
 
-#[cfg(windows)]
-mod credman {
-    //! Windows Credential Manager, only read for the one-time import.
-    use crate::error::{Error, Result};
-    use windows::core::HSTRING;
-    use windows::Win32::Foundation::ERROR_NOT_FOUND;
-    use windows::Win32::Security::Credentials::{CredDeleteW, CredFree, CredReadW, CREDENTIALW, CRED_TYPE_GENERIC};
-
-    fn not_found(e: &windows::core::Error) -> bool {
-        e.code() == ERROR_NOT_FOUND.to_hresult()
-    }
-
-    pub fn get(target: &str) -> Result<Option<String>> {
-        let target = HSTRING::from(target);
-        let mut cred: *mut CREDENTIALW = std::ptr::null_mut();
-        // SAFETY: CredReadW fills `cred` with a buffer we free with CredFree.
-        match unsafe { CredReadW(&target, CRED_TYPE_GENERIC, None, &mut cred) } {
-            Ok(()) => unsafe {
-                let c = &*cred;
-                let bytes = std::slice::from_raw_parts(c.CredentialBlob, c.CredentialBlobSize as usize);
-                let s = String::from_utf8_lossy(bytes).into_owned();
-                CredFree(cred as *const _);
-                Ok(Some(s))
-            },
-            Err(e) if not_found(&e) => Ok(None),
-            Err(e) => Err(Error::msg(format!("Credential Manager: {e}"))),
-        }
-    }
-
-    pub fn delete(target: &str) -> Result<()> {
-        let target = HSTRING::from(target);
-        match unsafe { CredDeleteW(&target, CRED_TYPE_GENERIC, None) } {
-            Err(e) if !not_found(&e) => Err(Error::msg(format!("Credential Manager: {e}"))),
-            _ => Ok(()),
-        }
-    }
-}
-
 /// Where the keys file lives (the data folder).
 pub fn init(data_dir: &Path) {
     let _ = FILE.set(data_dir.join(FILE_NAME));
@@ -126,7 +80,15 @@ fn load_from(path: &Path) -> Result<BTreeMap<String, String>> {
         Err(e) => return Err(e.into()),
     };
     #[cfg(windows)]
-    let bytes = crypt::unprotect(&bytes)?;
+    let bytes = match crypt::unprotect(&bytes) {
+        Ok(b) => b,
+        Err(e) => {
+            // Made by another Windows user or PC: set it aside so keys can be entered again.
+            log::warn!("{e}; keeping the old file as keys.bin.unreadable");
+            let _ = std::fs::rename(path, path.with_extension("bin.unreadable"));
+            return Ok(BTreeMap::new());
+        }
+    };
     Ok(serde_json::from_slice(&bytes)?)
 }
 
@@ -179,51 +141,6 @@ pub fn delete(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// One-time move of keys saved by earlier versions in Windows Credential
-/// Manager into the keys file: copied, read back to check, then removed
-/// from Credential Manager. Only for the installed app's own library (not a
-/// development copy or a separate test folder). Returns how many moved.
-#[cfg(windows)]
-pub fn import_from_credential_manager() -> Result<usize> {
-    let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let p = path()?;
-    let mut map = load_from(p)?;
-    let mut found = Vec::new();
-    for name in KNOWN {
-        let targets = [format!("KaneegaBell:{name}"), format!("EmuFrontend:{name}")];
-        let mut value = None;
-        for t in &targets {
-            if let Some(v) = credman::get(t)? {
-                value.get_or_insert(v);
-            }
-        }
-        if let Some(v) = value {
-            map.entry(name.to_string()).or_insert(v);
-            found.push((name, targets));
-        }
-    }
-    if found.is_empty() {
-        return Ok(0);
-    }
-    save_to(p, &map)?;
-    // Only remove the old copies once the file reads back with every key.
-    let back = load_from(p)?;
-    if found.iter().any(|(name, _)| back.get(**name) != map.get(**name)) {
-        return Err(Error::msg("the keys file didn't read back correctly; the keys stay in Credential Manager"));
-    }
-    for (_, targets) in &found {
-        for t in targets {
-            credman::delete(t)?;
-        }
-    }
-    Ok(found.len())
-}
-
-#[cfg(not(windows))]
-pub fn import_from_credential_manager() -> Result<usize> {
-    Ok(0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -247,10 +164,11 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn a_damaged_file_is_an_error_not_silently_empty() {
+    fn an_unreadable_file_is_set_aside_not_a_lasting_error() {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join(FILE_NAME);
         std::fs::write(&p, b"not a DPAPI blob").unwrap();
-        assert!(load_from(&p).is_err());
+        assert!(load_from(&p).unwrap().is_empty());
+        assert!(!p.exists() && p.with_extension("bin.unreadable").exists());
     }
 }

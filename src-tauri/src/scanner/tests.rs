@@ -838,3 +838,31 @@ fn disabled_platforms_are_not_scanned_or_listed() {
     assert!(lib.iter().all(|g| g.platform_id == "gc"));
     assert_eq!(lib.len(), 3);
 }
+
+#[test]
+fn a_folder_renamed_only_in_case_keeps_its_games_history() {
+    use crate::db::{queries, test_db};
+    let mut conn = test_db();
+    conn.execute(r"INSERT INTO rom_sources (path, platform_id) VALUES ('E:\Games\ps2', 'gba')", []).unwrap();
+    let old = Candidate {
+        platform: "gba".into(),
+        launch_path: PathBuf::from(r"E:\Games\ps2\Golden Sun.gba"),
+        name: normalize::parse("Golden Sun"),
+        serial: None,
+        files: vec![],
+        total_size: 1,
+        mtime: 1,
+        is_multidisc: false,
+    };
+    let tx = conn.transaction().unwrap();
+    queries::apply_scan(&tx, 1, &[old.clone()], &HashMap::new()).unwrap();
+    tx.commit().unwrap();
+    conn.execute("UPDATE games SET play_seconds = 600", []).unwrap();
+    let known = queries::known_games(&conn).unwrap();
+    let renamed = Candidate { launch_path: PathBuf::from(r"E:\Games\PS2\Golden Sun.gba"), ..old };
+    let tx = conn.transaction().unwrap();
+    queries::apply_scan(&tx, 1, &[renamed], &known).unwrap();
+    tx.commit().unwrap();
+    let (n, secs): (i64, i64) = conn.query_row("SELECT COUNT(*), MAX(play_seconds) FROM games", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((n, secs), (1, 600), "one row, play time kept");
+}

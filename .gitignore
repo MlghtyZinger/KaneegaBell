@@ -43,3 +43,6 @@ tools/sounds/snd/
 
 # Generated local verification output
 /test-output/
+
+# Preview videos stay local (782 MB of history otherwise)
+/docs/intro-video-previews/

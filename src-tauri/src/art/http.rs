@@ -39,14 +39,18 @@ pub struct Http {
 /// libretro index pages are a few MB of HTML).
 const MAX_BODY: u64 = 32 * 1024 * 1024;
 
+/// A client with an overall timeout and KB's User-Agent (`note` says what for).
+pub fn agent(timeout_secs: u64, note: &str) -> ureq::Agent {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(timeout_secs)))
+        .user_agent(format!("KaneegaBell/{} ({note})", env!("CARGO_PKG_VERSION")))
+        .build()
+        .into()
+}
+
 impl Http {
     pub fn new() -> Self {
-        let agent = ureq::Agent::config_builder()
-            .timeout_global(Some(Duration::from_secs(60)))
-            .user_agent(concat!("KaneegaBell/", env!("CARGO_PKG_VERSION"), " (personal game library)"))
-            .build()
-            .into();
-        Self { agent }
+        Self { agent: agent(60, "personal game library") }
     }
 }
 

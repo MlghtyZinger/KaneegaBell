@@ -935,7 +935,10 @@ pub fn apply_scan(
         title: c.name.title.clone(),
         variant: c.name.variant.clone(),
     };
+    // A folder renamed only in upper/lower case: the row follows (the column is case-sensitive).
+    let mut recase = tx.prepare_cached("UPDATE OR IGNORE games SET launch_path = ?1 WHERE launch_path = ?1 COLLATE NOCASE AND launch_path != ?1")?;
     for c in candidates {
+        recase.execute([c.launch_path.to_string_lossy()])?;
         match known.get(&path_key(&c.launch_path)) {
             None => {
                 // Only when exactly one such game exists, so nothing is guessed.
@@ -1521,7 +1524,7 @@ pub fn update_source(conn: &Connection, id: i64, platform_id: Option<&str>, recu
 /// for them (cover, pictures, icon, match, emulator).
 const HAS_USER_DATA: &str = "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL
      OR art_manual = 1 OR extras_manual = 1 OR icon_manual = 1 OR lb_status = 'manual' OR match_status = 'manual'
-     OR emulator_choice IS NOT NULL
+     OR emulator_choice IS NOT NULL OR user_title IS NOT NULL OR user_variant IS NOT NULL
      OR id IN (SELECT game_id FROM collection_games) OR id IN (SELECT game_id FROM series_membership_overrides))";
 
 /// Removing a source deletes its games, except ones with user data (see

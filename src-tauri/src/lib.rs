@@ -13,7 +13,6 @@ mod launcher;
 mod maintenance;
 mod manuals;
 mod metadata;
-mod migrate;
 #[cfg(test)]
 mod perf;
 mod platforms;
@@ -29,14 +28,11 @@ use std::sync::{Arc, OnceLock};
 
 use tauri::{Manager, WindowEvent};
 
-/// `KB_DATA_DIR` (or the older `EMU_FRONTEND_DATA_DIR`) points the app at
+/// `KB_DATA_DIR` points the app at
 /// another data folder, e.g. a generated test library for the performance
 /// harness, leaving the real library untouched.
 pub(crate) fn data_dir_override() -> Option<PathBuf> {
-    ["KB_DATA_DIR", "EMU_FRONTEND_DATA_DIR"]
-        .iter()
-        .find_map(|k| std::env::var_os(k).filter(|d| !d.is_empty()))
-        .map(PathBuf::from)
+    std::env::var_os("KB_DATA_DIR").filter(|d| !d.is_empty()).map(PathBuf::from)
 }
 
 /// The data folder chosen at startup (library.db, art cache).
@@ -165,54 +161,53 @@ fn merge_browser_args(extra: &str, disable: &mut Vec<String>, enable: &mut Vec<S
     }
 }
 
-/// Picks the data folder: the override (a test library), else `data` in
-/// KB's own folder, so everything stays together. The first time, the library
-/// moves there from where earlier versions kept it (AppData, or the folder
-/// from before the KaneegaBell rename): copied, verified, then switched (see
-/// `migrate`); the old folder is left as it was. A development copy (run
-/// from a build folder) keeps its own separate library and moves nothing.
-/// If KB's folder can't be written to, AppData is used instead.
+/// Picks the data folder: the override (a test library), else `data` in KB's own folder, so
+/// everything stays together. If KB's folder can't be written to, AppData is used instead.
 fn choose_data_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
     if let Some(dir) = data_dir_override() {
         return dir;
     }
-    let appdata = app.path().app_data_dir().unwrap_or_default();
-    let legacy = appdata.parent().map(|p| p.join(migrate::LEGACY_IDENTIFIER));
-    let earlier = [Some(appdata.clone()), legacy].into_iter().flatten().find(|d| d.join("library.db").exists());
-
     let Some(dir) = kb_folder_data_dir() else {
+        let appdata = app.path().app_data_dir().unwrap_or_default();
         let _ = STARTUP_NOTICE.set(format!(
-            "KaneegaBell can't write to its own folder, so your library is kept in {} instead. \
-             Install KaneegaBell in a folder you own (for example C:\\Games\\KaneegaBell) to keep everything together.",
+            "KaneegaBell can't write to its own folder, so your library is kept in {} instead. Install KaneegaBell in a folder you own (for example C:\\Games\\KaneegaBell) to keep everything together.",
             appdata.display()
         ));
-        return earlier.unwrap_or(appdata);
+        return appdata;
     };
-    if updates::is_dev_build() {
-        return dir;
+    dir
+}
+
+/// Held for the whole run: a second KB on the same library would download and hash during play
+/// and share one half-written `Metadata.zip.part`.
+static LOCK_FILE: OnceLock<std::fs::File> = OnceLock::new();
+
+fn lock_data_dir(dir: &std::path::Path) -> std::io::Result<()> {
+    let mut opts = std::fs::OpenOptions::new();
+    opts.create(true).write(true).truncate(false);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        opts.share_mode(0); // no sharing: a second open fails
     }
-    let Some(old) = earlier else { return dir };
-    match migrate::migrate(&old, &dir) {
-        Ok(migrate::Outcome::NotNeeded) => dir,
-        Ok(migrate::Outcome::Migrated { games }) => {
-            log::info!("moved the library ({games} games) from {} to {}", old.display(), dir.display());
-            let _ = STARTUP_NOTICE.set(format!(
-                "KaneegaBell moved your library ({games} games, play time and favorites) into its own folder ({}). \
-                 The old folder is still there ({}); you can delete it once everything looks right.",
-                dir.display(),
-                old.display()
-            ));
-            dir
+    match opts.open(dir.join("kb.lock")) {
+        Ok(f) => {
+            let _ = LOCK_FILE.set(f);
+            Ok(())
         }
-        Err(e) => {
-            log::error!("couldn't move the library to {}: {e}", dir.display());
-            let _ = STARTUP_NOTICE.set(format!(
-                "Couldn't move your library into KaneegaBell's folder ({e}). Your library is safe: KaneegaBell is \
-                 using the old folder ({}) for now and will try again next start.",
-                old.display()
-            ));
-            old
-        }
+        Err(e) => Err(std::io::Error::new(e.kind(), "KaneegaBell is already running with this library.")),
+    }
+}
+
+/// A release build has no console, so a failed start would otherwise just do nothing.
+fn show_fatal(msg: &str) {
+    log::error!("{msg}");
+    #[cfg(windows)]
+    {
+        use windows::core::{w, HSTRING};
+        use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+        // SAFETY: plain strings for the duration of the call.
+        unsafe { MessageBoxW(None, &HSTRING::from(msg), w!("KaneegaBell"), MB_OK | MB_ICONERROR) };
     }
 }
 
@@ -234,17 +229,9 @@ pub fn run() {
         .setup(|app| {
             let dir = DATA_DIR.get_or_init(|| choose_data_dir(app.handle())).clone();
             std::fs::create_dir_all(&dir)?;
+            lock_data_dir(&dir)?;
             commands::perf_log(&dir, "setup_start");
             secrets::init(&dir);
-            // The installed app's own library: keys saved by earlier versions
-            // move from Windows Credential Manager into the data folder.
-            if data_dir_override().is_none() && !updates::is_dev_build() {
-                match secrets::import_from_credential_manager() {
-                    Ok(0) => {}
-                    Ok(n) => log::info!("moved {n} saved key(s) from Credential Manager into the data folder"),
-                    Err(e) => log::warn!("couldn't move the saved keys: {e}"),
-                }
-            }
             let db_path = dir.join("library.db");
             let conn = db::init(&db_path)?;
             commands::perf_log(&dir, "db_ready");
@@ -444,7 +431,7 @@ pub fn run() {
             updates::has_update_code,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| show_fatal(&format!("KaneegaBell couldn't start: {e}")));
 }
 
 #[cfg(test)]

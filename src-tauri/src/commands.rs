@@ -885,13 +885,16 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 sgdb_pending.fetch_or(next.sgdb, Ordering::AcqRel);
             } else if lb_pending.swap(false, Ordering::AcqRel) {
                 let force = lb_force.swap(false, Ordering::AcqRel);
-                art_pending.fetch_or(run_lb(&app, &db_path, &data_dir, force, &cancel), Ordering::AcqRel);
+                let covers = run_lb(&app, &db_path, &data_dir, force, &cancel);
+                // Stop means stop: a cancelled pass queues nothing after it.
+                let go = !cancel.load(Ordering::Acquire);
+                art_pending.fetch_or(covers && go, Ordering::AcqRel);
                 // New LaunchBox matches give Wikidata better titles.
-                let wd = db::open(&db_path).and_then(|c| crate::wikidata::wanted(&c)).unwrap_or(false);
+                let wd = go && db::open(&db_path).and_then(|c| crate::wikidata::wanted(&c)).unwrap_or(false);
                 wd_pending.fetch_or(wd, Ordering::AcqRel);
             } else if art_pending.swap(false, Ordering::AcqRel) {
                 run_art(&app, &db_path, &data_dir, &cancel);
-                let needs = db::open(&db_path).and_then(|c| queries::count_games_needing_icon(&c)).unwrap_or(0) > 0;
+                let needs = !cancel.load(Ordering::Acquire) && db::open(&db_path).and_then(|c| queries::count_games_needing_icon(&c)).unwrap_or(0) > 0;
                 icon_pending.fetch_or(needs, Ordering::AcqRel);
             } else if icon_pending.swap(false, Ordering::AcqRel) {
                 run_icons(&app, &db_path, &data_dir, &cancel);
@@ -899,7 +902,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 run_wd(&app, &db_path, wd_force.swap(false, Ordering::AcqRel), &cancel);
             } else if meta_pending.swap(false, Ordering::AcqRel) {
                 // Matches can bring covers (IGDB) for games that had none.
-                art_pending.fetch_or(run_meta(&app, &db_path, &cancel), Ordering::AcqRel);
+                let covers = run_meta(&app, &db_path, &cancel);
+                art_pending.fetch_or(covers && !cancel.load(Ordering::Acquire), Ordering::AcqRel);
             } else if sgdb_pending.swap(false, Ordering::AcqRel) {
                 run_sgdb(&app, &db_path, &data_dir, &cancel);
             } else if ra_pending.swap(false, Ordering::AcqRel) {
@@ -1778,8 +1782,14 @@ pub fn delete_manuals(state: State<'_, AppState>) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn get_storage(state: State<'_, AppState>) -> Result<crate::maintenance::Storage> {
-    crate::maintenance::storage(&state.db(), state.data_dir())
+pub async fn get_storage(app: AppHandle) -> Result<crate::maintenance::Storage> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let conn = db::open(&state.db_path)?;
+        crate::maintenance::storage(&conn, state.data_dir())
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))?
 }
 
 /// Settings → Storage: deletes the copy of the library the last reset kept.
@@ -1800,11 +1810,18 @@ pub fn delete_launchbox_file(state: State<'_, AppState>) -> Result<()> {
 /// then fetches them again (where the automatic lookups are on). Returns the
 /// bytes freed.
 #[tauri::command]
-pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u64> {
-    let freed = {
+pub async fn clear_downloaded(app: AppHandle) -> Result<u64> {
+    // Thousands of files and a VACUUM: off the window's thread.
+    let app2 = app.clone();
+    let freed = tauri::async_runtime::spawn_blocking(move || -> Result<u64> {
+        let state = app2.state::<AppState>();
         let _slot = state.exclusive()?;
-        crate::maintenance::clear_downloaded(&mut state.db(), state.data_dir())?
-    };
+        let freed = crate::maintenance::clear_downloaded(&mut state.db(), state.data_dir());
+        freed
+    })
+    .await
+    .map_err(|e| Error::msg(e.to_string()))??;
+    let state = app.state::<AppState>();
     log::info!("cleared downloaded data ({freed} bytes)");
     let (art, meta, ra, sgdb, wd, lb) = {
         let conn = state.db();
@@ -1821,7 +1838,7 @@ pub fn clear_downloaded(app: AppHandle, state: State<'_, AppState>) -> Result<u6
     state.ra_pending.fetch_or(ra, Ordering::AcqRel);
     state.sgdb_pending.fetch_or(sgdb, Ordering::AcqRel);
     if art || meta || ra || sgdb || wd || lb || icons {
-        kick_worker(app, &state);
+        kick_worker(app.clone(), &state);
     }
     Ok(freed)
 }
@@ -2009,7 +2026,7 @@ fn ms_since_process_start() -> Option<u128> {
 }
 
 /// The UI reports startup milestones ("interactive" = library grid painted).
-/// Only recorded when `KB_PERF` (or `EMU_PERF`) is set (the performance harness): appended
+/// Only recorded when `KB_PERF` is set (the performance harness): appended
 /// to `perf.log` in the data folder as `name ms-since-process-start`.
 #[tauri::command]
 pub fn perf_mark(state: State<'_, AppState>, name: String) {
@@ -2018,7 +2035,7 @@ pub fn perf_mark(state: State<'_, AppState>, name: String) {
 
 /// The same, from Rust (start-up stages before the page exists).
 pub fn perf_log(dir: &std::path::Path, name: &str) {
-    if std::env::var_os("KB_PERF").is_none() && std::env::var_os("EMU_PERF").is_none() {
+    if std::env::var_os("KB_PERF").is_none() {
         return;
     }
     let Some(ms) = ms_since_process_start() else { return };
