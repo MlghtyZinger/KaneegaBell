@@ -82,3 +82,5 @@ html[data-anim="full"] .aurora-curtain{animation:aurora-curtain 12s ease-in-out 
 html[data-anim="full"] .aurora-second{animation-delay:-6s}
 @keyframes aurora-curtain{to{transform:translate(10%,8%) rotate(15deg) scale(1.2)}}
 .forge-embers,.star-field{position:absolute;inset:0}
+
+html[data-desktop-style="ps2"]:not([data-tv-style]) .rail-row.active::before{display:none}

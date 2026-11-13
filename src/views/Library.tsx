@@ -17,7 +17,7 @@ import {
 import type { Collection } from "../api";
 import { themeIcon } from "../state/theme";
 import { MAKERS, platformMaker, platformRailRows, type PlatformRailRow } from "../state/platformGroups";
-import { Icon, PlatformIcon, type IconName } from "../components/Icons";
+import { Icon, MakerIcon, PlatformIcon, type IconName } from "../components/Icons";
 import { osk } from "../state/osk";
 import { countActive } from "../state/smartFilter";
 import { pushHandler, type Action } from "../input/actions";
@@ -676,7 +676,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                   tabIndex={-1}
                   onClick={() => row.kind === "maker" ? toggleMaker(row) : pickTab(row.id)}
                 >
-                  <span class="rail-icon">{row.kind === "maker" ? <span class="rail-maker-mark">{row.maker.mark}</span> : tabIcon(row.id)}</span>
+                  <span class="rail-icon">{row.kind === "maker" ? <MakerIcon maker={row.maker.id} /> : tabIcon(row.id)}</span>
                   <span class="rail-name">{railLabel(row)}</span>
                   <span class="rail-count">{railCount(row)}</span>
                   <Show when={row.kind === "maker"}><span class="rail-fold" aria-hidden="true">{row.kind === "maker" && openMakers().includes(row.maker.id) ? "⌄" : "›"}</span></Show>

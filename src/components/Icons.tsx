@@ -1,5 +1,9 @@
-import { Show, type JSX } from "solid-js";
-import { platformMaker } from "../state/platformGroups";
+import { createUniqueId, Match, Show, Switch, type JSX } from "solid-js";
+import nintendoCap from "../assets/makers/nintendo-cap.png";
+import playstation from "../assets/makers/playstation.svg";
+import sega from "../assets/makers/sega.svg";
+import xbox from "../assets/platforms/xboxpc.svg";
+import { platformMaker, type Maker } from "../state/platformGroups";
 
 /**
  * Small line icons drawn for KB (no icon font). The platform ones are
@@ -182,4 +186,26 @@ const MONOGRAMS: Record<string, string> = {
 export function EmulatorBadge(props: { id: string; name?: string }) {
   const text = () => MONOGRAMS[props.id] ?? (props.name ?? props.id).replace(/[^A-Za-z0-9]/g, "").slice(0, 2);
   return <span class="emu-badge" aria-hidden="true">{text()}</span>;
+}
+
+/** Family symbols share the current theme's normal, focused and selected colors. */
+export function MakerIcon(props: { maker: Maker }) {
+  const filterId = createUniqueId();
+  const pictures: Partial<Record<Maker, string>> = { sony: playstation, sega, microsoft: xbox };
+  return <span class="maker-icon" aria-hidden="true">
+    <Switch fallback={<Icon name="gamepad" />}>
+      <Match when={props.maker === "nintendo"}>
+        <svg class="maker-filter" width="0" height="0"><defs>
+          <filter id={filterId} color-interpolation-filters="sRGB">
+            <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1 0 -0.65 0 0" result="cap-shape" />
+            <feFlood flood-color="currentColor" result="theme-ink" />
+            <feComposite in="theme-ink" in2="cap-shape" operator="in" />
+          </filter>
+        </defs></svg>
+        <img class="maker-cap" src={nintendoCap} alt="" style={{ filter: `url(#${filterId})` }} />
+      </Match>
+      <Match when={props.maker === "pc"}><Icon name="tv" /></Match>
+      <Match when={pictures[props.maker]}><span class="maker-picture" style={{ "--picture": `url(${JSON.stringify(pictures[props.maker])})` }} /></Match>
+    </Switch>
+  </span>;
 }

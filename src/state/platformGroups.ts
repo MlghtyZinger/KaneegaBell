@@ -1,10 +1,10 @@
 export const MAKERS = [
-  { id: "nintendo", name: "Nintendo", mark: "N" },
-  { id: "sony", name: "PlayStation", mark: "PS" },
-  { id: "sega", name: "Sega", mark: "S" },
-  { id: "microsoft", name: "Microsoft", mark: "X" },
-  { id: "pc", name: "PC launchers", mark: "PC" },
-  { id: "other", name: "Other", mark: "…" },
+  { id: "nintendo", name: "Nintendo" },
+  { id: "sony", name: "PlayStation" },
+  { id: "sega", name: "Sega" },
+  { id: "microsoft", name: "Xbox" },
+  { id: "pc", name: "PC launchers" },
+  { id: "other", name: "Other" },
 ] as const;
 export type Maker = (typeof MAKERS)[number]["id"];
 

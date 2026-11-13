@@ -896,6 +896,7 @@ remains outstanding.
 ## Patch notes
 
 ### 0.7.0 (unreleased)
+- Improved: theme-colored sidebar family symbols replace abbreviations, with the supplied Mario cap for Nintendo and a softer selected highlight.
 - Fixed: missing manuals clearly say No manual available, and the button refreshes its status instead of keeping an outdated label.
 - New: connect installed Epic, GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect and compatible EA games from Game launchers in Settings.
 - Improved: Steam and other launcher platforms have recognizable source symbols; all client games use safe process tracking and polite-only close.

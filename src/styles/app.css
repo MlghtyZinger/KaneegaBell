@@ -3370,6 +3370,7 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 }
 
 .rail-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -3394,9 +3395,20 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 }
 
 .rail-row.active {
-  background: var(--accent);
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-strong);
 }
+.rail-row.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: currentColor;
+}
+.rail-pin.active::before { display: none; }
 
 .rail-row.focused {
   box-shadow: var(--focus-ring);
@@ -3431,7 +3443,7 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 }
 
 .rail-row.active .rail-count {
-  color: var(--on-accent);
+  color: inherit;
 }
 
 .rail-divider {
@@ -3454,8 +3466,11 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 /* Compact folding maker groups; collapsed rails retain their maker marks. */
 .rail.open .rail-row { height: clamp(30px, 3.6vh, 38px); }
 .rail.open .rail-child { padding-left: 24px; }
-.rail-maker { color: var(--text); }
-.rail-maker-mark { font-size: .8em; font-weight: 700; }
+.rail-maker { color: var(--text-dim); }
+.maker-icon { position: relative; width: 28px; height: 28px; display: grid; place-items: center; }
+.maker-icon .maker-filter { position: absolute; width: 0; height: 0; }
+.maker-cap { width: 34px; height: auto; max-width: none; }
+.maker-picture { width: 24px; height: 24px; background: currentColor; -webkit-mask: var(--picture) center / contain no-repeat; mask: var(--picture) center / contain no-repeat; }
 .rail-fold { display: none; width: 10px; flex: none; text-align: center; }
 .rail.open .rail-fold { display: block; }
 
@@ -3487,7 +3502,7 @@ html[data-anim] .overlay.ach-win-screen > .panel {
   -webkit-mask: var(--picture) center / contain no-repeat;
   mask: var(--picture) center / contain no-repeat;
 }
-.rail-row.active .platform-icon { color: var(--on-accent); }
+.rail-row.active .platform-icon { color: inherit; }
 
 /* Controller focus on an open collection's banner buttons (up from the covers). */
 .col-banner .btn.nav-focus {
