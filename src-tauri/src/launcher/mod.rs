@@ -430,7 +430,7 @@ impl Launcher {
             let result = (|| {
                 let (paths, require_window, action) = if let Some(direct)=&direct {
                     let exe = direct.validate()?;
-                    let paths = std::collections::HashSet::from([crate::scanner::path_key(&exe)]);
+                    let paths = std::collections::HashSet::from([crate::scanner::path_key(&direct.tracking_path()?)]);
                     (paths, false, crate::launchers::Action::Client { exe, args: Vec::new() })
                 } else if let Some(steam)=&steam {
                     crate::steam::validate_installed(steam)?;

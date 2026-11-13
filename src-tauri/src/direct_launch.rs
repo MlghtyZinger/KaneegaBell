@@ -21,6 +21,20 @@ impl DirectLaunch {
             _ => "Decomp",
         }
     }
+    /// The SM64DS launcher can immediately hand off when its skip option is on.
+    /// Observe the known game executable, never every executable in the folder.
+    pub fn tracking_path(&self) -> Result<PathBuf> {
+        let exe = self.validate()?;
+        if exe.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.eq_ignore_ascii_case("SM64DSLauncher.exe")) {
+            let game = exe.with_file_name("walk_window.exe");
+            if !game.is_file() {
+                return Err(Error::msg("SM64DS game executable walk_window.exe was not found beside its launcher."));
+            }
+            return Ok(std::fs::canonicalize(game)?);
+        }
+        Ok(exe)
+    }
+
     pub fn validate(&self) -> Result<PathBuf> {
         if !matches!(self.kind.as_str(), "port" | "recomp" | "decomp") {
             return Err(Error::msg("Choose Port, Recomp or Decomp."));
@@ -114,6 +128,23 @@ pub fn bundled_roms(conn: &Connection) -> Result<std::collections::HashSet<i64>>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sm64ds_skip_launcher_tracks_the_game_and_keeps_launch_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let exe = dir.path().join("SM64DSLauncher.exe");
+        let game = dir.path().join("walk_window.exe");
+        std::fs::write(&exe, b"fixture; never executed").unwrap();
+        let config = DirectLaunch { kind: "port".into(), executable: exe.clone() };
+        assert!(config.tracking_path().is_err());
+        std::fs::write(&game, b"fixture; never executed").unwrap();
+        assert_eq!(config.validate().unwrap(), std::fs::canonicalize(exe).unwrap());
+        assert_eq!(config.tracking_path().unwrap(), std::fs::canonicalize(game).unwrap());
+        let ordinary = dir.path().join("Other.exe");
+        std::fs::write(&ordinary, b"fixture; never executed").unwrap();
+        let other = DirectLaunch { kind: "port".into(), executable: ordinary.clone() };
+        assert_eq!(other.tracking_path().unwrap(), std::fs::canonicalize(ordinary).unwrap());
+    }
+
     #[test]
     fn bundled_rom_is_hidden_without_losing_history_and_returns_when_disabled() {
         let conn = crate::db::test_db();

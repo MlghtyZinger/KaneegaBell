@@ -906,6 +906,7 @@ scrolling. See docs/sidebar-icons-validation.md for the measurements.
 ## Patch notes
 
 ### Unreleased (version undecided)
+- Fixed: SM64DSLauncher launches track walk_window.exe, including when the launcher is skipped, so play time and the controller exit shortcut follow the game. Closing remains polite-only.
 - Fixed: sidebar family symbols are centered in their icon slots.
 - Fixed: an executable entry hides the same game’s scanned ROM inside its folder, including existing duplicates; disabling or removing the executable entry restores the ROM entry and its saved history.
 - Fixed: Steam series lookup requests only installed app IDs instead of the entire Windows catalogue; optional Wikidata requests time out after 30 seconds without long automatic retry waits.
