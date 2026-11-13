@@ -1,0 +1,13 @@
+﻿{
+    "startMedianMs":  507,
+    "idleCpuPct":  0.52,
+    "startMemMB":  289,
+    "scrollfirstP99Ms":  4.3,
+    "scrollfirstMaxMs":  9.7,
+    "scrollsecondP99Ms":  4.3,
+    "scrollsecondMaxMs":  4.3,
+    "scrollMemMB":  1089,
+    "gameCpuPct":  0.77,
+    "gameMemMB":  355,
+    "afterGameMemMB":  421
+}

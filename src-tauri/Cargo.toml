@@ -1,0 +1,62 @@
+[package]
+name = "kaneegabell"
+version = "0.2.3"
+edition = "2021"
+publish = false
+
+[lib]
+name = "kaneegabell_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+env_logger = { version = "0.11.11", default-features = false, features = ["humantime", "auto-color"] }
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+log = "0.4.34"
+md5 = "0.8"
+percent-encoding = "2.3.2"
+regex = "1.13.1"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+sdl3 = { version = "0.20", features = ["build-from-source-static"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tauri = { version = "2", features = [] }
+# In-app updates (signed installers from GitHub Releases).
+tauri-plugin-updater = "2.13.3"
+thiserror = "2.0.21"
+ureq = "3.4.2"
+webp = { version = "0.3.1", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+# The WebView2 interfaces Tauri's own webview uses (same version as wry's).
+webview2-com = "0.39"
+windows = { version = "0.62", features = [
+    "Win32_Devices_Display",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Credentials",
+    "Win32_Security_Cryptography",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+# Keep dev builds snappy but make heavy deps (sqlite, image) fast at runtime.
+[profile.dev.package."*"]
+opt-level = 2
+
+[dev-dependencies]
+tempfile = "3.27.0"
