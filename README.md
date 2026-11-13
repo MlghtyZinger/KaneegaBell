@@ -866,9 +866,38 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] s (part 1). LaunchBox Games Database: covers, logos, backgrounds and game info without a key
 - [x] s (part 2). Wikidata: series and franchises without a key
 
+## Installed PC launchers (0.7.0 preview)
+
+Open **Settings > Library > Game launchers > Manage** to connect Steam, Epic Games,
+GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect or EA. Connect only
+clients you use; opening Settings does not scan their private data. Scan library
+refreshes connected sources, and Activity (Ctrl+J) shows progress and warnings.
+Disconnecting hides that source without uninstalling games or erasing history.
+
+KB reads local installed-game records only. There are no new accounts, API keys,
+ownership-library imports or game downloads. Existing metadata/artwork providers
+fill gaps. DLC is excluded where records identify it separately. Clients handle
+their normal authentication, licensing and update prompts when launched.
+
+If cached records do not identify the real executable, use **Choose game
+executable** in its details. The file must be inside its install folder and cannot
+be a launcher or anti-cheat helper. Xbox uses Windows package activation. EA reads
+known installed manifests and registered installer metadata; unsupported or stale
+layouts produce warnings and preserve previous entries. Empty metadata folders
+alone do not prove installation. Local client layouts can change.
+
+Play time starts only after an exact, newly started game process is detected.
+Cancel stops waiting, with no play time recorded; the client/game may still open.
+Launcher games receive polite close requests only. This preview still needs manual
+real-game validation across the newly added clients; automated imports are not a
+claim that every protected game is trackable. Native performance validation also
+remains outstanding.
+
 ## Patch notes
 
 ### 0.7.0 (unreleased)
+- New: connect installed Epic, GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect and compatible EA games from Game launchers in Settings.
+- Improved: Steam and other launcher platforms have recognizable source symbols; all client games use safe process tracking and polite-only close.
 - New: a visible Activity bar and expandable panel show scan, download, artwork and icon progress, queued jobs, recent results and errors (Ctrl+J).
 - Improved: newly created game icons appear progressively while background work continues.
 - Fixed: Steam games with a packaged Unreal launcher can detect the actual game executable instead of waiting until timeout.

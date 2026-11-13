@@ -3,6 +3,7 @@ export const MAKERS = [
   { id: "sony", name: "PlayStation", mark: "PS" },
   { id: "sega", name: "Sega", mark: "S" },
   { id: "microsoft", name: "Microsoft", mark: "X" },
+  { id: "pc", name: "PC launchers", mark: "PC" },
   { id: "other", name: "Other", mark: "…" },
 ] as const;
 export type Maker = (typeof MAKERS)[number]["id"];
@@ -13,6 +14,7 @@ const FAMILY: Record<string, Maker> = {
   segacd: "sega", saturn: "sega",
   ps1: "sony", ps2: "sony", psp: "sony", ps3: "sony",
   xbox: "microsoft", xbox360: "microsoft",
+  steam: "pc", epic: "pc", gog: "pc", battlenet: "pc", xboxpc: "pc", amazon: "pc", ubisoft: "pc", ea: "pc",
 };
 export const platformMaker = (id: string): Maker => FAMILY[id] ?? "other";
 

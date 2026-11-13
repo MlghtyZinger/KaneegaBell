@@ -1,3 +1,5 @@
+import { PlatformIcon } from "../components/Icons";
+import { PC_LAUNCHERS, isLauncher } from "../state/launchers";
 import { ActivityButton } from "../components/ActivityCenter";
 import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
@@ -98,7 +100,7 @@ function Row(props: {
       fallback={
         <div class="set-item" id={`set-${props.k}`} data-title={title()} data-detail={detail()} data-words={words()}>
           <div class="set-text">
-            <div class="set-name">{title()}</div>
+            <div class="set-name"><Show when={isLauncher(props.k)}><PlatformIcon id={props.k} /> </Show>{title()}</div>
             {hasStatus && <div class="set-status">{props.status}</div>}
           </div>
           <div class="set-actions">
@@ -421,7 +423,7 @@ export function SettingsView(props: { onClose: () => void }) {
 function platformOptions(platforms: PlatformRow[]) {
   return [
     { value: "", label: "Auto (mixed folder)" },
-    ...platforms.filter((p) => p.enabled && p.id !== "steam").map((p) => ({ value: p.id, label: p.name })),
+    ...platforms.filter((p) => p.enabled && !isLauncher(p.id)).map((p) => ({ value: p.id, label: p.name })),
   ];
 }
 
@@ -465,7 +467,11 @@ function LibrarySection(props: { s: Settings; run: Run }) {
 
   return (
     <section class="card-section set-list">
-      <SteamSettings s={props.s} run={props.run} />
+      <Row k="launchers" title="Game launchers" words="steam epic gog battle xbox amazon ubisoft ea installed pc" detail="Connect game clients to read their installed games. KB does not sign in, import account inventories or download games." status={`${(props.s.values.steamRoot ? 1 : 0) + ((props.s.values.launchersConnected as string[] | undefined)?.length ?? 0)} connected`} open="Manage..." sub={<>
+        <p>Installed games only. Your clients handle launching, licensing and their normal login or update prompts. KB records time only after the game is detected.</p>
+        <SteamSettings s={props.s} run={props.run} />
+        <For each={PC_LAUNCHERS.filter((p) => p.id !== "steam")}>{(provider) => <LauncherSettings provider={provider} s={props.s} run={props.run} />}</For>
+      </>} />
       <Row
         k="scan"
         open={(!!library.scanError() || !!library.lastScan()?.warnings.length || !!library.report()) && "Report…"}
@@ -693,6 +699,21 @@ function SteamSettings(props: { s: Settings; run: Run }) {
   </Row>;
 }
 
+function LauncherSettings(props: { provider: { id: string; name: string }; s: Settings; run: Run }) {
+  const connected = () => (props.s.values.launchersConnected as string[] | undefined)?.includes(props.provider.id) ?? false;
+  const [report] = createResource(() => [connected(), library.lastScan()] as const, () => api.getSetting<Omit<import("../api").SteamScan, "unknown">>(`launcherScan.${props.provider.id}`));
+  const connect = () => props.run(async () => { await api.connectLauncher(props.provider.id, true); await library.scan(); }, { reloadLibrary: true });
+  return <Row k={props.provider.id} title={props.provider.name} words="installed launcher games pc" status={connected() ? "Connected" : "Not connected"} detail="Read this client's installed-game records. No account sign-in or ownership inventory. Unsupported records are reported without deleting previous games." open="Manage..." sub={<>
+    <p>KB reads local installed-game records and executable paths. Launching uses {props.provider.name}. Unknown executable layouts need an explicit game-file choice in the game's details.</p>
+    <Show when={props.provider.id === "ea"}><p class="dim small">EA's installed-manifest compatibility format is supported. If this client uses a different layout, the scan reports it; KB does not guess or read account data.</p></Show>
+    <Show when={connected()}><button class="btn" disabled={!!library.scanProgress()} onClick={() => void props.run(() => api.connectLauncher(props.provider.id, false), { reloadLibrary: true })}>Disconnect {props.provider.name}</button></Show>
+    <p class="dim small">Disconnecting hides these games in KB and preserves their history. It does not uninstall anything.</p>
+    <Show when={connected() && report()}>{(r) => <><p>{r().added} added - {r().updated} updated - {r().missing} no longer installed</p><For each={r().warnings}>{(warning) => <p class="warn">{warning}</p>}</For></>}</Show>
+  </>}>
+    <button class="btn" disabled={!!library.scanProgress()} onClick={() => void (connected() ? library.scan() : connect())}>{connected() ? "Scan" : `Connect ${props.provider.name}`}</button>
+  </Row>;
+}
+
 function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
   const hdd0 = () => props.src.kind === "ps3_hdd0";
   return (
@@ -756,7 +777,7 @@ function achievementsNote(a: boolean | null): string {
 function EmulatorsSection(props: { s: Settings; run: Run }) {
   const [browsing, setBrowsing] = createSignal(false);
   const coresDir = () => (props.s.values.retroarchCoresDir as string | undefined) ?? "";
-  const builtIn = () => props.s.emulators.filter((e) => !e.custom && e.id !== "steam");
+  const builtIn = () => props.s.emulators.filter((e) => !e.custom && !isLauncher(e.id));
 
   const detect = (folder: string) =>
     props.run(
@@ -918,7 +939,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
   return (
     <section class="card-section set-list" id="set-platforms">
       <div class="set-tiles">
-      <For each={props.s.platforms.filter((p) => p.id !== "steam")}>
+      <For each={props.s.platforms.filter((p) => !isLauncher(p.id))}>
         {(p) => (
           <Row
             tile

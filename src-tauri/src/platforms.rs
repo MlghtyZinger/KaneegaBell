@@ -54,6 +54,14 @@ pub struct PlatformDef {
 }
 
 pub const EMULATORS: &[EmulatorDef] = &[
+    EmulatorDef { id: "epic", name: "Epic Games", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "gog", name: "GOG Galaxy", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "battlenet", name: "Battle.net", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "xboxpc", name: "Xbox PC", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "amazon", name: "Amazon Games", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "ubisoft", name: "Ubisoft Connect", template: "{emulator} {rom}", supports_m3u: false },
+    EmulatorDef { id: "ea", name: "EA", template: "{emulator} {rom}", supports_m3u: false },
+
     EmulatorDef { id: "steam", name: "Steam", template: "{emulator} {rom}", supports_m3u: false },
     EmulatorDef {
         id: "retroarch",
@@ -150,6 +158,14 @@ pub const SWITCH_ALTERNATIVES: &[&str] = &["ryubing", "ryujinx", "citron", "suda
 
 /// Listed in display order.
 pub const PLATFORMS: &[PlatformDef] = &[
+    PlatformDef { id: "epic", name: "Epic Games", short_name: "Epic Games", emulator: "epic", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "gog", name: "GOG Galaxy", short_name: "GOG Galaxy", emulator: "gog", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "battlenet", name: "Battle.net", short_name: "Battle.net", emulator: "battlenet", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "xboxpc", name: "Xbox PC", short_name: "Xbox PC", emulator: "xboxpc", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "amazon", name: "Amazon Games", short_name: "Amazon Games", emulator: "amazon", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "ubisoft", name: "Ubisoft Connect", short_name: "Ubisoft Connect", emulator: "ubisoft", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+    PlatformDef { id: "ea", name: "EA", short_name: "EA", emulator: "ea", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
+
     PlatformDef { id: "steam", name: "Steam", short_name: "Steam", emulator: "steam", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
     PlatformDef {
         id: "snes",
@@ -456,7 +472,7 @@ pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &
     match platform_id {
         "switch" => SWITCH_ALTERNATIVES.contains(&emulator_id),
         // PS3 games are folders; Xbox 360 has no RetroArch core.
-        "steam" | "ps3" | "xbox360" => false,
+        "steam" | "epic" | "gog" | "battlenet" | "xboxpc" | "amazon" | "ubisoft" | "ea" | "ps3" | "xbox360" => false,
         _ => emulator_id == "retroarch" && platform_builtin != "retroarch",
     }
 }
@@ -551,7 +567,7 @@ pub fn seed(conn: &Connection) -> Result<()> {
     )?;
     for (i, p) in PLATFORMS.iter().enumerate() {
         let exts = serde_json::to_string(p.extensions)?;
-        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb, p.ra, p.launchbox, p.id != "steam"])?;
+        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb, p.ra, p.launchbox, !crate::launchers::is_launcher(p.id)])?;
     }
     Ok(())
 }

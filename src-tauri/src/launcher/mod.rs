@@ -2,7 +2,7 @@
 //! hand the screen over and back, and record play time.
 
 pub mod process;
-mod steam_process;
+pub(crate) mod steam_process;
 pub mod template;
 #[cfg(windows)]
 mod window;
@@ -409,33 +409,42 @@ impl Launcher {
         if self.pending.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
             return Err(Error::msg("A game is already starting."));
         }
-        let (game, steam, cores_dir) = {
+        let (game, steam, other, cores_dir) = {
             let conn = state.db();
             let game = queries::game_detail(&conn, game_id)?;
             let steam = crate::steam::game(&conn, game_id)?;
             if steam.is_some() && queries::get_setting::<String>(&conn, "steamRoot")?.is_none() {
                 return Err(Error::msg("Reconnect Steam in Settings > Library before playing."));
             }
+            let other=crate::launchers::game(&conn,game_id)?;
+            if let Some(other)=&other { if !crate::launchers::connected(&conn)?.contains(&other.provider) { return Err(Error::msg("Reconnect this launcher in Settings > Library before playing.")); } }
             let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
-            (game, steam, cores.map(PathBuf::from))
+            (game, steam, other, cores.map(PathBuf::from))
         };
-        let (tracker, emulator, notice, bios) = if let Some(steam) = steam {
+        let client_name=if steam.is_some(){Some("Steam")}else{other.as_ref().map(|g|crate::launchers::name(&g.provider)).transpose()?};
+        let (tracker, emulator, notice, bios) = if let Some(client_name) = client_name {
             let cancelled = Arc::new(AtomicBool::new(false));
             *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some((game_id, cancelled.clone()));
-            let _ = app.emit("steam-launch-waiting", game_id);
+            let _ = app.emit("client-launch-waiting", game_id);
             drop(slot); // Get-running and other UI queries must not wait for Steam.
             let result = (|| {
-                crate::steam::validate_installed(&steam)?;
-                let paths = steam_process::candidates(&steam)?;
-                let baseline = steam_process::SteamTracker::baseline(&paths)?;
+                let (paths, require_window, action) = if let Some(steam)=&steam {
+                    crate::steam::validate_installed(steam)?;
+                    (steam_process::candidates(steam)?,steam.tracking_exe.is_none(),crate::launchers::Action::Uri(crate::steam::uri(steam.app_id)?))
+                } else {
+                    let saved=other.as_ref().unwrap();let actual=crate::launchers::validate(saved)?;
+                    (steam_process::tracking_paths(&actual.dir,&actual.executables,saved.tracking_exe.as_deref())?,saved.tracking_exe.is_none(),actual.action)
+                };
+                let baseline = steam_process::ClientTracker::baseline(&paths)?;
                 if !baseline.is_empty() { return Err(Error::msg("This game is already running. Close it normally before starting a new KB session.")); }
-                steam_process::open(steam.app_id)?;
-                steam_process::wait_for_game(&paths, &baseline, steam.tracking_exe.is_none(), &cancelled, Duration::from_secs(60)).map(Tracker::Steam)
+                if cancelled.load(Ordering::Acquire) { return Err(Error::msg("Launch cancelled before opening the game client. No play time was recorded.")); }
+                action.open()?;
+                steam_process::wait_for_game(&paths, &baseline, require_window, &cancelled, Duration::from_secs(60)).map(Tracker::Client)
             })();
             // Reacquire the session slot before releasing the launch reservation.
             slot = self.current.lock().unwrap_or_else(|e| e.into_inner());
             *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = None;
-            (result?, "Steam".to_string(), None, None)
+            (result?, client_name.to_string(), None, None)
         } else {
             let Choice { cfg, notice } = choose(&state.db(), &game, cores_dir.as_deref())?;
             let playlist_dir = state.data_dir().join("playlists");
@@ -575,7 +584,7 @@ impl Launcher {
         state.input.overlay.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
         // Closed on its own within seconds: the game never ran.
-        let failed = (played < QUICK_EXIT && !matches!(&session.tracker, Tracker::Steam(_)) && !session.exiting.load(Ordering::Acquire))
+        let failed = (played < QUICK_EXIT && !matches!(&session.tracker, Tracker::Client(_)) && !session.exiting.load(Ordering::Acquire))
             .then(|| quick_exit_message(&session.title, &session.emulator, played.as_secs(), session.bios.as_deref()));
         let recorded = match &failed {
             Some(_) => queries::cancel_session(&state.db(), session.game_id),
@@ -663,13 +672,13 @@ impl Launcher {
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            if matches!(&session.tracker, Tracker::Steam(_)) {
+            if matches!(&session.tracker, Tracker::Client(_)) {
                 session.exiting.store(false, Ordering::Release);
                 if let Some(w) = app.get_webview_window("main") {
                     #[cfg(windows)] { window::set_webview_suspended(&w, false); window::set_webview_low_memory(&w, false); }
                     let _ = w.unminimize(); let _ = w.show(); let _ = w.set_focus();
                 }
-                let _ = app.emit("game-close-refused", "The game is still running. Close it from its own menu, or try Close game again. KB will not force-close Steam games.");
+                let _ = app.emit("game-close-refused", "The game is still running. Close it from its own menu, or try Close game again. KB will not force-close launcher games.");
                 return;
             }
             log::warn!("{} didn't close within {EXIT_GRACE:?}; terminating", session.title);

@@ -10,6 +10,7 @@ mod fsbrowse;
 mod input;
 mod launchbox;
 mod launcher;
+mod launchers;
 mod maintenance;
 mod manuals;
 mod metadata;
@@ -318,10 +319,13 @@ pub fn run() {
             commands::preview_launch,
             commands::launch_game,
             commands::find_steam,
+            commands::connect_launcher,
+            commands::launcher_game,
+            commands::set_launcher_tracking,
             commands::connect_steam,
             commands::steam_game,
             commands::set_steam_tracking,
-            commands::cancel_steam_launch,
+            commands::cancel_client_launch,
             commands::finish_launch,
             commands::exit_game,
             commands::get_running,

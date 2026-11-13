@@ -39,6 +39,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/027_manuals.sql"),
     include_str!("migrations/028_game_names.sql"),
     include_str!("migrations/029_steam.sql"),
+    include_str!("migrations/030_launchers.sql"),
 ];
 
 pub fn open(path: &Path) -> Result<Connection> {

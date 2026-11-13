@@ -162,10 +162,12 @@ fn library_games(conn: &Connection) -> Result<Vec<Game>> {
 }
 
 /// LaunchBox platform name -> KB platform id, for the enabled platforms.
-fn platform_map(conn: &Connection) -> Result<HashMap<String, String>> {
+fn platform_map(conn: &Connection) -> Result<HashMap<String, Vec<String>>> {
     let mut stmt = conn.prepare("SELECT launchbox_platform, id FROM platforms WHERE enabled = 1 AND launchbox_platform IS NOT NULL")?;
-    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
-    Ok(rows.collect::<rusqlite::Result<_>>()?)
+    let rows = stmt.query_map([], |r| Ok((r.get::<_,String>(0)?, r.get::<_,String>(1)?)))?;
+    let mut map:HashMap<String,Vec<String>>=HashMap::new();
+    for row in rows { let (source,platform)=row?;map.entry(source).or_default().push(platform); }
+    Ok(map)
 }
 
 fn matched(g: &Game) -> bool {
@@ -437,7 +439,7 @@ fn read_local(conn: &Connection, local: &Path, games: &[Game], progress: &dyn Fn
     // alternate titles are known (matching needs both); then trimmed to the
     // matched games before the images stream past.
     let mut buffered: HashMap<i64, LbGame> = HashMap::new();
-    let mut platform_of: HashMap<i64, String> = HashMap::new();
+    let mut platform_of: HashMap<i64, Vec<String>> = HashMap::new();
     let mut resolved = false;
     let mut last_report = 0u64;
     let resolve = |imp: &mut Import, buffered: &mut HashMap<i64, LbGame>| {
@@ -471,14 +473,14 @@ fn read_local(conn: &Connection, local: &Path, games: &[Game], progress: &dyn Fn
         match r {
             Record::Game(g) => {
                 if let Some(kb) = platforms.get(&g.platform) {
-                    imp.names.push((kb.clone(), Name { db_id: g.db_id, name: g.name.clone(), region: None, is_alt: false }));
+                    for platform in kb { imp.names.push((platform.clone(), Name { db_id: g.db_id, name: g.name.clone(), region: None, is_alt: false })); }
                     platform_of.insert(g.db_id, kb.clone());
                     buffered.insert(g.db_id, g);
                 }
             }
             Record::AltName { db_id, name, region } => {
                 if let Some(kb) = platform_of.get(&db_id) {
-                    imp.names.push((kb.clone(), Name { db_id, name, region, is_alt: true }));
+                    for platform in kb { imp.names.push((platform.clone(), Name { db_id, name:name.clone(), region:region.clone(), is_alt: true })); }
                 }
             }
             Record::Image { db_id, file, kind, region } => {
@@ -880,7 +882,7 @@ pub fn run(
         progress(Progress { phase: "matching", done: 0, total: games.len() as u64 });
         store(conn, &imp)?;
         let now = queries::now();
-        let platforms = platform_map(conn)?.into_values().collect();
+        let platforms = platform_map(conn)?.into_values().flatten().collect();
         st = Stamp { last_modified: lm, etag, imported_at: Some(now), checked_at: Some(now), platforms, kinds: IMAGE_KINDS_VERSION };
         save_stamp(conn, &st)?;
         s.downloaded = true;

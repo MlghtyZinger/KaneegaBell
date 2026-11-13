@@ -1557,7 +1557,7 @@ pub fn remove_source(conn: &Connection, id: i64) -> Result<Vec<GameChange>> {
 /// later removed). Returns how many were deleted.
 pub fn prune_orphans(conn: &Connection) -> Result<usize> {
     Ok(conn.execute(
-        &format!("DELETE FROM games WHERE missing = 1 AND source_id IS NULL AND NOT EXISTS (SELECT 1 FROM steam_games s WHERE s.game_id = games.id) AND NOT {HAS_USER_DATA}"),
+        &format!("DELETE FROM games WHERE missing = 1 AND source_id IS NULL AND NOT EXISTS (SELECT 1 FROM steam_games s WHERE s.game_id = games.id) AND NOT EXISTS (SELECT 1 FROM launcher_games s WHERE s.game_id = games.id) AND NOT {HAS_USER_DATA}"),
         [],
     )?)
 }

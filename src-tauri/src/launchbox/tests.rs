@@ -524,3 +524,12 @@ fn logos_prefer_english_or_region_free_over_japanese() {
     let file: String = conn.query_row("SELECT remote_id FROM artwork WHERE game_id = ?1 AND kind = 'logo'", [id], |r| r.get(0)).unwrap();
     assert_eq!(file, "plain-logo.png");
 }
+
+#[test]
+fn windows_metadata_maps_to_every_enabled_launcher() {
+    let conn=db::test_db();
+    conn.execute("UPDATE platforms SET enabled=1 WHERE id IN ('steam','gog','epic')", []).unwrap();
+    let map=platform_map(&conn).unwrap();
+    let mut stores=map["Windows"].clone();stores.sort();
+    assert_eq!(stores, ["epic","gog","steam"]);
+}

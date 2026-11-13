@@ -531,6 +531,7 @@ export function raMediaUrl(name: string, kind: "ra" | "rai" = "ra"): string {
   return `${THUMB_BASE}/${kind}/${encodeURIComponent(name)}`;
 }
 
+export interface LauncherGame { provider: string; productId: string; installDir: string; executables: string[]; trackingExe: string | null }
 export interface SteamGame {
   appId: number; installDir: string; executables: string[]; trackingExe: string | null;
 }
@@ -716,11 +717,14 @@ export const api = {
   forgetRecent: (id: number) => invoke<void>("forget_recent", { id }),
   previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
   /** `emulator`: this launch only (else the game's pick or the platform's default). */
+  connectLauncher: (provider: string, enabled: boolean) => invoke<void>("connect_launcher", { provider, enabled }),
+  launcherGame: (id: number) => invoke<LauncherGame | null>("launcher_game", { id }),
+  setLauncherTracking: (id: number, path: string | null) => invoke<void>("set_launcher_tracking", { id, path }),
   findSteam: () => invoke<string>("find_steam"),
   connectSteam: (path: string | null) => invoke<void>("connect_steam", { path }),
   steamGame: (id: number) => invoke<SteamGame | null>("steam_game", { id }),
   setSteamTracking: (id: number, path: string | null) => invoke<void>("set_steam_tracking", { id, path }),
-  cancelSteamLaunch: (id: number) => invoke<void>("cancel_steam_launch", { id }),
+  cancelClientLaunch: (id: number) => invoke<void>("cancel_client_launch", { id }),
   launchGame: (id: number, presenting = false) => invoke<RunningGame>("launch_game", { id, presenting }),
   finishLaunch: (id: number) => invoke<void>("finish_launch", { id }),
   gameEmulators: (id: number) => invoke<GameEmulators>("game_emulators", { id }),
@@ -889,7 +893,7 @@ export const events = {
   onManualMatchProgress: (cb: (p: { done: number; total: number }) => void) => listen<{ done: number; total: number }>("manual-match-progress", (e) => cb(e.payload)),
   onManualMatchFinished: (cb: (p: { found: number; cancelled: boolean }) => void) => listen<{ found: number; cancelled: boolean }>("manual-match-finished", (e) => cb(e.payload)),
   onManualMatchFailed: (cb: (s: string) => void) => listen<string>("manual-match-failed", (e) => cb(e.payload)),
-  onSteamLaunchWaiting: (cb: (id: number) => void): Promise<UnlistenFn> => listen<number>("steam-launch-waiting", (e) => cb(e.payload)),
+  onClientLaunchWaiting: (cb: (id: number) => void): Promise<UnlistenFn> => listen<number>("client-launch-waiting", (e) => cb(e.payload)),
   onGameCloseRefused: (cb: (message: string) => void): Promise<UnlistenFn> => listen<string>("game-close-refused", (e) => cb(e.payload)),
   onScanProgress: (cb: (p: ScanProgress) => void): Promise<UnlistenFn> =>
     listen<ScanProgress>("scan-progress", (e) => cb(e.payload)),

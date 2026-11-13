@@ -124,11 +124,11 @@ export function Icon(props: { name: IconName; class?: string }) {
 }
 
 /** The platform pictures by id (white-on-transparent masks, tinted by maker). */
-const PICTURES = import.meta.glob("../assets/platforms/*.png", { eager: true, query: "?url", import: "default" }) as Record<
+const PICTURES = import.meta.glob("../assets/platforms/*.{png,svg}", { eager: true, query: "?url", import: "default" }) as Record<
   string,
   string
 >;
-const pictureOf = (id: string) => PICTURES[`../assets/platforms/${id}.png`];
+const pictureOf = (id: string) => PICTURES[`../assets/platforms/${id}.png`] ?? PICTURES[`../assets/platforms/${id}.svg`];
 
 /** A platform's icon: its picture tinted by maker family, or a plain pad when there is none. */
 export function PlatformIcon(props: { id: string; class?: string }) {
@@ -154,7 +154,7 @@ export function PlatformIcon(props: { id: string; class?: string }) {
     >
       <span
         class={`${cls()} picture`}
-        style={{ "--picture": `url(${url()})` }}
+        style={{ "--picture": `url(${JSON.stringify(url())})` }}
         aria-hidden="true"
       />
     </Show>

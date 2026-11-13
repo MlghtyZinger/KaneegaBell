@@ -1,3 +1,4 @@
+import { isLauncher } from "../state/launchers";
 import { playGame } from "../fx/LaunchFx";
 import { moveIn } from "../fx/motion";
 import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
@@ -15,7 +16,7 @@ import { formatEarned } from "./Achievements";
 import { AchievementsWindow } from "./AchievementsWindow";
 import { fx } from "../state/fx";
 import { LaunchWith, playWarning } from "./EmulatorChoice";
-import { SteamTracking } from "./SteamTracking";
+import { LauncherTracking } from "./LauncherTracking";
 import { ManualButton } from "./ManualButton";
 
 /** How long the selection must rest before the panel loads another game. */
@@ -142,7 +143,7 @@ export function GameSidebar(props: {
           </div>
         )}
       </Show>
-      <Show when={row()?.platformId === "steam"}><SteamTracking id={id()} /></Show>
+      <Show when={isLauncher(row()?.platformId ?? "")}><LauncherTracking id={id()} provider={row()!.platformId} /></Show>
       <Show when={launchError()}>
         <p class="warn">{launchError()}</p>
       </Show>

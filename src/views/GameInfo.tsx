@@ -1,3 +1,4 @@
+import { isLauncher } from "../state/launchers";
 import { playGame } from "../fx/LaunchFx";
 import { createEffect, createResource, createSignal, For, lazy, on, onCleanup, Show } from "solid-js";
 import { api, artUrl, backloggdUrl, errorText, events, type GameDetail, type Series } from "../api";
@@ -11,7 +12,7 @@ import { CoverViewer } from "./CoverViewer";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
-import { SteamTracking } from "../components/SteamTracking";
+import { LauncherTracking } from "../components/LauncherTracking";
 import { caseOf } from "../fx/Model";
 import { ManualButton } from "../components/ManualButton";
 import { osk } from "../state/osk";
@@ -309,7 +310,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     </div>
                   )}
                 </Show>
-                <Show when={g().platformId === "steam"}><SteamTracking id={id()} /></Show>
+                <Show when={isLauncher(g().platformId)}><LauncherTracking id={id()} provider={g().platformId} /></Show>
                 <Show when={launchError()}>
                   <p class="warn">{launchError()}</p>
                 </Show>

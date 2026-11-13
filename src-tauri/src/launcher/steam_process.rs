@@ -7,16 +7,24 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 pub fn candidates(game: &crate::steam::Game) -> Result<HashSet<String>> {
-    let paths = if let Some(chosen) = &game.tracking_exe {
-        HashSet::from([path_key(&crate::steam::tracking_file(
-            &game.install_dir,
-            chosen,
-        )?)])
+    tracking_paths(
+        &game.install_dir,
+        &game.executables,
+        game.tracking_exe.as_deref(),
+    )
+}
+pub fn tracking_paths(
+    install_dir: &std::path::Path,
+    executables: &[PathBuf],
+    chosen: Option<&std::path::Path>,
+) -> Result<HashSet<String>> {
+    let paths = if let Some(chosen) = chosen {
+        HashSet::from([path_key(&crate::steam::tracking_file(install_dir, chosen)?)])
     } else {
         // Optional launch variants can disappear after an update. Never substitute for a user's chosen file.
         let mut paths = HashSet::new();
-        let install = std::fs::canonicalize(&game.install_dir)?;
-        for exe in &game.executables {
+        let install = std::fs::canonicalize(install_dir)?;
+        for exe in executables {
             let Ok(exe) = crate::steam::tracking_file(&install, exe) else {
                 continue;
             };
@@ -44,7 +52,7 @@ pub fn candidates(game: &crate::steam::Game) -> Result<HashSet<String>> {
         paths
     };
     if paths.is_empty() {
-        return Err(Error::msg("Choose this Steam game's executable in its details before playing, so KB can track it safely."));
+        return Err(Error::msg("Choose this launcher game's executable in its details before playing, so KB can track it safely."));
     }
     Ok(paths)
 }
@@ -163,12 +171,12 @@ mod win {
         }
         Ok(out)
     }
-    pub struct SteamTracker {
+    pub struct ClientTracker {
         processes: std::sync::Mutex<Vec<Process>>,
         paths: HashSet<String>,
         baseline: HashSet<(u32, u64)>,
     }
-    impl SteamTracker {
+    impl ClientTracker {
         pub fn baseline(paths: &HashSet<String>) -> Result<HashSet<(u32, u64)>> {
             Ok(snapshot(paths)?
                 .into_iter()
@@ -286,9 +294,9 @@ mod win {
         fn detects_only_new_exact_processes_and_observes_exit() {
             let exe = std::fs::canonicalize(std::env::current_exe().unwrap()).unwrap();
             let paths = HashSet::from([path_key(&exe)]);
-            let baseline = SteamTracker::baseline(&paths).unwrap();
+            let baseline = ClientTracker::baseline(&paths).unwrap();
             assert!(!baseline.is_empty()); // The parent test runner is already present.
-            assert!(SteamTracker::detect(&paths, &baseline, false)
+            assert!(ClientTracker::detect(&paths, &baseline, false)
                 .unwrap()
                 .is_none());
             let mut child = std::process::Command::new(&exe)
@@ -301,7 +309,7 @@ mod win {
                 .stdout(std::process::Stdio::null())
                 .spawn()
                 .unwrap();
-            let tracker = SteamTracker::detect(&paths, &baseline, false)
+            let tracker = ClientTracker::detect(&paths, &baseline, false)
                 .unwrap()
                 .unwrap();
             assert!(tracker.is_running());
@@ -310,13 +318,34 @@ mod win {
             assert!(child.wait().unwrap().success());
             assert!(!tracker.is_running()); // Never adopts the still-running parent.
             let other = HashSet::from([path_key(&exe.with_file_name("different.exe"))]);
-            assert!(SteamTracker::detect(&other, &HashSet::new(), false)
+            assert!(ClientTracker::detect(&other, &HashSet::new(), false)
                 .unwrap()
                 .is_none());
         }
     }
-    pub fn open(id: u32) -> Result<()> {
-        let uri = crate::steam::uri(id)?;
+    pub fn activate_xbox(id: &str) -> Result<()> {
+        use windows::Win32::{
+            System::Com::{
+                CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_LOCAL_SERVER,
+                COINIT_APARTMENTTHREADED,
+            },
+            UI::Shell::{ApplicationActivationManager, IApplicationActivationManager, AO_NONE},
+        };
+        let id = id.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
+        unsafe {
+            let initialized = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
+            let result = (|| {
+                let manager: IApplicationActivationManager =
+                    CoCreateInstance(&ApplicationActivationManager, None, CLSCTX_LOCAL_SERVER)?;
+                manager.ActivateApplication(PCWSTR(id.as_ptr()), PCWSTR::null(), AO_NONE)
+            })();
+            if initialized {
+                CoUninitialize();
+            }
+            result.map(|_|()).map_err(|_|Error::msg("Windows could not activate this installed Xbox game. Open it once in Xbox and scan again."))
+        }
+    }
+    pub fn open_uri(uri: &str) -> Result<()> {
         let uri = uri.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
         let verb = "open\0".encode_utf16().collect::<Vec<_>>();
         let result = unsafe {
@@ -330,7 +359,7 @@ mod win {
             )
         };
         if result.0 as isize <= 32 {
-            return Err(Error::msg("Windows couldn't open Steam. Make sure Steam is installed and its protocol is registered."));
+            return Err(Error::msg("Windows couldn't open the game client. Make sure its launcher is installed and its protocol is registered."));
         }
         Ok(())
     }
@@ -339,9 +368,9 @@ mod win {
 pub use win::*;
 
 #[cfg(not(windows))]
-pub struct SteamTracker;
+pub struct ClientTracker;
 #[cfg(not(windows))]
-impl SteamTracker {
+impl ClientTracker {
     pub fn baseline(_: &HashSet<String>) -> Result<HashSet<(u32, u64)>> {
         Err(Error::msg(
             "Steam integration currently supports Windows only.",
@@ -361,11 +390,16 @@ impl SteamTracker {
         0
     }
 }
+
 #[cfg(not(windows))]
-pub fn open(_: u32) -> Result<()> {
+pub fn open_uri(_: &str) -> Result<()> {
     Err(Error::msg(
-        "Steam integration currently supports Windows only.",
+        "Launcher integration currently requires Windows.",
     ))
+}
+#[cfg(not(windows))]
+pub fn activate_xbox(_: &str) -> Result<()> {
+    Err(Error::msg("Xbox activation requires Windows."))
 }
 
 /// Waiting never creates a session; only a confirmed tracker can reach that caller's success path.
@@ -375,16 +409,16 @@ pub fn wait_for_game(
     require_window: bool,
     cancelled: &std::sync::atomic::AtomicBool,
     timeout: std::time::Duration,
-) -> Result<SteamTracker> {
+) -> Result<ClientTracker> {
     let deadline = std::time::Instant::now() + timeout;
     loop {
         if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(Error::msg("Stopped waiting for Steam. Steam or the game may still open; no play time was recorded."));
+            return Err(Error::msg("Stopped waiting for the game client. The launcher or game may still open; no play time was recorded."));
         }
         if std::time::Instant::now() >= deadline {
-            return Err(Error::msg("Steam's game was not detected within 60 seconds. No play time was recorded. Check the game executable in its details."));
+            return Err(Error::msg("The launcher's game was not detected within 60 seconds. No play time was recorded. Check the game executable in its details."));
         }
-        if let Some(tracker) = SteamTracker::detect(paths, baseline, require_window)? {
+        if let Some(tracker) = ClientTracker::detect(paths, baseline, require_window)? {
             if !cancelled.load(std::sync::atomic::Ordering::Acquire) {
                 return Ok(tracker);
             }

@@ -1,3 +1,4 @@
+import { isLauncher, launcherName } from "../state/launchers";
 import { createRoot, createSignal, onCleanup, Show } from "solid-js";
 import { api, events, type GameRow } from "../api";
 import { pushHandler } from "../input/actions";
@@ -38,10 +39,10 @@ export async function playGame(gameId: number, ps2Duration?: number) {
   setPresenting(true);
   document.documentElement.classList.add("launch-presenting");
   const game = library.games().find((g) => g.id === gameId);
-  if (game?.platformId !== "steam" && game && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
+  if (game && !isLauncher(game.platformId) && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
   let timer: ReturnType<typeof setTimeout> | undefined;
   let skip = () => {};
-  const steam = game?.platformId === "steam";
+  const steam = !!game && isLauncher(game.platformId);
   const animation = steam ? Promise.resolve(true) : ps2Duration === undefined ? launchAnimation(gameId) : new Promise<boolean>((resolve) => {
     skip = () => resolve(true);
     timer = setTimeout(skip, ps2Duration);
@@ -52,7 +53,7 @@ export async function playGame(gameId: number, ps2Duration?: number) {
   }, true);
   let stopWaitingListener: (() => void) | undefined;
   try {
-    if (steam) stopWaitingListener = await events.onSteamLaunchWaiting((id) => { if (id === gameId && game) setSteamWaiting(game); });
+    if (steam) stopWaitingListener = await events.onClientLaunchWaiting((id) => { if (id === gameId && game) setSteamWaiting(game); });
     await Promise.all([api.launchGame(gameId, true), animation]);
     await api.finishLaunch(gameId);
   } finally {
@@ -69,11 +70,11 @@ export async function playGame(gameId: number, ps2Duration?: number) {
 export function LaunchHost() {
   return (
     <>
-      <Show when={steamWaiting()}>{(g) => <div class="overlay"><NavScope class="panel" modal onBack={() => void api.cancelSteamLaunch(g().id)}>
-        <p class="dim">Waiting for Steam</p><h2>{g().title}</h2>
-        <p>Play time starts when the game is detected. Steam may show its normal login, update or launch options.</p>
-        <button class="btn" data-autofocus onClick={() => void api.cancelSteamLaunch(g().id)}>Cancel wait</button>
-        <p class="dim small">Cancelling stops KB's wait; Steam or the game may still open.</p>
+      <Show when={steamWaiting()}>{(g) => <div class="overlay"><NavScope class="panel" modal onBack={() => void api.cancelClientLaunch(g().id)}>
+        <p class="dim">Waiting for {launcherName(g().platformId)}</p><h2>{g().title}</h2>
+        <p>Play time starts when the game is detected. The client may show its normal login, update or launch options.</p>
+        <button class="btn" data-autofocus onClick={() => void api.cancelClientLaunch(g().id)}>Cancel wait</button>
+        <p class="dim small">Cancelling stops KB's wait; The client or game may still open.</p>
       </NavScope></div>}</Show>
       <Show when={store.run()} keyed>{(r) => <Launch run={r} />}</Show>
     </>

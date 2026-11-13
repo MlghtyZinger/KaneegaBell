@@ -217,6 +217,9 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
     if let Some(steam) = crate::steam::game(&conn, id)? {
         return Ok(LaunchPreview { argv: vec![crate::steam::uri(steam.app_id)?], emulator: "Steam".into(), notice: Some("Launches through Steam; play time starts only when the game is identified.".into()) });
     }
+    if let Some(client)=crate::launchers::game(&conn,id)? {
+        return Ok(LaunchPreview { argv:client.action.preview(), emulator:crate::launchers::name(&client.provider)?.into(), notice:Some("Launches through its game client; play time starts only when the game is detected.".into()) });
+    }
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let cores_dir = cores_dir.as_deref().map(Path::new);
     let choice = launcher::choose(&conn, &game, cores_dir)?;
@@ -272,6 +275,7 @@ pub struct GameEmulators {
 pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulators> {
     let conn = state.db();
     if crate::steam::game(&conn, id)?.is_some() { return Ok(GameEmulators { default_id: "steam".into(), chosen: None, options: Vec::new() }); }
+    if let Some(client)=crate::launchers::game(&conn,id)? { return Ok(GameEmulators { default_id:client.provider, chosen:None, options:Vec::new() }); }
     let game = queries::game_detail(&conn, id)?;
     let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let ra_console: Option<i64> =
@@ -621,7 +625,18 @@ pub fn set_steam_tracking(state: State<'_, AppState>, id: i64, path: Option<Stri
 }
 
 #[tauri::command]
-pub fn cancel_steam_launch(state: State<'_, AppState>, id: i64) { state.launcher.cancel_pending(id); }
+pub fn cancel_client_launch(state: State<'_, AppState>, id: i64) { state.launcher.cancel_pending(id); }
+
+// Installed PC launchers use the same worker and session policy as Steam.
+#[tauri::command]
+pub fn connect_launcher(state: State<'_, AppState>, provider: String, enabled: bool) -> Result<()> {
+    if state.scanning.load(Ordering::Acquire) || state.launcher.busy() { return Err(Error::msg("Wait for the current game and library jobs to finish before changing launcher connections.")); }
+    crate::launchers::connect(&mut state.db(), &provider, enabled)
+}
+#[tauri::command]
+pub fn launcher_game(state: State<'_, AppState>, id: i64) -> Result<Option<crate::launchers::Game>> { crate::launchers::game(&state.db(), id) }
+#[tauri::command]
+pub fn set_launcher_tracking(state: State<'_, AppState>, id: i64, path: Option<String>) -> Result<()> { crate::launchers::set_tracking(&state.db(), id, path.as_deref().map(Path::new)) }
 
 // ---------------------------------------------------------------- background jobs
 //
@@ -1044,6 +1059,17 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
                 }
             }
         }
+        for provider in crate::launchers::connected(&conn)? {
+            if summary.cancelled || cancel.load(Ordering::Acquire) { summary.cancelled=true; break; }
+            let label=crate::launchers::name(&provider)?;
+            match crate::launchers::scan(&mut conn,&provider,cancel,&|done,total,step| {
+                if done==0 || due(done==total) { let _=app.emit("scan-progress",scanner::Progress{phase:"scanning",source:format!("{label} - {step}"),done,total,files_done:0,files_total:0}); }
+            }) {
+                Ok(scan)=>{summary.added+=scan.added;summary.updated+=scan.updated;summary.missing+=scan.missing;summary.cancelled|=scan.cancelled;summary.warnings.extend(scan.warnings);summary.changes.extend(scan.changes);},
+                Err(e)=>{let warning=format!("{label}: {e}. Previous entries were kept.");summary.warnings.push(warning.clone());let report=crate::launchers::Summary{warnings:vec![warning],..Default::default()};let _=queries::set_setting(&conn,&format!("launcherScan.{provider}"),&serde_json::to_value(report)?);}
+            }
+        }
+        summary.games_total=queries::count_games(&conn)?;
         if !summary.cancelled {
             after_removals(&conn, db_path.parent().unwrap_or(Path::new(".")));
         }

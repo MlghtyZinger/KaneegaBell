@@ -125,7 +125,10 @@ pub fn helper(path: &Path) -> bool {
         "easyanticheat",
         "battleye",
         "beservice",
-        "crash",
+        "crashreport",
+        "crashhandler",
+        "crashpad",
+        "gamelaunchhelper",
         "reporter",
         "unins",
         "setup",
@@ -756,6 +759,8 @@ mod tests {
         assert!(tracking_file(&app.dir, &app.dir.join("game.exe")).is_ok());
         fs::write(app.dir.join("launcher.exe"), b"x").unwrap();
         assert!(tracking_file(&app.dir, &app.dir.join("launcher.exe")).is_err());
+        assert!(!helper(Path::new("CrashBandicoot4.exe")));
+        assert!(helper(Path::new("CrashReportClient.exe")));
         assert!(uri(0).is_err());
         assert_eq!(uri(123).unwrap(), "steam://run/123");
     }

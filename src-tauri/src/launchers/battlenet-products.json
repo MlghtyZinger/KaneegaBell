@@ -1,0 +1,162 @@
+{
+  "wow": {
+    "code": "WoW",
+    "name": "World of Warcraft"
+  },
+  "diablo3": {
+    "code": "D3",
+    "name": "Diablo III"
+  },
+  "s2": {
+    "code": "S2",
+    "name": "StarCraft II"
+  },
+  "s1": {
+    "code": "S1",
+    "name": "StarCraft"
+  },
+  "hs_beta": {
+    "code": "WTCG",
+    "name": "Hearthstone"
+  },
+  "heroes": {
+    "code": "Hero",
+    "name": "Heroes of the Storm"
+  },
+  "prometheus": {
+    "code": "Pro",
+    "name": "Overwatch 2"
+  },
+  "viper": {
+    "code": "VIPR",
+    "name": "Call of Duty: Black Ops 4"
+  },
+  "odin": {
+    "code": "ODIN",
+    "name": "Call of Duty: Modern Warfare"
+  },
+  "w3": {
+    "code": "W3",
+    "name": "Warcraft III: Reforged"
+  },
+  "lazarus": {
+    "code": "LAZR",
+    "name": "Call of Duty: Modern Warfare 2 Campaign Remastered"
+  },
+  "zeus": {
+    "code": "ZEUS",
+    "name": "Call of Duty: Black Ops Cold War"
+  },
+  "wlby": {
+    "code": "WLBY",
+    "name": "Crash Bandicoot 4"
+  },
+  "osi": {
+    "code": "OSI",
+    "name": "Diablo II: Resurrected"
+  },
+  "rtro": {
+    "code": "RTRO",
+    "name": "Blizzard Arcade Collection"
+  },
+  "fore": {
+    "code": "FORE",
+    "name": "Call of Duty: Vanguard"
+  },
+  "anbs": {
+    "code": "ANBS",
+    "name": "Diablo Immortal"
+  },
+  "auks": {
+    "code": "AUKS",
+    "name": "Call of Duty: Modern Warfare II"
+  },
+  "fen": {
+    "code": "Fen",
+    "name": "Diablo IV"
+  },
+  "d1": {
+    "code": "D1",
+    "name": "Diablo"
+  },
+  "w1r": {
+    "code": "W1R",
+    "name": "Warcraft: Remastered"
+  },
+  "w2r": {
+    "code": "W2R",
+    "name": "Warcraft II: Remastered"
+  },
+  "w1": {
+    "code": "W1",
+    "name": "Warcraft: Orcs & Humans"
+  },
+  "w2": {
+    "code": "W2",
+    "name": "Warcraft II: Battle.net Edition"
+  },
+  "gryphon": {
+    "code": "GRY",
+    "name": "Warcraft Rumble"
+  },
+  "aris": {
+    "code": "ARIS",
+    "name": "Doom: The Dark Ages"
+  },
+  "scorpio": {
+    "code": "SCOR",
+    "name": "Sea of Thieves"
+  },
+  "arkansas": {
+    "code": "ARK",
+    "name": "The Outer Worlds 2"
+  },
+  "libra": {
+    "code": "LBRA",
+    "name": "Tony Hawk's Pro Skater 3 + 4"
+  },
+  "pinta": {
+    "code": "PNTA",
+    "name": "Call of Duty: Modern Warfare III"
+  },
+  "aqua": {
+    "code": "AQUA",
+    "name": "Avowed"
+  },
+  "wow_classic": {
+    "code": "WoW_wow_classic",
+    "name": "World of Warcraft Classic"
+  },
+  "wow_classic_era": {
+    "code": "WoW_wow_classic_era",
+    "name": "World of Warcraft Classic Era"
+  },
+  "wow_classic_anniversary": {
+    "code": "WoW_wow_classic_anniversary",
+    "name": "World of Warcraft Classic Anniversary"
+  },
+  "wowf": {
+    "code": "WoWF",
+    "name": "World of Warcraft Forever"
+  },
+  "fenris": {
+    "code": "Fen",
+    "name": "Diablo IV"
+  },
+  "d3": {
+    "code": "D3",
+    "name": "Diablo III"
+  },
+  "hsb": {
+    "code": "WTCG",
+    "name": "Hearthstone"
+  },
+  "hero": {
+    "code": "Hero",
+    "name": "Heroes of the Storm"
+  },
+  "pro": {
+    "code": "Pro",
+    "name": "Overwatch 2"
+  }
+}
