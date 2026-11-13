@@ -7,6 +7,7 @@ mod disc;
 mod display;
 mod error;
 mod fsbrowse;
+mod native_picker;
 mod input;
 mod launchbox;
 mod launcher;
@@ -351,6 +352,7 @@ pub fn run() {
             commands::game_emulators,
             commands::set_game_emulator,
             commands::list_dir,
+            native_picker::pick_path,
             commands::suggest_platform,
             commands::add_source,
             commands::add_rpcs3_installed_source,

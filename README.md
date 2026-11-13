@@ -54,9 +54,9 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Use **Add game** beside Search, choose the original platform, and search the cached LaunchBox
 Games Database or use your own title. **Update catalogue** loads missing names through the existing
-LaunchBox worker. Choose Emulator, Port, Recomp or Decomp; attaching files is optional. Ports,
+LaunchBox worker. The platform’s configured emulator is used automatically. Enable **Launch an executable (port / recomp / decomp)** for an executable; attaching files is optional. Ports,
 recomps and decomps start the selected `.exe` directly from its own folder, without an emulator.
-Game files lets you attach a ROM or executable later, change the type, or remove a manually added
+Game files lets you attach a ROM or executable later, change the launch method, or remove a manually added
 entry after confirmation. Removing an entry never deletes the game's files. Scans keep manual entries.
 
 ### Where KB keeps its files
@@ -906,8 +906,10 @@ scrolling. See docs/sidebar-icons-validation.md for the measurements.
 ## Patch notes
 
 ### Unreleased (version undecided)
+- Fixed: restored the original toolbar alignment, keeping Add game beside Search and Filter. Catalogue search prefers main-title matches over alternate-title matches at the same relevance.
+- Improved: mouse and keyboard file/folder selection opens the native Windows picker; controller navigation retains the in-app browser. Add game explains how to select an executable for a port, recomp or decomp.
 - New: Add game beside Search lets you choose a LaunchBox title or enter your own, with optional game files, and set up a port, recomp or decomp without scanning first.
-- New: Game files → Game type lets you choose Port, Recomp or Decomp and launch its .exe directly, without an emulator; switch back to Emulator to restore the original launch setup.
+- New: Game files → Launch an executable combines ports, recomps and decomps in one option; turn it off to use the platform’s configured emulator automatically.
 
 ### 0.7.0
 - Known issue: Full desktop animations increase idle CPU. Animations Off passed the saved performance gate; Full still fails on startup and idle CPU. Both held 240 fps scrolling in the 5,000-game check.

@@ -1,5 +1,6 @@
-import { createResource, createSignal, For, Show } from "solid-js";
+import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { api, errorText, type DirEntry, type DirListing } from "../api";
+import { device } from "../input/actions";
 import { NavScope } from "./NavScope";
 import { Hint } from "./Hints";
 
@@ -20,6 +21,23 @@ interface Props {
  * the current folder.
  */
 export function FileBrowser(props: Props) {
+  // Keep controller navigation available; desktop input uses the Windows dialog.
+  if (device() === "gamepad") return <ControllerFileBrowser {...props} />;
+  const [error, setError] = createSignal<string | null>(null);
+  onMount(async () => {
+    try {
+      const path = await api.pickPath(props.title, props.start?.trim() || null, props.mode, props.extensions ?? []);
+      if (path) props.onPick(path);
+      else props.onClose();
+    } catch (e) { setError(errorText(e)); }
+  });
+  return <Show when={error()}><div class="overlay"><NavScope class="panel" modal onBack={props.onClose}>
+    <h3>{props.title}</h3><p class="warn">{error()}</p>
+    <button class="btn" onClick={props.onClose}>Close</button>
+  </NavScope></div></Show>;
+}
+
+function ControllerFileBrowser(props: Props) {
   const [path, setPath] = createSignal<string | null>(props.start?.trim() || null);
   const [lastGood, setLastGood] = createSignal<DirListing | undefined>();
   const [error, setError] = createSignal<string | null>(null);

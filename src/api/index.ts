@@ -765,6 +765,8 @@ export const api = {
     invoke<void>("update_source", { id, platformId, recursive }),
   removeSource: (id: number) => invoke<GameChange[]>("remove_source", { id }),
   suggestPlatform: (path: string) => invoke<string | null>("suggest_platform", { path }),
+  pickPath: (title: string, start: string | null, mode: "file" | "folder", extensions: string[]) =>
+    invoke<string | null>("pick_path", { title, start, mode, extensions }),
   listDir: (path: string | null, extensions: string[] = []) =>
     invoke<DirListing>("list_dir", { path, extensions }),
   getSetting: <T,>(key: string) => invoke<T | null>("get_setting", { key }),

@@ -2,7 +2,6 @@ import { createResource, createSignal, Show } from "solid-js";
 import { api, errorText, type DirectLaunch } from "../api";
 import { NavScope } from "./NavScope";
 import { library } from "../state/library";
-import { Picker } from "./Picker";
 import { FileBrowser } from "./FileBrowser";
 
 /** Per-game override: switching back to Emulator keeps the original ROM and emulator choice. */
@@ -41,15 +40,14 @@ export function DirectLaunchSetting(props: { id: number; launchPath: string; man
         <button class="btn small" disabled={saving()} onClick={() => setChoosingFile(true)}>Choose game file for emulator…</button>
         <button class="btn small" disabled={saving()} onClick={() => setRemoving(true)}>Remove library entry…</button>
       </div>
-      <Show when={props.launchPath.startsWith("kb-manual:") && !config()?.executable}><p class="dim small">Added without game files. Choose a ROM for emulation, or choose Port, Recomp or Decomp and its executable below.</p></Show>
+      <Show when={props.launchPath.startsWith("kb-manual:") && !config()?.executable}><p class="dim small">Added without game files. Choose a ROM for emulation, or enable executable launching below.</p></Show>
     </Show>
-    <h3>Game type</h3>
+    <h3>Launch method</h3>
     <Show when={loadError()}><p class="warn">{loadError()}</p></Show>
-    <div class="row tight">
-      <Picker title="Game type" value={kind()} options={[
-        { value: "emulator", label: "Emulator (original game)" },
-        { value: "port", label: "Port" }, { value: "recomp", label: "Recomp" }, { value: "decomp", label: "Decomp" },
-      ]} onChange={setKind} />
+    <div class="row tight" style={{ "flex-wrap": "wrap" }}>
+      <button class="btn" style={{ "white-space": "normal" }} role="switch" aria-checked={kind() !== "emulator"} disabled={config.loading || !!loadError() || saving()} onClick={() => setKind(kind() === "emulator" ? config()?.kind ?? "port" : "emulator")}>
+        Launch an executable (port / recomp / decomp): {kind() === "emulator" ? "Off" : "On"}
+      </button>
       <Show when={kind() !== "emulator"}>
         <button class="btn small" disabled={saving()} onClick={() => setBrowsing(true)}>Choose game executable…</button>
       </Show>
@@ -59,6 +57,7 @@ export function DirectLaunchSetting(props: { id: number; launchPath: string; man
       <p class="dim small">Launches the selected .exe directly, without an emulator. Choose the game itself, not an installer or launcher. Its own folder is used as the working folder.</p>
       <p class="mono">{executable() || "Choose an executable, then Apply."}</p>
     </Show>
+    <Show when={kind() === "emulator"}><p class="dim small">Uses this platform's configured emulator automatically.</p></Show>
     <Show when={dirty()}><p class="dim small">Changes take effect after Apply.</p></Show>
     <Show when={error()}><p class="warn">{error()}</p></Show>
     <Show when={choosingFile()}><FileBrowser title="Choose the game file for the platform's emulator" mode="file" start={props.launchPath.startsWith("kb-manual:") ? null : props.launchPath} onPick={(path) => {

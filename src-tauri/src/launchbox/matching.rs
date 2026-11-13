@@ -201,10 +201,9 @@ impl Candidates {
                 }
             })
             .collect();
-        // Equal scores (every title that merely contains the words): the shortest name first, so "Super Mario 64"
-        // comes before the hacks and mods named "... Mario 64 ...".
+        // Prefer main-title matches over alternate names at the same score, then shorter titles.
         hits.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.name.len().cmp(&b.name.len())).then_with(|| a.name.cmp(&b.name))
+            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.also_known_as.is_some().cmp(&b.also_known_as.is_some())).then_with(|| a.name.len().cmp(&b.name.len())).then_with(|| a.name.cmp(&b.name))
         });
         hits.truncate(limit);
         hits
@@ -250,6 +249,21 @@ mod tests {
         let ids: Vec<i64> = c.search(&key("mario 64"), 10).iter().map(|h| h.db_id).collect();
         assert_eq!(&ids[..2], [3, 2]);
         assert_eq!(*ids.last().unwrap(), 1);
+    }
+
+    #[test]
+    fn search_prefers_zelda_main_titles_over_hack_aliases() {
+        let c = Candidates::new(vec![
+            n(1, "Hero of Law", None),
+            n(1, "The Legend of Zelda: Ocarina of Time: Hero of Law", Some("World")),
+            n(2, "Zelda Indigo", None),
+            n(2, "The Legend of Zelda Indigo", Some("World")),
+            n(3, "The Legend of Zelda: Ocarina of Time", None),
+            n(4, "The Legend of Zelda: Majora's Mask", None),
+        ]);
+        let ids: Vec<i64> = c.search(&key("The Legend of Zelda"), 2).iter().map(|h| h.db_id).collect();
+        assert_eq!(ids, [4, 3]);
+        assert_eq!(c.search(&key("The Legend of Zelda Indigo"), 1)[0].db_id, 2);
     }
 
     #[test]

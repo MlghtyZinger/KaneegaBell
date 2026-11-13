@@ -89,12 +89,12 @@ export function AddGame(props: { onClose: () => void; onAdded: (id: number) => P
           <button class="btn small" aria-pressed={custom()} onClick={() => { setCustom(true); setSelected(null); }}>{custom() ? "✓ " : ""}Use my title: {submitted()}</button>
         </Show>
         <h3>{title() ? `Selected: ${title()}` : "Select a result or use your own title"}</h3>
-        <div class="row">
-          <Picker title="Game type" value={kind()} options={[{ value: "emulator", label: "Emulator" }, { value: "port", label: "Port" }, { value: "recomp", label: "Recomp" }, { value: "decomp", label: "Decomp" }]} onChange={(v) => { setKind(v); setFile(""); }} />
-          <button class="btn" onClick={() => setBrowsing(true)}>{kind() === "emulator" ? "Choose game file…" : "Choose game executable…"}</button>
+        <div class="row" style={{ "flex-wrap": "wrap" }}>
+          <button class="btn" style={{ "white-space": "normal" }} role="switch" aria-checked={kind() !== "emulator"} onClick={() => { setKind(kind() === "emulator" ? "port" : "emulator"); setFile(""); }}>Launch an executable (port / recomp / decomp): {kind() === "emulator" ? "Off" : "On"}</button>
+          <button class="btn" onClick={() => setBrowsing(true)}>{kind() === "emulator" ? "Choose game file…" : "Choose executable…"}</button>
           <Show when={file()}><button class="btn small" onClick={() => setFile("")}>Add without files</button></Show>
         </div>
-        <p class="dim small">{kind() === "emulator" ? "Uses the platform's emulator when a game file is available." : "Starts your selected .exe directly, without an emulator."}</p>
+        <p class="dim small">{kind() === "emulator" ? "Uses this platform's configured emulator automatically. Enable the option above for a .exe game." : "Starts your selected .exe directly, without an emulator."}</p>
         <p class="mono">{file() || "No file selected — add it later."}</p>
       </fieldset>
       <div class="panel-actions">

@@ -4175,12 +4175,3 @@ button.side-series:hover {
 /* The Manual button greyed out (downloads off, or none found): still reachable, so it can say why. */
 .manual-off { color: var(--text-dim); }
 .manual-why { margin: 0; max-width: 40ch; }
-
-/* Keep Search and Add game reachable without crowding the library title. */
-.topbar.slim .here { overflow: hidden; }
-.topbar.slim .topbar-right { flex: 0 0 auto; }
-@media (max-width: 1150px) {
-  .topbar.slim .search-box { width: 160px; }
-  .topbar.slim .zoom-top .zoom-slider { width: 64px; }
-  .topbar.slim .zoom-pct, .topbar.slim .hint, .topbar.slim .here-count { display: none; }
-}
