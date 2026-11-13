@@ -20,6 +20,8 @@ mod platforms;
 mod scanner;
 mod secrets;
 mod steam;
+mod direct_launch;
+mod manual_games;
 mod themes;
 mod updates;
 mod wikidata;
@@ -317,6 +319,12 @@ pub fn run() {
             commands::set_favorite,
             commands::forget_recent,
             commands::preview_launch,
+            commands::get_direct_launch,
+            commands::search_game_catalogue,
+            commands::add_manual_game,
+            commands::set_manual_game_file,
+            commands::remove_manual_game,
+            commands::set_direct_launch,
             commands::launch_game,
             commands::find_steam,
             commands::connect_launcher,

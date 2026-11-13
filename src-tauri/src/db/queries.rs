@@ -1525,6 +1525,7 @@ pub fn update_source(conn: &Connection, id: i64, platform_id: Option<&str>, recu
 const HAS_USER_DATA: &str = "(play_seconds > 0 OR favorite = 1 OR last_played IS NOT NULL OR running_since IS NOT NULL
      OR art_manual = 1 OR extras_manual = 1 OR icon_manual = 1 OR lb_status = 'manual' OR match_status = 'manual'
      OR emulator_choice IS NOT NULL OR user_title IS NOT NULL OR user_variant IS NOT NULL
+     OR id IN (SELECT game_id FROM direct_launch) OR id IN (SELECT game_id FROM manual_games)
      OR id IN (SELECT game_id FROM collection_games) OR id IN (SELECT game_id FROM series_membership_overrides))";
 
 /// Removing a source deletes its games, except ones with user data (see

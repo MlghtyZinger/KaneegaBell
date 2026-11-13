@@ -163,6 +163,7 @@ pub struct GameInfo {
     #[serde(flatten)]
     detail: queries::GameDetail,
     meta: queries::GameMetadata,
+    manual: bool,
 }
 
 /// The main color of a game's cover (`#rrggbb`), to tint its series; None
@@ -181,7 +182,7 @@ pub fn cover_edges(state: State<'_, AppState>, id: i64) -> Option<(String, Strin
 #[tauri::command]
 pub fn get_game(state: State<'_, AppState>, id: i64) -> Result<GameInfo> {
     let conn = state.db();
-    Ok(GameInfo { detail: queries::game_detail(&conn, id)?, meta: queries::game_metadata(&conn, id)? })
+    Ok(GameInfo { detail: queries::game_detail(&conn, id)?, meta: queries::game_metadata(&conn, id)?, manual: crate::manual_games::contains(&conn, id)? })
 }
 
 #[tauri::command]
@@ -209,17 +210,70 @@ pub struct LaunchPreview {
     notice: Option<String>,
 }
 
+#[tauri::command]
+pub fn search_game_catalogue(state: State<'_, AppState>, platform: String, query: String) -> Result<Vec<crate::launchbox::matching::Hit>> {
+    crate::manual_games::search(&state.db(), &platform, &query)
+}
+
+#[tauri::command]
+pub fn add_manual_game(app: AppHandle, state: State<'_, AppState>, platform: String, title: String, db_id: Option<i64>, kind: String, file: Option<String>) -> Result<i64> {
+    if state.launcher.busy() { return Err(Error::msg("Finish playing before adding games.")); }
+    let id = crate::manual_games::add(&mut state.db(), &platform, &title, db_id, &kind, file.as_deref())?;
+    if db_id.is_some() {
+        state.lb_pending.store(true, Ordering::Release);
+        state.art_pending.store(true, Ordering::Release);
+        kick_worker(app.clone(), &state);
+    }
+    let _ = app.emit("library-changed", ());
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn set_manual_game_file(app: AppHandle, state: State<'_, AppState>, id: i64, file: String) -> Result<()> {
+    if state.launcher.busy() { return Err(Error::msg("Finish playing before changing game files.")); }
+    crate::manual_games::set_file(&state.db(), id, &file)?;
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_manual_game(app: AppHandle, state: State<'_, AppState>, id: i64) -> Result<()> {
+    if state.launcher.busy() { return Err(Error::msg("Finish playing before removing games.")); }
+    crate::manual_games::remove(&state.db(), id)?;
+    after_removals(&state.db(), state.data_dir());
+    let _ = app.emit("library-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_direct_launch(state: State<'_, AppState>, id: i64) -> Result<Option<crate::direct_launch::DirectLaunch>> {
+    crate::direct_launch::get(&state.db(), id)
+}
+
+#[tauri::command]
+pub fn set_direct_launch(state: State<'_, AppState>, id: i64, config: Option<crate::direct_launch::DirectLaunch>) -> Result<()> {
+    if state.launcher.busy() {
+        return Err(Error::msg("Finish playing or cancel the pending launch before changing launch settings."));
+    }
+    crate::direct_launch::set(&state.db(), id, config)
+}
+
 /// The exact argv a launch would run and with which emulator, for the details panel.
 #[tauri::command]
 pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPreview> {
     let conn = state.db();
     let game = queries::game_detail(&conn, id)?;
+    if let Some(direct) = crate::direct_launch::get(&conn, id)? {
+        let exe = direct.validate()?;
+        return Ok(LaunchPreview { argv: vec![exe.to_string_lossy().into_owned()], emulator: direct.label().into(), notice: Some("Starts the game executable directly, without an emulator.".into()) });
+    }
     if let Some(steam) = crate::steam::game(&conn, id)? {
         return Ok(LaunchPreview { argv: vec![crate::steam::uri(steam.app_id)?], emulator: "Steam".into(), notice: Some("Launches through Steam; play time starts only when the game is identified.".into()) });
     }
     if let Some(client)=crate::launchers::game(&conn,id)? {
         return Ok(LaunchPreview { argv:client.action.preview(), emulator:crate::launchers::name(&client.provider)?.into(), notice:Some("Launches through its game client; play time starts only when the game is detected.".into()) });
     }
+    crate::manual_games::require_file(&conn, id, &game.launch_path)?;
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let cores_dir = cores_dir.as_deref().map(Path::new);
     let choice = launcher::choose(&conn, &game, cores_dir)?;
@@ -274,6 +328,7 @@ pub struct GameEmulators {
 #[tauri::command]
 pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulators> {
     let conn = state.db();
+    if crate::direct_launch::get(&conn, id)?.is_some() { return Ok(GameEmulators { default_id: "direct".into(), chosen: None, options: Vec::new() }); }
     if crate::steam::game(&conn, id)?.is_some() { return Ok(GameEmulators { default_id: "steam".into(), chosen: None, options: Vec::new() }); }
     if let Some(client)=crate::launchers::game(&conn,id)? { return Ok(GameEmulators { default_id:client.provider, chosen:None, options:Vec::new() }); }
     let game = queries::game_detail(&conn, id)?;

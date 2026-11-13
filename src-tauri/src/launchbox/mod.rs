@@ -1051,6 +1051,11 @@ pub fn search(conn: &Connection, game_id: i64, query: Option<&str>) -> Result<Ve
     Ok(Candidates::new(names_for(conn, &platform)?).search(&key, 40))
 }
 
+/// Search the cached name list without requiring a scanned game.
+pub fn search_platform(conn: &Connection, platform: &str, query: &str) -> Result<Vec<matching::Hit>> {
+    Ok(Candidates::new(names_for(conn, platform)?).search(&crate::scanner::normalize::search_key(query), 40))
+}
+
 /// The user's pick: kept for good. Returns true when its details aren't
 /// stored yet (a download fills them in).
 pub fn set_manual(conn: &Connection, game_id: i64, db_id: i64) -> Result<bool> {

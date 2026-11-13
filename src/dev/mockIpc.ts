@@ -4,7 +4,7 @@
 // Add ?games=N to the URL to change the library size (default 5000), and
 // ?art=1 to give games cover shapes (for card layout work).
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import type { CollectionRules, GameRow, Library, Settings } from "../api";
+import type { CollectionRules, DirectLaunch, GameRow, Library, Settings } from "../api";
 
 // The built-in styles, as the app ships them.
 type MockTheme = { name: string; scheme: string; radius: number; focusLook: string; colors: Record<string, string> };
@@ -17,6 +17,8 @@ const mockThemes: Record<string, MockTheme> = Object.fromEntries(
 let mockTheme = "forge";
 /** Renamed games' names as the file has them. */
 const mockFileNames = new Map<number, { title: string; variant: string | null }>();
+const directLaunches = new Map<number, DirectLaunch>();
+const manualGames = new Map<number, string>();
 
 const PLATFORMS = [
   ["snes", "Super Nintendo", "SNES"],
@@ -268,7 +270,7 @@ export function installMockIpc() {
         return { id, css: `:root{color-scheme:${t.scheme};--radius:${t.radius}px;${vars}}`, focusLook: t.focusLook, icon: id };
       }
       case "get_library":
-        return lib;
+        return structuredClone(lib);
       case "rename_game": {
         const { id, title, variant } = args as { id: number; title: string; variant: string };
         const g = lib.games.find((x) => x.id === id)!;
@@ -289,7 +291,8 @@ export function installMockIpc() {
           fileTitle: file.title,
           fileVariant: file.variant,
           serial: null,
-          launchPath: `E:\\Games\\${g.title}.iso`,
+          manual: manualGames.has(g.id),
+          launchPath: manualGames.get(g.id) ?? `E:\\Games\\${g.title}.iso`,
           totalSize: 1.4e9,
           files: [],
           artSource: null,
@@ -464,13 +467,44 @@ export function installMockIpc() {
         ];
       case "has_update_code":
         return false;
-      case "preview_launch":
+      case "search_game_catalogue":
+        return [{ dbId: 12345, name: "Example Game", alsoKnownAs: null, score: 1 }];
+      case "add_manual_game": {
+        const { platform, title, kind, file } = args as { platform: string; title: string; kind: string; file: string | null };
+        const id = Math.max(0, ...lib.games.map((g) => g.id)) + 1;
+        lib.games.push({ id, platformId: platform, title, variant: null, region: null, favorite: false, playSeconds: 0, lastPlayed: null, isMultidisc: false, art: 0, artAspect: null });
+        manualGames.set(id, kind === "emulator" && file ? file : `kb-manual:${id}`);
+        if (kind !== "emulator") directLaunches.set(id, { kind: kind as DirectLaunch["kind"], executable: file ?? "" });
+        const p = lib.platforms.find((p) => p.id === platform); if (p) p.count++;
+        return id;
+      }
+      case "set_manual_game_file": {
+        const { id, file } = args as { id: number; file: string }; manualGames.set(id, file); return null;
+      }
+      case "remove_manual_game": {
+        const id = (args as { id: number }).id;
+        const index = lib.games.findIndex((g) => g.id === id);
+        if (index >= 0) { const p = lib.platforms.find((p) => p.id === lib.games[index].platformId); if (p) p.count--; lib.games.splice(index, 1); }
+        manualGames.delete(id); directLaunches.delete(id); return null;
+      }
+      case "get_direct_launch":
+        return directLaunches.get((args as { id: number }).id) ?? null;
+      case "set_direct_launch": {
+        const { id, config } = args as { id: number; config: DirectLaunch | null };
+        if (config) directLaunches.set(id, config); else directLaunches.delete(id);
+        return null;
+      }
+      case "preview_launch": {
+        const direct = directLaunches.get((args as { id: number }).id);
+        if (direct) return { argv: [direct.executable], emulator: direct.kind, notice: "Starts the game executable directly, without an emulator." };
         return {
           argv: ["E:\\Emulators\\RetroArch\\retroarch.exe", "-L", "cores\\mgba_libretro.dll", "-f", "E:\\Games\\x.iso"],
           emulator: "RetroArch",
           notice: null,
         };
+      }
       case "game_emulators":
+        if (directLaunches.has((args as { id: number }).id)) return { defaultId: "direct", chosen: null, options: [] };
         return {
           defaultId: "retroarch",
           chosen: null,
@@ -496,7 +530,7 @@ export function installMockIpc() {
           path: p,
           parent: p.length > 3 ? p.replace(/\\[^\\]+\\?$/, "") || null : null,
           truncated: false,
-          entries: names.map((n) => ({ name: n, path: `${p.replace(/\\$/, "")}\\${n}`, isDir: true })),
+          entries: (args as { extensions?: string[] }).extensions?.includes("exe") ? [{ name: "Example Port.exe", path: `${p.replace(/\\$/, "")}\\Example Port.exe`, isDir: false }] : names.map((n) => ({ name: n, path: `${p.replace(/\\$/, "")}\\${n}`, isDir: true })),
         };
       }
       default:

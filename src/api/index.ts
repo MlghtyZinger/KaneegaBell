@@ -469,6 +469,7 @@ export interface MetaSummary {
 }
 
 export interface GameDetail {
+  manual?: boolean;
   id: number;
   platformId: string;
   title: string;
@@ -708,7 +709,15 @@ export interface GameChange {
   variant: string | null;
 }
 
+export interface DirectLaunch { kind: "port" | "recomp" | "decomp"; executable: string }
+
 export const api = {
+  searchGameCatalogue: (platform: string, query: string) => invoke<LbHit[]>("search_game_catalogue", { platform, query }),
+  addManualGame: (platform: string, title: string, dbId: number | null, kind: string, file: string | null) => invoke<number>("add_manual_game", { platform, title, dbId, kind, file }),
+  setManualGameFile: (id: number, file: string) => invoke<void>("set_manual_game_file", { id, file }),
+  removeManualGame: (id: number) => invoke<void>("remove_manual_game", { id }),
+  getDirectLaunch: (id: number) => invoke<DirectLaunch | null>("get_direct_launch", { id }),
+  setDirectLaunch: (id: number, config: DirectLaunch | null) => invoke<void>("set_direct_launch", { id, config }),
   getLibrary: () => invoke<Library>("get_library"),
   getGame: (id: number) => invoke<GameDetail>("get_game", { id }),
   setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),

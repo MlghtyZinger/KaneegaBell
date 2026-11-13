@@ -409,7 +409,7 @@ impl Launcher {
         if self.pending.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
             return Err(Error::msg("A game is already starting."));
         }
-        let (game, steam, other, cores_dir) = {
+        let (game, steam, other, direct, cores_dir) = {
             let conn = state.db();
             let game = queries::game_detail(&conn, game_id)?;
             let steam = crate::steam::game(&conn, game_id)?;
@@ -419,16 +419,20 @@ impl Launcher {
             let other=crate::launchers::game(&conn,game_id)?;
             if let Some(other)=&other { if !crate::launchers::connected(&conn)?.contains(&other.provider) { return Err(Error::msg("Reconnect this launcher in Settings > Library before playing.")); } }
             let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
-            (game, steam, other, cores.map(PathBuf::from))
+            (game, steam, other, crate::direct_launch::get(&conn, game_id)?, cores.map(PathBuf::from))
         };
-        let client_name=if steam.is_some(){Some("Steam")}else{other.as_ref().map(|g|crate::launchers::name(&g.provider)).transpose()?};
+        let client_name=if let Some(direct)=&direct {Some(direct.label())}else if steam.is_some(){Some("Steam")}else{other.as_ref().map(|g|crate::launchers::name(&g.provider)).transpose()?};
         let (tracker, emulator, notice, bios) = if let Some(client_name) = client_name {
             let cancelled = Arc::new(AtomicBool::new(false));
             *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some((game_id, cancelled.clone()));
             let _ = app.emit("client-launch-waiting", game_id);
             drop(slot); // Get-running and other UI queries must not wait for Steam.
             let result = (|| {
-                let (paths, require_window, action) = if let Some(steam)=&steam {
+                let (paths, require_window, action) = if let Some(direct)=&direct {
+                    let exe = direct.validate()?;
+                    let paths = std::collections::HashSet::from([crate::scanner::path_key(&exe)]);
+                    (paths, false, crate::launchers::Action::Client { exe, args: Vec::new() })
+                } else if let Some(steam)=&steam {
                     crate::steam::validate_installed(steam)?;
                     (steam_process::candidates(steam)?,steam.tracking_exe.is_none(),crate::launchers::Action::Uri(crate::steam::uri(steam.app_id)?))
                 } else {
@@ -446,6 +450,7 @@ impl Launcher {
             *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = None;
             (result?, client_name.to_string(), None, None)
         } else {
+            crate::manual_games::require_file(&state.db(), game_id, &game.launch_path)?;
             let Choice { cfg, notice } = choose(&state.db(), &game, cores_dir.as_deref())?;
             let playlist_dir = state.data_dir().join("playlists");
             let prepared = prepare(&game, &cfg, cores_dir.as_deref(), &playlist_dir)?;

@@ -39,10 +39,11 @@ export async function playGame(gameId: number, ps2Duration?: number) {
   setPresenting(true);
   document.documentElement.classList.add("launch-presenting");
   const game = library.games().find((g) => g.id === gameId);
-  if (game && !isLauncher(game.platformId) && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
+  const direct = await api.getDirectLaunch(gameId).catch((e) => { setPresenting(false); document.documentElement.classList.remove("launch-presenting"); throw e; });
+  if (game && !direct && !isLauncher(game.platformId) && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
   let timer: ReturnType<typeof setTimeout> | undefined;
   let skip = () => {};
-  const steam = !!game && isLauncher(game.platformId);
+  const steam = !!game && (isLauncher(game.platformId) || !!direct);
   const animation = steam ? Promise.resolve(true) : ps2Duration === undefined ? launchAnimation(gameId) : new Promise<boolean>((resolve) => {
     skip = () => resolve(true);
     timer = setTimeout(skip, ps2Duration);
@@ -71,10 +72,10 @@ export function LaunchHost() {
   return (
     <>
       <Show when={steamWaiting()}>{(g) => <div class="overlay"><NavScope class="panel" modal onBack={() => void api.cancelClientLaunch(g().id)}>
-        <p class="dim">Waiting for {launcherName(g().platformId)}</p><h2>{g().title}</h2>
-        <p>Play time starts when the game is detected. The client may show its normal login, update or launch options.</p>
+        <p class="dim">Waiting for {isLauncher(g().platformId) ? launcherName(g().platformId) : "game executable"}</p><h2>{g().title}</h2>
+        <p>Play time starts when the game is detected. <Show when={isLauncher(g().platformId)}>The client may show its normal login, update or launch options.</Show></p>
         <button class="btn" data-autofocus onClick={() => void api.cancelClientLaunch(g().id)}>Cancel wait</button>
-        <p class="dim small">Cancelling stops KB's wait; The client or game may still open.</p>
+        <p class="dim small">Cancelling stops KB's wait; the game may still open.</p>
       </NavScope></div>}</Show>
       <Show when={store.run()} keyed>{(r) => <Launch run={r} />}</Show>
     </>

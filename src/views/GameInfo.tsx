@@ -17,6 +17,7 @@ import { caseOf } from "../fx/Model";
 import { ManualButton } from "../components/ManualButton";
 import { osk } from "../state/osk";
 import { Icon } from "../components/Icons";
+const DirectLaunchSetting = lazy(() => import("../components/DirectLaunchSetting").then((m) => ({ default: m.DirectLaunchSetting })));
 const ArtworkStudio = lazy(() => import("../components/ArtworkStudio").then((m) => ({ default: m.ArtworkStudio })));
 
 function formatSize(bytes: number): string {
@@ -433,8 +434,8 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                       </Show>
                       <dt>Size</dt>
                       <dd>{formatSize(g().totalSize)}</dd>
-                      <dt>Launch file</dt>
-                      <dd class="mono">{g().launchPath}</dd>
+                      <dt>{g().manual ? "Emulator file" : "Launch file"}</dt>
+                      <dd class="mono">{g().launchPath.startsWith("kb-manual:") ? "No emulator file selected" : g().launchPath}</dd>
                       <Show when={g().files.length > 1}>
                         <dt>Discs</dt>
                         <dd>
@@ -449,6 +450,9 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                         </dd>
                       </Show>
                     </dl>
+                    <Show when={!isLauncher(g().platformId)}>
+                      <DirectLaunchSetting id={id()} launchPath={g().launchPath} manual={g().manual} onRemoved={props.onClose} onChange={() => { void refetch(); void refetchEmus(); void refetchArgv(); }} />
+                    </Show>
                     <h3>Launch command</h3>
                     <Show when={argv()}>
                       {(r) => {

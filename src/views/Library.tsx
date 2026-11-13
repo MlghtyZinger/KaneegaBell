@@ -1,6 +1,6 @@
 import { ActivityButton } from "../components/ActivityCenter";
 import { activity } from "../state/activity";
-import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, lazy, on, onCleanup, Show } from "solid-js";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections, COLLECTION_SORTS } from "../state/collections";
 import {
@@ -33,6 +33,8 @@ import { moveIn } from "../fx/motion";
 import { DesktopBackground, DesktopDock } from "../components/DesktopStyle";
 import { api, errorText, type GameRow } from "../api";
 
+const AddGame = lazy(() => import("../components/AddGame").then((m) => ({ default: m.AddGame })));
+
 function initial(title: string): string {
   const c = title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase();
   return c >= "A" && c <= "Z" ? c : "#";
@@ -48,6 +50,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
   const { focused, setFocused } = library;
   // The full details screen (△ / F / right-click) and the sidebar (A / Enter / double-click).
   const [infoId, setInfoId] = createSignal<number | null>(null);
+  const [addingGame, setAddingGame] = createSignal(false);
   const [sideOpen, setSideOpen] = createSignal(false);
   const focusedGame = () => (overview() ? undefined : games()[focused()]);
   // The sidebar shows the focused game; a click on another cover moves it there.
@@ -286,7 +289,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // Controller focus on the top bar (up from the top row), or null.
   const [topFocus, setTopFocus] = createSignal<string | null>(null);
-  const topActions = () => ["search", "filter", "activity", "tv", "settings"];
+  const topActions = () => ["search", "addGame", "filter", "activity", "tv", "settings"];
   function topAction(a: Action): boolean {
     const acts = topActions();
     const i = Math.max(0, acts.indexOf(topFocus()!));
@@ -300,6 +303,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         const f = topFocus();
         setTopFocus(null);
         if (f === "search") openSearch();
+        else if (f === "addGame") setAddingGame(true);
         else if (f === "filter") setFilterOpen(true);
         else if (f === "activity") activity.setOpen(true);
         else if (f === "tv") props.onTvMode();
@@ -624,6 +628,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
             <Icon name="search" />
             <span>{library.query() || "Search games"}</span>
           </button>
+          <button class="filter-btn compact" classList={{ "nav-focus": topFocus() === "addGame" }} onClick={() => setAddingGame(true)}>Add game</button>
           <Show when={library.query()}>
             <button class="icon-btn" onClick={() => library.setQuery("")} title="Clear search">
               <Icon name="close" />
@@ -787,10 +792,11 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
                 fallback={
                   <>
                     <h2>No games yet</h2>
-                    <p>Add your ROM folders and emulator paths in Settings, then run a scan.</p>
-                    <button class="btn primary" onClick={props.onOpenSettings}>
-                      Open Settings
-                    </button>
+                    <p>Choose Add game to start without files, or add your ROM folders and emulator paths in Settings and scan.</p>
+                    <div class="row">
+                      <button class="btn primary" onClick={() => setAddingGame(true)}>Add game</button>
+                      <button class="btn" onClick={props.onOpenSettings}>Open Settings</button>
+                    </div>
                   </>
                 }
               >
@@ -881,6 +887,9 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
       </div>
 
       <DesktopDock />
+      <Show when={addingGame()}><AddGame onClose={() => setAddingGame(false)} onAdded={async (id) => {
+        await library.reload(); library.setPlatform("all"); library.setQuery(""); setAddingGame(false); setInfoId(id);
+      }} /></Show>
       <Show when={infoId()} keyed>
         {(id) => <GameInfo id={id} onClose={() => setInfoId(null)} />}
       </Show>
