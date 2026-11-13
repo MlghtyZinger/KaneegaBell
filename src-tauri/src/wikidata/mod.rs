@@ -50,8 +50,9 @@ pub struct Web {
 impl Web {
     pub fn new() -> Self {
         let agent = ureq::Agent::config_builder()
-            // The service stops queries after 60 s.
-            .timeout_global(Some(Duration::from_secs(90)))
+            // Optional metadata must not hold the library queue for minutes.
+            .timeout_global(Some(Duration::from_secs(30)))
+            .timeout_connect(Some(Duration::from_secs(10)))
             .user_agent(USER_AGENT)
             .http_status_as_error(false)
             .build()
@@ -63,50 +64,17 @@ impl Web {
 impl Source for Web {
     fn select(&self, query: &str) -> Result<Vec<Row>> {
         let err = |e: &dyn std::fmt::Display| Error::msg(format!("Wikidata: {e}"));
-        for attempt in 0..2 {
-            let mut resp = self
-                .agent
-                .get(ENDPOINT)
-                .query("query", query)
-                .header("Accept", "application/sparql-results+json")
-                .call()
-                .map_err(|e| err(&e))?;
-            let status = resp.status().as_u16();
-            if status == 429 && attempt == 0 {
-                // Over the per-minute budget: wait as asked (capped), once.
-                let wait = resp
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.trim().parse::<u64>().ok())
-                    .unwrap_or(30)
-                    .min(120);
-                std::thread::sleep(Duration::from_secs(wait));
-                continue;
-            }
-            if matches!(status, 500 | 502 | 503) && attempt == 0 {
-                // A busy moment on their side: one more try shortly.
-                std::thread::sleep(Duration::from_secs(5));
-                continue;
-            }
-            if status != 200 {
-                return Err(Error::msg(format!("Wikidata answered {status}")));
-            }
-            let body = resp.body_mut().with_config().limit(64 * 1024 * 1024).read_to_vec().map_err(|e| err(&e))?;
-            // A query that runs past the service's limit is cut off mid-answer with a 200,
-            // which parses as "EOF while parsing": treat it like a busy moment.
-            match parse_bindings(&body) {
-                Err(Error::Json(e)) if e.is_eof() => {
-                    if attempt == 0 {
-                        std::thread::sleep(Duration::from_secs(5));
-                        continue;
-                    }
-                    return Err(Error::msg("Wikidata cut its answer short; try again later"));
-                }
-                other => return other,
-            }
+        let mut resp = self.agent.get(ENDPOINT).query("query", query)
+            .header("Accept", "application/sparql-results+json").call().map_err(|e| err(&e))?;
+        let status = resp.status().as_u16();
+        // Surface a busy service immediately; don't silently sleep/retry while
+        // every other library job waits. A later update can try again.
+        if status != 200 { return Err(Error::msg(format!("Wikidata answered {status}; try again later"))); }
+        let body = resp.body_mut().with_config().limit(64 * 1024 * 1024).read_to_vec().map_err(|e| err(&e))?;
+        match parse_bindings(&body) {
+            Err(Error::Json(e)) if e.is_eof() => Err(Error::msg("Wikidata cut its answer short; try again later")),
+            other => other,
         }
-        Err(Error::msg("Wikidata is busy; try again later"))
     }
 }
 
@@ -166,6 +134,18 @@ pub fn info_query(platform_item: &str) -> String {
     )
 }
 
+/// Query only installed Steam IDs already recorded by KB, never the Windows catalogue.
+pub fn steam_query(apps: &[i64]) -> String {
+    let values = apps.iter().filter(|id| **id > 0).map(|id| format!("\"{id}\"")).collect::<Vec<_>>().join(" ");
+    format!("SELECT ?g ?app (SAMPLE(?label) AS ?name) (MIN(YEAR(?date)) AS ?y) (SAMPLE(?slug) AS ?igdb) WHERE {{
+        VALUES ?app {{ {values} }}
+        ?g wdt:P1733 ?app .
+        OPTIONAL {{ ?g rdfs:label ?label FILTER(LANG(?label) = \"en\") }}
+        OPTIONAL {{ ?g wdt:P577 ?date }}
+        OPTIONAL {{ ?g wdt:P5794 ?slug }}
+    }} GROUP BY ?g ?app")
+}
+
 /// The series (P179, with the game's number in it: P1545) and franchises
 /// (P8345) of the given games, with English names. The service's planner
 /// times out on this unless told to keep the written order (a few seconds
@@ -222,15 +202,17 @@ struct Game {
     year: Option<i64>,
     /// The IGDB match's URL name: exact when Wikidata lists it.
     igdb: Option<String>,
+    steam_app: Option<i64>,
 }
 
 fn library_games(conn: &Connection) -> Result<Vec<Game>> {
     let sql = format!(
         "SELECT g.id, g.platform_id, g.search_key, g.region, g.wd_status,
                 EXISTS (SELECT 1 FROM wd_games w WHERE w.qid = g.wd_id),
-                l.name, COALESCE(l.release_date, m.release_date), NULLIF(m.slug, '')
+                l.name, COALESCE(l.release_date, m.release_date), NULLIF(m.slug, ''), steam.app_id
          FROM games g
          JOIN platforms p ON p.id = g.platform_id
+         LEFT JOIN steam_games steam ON steam.game_id=g.id
          LEFT JOIN lb_games l ON l.db_id = g.lb_id AND g.lb_status IN ('ok', 'manual')
          LEFT JOIN metadata m ON m.game_id = g.id
          WHERE g.missing = 0 AND p.enabled = 1 AND g.platform_id IN ({})",
@@ -249,6 +231,7 @@ fn library_games(conn: &Connection) -> Result<Vec<Game>> {
             lb_name: r.get(6)?,
             year: released.map(year_of),
             igdb: r.get(8)?,
+            steam_app: r.get(9)?,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -382,10 +365,29 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
         let step = |step| progress(Progress { done: i as u64, total, platform: name, step });
         step("games");
         let Some(item) = platform_item(platform) else { continue };
-        let list = listing(source.select(&names_query(item))?, source.select(&info_query(item))?);
-        let cands = Candidates::new(list.names.clone());
+        let select = |query: &str| {
+            if cancel.load(Ordering::Relaxed) { return Err(Error::msg("Cancelled")); }
+            source.select(query)
+        };
         let mine: Vec<&Game> = games.iter().filter(|g| &g.platform_id == platform).collect();
-        let outcomes: Vec<(i64, Outcome)> = mine.iter().map(|g| (g.id, match_game(g, &cands, &list))).collect();
+        let (list, outcomes) = if platform == "steam" {
+            let apps: Vec<i64> = mine.iter().filter_map(|g| g.steam_app).collect();
+            let mut rows = Vec::new();
+            for chunk in apps.chunks(BATCH) { rows.extend(select(&steam_query(chunk))?); }
+            let outcomes = mine.iter().map(|g| {
+                let ids: HashSet<i64> = rows.iter().filter(|r| r.get("app").and_then(|a| a.parse::<i64>().ok()) == g.steam_app)
+                    .filter_map(|r| r.get("g").and_then(|q| qid(q))).collect();
+                let outcome = match ids.len() { 0 => Outcome::NotFound, 1 => Outcome::Match(*ids.iter().next().unwrap()), _ => Outcome::Ambiguous };
+                (g.id, outcome)
+            }).collect::<Vec<_>>();
+            (listing(rows.clone(), rows), outcomes)
+        } else {
+            let names = select(&names_query(item))?;
+            let list = listing(names, select(&info_query(item))?);
+            let cands = Candidates::new(list.names.clone());
+            let outcomes = mine.iter().map(|g| (g.id, match_game(g, &cands, &list))).collect::<Vec<_>>();
+            (list, outcomes)
+        };
         let matched: Vec<i64> = outcomes
             .iter()
             .filter_map(|(_, o)| if let Outcome::Match(q) = o { Some(*q) } else { None })
@@ -401,11 +403,11 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
                 s.cancelled = true;
                 break;
             }
-            let rows = match source.select(&series_query(chunk)) {
+            let rows = match select(&series_query(chunk)) {
                 Ok(rows) => rows,
                 Err(e) => {
                     log::info!("Wikidata series query: {e}; trying without the planner hint");
-                    source.select(&series_query_plain(chunk))?
+                    select(&series_query_plain(chunk))?
                 }
             };
             series.extend(rows);
@@ -413,6 +415,7 @@ pub fn run(conn: &mut Connection, source: &dyn Source, force: bool, progress: &d
         if s.cancelled {
             break;
         }
+        if cancel.load(Ordering::Relaxed) { s.cancelled = true; break; }
         store(conn, &outcomes, &matched, &list, &series)?;
         st.insert(platform.clone(), queries::now());
         queries::set_setting(conn, STAMP_KEY, &serde_json::to_value(&st)?)?;

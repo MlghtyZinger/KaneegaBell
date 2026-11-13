@@ -451,7 +451,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                       </Show>
                     </dl>
                     <Show when={!isLauncher(g().platformId)}>
-                      <DirectLaunchSetting id={id()} launchPath={g().launchPath} manual={g().manual} onRemoved={props.onClose} onChange={() => { void refetch(); void refetchEmus(); void refetchArgv(); }} />
+                      <DirectLaunchSetting id={id()} launchPath={g().launchPath} manual={g().manual} onRemoved={props.onClose} onChange={() => { void refetch(); void refetchEmus(); void refetchArgv(); void library.reload(); }} />
                     </Show>
                     <h3>Launch command</h3>
                     <Show when={argv()}>

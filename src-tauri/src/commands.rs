@@ -135,19 +135,21 @@ pub struct Library {
 pub fn get_library(state: State<'_, AppState>) -> Result<Library> {
     let conn = state.db();
     let aspects = queries::platform_art_aspects(&conn)?;
+    let mut games = queries::library(&conn)?;
+    let mut counts = std::collections::HashMap::new();
+    for game in &games { *counts.entry(game.platform_id.as_str()).or_insert(0i64) += 1; }
     let platforms = queries::platforms(&conn)?
         .into_iter()
-        .filter(|p| p.enabled && p.game_count > 0)
+        .filter(|p| p.enabled && counts.contains_key(p.id.as_str()))
         .map(|p| PlatformSummary {
             art_aspect: aspects.get(&p.id).copied(),
+            count: counts[p.id.as_str()],
             id: p.id,
             name: p.name,
             short_name: p.short_name,
-            count: p.game_count,
         })
         .collect();
     let (genre_names, by_game) = queries::genres(&conn)?;
-    let mut games = queries::library(&conn)?;
     for g in &mut games {
         if let Some(ids) = by_game.get(&g.id) {
             g.genres.clone_from(ids);
@@ -1722,6 +1724,9 @@ fn run_wd(app: &AppHandle, db_path: &Path, force: bool, cancel: &AtomicBool) {
         Ok(None) => {}
         Ok(Some(summary)) => {
             let _ = app.emit("wd-finished", &summary);
+        }
+        Err(_) if cancel.load(Ordering::Relaxed) => {
+            let _ = app.emit("wd-finished", crate::wikidata::Summary { cancelled: true, ..Default::default() });
         }
         Err(e) => {
             log::error!("Wikidata pass failed: {e}");

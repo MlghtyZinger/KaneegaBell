@@ -83,9 +83,66 @@ pub fn set(conn: &Connection, id: i64, config: Option<DirectLaunch>) -> Result<(
     Ok(())
 }
 
+/// Suppress only scanned copies of the same game bundled below its executable.
+/// Rows and their history remain intact, and reappear when the override is removed.
+pub fn bundled_roms(conn: &Connection) -> Result<std::collections::HashSet<i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT g.id, g.launch_path, d.executable FROM direct_launch d
+         JOIN games owner ON owner.id=d.game_id
+         JOIN games g ON g.platform_id=owner.platform_id AND g.id<>owner.id
+         WHERE owner.missing=0 AND d.executable<>'' AND g.missing=0
+           AND (g.lb_id=owner.lb_id OR (g.sort_title<>'' AND g.sort_title=owner.sort_title))
+           AND g.id NOT IN (SELECT game_id FROM direct_launch)
+           AND g.id NOT IN (SELECT game_id FROM manual_games)")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?;
+    fn key(path: &str) -> String {
+        let p = crate::scanner::path_key(std::path::Path::new(path)).replace('\\', "/");
+        if let Some(rest) = p.strip_prefix("//?/unc/") { format!("//{rest}") }
+        else { p.strip_prefix("//?/").unwrap_or(&p).to_owned() }
+    }
+    let mut hidden = std::collections::HashSet::new();
+    for row in rows {
+        let (id, rom, exe) = row?;
+        let exe = key(&exe);
+        if let Some((folder, _)) = exe.rsplit_once('/') {
+            if !folder.is_empty() && key(&rom).starts_with(&format!("{folder}/")) { hidden.insert(id); }
+        }
+    }
+    Ok(hidden)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bundled_rom_is_hidden_without_losing_history_and_returns_when_disabled() {
+        let conn = crate::db::test_db();
+        for (id, key, path) in [
+            (1, "zelda", "kb-manual:1"),
+            (2, "zelda", r"C:\Ports\Zelda\assets\zelda.z64"),
+            (3, "zelda", r"C:\Ports\Zelda-other\zelda.z64"),
+            (4, "mario", r"C:\Ports\Zelda\mario.z64"),
+            (5, "zelda", r"C:\ROMs\zelda.z64"),
+            (6, "zelda", "kb-manual:6"),
+        ] {
+            conn.execute("INSERT INTO games(id,platform_id,title,sort_title,search_key,launch_path,added_at,play_seconds,favorite)
+                VALUES(?1,'n64',?2,?2,?2,?3,0,42,1)", params![id,key,path]).unwrap();
+        }
+        conn.execute("INSERT INTO manual_games(game_id) VALUES(1),(6)", []).unwrap();
+        conn.execute("INSERT INTO direct_launch(game_id,kind,executable) VALUES(1,'port',?1)", [r"\\?\C:\Ports\Zelda\game.exe"]).unwrap();
+        assert_eq!(bundled_roms(&conn).unwrap(), std::collections::HashSet::from([2]));
+        assert!(!queries::library(&conn).unwrap().iter().any(|g| g.id==2));
+        // A subsequent scan keeps the row present, without showing it twice.
+        conn.execute("UPDATE games SET missing=0 WHERE id=2", []).unwrap();
+        assert!(!queries::library(&conn).unwrap().iter().any(|g| g.id==2));
+        set(&conn,1,None).unwrap();
+        let restored = queries::library(&conn).unwrap();
+        let rom=restored.iter().find(|g| g.id==2).unwrap();
+        assert_eq!(rom.play_seconds,42);
+        assert!(rom.favorite);
+        assert_eq!(restored.len(),6);
+    }
+
     #[test]
     fn direct_override_validates_and_preserves_game_identity() {
         let conn = crate::db::test_db();

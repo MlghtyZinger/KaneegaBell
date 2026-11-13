@@ -276,3 +276,45 @@ fn wikidata_live() {
     println!("FF X-2: {:?}", series_for(&conn, ff).unwrap());
     assert!(series_for(&conn, jak).unwrap().iter().any(|s| s.name.contains("Jak") && s.number.as_deref() == Some("2")));
 }
+
+#[test]
+fn steam_uses_only_recorded_app_ids_and_matches_identity_not_title() {
+    struct SteamSource(Mutex<Vec<String>>);
+    impl Source for SteamSource {
+        fn select(&self, query: &str) -> Result<Vec<Row>> {
+            self.0.lock().unwrap().push(query.into());
+            assert!(!query.contains("wd:Q1406"), "must not fetch the Windows catalogue");
+            if query.contains("P1733") {
+                assert!(query.contains("\"440\""));
+                assert!(!query.contains("\"730\""));
+                return Ok(vec![row(&[("g", &e(123)), ("app", "440"), ("name", "Different regional title"), ("y", "2007")])]);
+            }
+            Ok(Vec::new())
+        }
+    }
+    let mut conn=db::test_db();
+    conn.execute("INSERT INTO games(id,platform_id,title,sort_title,search_key,launch_path,added_at) VALUES(1,'steam','Team Fortress 2','team fortress 2','team fortress 2','steam://rungameid/440',0)",[]).unwrap();
+    conn.execute("INSERT INTO steam_games(game_id,app_id,library_path,install_dir) VALUES(1,440,'fixture','fixture')",[]).unwrap();
+    conn.execute("UPDATE platforms SET enabled=1 WHERE id='steam'",[]).unwrap();
+    let source=SteamSource(Mutex::new(Vec::new()));
+    let summary=run(&mut conn,&source,false,&|_|{},&AtomicBool::new(false)).unwrap();
+    assert_eq!(summary.matched,1);
+    assert_eq!(status_of(&conn,1),("ok".into(),Some(123)));
+    assert_eq!(source.0.lock().unwrap().len(),2);
+}
+
+#[test]
+fn cancellation_between_name_and_info_requests_stops_the_next_request() {
+    struct CancellingSource<'a>(&'a AtomicBool);
+    impl Source for CancellingSource<'_> {
+        fn select(&self, _: &str) -> Result<Vec<Row>> {
+            assert!(!self.0.swap(true, Ordering::Relaxed), "no second request after cancel");
+            Ok(Vec::new())
+        }
+    }
+    let mut conn=db::test_db();
+    add_game(&conn,"Jak II");
+    let cancel=AtomicBool::new(false);
+    assert!(run(&mut conn,&CancellingSource(&cancel),false,&|_|{},&cancel).is_err());
+    assert_eq!(status_of(&conn,1).0,"none");
+}

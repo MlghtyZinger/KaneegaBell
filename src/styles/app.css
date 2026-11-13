@@ -3416,6 +3416,7 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 
 .rail-icon {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   width: 22px;
   flex: none;
@@ -3467,7 +3468,7 @@ html[data-anim] .overlay.ach-win-screen > .panel {
 .rail.open .rail-row { height: clamp(30px, 3.6vh, 38px); }
 .rail.open .rail-child { padding-left: 24px; }
 .rail-maker { color: var(--text-dim); }
-.maker-icon { position: relative; width: 28px; height: 28px; display: grid; place-items: center; }
+.maker-icon { grid-template-columns: minmax(0, 1fr); position: relative; width: 28px; height: 28px; display: grid; place-items: center; }
 .maker-icon .maker-filter { position: absolute; width: 0; height: 0; }
 .maker-cap { width: 34px; height: auto; max-width: none; }
 .maker-picture { width: 24px; height: 24px; background: currentColor; -webkit-mask: var(--picture) center / contain no-repeat; mask: var(--picture) center / contain no-repeat; }

@@ -25,7 +25,7 @@ export function listenForActivity() {
     }),
     events.onLbFinished((s) => finish("lb", s, `${s.matched} matched - ${s.heroes} backgrounds - ${s.logos} logos`)),
     events.onLbFailed((s) => fail("lb", s)),
-    events.onWdProgress((p) => progress("wd", p, `${p.platform || "Platforms"} - ${p.step === "games" ? "Downloading game list" : "Looking up series"} - ${countText(p.done, p.total, "platforms")}`)),
+    events.onWdProgress((p) => progress("wd", p, `${p.platform || "Platforms"} - ${p.step === "games" ? (p.platform === "Steam" ? "Looking up installed games" : "Downloading game list") : "Looking up series"} - ${countText(p.done, p.total, "platforms")}`)),
     events.onWdFinished((s) => finish("wd", s, `${s.withSeries} games with series`)),
     events.onWdFailed((s) => fail("wd", s)),
     events.onMetaProgress((p) => progress("meta", p)),

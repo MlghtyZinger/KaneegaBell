@@ -110,7 +110,10 @@ pub fn library(conn: &Connection) -> Result<Vec<GameRow>> {
             screenshot: r.get(17)?,
         })
     })?;
-    Ok(rows.collect::<rusqlite::Result<_>>()?)
+    let hidden = crate::direct_launch::bundled_roms(conn)?;
+    let mut games = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    games.retain(|g| !hidden.contains(&g.id));
+    Ok(games)
 }
 
 pub fn count_games(conn: &Connection) -> Result<usize> {
