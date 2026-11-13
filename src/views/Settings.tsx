@@ -1,3 +1,4 @@
+import { ActivityButton } from "../components/ActivityCenter";
 import { createEffect, createResource, createSignal, For, on, onCleanup, onMount, Show, type JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { api, errorText, type EmulatorRow, type ExitCombo, type PlatformRow, type Settings, type SourceRow } from "../api";
@@ -336,6 +337,7 @@ export function SettingsView(props: { onClose: () => void }) {
           />
         </label>
         <div class="topbar-right">
+          <ActivityButton />
           <button class="btn ghost" onClick={props.onClose}>
             Done
           </button>

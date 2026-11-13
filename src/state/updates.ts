@@ -1,4 +1,5 @@
 import { createRoot, createSignal } from "solid-js";
+import { activity } from "./activity";
 import { api, errorText, events, type UpdateInfo, type UpdateProgress } from "../api";
 
 /** The update being offered (dialog open), install progress and errors. */
@@ -26,13 +27,16 @@ function createUpdateStore() {
   }
 
   async function install() {
+    activity.update("update", "KB update", { detail: "Preparing download..." });
     setInstalling(true);
     setError(null);
     setProgress(null);
     try {
       // On success the app exits and the installer restarts it.
       await api.installUpdate();
+      activity.finish("update", "KB update", "Installer started");
     } catch (e) {
+      activity.finish("update", "KB update", errorText(e), "failed");
       setError(errorText(e));
       setInstalling(false);
     }

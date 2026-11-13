@@ -1,0 +1,26 @@
+.activity-statusbar{position:relative;margin-top:auto;flex:none;min-height:44px;display:flex;align-items:center;gap:16px;padding:6px 20px;background:var(--bg-raised);border-top:1px solid var(--border);z-index:5}
+.app>.library,.app>.settings{flex:1;height:auto}
+.activity-button{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.activity-count{border-radius:20px;background:var(--text);color:var(--bg-raised);min-width:20px;padding:1px 5px;text-align:center;font-size:12px}
+.activity-status-summary{min-width:0;display:flex;align-items:center;gap:12px;background:none;border:0;text-align:left;color:var(--text);flex:1;cursor:pointer;padding:3px}
+.activity-status-summary>span{white-space:nowrap}.activity-status-summary>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim)}
+.activity-status-summary progress{max-width:200px;min-width:80px;margin-left:auto}
+.activity-scrim{position:fixed;inset:0;z-index:180;background:#0003}
+.activity-dialog{position:absolute;right:20px;bottom:58px;width:min(470px,calc(100vw - 32px));max-height:min(620px,calc(100vh - 100px));border:1px solid var(--border);border-radius:14px;background:var(--bg-raised);color:var(--text);box-shadow:0 20px 80px #0008;overflow:hidden}
+.activity-panel{display:flex;flex-direction:column;max-height:min(620px,calc(100vh - 100px))}
+.activity-panel header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px;border-bottom:1px solid var(--border)}
+.activity-panel h2{font-size:var(--fs-lg);margin:0}.activity-panel header p{margin:5px 0 0;font-size:var(--fs-sm)}
+.activity-list{overflow:auto;overscroll-behavior:contain;padding:0 20px;min-height:0}
+.activity-job{padding:18px 2px;border-bottom:1px solid var(--border)}.activity-job:last-child{border:0}.activity-job:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+.activity-job-title{display:flex;justify-content:space-between;gap:12px;align-items:baseline}.activity-label{font-size:var(--fs-sm);color:var(--text-dim);white-space:nowrap}.activity-running .activity-label,.activity-done .activity-label{color:var(--text)}
+.activity-failed .activity-label,.activity-warning .activity-label{color:var(--danger)}
+.activity-game{font-size:var(--fs-sm);margin:7px 0 0}.activity-detail{font-size:var(--fs-sm);line-height:1.5;overflow-wrap:anywhere;color:var(--text-dim);margin:7px 0 9px}
+.activity-meter{display:block;width:100%;height:7px;appearance:none;border:0;border-radius:6px;overflow:hidden;background:var(--border);accent-color:var(--accent)}
+.activity-meter::-webkit-progress-bar{background:var(--border);border-radius:6px}.activity-meter::-webkit-progress-value{background:var(--accent-strong);border-radius:6px}
+.activity-meter:indeterminate{background:repeating-linear-gradient(110deg,var(--border) 0 12px,var(--accent) 12px 22px);opacity:.65}
+.activity-panel footer{padding:15px 20px;display:flex;gap:10px;border-top:1px solid var(--border);flex:none}.activity-empty{padding:24px 0}
+@media(max-width:800px){.activity-status-summary>small{display:none}.activity-statusbar{padding:6px 12px;gap:10px}.activity-status-summary{font-size:13px}.activity-status-summary progress{max-width:100px}.activity-dialog{right:12px}}
+
+.app>.tv{bottom:44px}
+
+.activity-announcement{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}

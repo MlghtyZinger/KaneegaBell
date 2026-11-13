@@ -298,6 +298,7 @@ function createLibraryStore() {
       setSgdbProgress(null);
       setSgdbError(msg);
     });
+    void events.onIconFinished(() => void reload());
     void events.onLibraryChanged(() => void reload());
   }
 

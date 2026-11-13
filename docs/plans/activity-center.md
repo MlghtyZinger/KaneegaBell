@@ -1,0 +1,3 @@
+# Activity center
+
+Owner request: visible status/progress for every scan and download, with a browser-style expandable panel. Reuse existing progress events, add icon and manual-match progress and worker queue events, and track individual artwork/manual operations. Show counted/byte progress when known, an explicit indeterminate state otherwise, recent results/errors, cancellation of library jobs and controller/keyboard access. No new dependencies, idle polling or network requests for validation. Preview: docs/activity-preview.html. User requested a development build when ready; check KB is closed first. Native performance verification remains outstanding.

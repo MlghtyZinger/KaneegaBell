@@ -68,26 +68,56 @@ pub fn cover_changed(conn: &Connection, data_dir: &Path, game_id: i64) -> Result
 
 /// The one-time backfill after an update, and new covers found later: crops
 /// every game with a cover but no icon yet. Returns how many were written.
-pub fn run(conn: &Connection, data_dir: &Path, cancel: &AtomicBool) -> Result<usize> {
+#[derive(Clone, serde::Serialize)]
+pub struct Progress {
+    pub done: usize,
+    pub total: usize,
+    pub written: usize,
+    pub failed: usize,
+}
+#[derive(serde::Serialize)]
+pub struct Summary {
+    pub written: usize,
+    pub failed: usize,
+    pub cancelled: bool,
+}
+pub fn run(
+    conn: &Connection,
+    data_dir: &Path,
+    cancel: &AtomicBool,
+    progress: &dyn Fn(Progress),
+) -> Result<Summary> {
     let ids = queries::games_needing_icon(conn)?;
-    if ids.is_empty() {
-        return Ok(0);
-    }
     let total = ids.len();
-    let mut done = 0;
+    let mut p = Progress {
+        done: 0,
+        total,
+        written: 0,
+        failed: 0,
+    };
+    progress(p.clone());
     for id in ids {
         if cancel.load(Ordering::Acquire) {
             break;
         }
         match auto(conn, data_dir, id) {
-            Ok(true) => done += 1,
+            Ok(true) => p.written += 1,
             Ok(false) => {}
-            Err(e) => log::warn!("icon for game {id}: {e}"),
+            Err(e) => {
+                p.failed += 1;
+                log::warn!("icon for game {id}: {e}");
+            }
         }
+        p.done += 1;
+        progress(p.clone());
         std::thread::sleep(PAUSE);
     }
-    log::info!("game icons: {done} of {total} written");
-    Ok(done)
+    log::info!("game icons: {} of {total} written", p.written);
+    Ok(Summary {
+        written: p.written,
+        failed: p.failed,
+        cancelled: cancel.load(Ordering::Acquire),
+    })
 }
 
 #[cfg(test)]
@@ -111,7 +141,12 @@ mod tests {
     }
 
     fn version(conn: &Connection, id: i64) -> i64 {
-        conn.query_row("SELECT MAX(icon_version, 0) FROM games WHERE id = ?1", [id], |r| r.get(0)).unwrap()
+        conn.query_row(
+            "SELECT MAX(icon_version, 0) FROM games WHERE id = ?1",
+            [id],
+            |r| r.get(0),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -162,10 +197,42 @@ mod tests {
         let without = game(&conn, "notfound");
         cover(data.path(), with_cover);
         assert_eq!(queries::games_needing_icon(&conn).unwrap(), [with_cover]);
-        assert_eq!(run(&conn, data.path(), &AtomicBool::new(false)).unwrap(), 1);
+        let seen = std::cell::RefCell::new(Vec::new());
+        let result = run(&conn, data.path(), &AtomicBool::new(false), &|p| {
+            seen.borrow_mut().push((p.done, p.total))
+        })
+        .unwrap();
+        assert_eq!(result.written, 1);
+        assert_eq!(*seen.borrow(), [(0, 1), (1, 1)]);
+        assert!(!result.cancelled);
+        let cancelled = run(&conn, data.path(), &AtomicBool::new(true), &|_| {}).unwrap();
+        assert!(cancelled.cancelled);
         assert!(version(&conn, with_cover) > 0);
         assert_eq!(version(&conn, without), 0);
         assert!(queries::games_needing_icon(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn cancelling_icon_backfill_reports_only_the_completed_items() {
+        let data = tempfile::tempdir().unwrap();
+        let conn = db::test_db();
+        let first = game(&conn, "ok");
+        let second = game(&conn, "ok");
+        cover(data.path(), first);
+        cover(data.path(), second);
+        let cancel = AtomicBool::new(false);
+        let seen = std::cell::RefCell::new(Vec::new());
+        let summary = run(&conn, data.path(), &cancel, &|p| {
+            seen.borrow_mut().push((p.done, p.total));
+            if p.done == 1 {
+                cancel.store(true, Ordering::Release);
+            }
+        })
+        .unwrap();
+        assert_eq!(*seen.borrow(), [(0, 2), (1, 2)]);
+        assert_eq!(summary.written, 1);
+        assert!(summary.cancelled);
+        assert_eq!(queries::count_games_needing_icon(&conn).unwrap(), 1);
     }
 
     #[test]

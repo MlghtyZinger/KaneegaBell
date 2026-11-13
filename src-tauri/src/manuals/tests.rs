@@ -74,12 +74,14 @@ fn matching_a_whole_library_finds_each_games_manual_once() {
     let other = add_game(&conn, "wii", "Wii Sports", None);
     let mut http = FakeHttp::default();
     http.pages.insert(RK_N64.into(), listing());
-    assert_eq!(match_all(&conn, &http, &|| false).unwrap(), 1);
+    let progress = std::cell::RefCell::new(Vec::new());
+    assert_eq!(match_all(&conn, &http, &|| false, &|done, total| progress.borrow_mut().push((done, total))).unwrap(), 1);
+    assert_eq!(*progress.borrow(), [(0, 3), (1, 3), (2, 3), (3, 3)]);
     let source = |id: i64| conn.query_row("SELECT source FROM game_manuals WHERE game_id = ?1", [id], |r| r.get::<_, String>(0)).unwrap();
     assert_eq!((source(found).as_str(), source(missing).as_str(), source(other).as_str()), ("retrokit", "none", "none"));
     // Done: a second pass asks for nothing.
     let asked = http.requests.lock().unwrap().len();
-    assert_eq!(match_all(&conn, &http, &|| false).unwrap(), 0);
+    assert_eq!(match_all(&conn, &http, &|| false, &|_, _| {}).unwrap(), 0);
     assert_eq!(http.requests.lock().unwrap().len(), asked);
 }
 

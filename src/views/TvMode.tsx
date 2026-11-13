@@ -1,3 +1,4 @@
+import { activity } from "../state/activity";
 import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { TvDescription } from "./TvDescription";
 import { api, artUrl, errorText, events, type Collection, type GameRow } from "../api";
@@ -583,6 +584,7 @@ function TvMenu(props: { onStyle: () => void; onClose: () => void; onPlatforms: 
         <button class="tv-menu-item" onClick={props.onSearch}>
           Search
         </button>
+        <button class="tv-menu-item" onClick={() => { props.onClose(); activity.setOpen(true); }}>Activity</button>
         <button class="tv-menu-item" onClick={props.onSettings}>
           Settings
         </button>

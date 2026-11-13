@@ -1,7 +1,25 @@
 // Typed wrappers around the Rust commands. Argument keys are camelCase;
 // Tauri maps them to the commands' snake_case parameters.
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as rawInvoke, type InvokeArgs, type InvokeOptions } from "@tauri-apps/api/core";
+import { activity } from "../state/activity";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+
+const REQUEST_LABELS: Record<string, string> = {
+    cover_candidates: "Searching artwork",
+    collection_image_candidates: "Searching collection artwork", set_collection_image_url: "Downloading collection artwork",
+    set_collection_logo_file: "Saving collection artwork", manual_open: "Preparing manual", manual_candidates: "Searching manuals",
+    manual_choose: "Selecting manual", manual_choose_file: "Saving manual", set_igdb_match: "Applying game details",
+    igdb_search: "Searching game details", lb_search: "Searching game metadata", check_for_update: "Checking for KB updates",
+  };
+
+// Explicit operations only: cached tile/image reads never create activity entries.
+function invoke<T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
+  const fields = args && !Array.isArray(args) && !(args instanceof ArrayBuffer) && !(args instanceof Uint8Array) ? args : {};
+  const label = cmd === "set_cover" ? `Saving ${typeof fields.kind === "string" ? fields.kind : "artwork"}` : cmd === "get_achievements" && fields.refresh === true ? "Refreshing achievements" : REQUEST_LABELS[cmd];
+  return label ? activity.track(label, () => rawInvoke<T>(cmd, args, options), typeof fields.id === "number" ? fields.id : undefined) : rawInvoke<T>(cmd, args, options);
+}
+export interface IconProgress { done: number; total: number; written: number; failed: number }
+export interface IconSummary { written: number; failed: number; cancelled: boolean }
 
 export interface GameRow {
   id: number;
@@ -863,6 +881,14 @@ export const api = {
 };
 
 export const events = {
+  onLibraryQueue: (cb: (p: { jobs: string[]; paused: boolean; cancelled: boolean }) => void) => listen<{ jobs: string[]; paused: boolean; cancelled: boolean }>("library-queue", (e) => cb(e.payload)),
+  onLibraryWorkerFailed: (cb: (s: string) => void) => listen<string>("library-worker-failed", (e) => cb(e.payload)),
+  onIconProgress: (cb: (p: IconProgress) => void) => listen<IconProgress>("icon-progress", (e) => cb(e.payload)),
+  onIconFinished: (cb: (s: IconSummary) => void) => listen<IconSummary>("icon-finished", (e) => cb(e.payload)),
+  onIconFailed: (cb: (s: string) => void) => listen<string>("icon-failed", (e) => cb(e.payload)),
+  onManualMatchProgress: (cb: (p: { done: number; total: number }) => void) => listen<{ done: number; total: number }>("manual-match-progress", (e) => cb(e.payload)),
+  onManualMatchFinished: (cb: (p: { found: number; cancelled: boolean }) => void) => listen<{ found: number; cancelled: boolean }>("manual-match-finished", (e) => cb(e.payload)),
+  onManualMatchFailed: (cb: (s: string) => void) => listen<string>("manual-match-failed", (e) => cb(e.payload)),
   onSteamLaunchWaiting: (cb: (id: number) => void): Promise<UnlistenFn> => listen<number>("steam-launch-waiting", (e) => cb(e.payload)),
   onGameCloseRefused: (cb: (message: string) => void): Promise<UnlistenFn> => listen<string>("game-close-refused", (e) => cb(e.payload)),
   onScanProgress: (cb: (p: ScanProgress) => void): Promise<UnlistenFn> =>

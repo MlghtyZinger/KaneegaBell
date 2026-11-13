@@ -293,6 +293,7 @@ fn upsert(conn: &Connection, app: &Installed) -> Result<bool> {
     Ok(old.is_none())
 }
 
+#[cfg(test)]
 pub fn scan(
     conn: &mut Connection,
     root: &Path,
@@ -300,6 +301,18 @@ pub fn scan(
     approved: &[u32],
     cancel: &AtomicBool,
 ) -> Result<Summary> {
+    scan_with_progress(conn, root, data, approved, cancel, &|_, _, _| {})
+}
+
+pub fn scan_with_progress(
+    conn: &mut Connection,
+    root: &Path,
+    data: &Path,
+    approved: &[u32],
+    cancel: &AtomicBool,
+    progress: &dyn Fn(usize, usize, &str),
+) -> Result<Summary> {
+    progress(0, 0, "Discovering libraries");
     let mut summary = Summary::default();
     let mut apps = BTreeMap::new();
     let mut complete = Vec::new();
@@ -382,7 +395,9 @@ pub fn scan(
         }
     };
     let tx = conn.transaction()?;
-    for app in apps.values_mut() {
+    let total = apps.len();
+    for (done, app) in apps.values_mut().enumerate() {
+        progress(done, total, &app.name);
         if cancel.load(Ordering::Acquire) {
             summary.cancelled = true;
             summary.changes.clear();
@@ -485,8 +500,10 @@ pub fn scan(
         return Ok(summary);
     }
     tx.commit()?;
+    progress(total, total, "Caching Steam artwork");
     // Cache artwork only for imported rows and never overwrite a selected picture.
-    for app in apps.values() {
+    for (done, app) in apps.values().enumerate() {
+        progress(done, total, "Caching Steam artwork");
         if cancel.load(Ordering::Acquire) {
             break;
         }
@@ -503,6 +520,7 @@ pub fn scan(
             }
         }
     }
+    progress(total, total, "Steam scan finished");
     queries::set_setting(conn, "steamLastScan", &serde_json::to_value(&summary)?)?;
     Ok(summary)
 }
@@ -799,8 +817,19 @@ mod tests {
         let data = app.library.join("kb-cache");
         let unknown = scan(&mut conn, &app.library, &data, &[], &cancel).unwrap();
         assert_eq!((unknown.added, unknown.unknown.len()), (0, 1));
-        let added = scan(&mut conn, &app.library, &data, &[123], &cancel).unwrap();
+        let progress = std::cell::RefCell::new(Vec::new());
+        let added = scan_with_progress(
+            &mut conn,
+            &app.library,
+            &data,
+            &[123],
+            &cancel,
+            &|done, total, _| progress.borrow_mut().push((done, total)),
+        )
+        .unwrap();
         assert_eq!(added.added, 1);
+        assert_eq!(progress.borrow().first(), Some(&(0, 0)));
+        assert_eq!(progress.borrow().last(), Some(&(1, 1)));
         conn.execute(
             "UPDATE games SET favorite=1,play_seconds=100 WHERE platform_id='steam'",
             [],

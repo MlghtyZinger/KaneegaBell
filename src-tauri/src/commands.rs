@@ -630,14 +630,27 @@ pub fn cancel_steam_launch(state: State<'_, AppState>, id: i64) { state.launcher
 // jobs never contend for the database. A scan that finds games without art is
 // followed by an art pass automatically (unless "autoArt" is off).
 
+/// Snapshot pending flags only; no idle polling or new scheduler.
+fn emit_library_queue(app: &AppHandle, cancelled: bool) {
+    let state = app.state::<AppState>();
+    let jobs: Vec<&str> = [
+        ("scan", &state.rescan_pending), ("lb", &state.lb_pending),
+        ("art", &state.art_pending), ("icons", &state.icon_pending),
+        ("wd", &state.wd_pending), ("meta", &state.meta_pending),
+        ("sgdb", &state.sgdb_pending), ("ra", &state.ra_pending),
+    ].into_iter().filter_map(|(key, flag)| flag.load(Ordering::Acquire).then_some(key)).collect();
+    let _ = app.emit("library-queue", serde_json::json!({"jobs": jobs, "paused": state.input.game_running.load(Ordering::Acquire), "cancelled": cancelled}));
+}
+
 /// Stops the running job after the item it's on, and drops queued ones.
 /// Finished work is kept; an interrupted scan leaves its folder unchanged.
 #[tauri::command]
-pub fn cancel_scan(state: State<'_, AppState>) {
+pub fn cancel_scan(app: AppHandle, state: State<'_, AppState>) {
     for flag in state.pending_flags() {
         flag.store(false, Ordering::Release);
     }
     state.scan_cancel.store(true, Ordering::Release);
+    emit_library_queue(&app, true);
 }
 
 /// Queues a library scan (followed by an art pass for new games).
@@ -883,6 +896,7 @@ fn meta_wanted(conn: &Connection) -> Result<bool> {
 /// Starts the worker thread unless it's already running (it then picks up the
 /// pending flags itself). Returns false only if the thread couldn't start.
 fn kick_worker(app: AppHandle, state: &AppState) -> bool {
+    emit_library_queue(&app, false);
     if state.scanning.swap(true, Ordering::AcqRel) {
         return true;
     }
@@ -901,13 +915,16 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
     let input = state.input.clone();
     let db_path = state.db_path.clone();
     let data_dir = state.data_dir().to_path_buf();
+    let failure_app = app.clone();
     std::thread::Builder::new()
         .name("library-jobs".into())
         .spawn(move || loop {
+            emit_library_queue(&app, false);
             // Queued passes wait for the game to end (a pass already running finishes first).
             while input.game_running.load(Ordering::Acquire) {
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
+            emit_library_queue(&app, false);
             cancel.store(false, Ordering::Release);
             // Order: scan, LaunchBox (it decides covers, so before them),
             // covers (what people wait to see), Wikidata (after LaunchBox,
@@ -922,6 +939,8 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
                 meta_pending.fetch_or(next.meta, Ordering::AcqRel);
                 ra_pending.fetch_or(next.ra, Ordering::AcqRel);
                 sgdb_pending.fetch_or(next.sgdb, Ordering::AcqRel);
+                let icons = !cancel.load(Ordering::Acquire) && db::open(&db_path).and_then(|c| queries::count_games_needing_icon(&c)).unwrap_or(0) > 0;
+                icon_pending.fetch_or(icons, Ordering::AcqRel);
             } else if lb_pending.swap(false, Ordering::AcqRel) {
                 let force = lb_force.swap(false, Ordering::AcqRel);
                 let covers = run_lb(&app, &db_path, &data_dir, force, &cancel);
@@ -965,6 +984,7 @@ fn kick_worker(app: AppHandle, state: &AppState) -> bool {
         })
         .map(|_| true)
         .unwrap_or_else(|e| {
+            let _ = failure_app.emit("library-worker-failed", format!("Could not start the library worker: {e}"));
             log::error!("could not start the library worker: {e}");
             state.scanning.store(false, Ordering::Release);
             false
@@ -1011,7 +1031,9 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
             if let Some(root) = queries::get_setting::<String>(&conn, "steamRoot")? {
                 let _ = app.emit("scan-progress", &scanner::Progress { phase: "scanning", source: "Steam".into(), done: 0, total: 1, files_done: 0, files_total: 0 });
                 let approved = queries::get_setting::<Vec<u32>>(&conn, "steamApprovedApps")?.unwrap_or_default();
-                match crate::steam::scan(&mut conn, Path::new(&root), db_path.parent().unwrap_or(Path::new(".")), &approved, cancel) {
+                match crate::steam::scan_with_progress(&mut conn, Path::new(&root), db_path.parent().unwrap_or(Path::new(".")), &approved, cancel, &|done, total, step| {
+                    if done == 0 || due(done == total) { let _ = app.emit("scan-progress", scanner::Progress { phase: "scanning", source: format!("Steam - {step}"), done, total, files_done: 0, files_total: 0 }); }
+                }) {
                     Ok(steam) => {
                         summary.added += steam.added; summary.updated += steam.updated; summary.missing += steam.missing;
                         summary.cancelled |= steam.cancelled; summary.warnings.extend(steam.warnings); summary.changes.extend(steam.changes);
@@ -1813,18 +1835,27 @@ fn spawn_manual_match(app: AppHandle) {
     if RUNNING.swap(true, Ordering::AcqRel) {
         return;
     }
+    let failure_app = app.clone();
     let started = std::thread::Builder::new().name("manuals".into()).spawn(move || {
         let state = app.state::<AppState>();
+        let cancelled = AtomicBool::new(false);
+        let due = throttled(150);
         let result = db::open(&state.db_path).and_then(|conn| {
-            crate::manuals::match_all(&conn, &art::http::Http::new(), &|| !crate::manuals::downloads_on(&conn) || state.input.game_running.load(Ordering::Acquire))
+            crate::manuals::match_all(&conn, &art::http::Http::new(), &|| {
+                let stop = !crate::manuals::downloads_on(&conn) || state.input.game_running.load(Ordering::Acquire);
+                if stop { cancelled.store(true, Ordering::Release); } stop
+            }, &|done, total| {
+                if done == 0 || due(done == total) { let _ = app.emit("manual-match-progress", serde_json::json!({"done":done,"total":total})); }
+            })
         });
         match result {
-            Ok(n) => log::info!("manuals: {n} games matched"),
-            Err(e) => log::warn!("manual matching: {e}"),
+            Ok(n) => { let _ = app.emit("manual-match-finished", serde_json::json!({"found":n,"cancelled":cancelled.load(Ordering::Acquire)})); }
+            Err(e) => { log::warn!("manual matching: {e}"); let _ = app.emit("manual-match-failed", e.to_string()); }
         }
         RUNNING.store(false, Ordering::Release);
     });
-    if started.is_err() {
+    if let Err(e) = started {
+        let _ = failure_app.emit("manual-match-failed", format!("Could not start manual matching: {e}"));
         RUNNING.store(false, Ordering::Release);
     }
 }
@@ -2263,10 +2294,17 @@ fn run_art(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool
 }
 
 fn run_icons(app: &AppHandle, db_path: &Path, data_dir: &Path, cancel: &AtomicBool) {
-    match db::open(db_path).and_then(|conn| art::icons::run(&conn, data_dir, cancel).map_err(Into::into)) {
-        Ok(count) if count > 0 => { let _ = app.emit("library-changed", ()); }
-        Ok(_) => {}
-        Err(e) => log::warn!("game icon backfill failed: {e}"),
+    let due = throttled(150);
+    let reload_due = throttled(2000);
+    match db::open(db_path).and_then(|conn| art::icons::run(&conn, data_dir, cancel, &|p| {
+        if p.done == 0 || due(p.done == p.total) { let _ = app.emit("icon-progress", &p); }
+        if p.written > 0 && reload_due(false) { let _ = app.emit("library-changed", ()); }
+    })) {
+        Ok(summary) => {
+            let _ = app.emit("icon-finished", &summary);
+            if summary.written > 0 { let _ = app.emit("library-changed", ()); }
+        }
+        Err(e) => { log::warn!("game icon backfill failed: {e}"); let _ = app.emit("icon-failed", e.to_string()); }
     }
 }
 

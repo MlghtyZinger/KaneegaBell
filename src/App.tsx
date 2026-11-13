@@ -13,6 +13,7 @@ const ManualViewer = lazy(() => import("./views/ManualViewer").then((m) => ({ de
 import { manual } from "./state/manual";
 import { NowPlaying } from "./views/NowPlaying";
 import { OskHost } from "./components/OnScreenKeyboard";
+import { ActivityCenter } from "./components/ActivityCenter";
 import { ScanToast } from "./components/ScanToast";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { updates } from "./state/updates";
@@ -204,6 +205,7 @@ export default function App() {
       <OskHost />
       {/* Settings shows the full report itself. */}
       <ScanToast hidden={view() === "settings"} />
+      <ActivityCenter hidden={!!session.running() || launchPresenting()} />
       <LaunchHost />
       <Intros />
     </main>

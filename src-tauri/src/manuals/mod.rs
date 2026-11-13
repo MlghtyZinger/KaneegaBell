@@ -201,7 +201,7 @@ fn lookup_with(conn: &Connection, matcher: &sources::Matcher, game_id: i64) -> R
 
 /// Matches every game that has no manual row yet (downloads on: run in the background
 /// so the buttons know before they're pressed). Returns how many were found.
-pub fn match_all(conn: &Connection, fetch: &dyn Fetch, cancel: &dyn Fn() -> bool) -> Result<usize> {
+pub fn match_all(conn: &Connection, fetch: &dyn Fetch, cancel: &dyn Fn() -> bool, progress: &dyn Fn(usize, usize)) -> Result<usize> {
     let mut stmt = conn.prepare(
         "SELECT g.id, g.platform_id FROM games g LEFT JOIN game_manuals m ON m.game_id = g.id
          WHERE g.missing = 0 AND (m.game_id IS NULL OR (m.source = 'none' AND m.checked_at < ?1))
@@ -210,7 +210,9 @@ pub fn match_all(conn: &Connection, fetch: &dyn Fetch, cancel: &dyn Fn() -> bool
     let games: Vec<(i64, String)> = stmt.query_map([queries::now() - NONE_RETRY_SECS], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?;
     let mut found = 0;
     let mut current: Option<(String, sources::Matcher)> = None;
-    for (id, platform) in games {
+    let total = games.len();
+    progress(0, total);
+    for (done, (id, platform)) in games.into_iter().enumerate() {
         if cancel() {
             break;
         }
@@ -221,6 +223,7 @@ pub fn match_all(conn: &Connection, fetch: &dyn Fetch, cancel: &dyn Fn() -> bool
         if lookup_with(conn, &current.as_ref().unwrap().1, id)?.is_some() {
             found += 1;
         }
+        progress(done + 1, total);
     }
     Ok(found)
 }

@@ -1,3 +1,5 @@
+import { ActivityButton } from "../components/ActivityCenter";
+import { activity } from "../state/activity";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { collectionKeyOf, library, type PlatformFilter } from "../state/library";
 import { collections, COLLECTION_SORTS } from "../state/collections";
@@ -30,68 +32,6 @@ import { GameSidebar } from "../components/GameSidebar";
 import { moveIn } from "../fx/motion";
 import { DesktopBackground, DesktopDock } from "../components/DesktopStyle";
 import { api, errorText, type GameRow } from "../api";
-
-/** What the background worker is doing (one job at a time). */
-function JobPill() {
-  const text = createMemo(() => {
-    const scan = library.scanProgress();
-    if (scan) return `Scanning ${scan.total > 0 ? `${scan.done + 1}/${scan.total}` : "…"}`;
-    const lb = library.lbProgress();
-    if (lb) {
-      const mb = (n: number) => Math.round(n / 1_000_000);
-      return {
-        checking: "LaunchBox: checking for updates",
-        downloading: `LaunchBox: one-time download of its game list (about 100 MB, kept for later)${lb.total > 0 ? ` ${mb(lb.done)}/${mb(lb.total)} MB` : "…"}`,
-        reading: "LaunchBox: reading its saved game list",
-        matching: "LaunchBox: matching games",
-        images: `LaunchBox pictures ${lb.done}/${lb.total}`,
-      }[lb.phase];
-    }
-    const wd = library.wdProgress();
-    if (wd?.platform) {
-      const step = wd.step === "games" ? "downloading its game list" : "looking up series";
-      return `Series (Wikidata): ${wd.platform}, ${step} (${wd.done + 1}/${wd.total})`;
-    }
-    const jobs: [string, { done: number; total: number } | null][] = [
-      ["Series (Wikidata)", wd],
-      ["Covers", library.artProgress()],
-      ["Game info", library.metaProgress()],
-      ["Artwork", library.sgdbProgress()],
-      ["Achievements", library.raProgress()],
-    ];
-    const active = jobs.find(([, p]) => p);
-    return active ? `${active[0]} ${active[1]!.done}/${active[1]!.total}` : null;
-  });
-  // A step that takes a while (a big download, a slow server) shows its
-  // seconds, so a slow step doesn't look stuck. Ticks only while a job runs.
-  const [now, setNow] = createSignal(Date.now());
-  let changedAt = Date.now();
-  createEffect(on(text, () => (changedAt = Date.now())));
-  createEffect(
-    on(
-      () => !!text(),
-      (busy) => {
-        if (!busy) return;
-        const id = setInterval(() => setNow(Date.now()), 1000);
-        onCleanup(() => clearInterval(id));
-      },
-    ),
-  );
-  const shown = () => {
-    const t = text();
-    const secs = Math.floor((now() - changedAt) / 1000);
-    return t && secs >= 3 ? `${t} · ${secs} s` : t;
-  };
-  return (
-    <Show when={shown()}>
-      {(t) => (
-        <span class="scan-pill" title={t()}>
-          {t()}
-        </span>
-      )}
-    </Show>
-  );
-}
 
 function initial(title: string): string {
   const c = title.replace(/^(the|a|an)\s+/i, "").charAt(0).toUpperCase();
@@ -346,7 +286,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
 
   // Controller focus on the top bar (up from the top row), or null.
   const [topFocus, setTopFocus] = createSignal<string | null>(null);
-  const topActions = () => ["search", "filter", "tv", "settings"];
+  const topActions = () => ["search", "filter", "activity", "tv", "settings"];
   function topAction(a: Action): boolean {
     const acts = topActions();
     const i = Math.max(0, acts.indexOf(topFocus()!));
@@ -361,6 +301,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         setTopFocus(null);
         if (f === "search") openSearch();
         else if (f === "filter") setFilterOpen(true);
+        else if (f === "activity") activity.setOpen(true);
         else if (f === "tv") props.onTvMode();
         else props.onOpenSettings();
         return true;
@@ -652,7 +593,7 @@ export function LibraryView(props: { onOpenSettings: () => void; onTvMode: () =>
         </div>
         <div class="topbar-right">
           {/* Background progress lives here: the footer is full of key hints. */}
-          <JobPill />
+          <ActivityButton focused={topFocus() === "activity"} />
           <span class="zoom-top" hidden={library.listView()}>
             <Badge actions={["zoomOut", "zoomIn"]} />
             <input
