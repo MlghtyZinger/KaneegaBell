@@ -896,6 +896,7 @@ remains outstanding.
 ## Patch notes
 
 ### 0.7.0 (unreleased)
+- Fixed: missing manuals clearly say No manual available, and the button refreshes its status instead of keeping an outdated label.
 - New: connect installed Epic, GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect and compatible EA games from Game launchers in Settings.
 - Improved: Steam and other launcher platforms have recognizable source symbols; all client games use safe process tracking and polite-only close.
 - New: a visible Activity bar and expandable panel show scan, download, artwork and icon progress, queued jobs, recent results and errors (Ctrl+J).

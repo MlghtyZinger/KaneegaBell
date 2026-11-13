@@ -1,5 +1,5 @@
 import { createResource, createSignal, Show } from "solid-js";
-import { api, type ManualStatus } from "../api";
+import { api, errorText, type ManualStatus } from "../api";
 import { manual } from "../state/manual";
 
 /** Why the button is greyed out, or what pressing it does. */
@@ -19,24 +19,41 @@ export function manualHint(s: ManualStatus | undefined): string {
  * already: finding and downloading happen when it's pressed.
  */
 export function ManualButton(props: { gameId: number; title: string; class?: string }) {
-  const [status] = createResource(() => props.gameId, (id) => api.manualStatus(id).catch(() => undefined));
+  const [status, { mutate }] = createResource(() => ({ id: props.gameId, open: manual.open()?.gameId === props.gameId }), ({ id }) => api.manualStatus(id).catch(() => undefined));
   const [why, setWhy] = createSignal(false);
+  const [checking, setChecking] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const activate = async () => {
+    if (checking()) return;
+    setChecking(true); setError(null);
+    const id = props.gameId, title = props.title;
+    try {
+      const current = await api.manualStatus(id);
+      if (id !== props.gameId) return;
+      mutate(current);
+      if (!current) throw new Error("Couldn't check this game's manual. Try again.");
+      if (current.state === "none" || current.state === "off") setWhy(true);
+      else manual.show(id, title);
+    } catch (e) { setError(errorText(e)); }
+    finally { setChecking(false); }
+  };
   const dim = () => status()?.state === "off" || status()?.state === "none";
   return (
     <>
       <button
         class={props.class ?? "btn"}
         classList={{ "manual-off": dim() }}
-        aria-disabled={dim() ? "true" : undefined}
         title={manualHint(status())}
-        onClick={() => (dim() ? setWhy(!why()) : manual.show(props.gameId, props.title))}
+        aria-busy={checking()}
+        onClick={() => void activate()}
         onBlur={() => setWhy(false)}
       >
-        {status()?.state === "off" ? "Manual (downloads off)" : status()?.state === "none" ? "Manual (none found)" : "Manual"}
+        {status()?.state === "off" ? "Manual (downloads off)" : status()?.state === "none" ? "No manual available" : "Manual"}
       </button>
       <Show when={why()}>
-        <p class="manual-why dim small">{manualHint(status())}</p>
+        <p class="manual-why dim small" role="status">{manualHint(status())}</p>
       </Show>
+      <Show when={error()}><p class="manual-why warn small" role="alert">{error()}</p></Show>
     </>
   );
 }

@@ -152,14 +152,17 @@ fn source_label(r: &Row) -> String {
 
 pub fn status(conn: &Connection, data_dir: &Path, game_id: i64) -> Result<Status> {
     let on = downloads_on(conn);
+    let (platform, _) = game_key(conn, game_id)?;
+    let searchable = sources::retrokit_system(&platform).is_some() || !sources::ia_collections(&platform).is_empty();
+    let absent = if !on { "off" } else if searchable { "unknown" } else { "none" };
     let Some(r) = row(conn, game_id)? else {
-        return Ok(Status { state: if on { "unknown" } else { "off" }, source: None });
+        return Ok(Status { state: absent, source: None });
     };
     let source = Some(source_label(&r));
     let state = match r.source.as_str() {
         "file" if r.url.as_deref().is_some_and(|p| Path::new(p).is_file()) => "ready",
-        "file" => return Ok(Status { state: if on { "unknown" } else { "off" }, source: None }),
-        "none" if on && queries::now() - r.checked_at > NONE_RETRY_SECS => "unknown",
+        "file" => return Ok(Status { state: absent, source: None }),
+        "none" if on && searchable && queries::now() - r.checked_at > NONE_RETRY_SECS => "unknown",
         "none" => "none",
         _ if r.pages.is_some() || source_pdf(data_dir, game_id).is_file() => "ready",
         _ if on => "available",

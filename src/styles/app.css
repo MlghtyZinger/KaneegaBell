@@ -4158,5 +4158,5 @@ button.side-series:hover {
 }
 
 /* The Manual button greyed out (downloads off, or none found): still reachable, so it can say why. */
-.manual-off { opacity: .5; }
+.manual-off { color: var(--text-dim); }
 .manual-why { margin: 0; max-width: 40ch; }

@@ -279,3 +279,19 @@ fn folders_of_removed_games_are_pruned() {
     assert!(!dir(data.path(), 999).exists());
     assert!(!data.path().join("manuals").join("junk").exists());
 }
+
+#[test]
+fn platforms_without_manual_sources_report_none_but_allow_a_personal_manual() {
+    let conn = crate::db::test_db();
+    let data = tempfile::tempdir().unwrap();
+    let id = add_game(&conn, "gog", "Journey to the Savage Planet", None);
+    downloads(&conn, true);
+    assert_eq!(status(&conn, data.path(), id).unwrap().state, "none");
+    set_row(&conn, id, "none", "", None, false).unwrap();
+    conn.execute("UPDATE game_manuals SET checked_at=0 WHERE game_id=?1", [id]).unwrap();
+    assert_eq!(status(&conn, data.path(), id).unwrap().state, "none");
+    let own = data.path().join("manual.pdf");
+    fs::write(&own, pdf()).unwrap();
+    choose_file(&conn, data.path(), id, own.to_str().unwrap()).unwrap();
+    assert_eq!(status(&conn, data.path(), id).unwrap().state, "ready");
+}
