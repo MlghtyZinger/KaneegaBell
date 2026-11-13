@@ -866,7 +866,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 - [x] s (part 1). LaunchBox Games Database: covers, logos, backgrounds and game info without a key
 - [x] s (part 2). Wikidata: series and franchises without a key
 
-## Installed PC launchers (0.7.0 preview)
+## Installed PC launchers (0.7.0)
 
 Open **Settings > Library > Game launchers > Manage** to connect Steam, Epic Games,
 GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect or EA. Connect only
@@ -888,14 +888,18 @@ alone do not prove installation. Local client layouts can change.
 
 Play time starts only after an exact, newly started game process is detected.
 Cancel stops waiting, with no play time recorded; the client/game may still open.
-Launcher games receive polite close requests only. This preview still needs manual
-real-game validation across the newly added clients; automated imports are not a
-claim that every protected game is trackable. Native performance validation also
-remains outstanding.
+Launcher games receive polite close requests only. Real-game verification across
+newly added clients remains limited; automated imports do not establish that every
+protected game is trackable. The 5,000-game performance run passed with animations
+Off; Full still fails the saved startup/idle-CPU gate. Both held 240 fps while
+scrolling. See docs/sidebar-icons-validation.md for the measurements.
 
 ## Patch notes
 
-### 0.7.0 (unreleased)
+### 0.7.0
+- Known issue: Full desktop animations increase idle CPU. Animations Off passed the saved performance gate; Full still fails on startup and idle CPU. Both held 240 fps scrolling in the 5,000-game check.
+- Known limitation: EA support depends on its local installed-game records; protected or unknown game layouts may need an explicit executable choice.
+- Fixed: API keys stay in KB's encrypted keys file, case-only renames work, a second app instance is prevented, and cancelling a library job stops the remaining chain.
 - Improved: theme-colored sidebar family symbols replace abbreviations, with the supplied Mario cap for Nintendo and a softer selected highlight.
 - Fixed: missing manuals clearly say No manual available, and the button refreshes its status instead of keeping an outdated label.
 - New: connect installed Epic, GOG Galaxy, Battle.net, Xbox PC, Amazon Games, Ubisoft Connect and compatible EA games from Game launchers in Settings.
