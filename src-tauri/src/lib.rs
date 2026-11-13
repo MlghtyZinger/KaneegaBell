@@ -18,6 +18,7 @@ mod perf;
 mod platforms;
 mod scanner;
 mod secrets;
+mod steam;
 mod themes;
 mod updates;
 mod wikidata;
@@ -284,7 +285,7 @@ pub fn run() {
             input::gamepad::spawn(
                 app.handle().clone(),
                 input,
-                Arc::new(move || handle.state::<commands::AppState>().launcher.request_exit()),
+                Arc::new(move || handle.state::<commands::AppState>().launcher.request_exit(&handle)),
                 Arc::new(move || handle2.state::<commands::AppState>().launcher.toggle_manual(&handle2)),
             );
             commands::perf_log(&dir, "setup_done");
@@ -316,6 +317,11 @@ pub fn run() {
             commands::forget_recent,
             commands::preview_launch,
             commands::launch_game,
+            commands::find_steam,
+            commands::connect_steam,
+            commands::steam_game,
+            commands::set_steam_tracking,
+            commands::cancel_steam_launch,
             commands::finish_launch,
             commands::exit_game,
             commands::get_running,

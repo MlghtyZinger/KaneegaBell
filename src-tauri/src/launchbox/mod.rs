@@ -683,7 +683,7 @@ fn fetch_extra(conn: &Connection, data_dir: &Path, fetch: &dyn Fetch, game_id: i
     let current: Option<String> = conn
         .query_row("SELECT source FROM artwork WHERE game_id = ?1 AND kind = ?2 AND selected = 1", params![game_id, extra.kind()], |r| r.get(0))
         .optional()?;
-    if current.as_deref() == Some("launchbox") {
+    if matches!(current.as_deref(), Some("launchbox" | "steam")) {
         return Ok(false);
     }
     // Logos carry text: English or region-free ones first (a Japanese logo only when there's nothing else).

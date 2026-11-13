@@ -419,7 +419,7 @@ export function SettingsView(props: { onClose: () => void }) {
 function platformOptions(platforms: PlatformRow[]) {
   return [
     { value: "", label: "Auto (mixed folder)" },
-    ...platforms.filter((p) => p.enabled).map((p) => ({ value: p.id, label: p.name })),
+    ...platforms.filter((p) => p.enabled && p.id !== "steam").map((p) => ({ value: p.id, label: p.name })),
   ];
 }
 
@@ -463,6 +463,7 @@ function LibrarySection(props: { s: Settings; run: Run }) {
 
   return (
     <section class="card-section set-list">
+      <SteamSettings s={props.s} run={props.run} />
       <Row
         k="scan"
         open={(!!library.scanError() || !!library.lastScan()?.warnings.length || !!library.report()) && "Report…"}
@@ -654,6 +655,42 @@ function LibrarySection(props: { s: Settings; run: Run }) {
   );
 }
 
+/** Explicit connection: no Steam folders or registry are read merely by opening Settings. */
+function SteamSettings(props: { s: Settings; run: Run }) {
+  const [browsing, setBrowsing] = createSignal(false);
+  const root = () => props.s.values.steamRoot as string | undefined;
+  const [report] = createResource(() => [root(), library.lastScan()] as const, () => api.getSetting<import("../api").SteamScan>("steamLastScan"));
+  const connect = (path: string) => props.run(async () => { await api.connectSteam(path); await library.scan(); });
+  const find = () => props.run(async () => { await api.connectSteam(await api.findSteam()); await library.scan(); });
+  const approve = (appId: number) => props.run(async () => {
+    const previous = await api.getSetting<number[]>("steamApprovedApps") ?? [];
+    await api.setSetting("steamApprovedApps", [...new Set([...previous, appId])]);
+    await library.scan();
+  });
+  return <Row k="steam" title="Steam" words="installed pc launcher library games" detail="Read installed-game manifests, cached metadata and artwork from Steam. Games launch through Steam. KB never changes Steam's files." status={root() ? "Connected" : "Not connected"} open="Manage…" sub={<>
+    <p>KB reads Steam's library list, installed-game manifests, metadata and cached artwork. Steam handles launching and its usual login or update prompts.</p>
+    <Show when={root()}>{(path) => <p class="mono">{path()}</p>}</Show>
+    <div class="row">
+      <button class="btn" disabled={!!library.scanProgress()} onClick={() => void find()}>Find Steam</button>
+      <button class="btn" disabled={!!library.scanProgress()} onClick={() => setBrowsing(true)}>Browse…</button>
+      <Show when={root()}><button class="btn danger" disabled={!!library.scanProgress()} onClick={() => void props.run(() => api.connectSteam(null), { reloadLibrary: true })}>Disconnect Steam</button></Show>
+    </div>
+    <p class="dim small">Disconnecting hides Steam games in KB and preserves their saved history. It does not uninstall anything.</p>
+    <Show when={root() ? report() : null}>{(r) => <>
+      <p>{r().added} added · {r().updated} updated · {r().missing} no longer installed</p>
+      <For each={r().warnings}>{(w) => <p class="warn">{w}</p>}</For>
+      <Show when={r().unknown.length}><h3>Unclassified installed apps</h3><p>Steam's cached metadata could not confirm these are games. Add only the games you want in KB.</p>
+        <For each={r().unknown}>{(app) => <div class="row"><span>{app.name}</span><button class="btn" disabled={!!library.scanProgress()} onClick={() => void approve(app.appId)}>Add this game</button></div>}</For>
+      </Show>
+    </>}</Show>
+    <Show when={browsing()}><FileBrowser title="Steam installation folder containing steam.exe" mode="folder" start={root()} onPick={(p) => { setBrowsing(false); void connect(p); }} onClose={() => setBrowsing(false)} /></Show>
+  </>}>
+    <Show when={root()} fallback={<button class="btn primary" onClick={() => void find()}>Connect Steam</button>}>
+      <button class="btn" disabled={!!library.scanProgress()} onClick={() => void library.scan()}>Scan Steam</button>
+    </Show>
+  </Row>;
+}
+
 function SourceRowView(props: { src: SourceRow; s: Settings; run: Run }) {
   const hdd0 = () => props.src.kind === "ps3_hdd0";
   return (
@@ -717,7 +754,7 @@ function achievementsNote(a: boolean | null): string {
 function EmulatorsSection(props: { s: Settings; run: Run }) {
   const [browsing, setBrowsing] = createSignal(false);
   const coresDir = () => (props.s.values.retroarchCoresDir as string | undefined) ?? "";
-  const builtIn = () => props.s.emulators.filter((e) => !e.custom);
+  const builtIn = () => props.s.emulators.filter((e) => !e.custom && e.id !== "steam");
 
   const detect = (folder: string) =>
     props.run(
@@ -879,7 +916,7 @@ function PlatformsSection(props: { s: Settings; run: Run }) {
   return (
     <section class="card-section set-list" id="set-platforms">
       <div class="set-tiles">
-      <For each={props.s.platforms}>
+      <For each={props.s.platforms.filter((p) => p.id !== "steam")}>
         {(p) => (
           <Row
             tile

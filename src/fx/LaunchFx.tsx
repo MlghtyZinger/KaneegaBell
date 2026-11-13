@@ -1,11 +1,12 @@
 import { createRoot, createSignal, onCleanup, Show } from "solid-js";
-import { api, type GameRow } from "../api";
+import { api, events, type GameRow } from "../api";
 import { pushHandler } from "../input/actions";
 import { fx } from "../state/fx";
 import { library } from "../state/library";
 import { hush, sfx } from "./audio";
 import { caseOf, Model } from "./Model";
 import { Stage } from "./Stage";
+import { NavScope } from "../components/NavScope";
 
 interface Run {
   game: GameRow;
@@ -26,6 +27,7 @@ function launchAnimation(gameId: number): Promise<boolean> {
 }
 
 export const launchDone = () => store.setRun(null);
+const [steamWaiting, setSteamWaiting] = createRoot(() => createSignal<GameRow | null>(null));
 
 const [presenting, setPresenting] = createRoot(() => createSignal(false));
 export const launchPresenting = presenting;
@@ -36,21 +38,26 @@ export async function playGame(gameId: number, ps2Duration?: number) {
   setPresenting(true);
   document.documentElement.classList.add("launch-presenting");
   const game = library.games().find((g) => g.id === gameId);
-  if (game && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
+  if (game?.platformId !== "steam" && game && (!fx.launchFx() || ps2Duration !== undefined)) sfx(caseOf(game.platformId).m === "cart" ? "cart" : "disc");
   let timer: ReturnType<typeof setTimeout> | undefined;
   let skip = () => {};
-  const animation = ps2Duration === undefined ? launchAnimation(gameId) : new Promise<boolean>((resolve) => {
+  const steam = game?.platformId === "steam";
+  const animation = steam ? Promise.resolve(true) : ps2Duration === undefined ? launchAnimation(gameId) : new Promise<boolean>((resolve) => {
     skip = () => resolve(true);
     timer = setTimeout(skip, ps2Duration);
   });
   const remove = pushHandler((a) => {
     if (a === "back") { store.run()?.go(true); launchDone(); skip(); }
-    return true;
+    return !steam; // The waiting panel owns its cancel control.
   }, true);
+  let stopWaitingListener: (() => void) | undefined;
   try {
+    if (steam) stopWaitingListener = await events.onSteamLaunchWaiting((id) => { if (id === gameId && game) setSteamWaiting(game); });
     await Promise.all([api.launchGame(gameId, true), animation]);
     await api.finishLaunch(gameId);
   } finally {
+    stopWaitingListener?.();
+    setSteamWaiting(null);
     clearTimeout(timer);
     remove();
     launchDone();
@@ -61,9 +68,15 @@ export async function playGame(gameId: number, ps2Duration?: number) {
 
 export function LaunchHost() {
   return (
-    <Show when={store.run()} keyed>
-      {(r) => <Launch run={r} />}
-    </Show>
+    <>
+      <Show when={steamWaiting()}>{(g) => <div class="overlay"><NavScope class="panel" modal onBack={() => void api.cancelSteamLaunch(g().id)}>
+        <p class="dim">Waiting for Steam</p><h2>{g().title}</h2>
+        <p>Play time starts when the game is detected. Steam may show its normal login, update or launch options.</p>
+        <button class="btn" data-autofocus onClick={() => void api.cancelSteamLaunch(g().id)}>Cancel wait</button>
+        <p class="dim small">Cancelling stops KB's wait; Steam or the game may still open.</p>
+      </NavScope></div>}</Show>
+      <Show when={store.run()} keyed>{(r) => <Launch run={r} />}</Show>
+    </>
   );
 }
 

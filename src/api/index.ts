@@ -513,6 +513,14 @@ export function raMediaUrl(name: string, kind: "ra" | "rai" = "ra"): string {
   return `${THUMB_BASE}/${kind}/${encodeURIComponent(name)}`;
 }
 
+export interface SteamGame {
+  appId: number; installDir: string; executables: string[]; trackingExe: string | null;
+}
+export interface SteamScan {
+  added: number; updated: number; missing: number; cancelled: boolean;
+  warnings: string[]; unknown: { appId: number; name: string }[];
+}
+
 export interface RunningGame {
   gameId: number;
   title: string;
@@ -690,6 +698,11 @@ export const api = {
   forgetRecent: (id: number) => invoke<void>("forget_recent", { id }),
   previewLaunch: (id: number) => invoke<LaunchPreview>("preview_launch", { id }),
   /** `emulator`: this launch only (else the game's pick or the platform's default). */
+  findSteam: () => invoke<string>("find_steam"),
+  connectSteam: (path: string | null) => invoke<void>("connect_steam", { path }),
+  steamGame: (id: number) => invoke<SteamGame | null>("steam_game", { id }),
+  setSteamTracking: (id: number, path: string | null) => invoke<void>("set_steam_tracking", { id, path }),
+  cancelSteamLaunch: (id: number) => invoke<void>("cancel_steam_launch", { id }),
   launchGame: (id: number, presenting = false) => invoke<RunningGame>("launch_game", { id, presenting }),
   finishLaunch: (id: number) => invoke<void>("finish_launch", { id }),
   gameEmulators: (id: number) => invoke<GameEmulators>("game_emulators", { id }),
@@ -850,6 +863,8 @@ export const api = {
 };
 
 export const events = {
+  onSteamLaunchWaiting: (cb: (id: number) => void): Promise<UnlistenFn> => listen<number>("steam-launch-waiting", (e) => cb(e.payload)),
+  onGameCloseRefused: (cb: (message: string) => void): Promise<UnlistenFn> => listen<string>("game-close-refused", (e) => cb(e.payload)),
   onScanProgress: (cb: (p: ScanProgress) => void): Promise<UnlistenFn> =>
     listen<ScanProgress>("scan-progress", (e) => cb(e.payload)),
   onScanFinished: (cb: (s: ScanSummary) => void): Promise<UnlistenFn> =>

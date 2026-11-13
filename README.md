@@ -868,6 +868,11 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 
 ## Patch notes
 
+### 0.7.0 (unreleased)
+- New: connect installed Steam games as a Steam platform in KB, with local cached artwork and existing metadata sources.
+- New: launch Steam games through Steam and track the actual game executable, with a cancellable 60-second wait and an explicit tracking-file fallback.
+- Changed: closing a Steam game sends a polite request only; KB never force-closes Steam or a Steam game.
+
 ### 0.6.0
 - New: KB Console menu and game-start sounds for desktop and KB TV mode, with a Settings preview.
 - Fixed: KB TV mode now uses the matching PS2, PS3 or Wii menu sounds when that Style is selected.
@@ -1189,3 +1194,17 @@ window, so they're written for players.
 - New: installer (no admin rights needed).
 - New: signed automatic updates, with Update now / Later / Skip this version.
 - New: Settings → General → Updates: Check now, and an option to turn update checks off.
+
+## Steam integration (0.7.0, unreleased)
+
+Settings > Library > Steam connects Steam after an explicit player action. Find Steam reads only Valve's Steam install-location registry values; Browse is available for a custom folder. Connected library scans read libraryfolders.vdf, installed app manifests, the local appinfo cache and cached library artwork. KB never writes Steam's files or reads account credentials, saves, screenshots or Workshop files.
+
+Only installed games are imported automatically when cached app metadata identifies them as games. If that metadata is unavailable or unsupported, Manage lists unclassified installed apps for explicit selection. Library moves preserve KB's game identity, favorites, manual choices and play history. Unavailable libraries and malformed metadata are reported without treating them as uninstalls. Disconnect hides Steam games while preserving their rows and history. Actual uninstalls follow the existing removed-game retention setting; explicit or enabled automatic forgetting can delete those hidden uninstalled entries.
+
+Play delegates to the official numeric steam://run/<AppId> protocol. Steam performs its own login, license checks, updates, cloud synchronization and launch-option prompts; KB does not suppress or automate those decisions. There is no Steam Web API key or new subscription requirement. Discovery is local and has no Steam API request quota. Artwork/metadata providers retain their existing keys, cache and rate-limit behavior.
+
+Session tracking uses exact canonical executable paths inside the game folder and limited Windows query/synchronization access, with no hooks, injection or process-name-only matching. Cached targets require a game window before tracking begins. For bootstrappers, alternate launch variants or protected games, choose the actual game executable in KB's game details; the game still launches through Steam. A game already running before KB's launch request is not silently adopted as a new session. Waiting stops after 60 seconds or Cancel wait, without recording play time or closing Steam/the eventual game. The exit combo sends WM_CLOSE to matched game windows only, reports a refusal and never force-kills Steam games. Windows is the supported platform for this integration.
+
+The local file formats are compatibility readers, not a guaranteed Valve inventory API. Appinfo versions 39-41 are guarded, with bounded lengths/depth and unsupported-format warnings. Format reference: [xPaw/SteamAppInfo](https://github.com/xPaw/SteamAppInfo) (MIT); protocol reference: [Valve steam_api.h documentation](https://partner.steamgames.com/doc/api/steam_api). Steam's [Subscriber Agreement](https://store.steampowered.com/subscriber_agreement/) still governs its service; this is a user-initiated launcher, not gameplay/stat automation.
+
+Implementation is not release validation: native compilation, real Steam checks and the required performance gate must pass before shipping. No new performance baseline has been accepted; the failed 0.6.0 measurements remain outstanding.

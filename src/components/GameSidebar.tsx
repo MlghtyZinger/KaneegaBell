@@ -15,6 +15,7 @@ import { formatEarned } from "./Achievements";
 import { AchievementsWindow } from "./AchievementsWindow";
 import { fx } from "../state/fx";
 import { LaunchWith, playWarning } from "./EmulatorChoice";
+import { SteamTracking } from "./SteamTracking";
 import { ManualButton } from "./ManualButton";
 
 /** How long the selection must rest before the panel loads another game. */
@@ -141,6 +142,7 @@ export function GameSidebar(props: {
           </div>
         )}
       </Show>
+      <Show when={row()?.platformId === "steam"}><SteamTracking id={id()} /></Show>
       <Show when={launchError()}>
         <p class="warn">{launchError()}</p>
       </Show>

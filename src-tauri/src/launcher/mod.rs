@@ -2,6 +2,7 @@
 //! hand the screen over and back, and record play time.
 
 pub mod process;
+mod steam_process;
 pub mod template;
 #[cfg(windows)]
 mod window;
@@ -188,6 +189,7 @@ pub struct Session {
 #[derive(Default)]
 pub struct Launcher {
     current: Mutex<Option<Arc<Session>>>,
+    pending: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     /// KB's window before the manual came up over the game (position, size, fullscreen), restored after.
     before_manual: Arc<Mutex<Option<Before>>>,
 }
@@ -404,46 +406,64 @@ impl Launcher {
             return Err(Error::msg(format!("{} is already running.", s.title)));
         }
 
-        let (game, Choice { cfg, notice }, cores_dir) = {
+        if self.pending.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
+            return Err(Error::msg("A game is already starting."));
+        }
+        let (game, steam, cores_dir) = {
             let conn = state.db();
             let game = queries::game_detail(&conn, game_id)?;
+            let steam = crate::steam::game(&conn, game_id)?;
+            if steam.is_some() && queries::get_setting::<String>(&conn, "steamRoot")?.is_none() {
+                return Err(Error::msg("Reconnect Steam in Settings > Library before playing."));
+            }
             let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
-            let cores = cores.map(PathBuf::from);
-            let choice = choose(&conn, &game, cores.as_deref())?;
-            (game, choice, cores)
+            (game, steam, cores.map(PathBuf::from))
         };
-        if let Some(n) = &notice {
-            log::info!("{}: {n}", game.title);
-        }
-        let playlist_dir = state.data_dir().join("playlists");
-        let prepared = prepare(&game, &cfg, cores_dir.as_deref(), &playlist_dir)?;
-        let core_path = match (&cfg.core, cfg.emulator_id.as_str()) {
-            (Some(c), "retroarch") => Some(template::resolve_core(cores_dir.as_deref(), c)?),
-            _ => None,
+        let (tracker, emulator, notice, bios) = if let Some(steam) = steam {
+            let cancelled = Arc::new(AtomicBool::new(false));
+            *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some((game_id, cancelled.clone()));
+            let _ = app.emit("steam-launch-waiting", game_id);
+            drop(slot); // Get-running and other UI queries must not wait for Steam.
+            let result = (|| {
+                crate::steam::validate_installed(&steam)?;
+                let paths = steam_process::candidates(&steam)?;
+                let baseline = steam_process::SteamTracker::baseline(&paths)?;
+                if !baseline.is_empty() { return Err(Error::msg("This game is already running. Close it normally before starting a new KB session.")); }
+                steam_process::open(steam.app_id)?;
+                steam_process::wait_for_game(&paths, &baseline, steam.tracking_exe.is_none(), &cancelled, Duration::from_secs(60)).map(Tracker::Steam)
+            })();
+            // Reacquire the session slot before releasing the launch reservation.
+            slot = self.current.lock().unwrap_or_else(|e| e.into_inner());
+            *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = None;
+            (result?, "Steam".to_string(), None, None)
+        } else {
+            let Choice { cfg, notice } = choose(&state.db(), &game, cores_dir.as_deref())?;
+            let playlist_dir = state.data_dir().join("playlists");
+            let prepared = prepare(&game, &cfg, cores_dir.as_deref(), &playlist_dir)?;
+            let core_path = match (&cfg.core, cfg.emulator_id.as_str()) {
+                (Some(c), "retroarch") => Some(template::resolve_core(cores_dir.as_deref(), c)?),
+                _ => None,
+            };
+            check_files(&prepared.argv, &cfg, &game, core_path.as_deref())?;
+            if let Some((path, body)) = &prepared.playlist {
+                std::fs::create_dir_all(&playlist_dir)?;
+                std::fs::write(path, body)?;
+            }
+            log::info!("launching {}: {:?}", game.title, prepared.argv);
+            let exe = Path::new(&prepared.argv[0]);
+            let child = Command::new(exe).args(&prepared.argv[1..]).current_dir(exe.parent().unwrap_or(Path::new("."))).spawn()
+                .map_err(|e| Error::msg(format!("couldn't start {}: {e}", cfg.emulator_name)))?;
+            (Tracker::attach(child)?, cfg.emulator_name.clone(), notice, bios_warning(&cfg, &game.platform_id))
         };
-        check_files(&prepared.argv, &cfg, &game, core_path.as_deref())?;
-        if let Some((path, body)) = &prepared.playlist {
-            std::fs::create_dir_all(&playlist_dir)?;
-            std::fs::write(path, body)?;
-        }
-
-        log::info!("launching {}: {:?}", game.title, prepared.argv);
-        let exe = Path::new(&prepared.argv[0]);
-        let child = Command::new(exe)
-            .args(&prepared.argv[1..])
-            .current_dir(exe.parent().unwrap_or(Path::new(".")))
-            .spawn()
-            .map_err(|e| Error::msg(format!("couldn't start {}: {e}", cfg.emulator_name)))?;
-        let tracker = Tracker::attach(child)?;
 
         let window = app.get_webview_window("main");
         let was_fullscreen = window.as_ref().and_then(|w| w.is_fullscreen().ok()).unwrap_or(false);
         let session = Arc::new(Session {
             game_id,
             title: game.title.clone(),
-            emulator: cfg.emulator_name.clone(),
+            emulator: emulator.clone(),
             notice: notice.clone(),
-            bios: bios_warning(&cfg, &game.platform_id),
+            bios,
             tracker,
             exiting: AtomicBool::new(false),
             presenting: AtomicBool::new(true),
@@ -461,7 +481,7 @@ impl Launcher {
             if let Some(w) = &window { let _ = w.set_always_on_top(true); }
         }
         state.input.game_running.store(true, Ordering::Release);
-        let started = Started { game_id, title: game.title.clone(), emulator: cfg.emulator_name.clone(), notice };
+        let started = Started { game_id, title: game.title.clone(), emulator: emulator.clone(), notice };
         let _ = app.emit("game-started", &started);
         if !presenting { self.finish_launch(app, game_id); }
         else {
@@ -555,7 +575,7 @@ impl Launcher {
         state.input.overlay.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
         // Closed on its own within seconds: the game never ran.
-        let failed = (played < QUICK_EXIT && !session.exiting.load(Ordering::Acquire))
+        let failed = (played < QUICK_EXIT && !matches!(&session.tracker, Tracker::Steam(_)) && !session.exiting.load(Ordering::Acquire))
             .then(|| quick_exit_message(&session.title, &session.emulator, played.as_secs(), session.bios.as_deref()));
         let recorded = match &failed {
             Some(_) => queries::cancel_session(&state.db(), session.game_id),
@@ -616,13 +636,25 @@ impl Launcher {
     }
 
     /// Closes the running game: politely first, forcefully after a grace period.
-    pub fn request_exit(&self) {
+    pub fn busy(&self) -> bool {
+        self.current.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+            || self.pending.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+    }
+
+    pub fn cancel_pending(&self, id: i64) {
+        if let Some((game, cancelled)) = self.pending.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+            if *game == id { cancelled.store(true, Ordering::Release); }
+        }
+    }
+
+    pub fn request_exit(&self, app: &AppHandle) {
         let Some(session) = self.current.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return };
         if session.exiting.swap(true, Ordering::AcqRel) {
             return; // already exiting
         }
         let asked = session.tracker.close_windows();
         log::info!("exit requested for {}: sent WM_CLOSE to {asked} window(s)", session.title);
+        let app = app.clone();
         let _ = std::thread::Builder::new().name("game-exit".into()).spawn(move || {
             let deadline = Instant::now() + EXIT_GRACE;
             while Instant::now() < deadline {
@@ -630,6 +662,15 @@ impl Launcher {
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(100));
+            }
+            if matches!(&session.tracker, Tracker::Steam(_)) {
+                session.exiting.store(false, Ordering::Release);
+                if let Some(w) = app.get_webview_window("main") {
+                    #[cfg(windows)] { window::set_webview_suspended(&w, false); window::set_webview_low_memory(&w, false); }
+                    let _ = w.unminimize(); let _ = w.show(); let _ = w.set_focus();
+                }
+                let _ = app.emit("game-close-refused", "The game is still running. Close it from its own menu, or try Close game again. KB will not force-close Steam games.");
+                return;
             }
             log::warn!("{} didn't close within {EXIT_GRACE:?}; terminating", session.title);
             session.tracker.terminate();

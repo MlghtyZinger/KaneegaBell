@@ -1,5 +1,5 @@
 import { createResource, createSignal, For, onCleanup, Show } from "solid-js";
-import { api, type ExitCombo, type RunningGame } from "../api";
+import { api, events, type ExitCombo, type RunningGame } from "../api";
 import { pushHandler } from "../input/actions";
 import { buttonLabel, session } from "../state/session";
 
@@ -13,11 +13,15 @@ export function NowPlaying(props: { game: RunningGame }) {
     return (s.values.exitCombo as ExitCombo | undefined) ?? { buttons: ["back", "start"], holdMs: 1000 };
   });
   const [closing, setClosing] = createSignal(false);
+  const [closeNotice, setCloseNotice] = createSignal<string | null>(null);
+  const refused = events.onGameCloseRefused((message) => { setClosing(false); setCloseNotice(message); });
+  onCleanup(() => void refused.then((f) => f()));
 
   // Swallow navigation while a game runs.
   onCleanup(pushHandler(() => true));
 
   const close = () => {
+    setCloseNotice(null);
     setClosing(true);
     void api.exitGame();
   };
@@ -42,8 +46,9 @@ export function NowPlaying(props: { game: RunningGame }) {
             </>
           )}
         </For>{" "}
-        for {((combo()?.holdMs ?? 1000) / 1000).toFixed(1)} s, or close the game in the emulator.
+        for {((combo()?.holdMs ?? 1000) / 1000).toFixed(1)} s, or close the game from its own menu.
       </p>
+      <Show when={closeNotice()}><p class="warn">{closeNotice()}</p></Show>
       <button class="btn" disabled={closing()} onClick={close}>
         {closing() ? "Closing…" : "Close game"}
       </button>

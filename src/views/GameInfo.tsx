@@ -11,6 +11,7 @@ import { CoverViewer } from "./CoverViewer";
 import { collections } from "../state/collections";
 import { mainSeries, owned } from "../state/series";
 import { LaunchWith } from "../components/EmulatorChoice";
+import { SteamTracking } from "../components/SteamTracking";
 import { caseOf } from "../fx/Model";
 import { ManualButton } from "../components/ManualButton";
 import { osk } from "../state/osk";
@@ -308,6 +309,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                     </div>
                   )}
                 </Show>
+                <Show when={g().platformId === "steam"}><SteamTracking id={id()} /></Show>
                 <Show when={launchError()}>
                   <p class="warn">{launchError()}</p>
                 </Show>
@@ -413,7 +415,7 @@ export function GameInfo(props: { id: number; onClose: () => void }) {
                       <Show when={g().artSource}>
                         <dt>Cover</dt>
                         <dd>
-                          {({ launchbox: "LaunchBox", libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
+                          {({ steam: "Steam cache", launchbox: "LaunchBox", libretro: "libretro-thumbnails", gametdb: "GameTDB", igdb: "IGDB", sgdb: "SteamGridDB", local: "the game's icon", file: "your image" } as Record<string, string>)[
                             g().artSource!
                           ] ?? g().artSource}
                         </dd>

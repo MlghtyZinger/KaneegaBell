@@ -214,6 +214,9 @@ pub struct LaunchPreview {
 pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPreview> {
     let conn = state.db();
     let game = queries::game_detail(&conn, id)?;
+    if let Some(steam) = crate::steam::game(&conn, id)? {
+        return Ok(LaunchPreview { argv: vec![crate::steam::uri(steam.app_id)?], emulator: "Steam".into(), notice: Some("Launches through Steam; play time starts only when the game is identified.".into()) });
+    }
     let cores_dir: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let cores_dir = cores_dir.as_deref().map(Path::new);
     let choice = launcher::choose(&conn, &game, cores_dir)?;
@@ -231,8 +234,9 @@ pub fn preview_launch(state: State<'_, AppState>, id: i64) -> Result<LaunchPrevi
 
 /// Starts a game with its own emulator pick, else the platform's default.
 #[tauri::command]
-pub fn launch_game(app: AppHandle, state: State<'_, AppState>, id: i64, presenting: Option<bool>) -> Result<launcher::Started> {
-    state.launcher.launch(&app, id, presenting.unwrap_or(false))
+pub async fn launch_game(app: AppHandle, id: i64, presenting: Option<bool>) -> Result<launcher::Started> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<AppState>().launcher.launch(&app, id, presenting.unwrap_or(false)))
+        .await.map_err(|e| Error::msg(format!("Game launch failed: {e}")))?
 }
 
 #[tauri::command]
@@ -267,6 +271,7 @@ pub struct GameEmulators {
 #[tauri::command]
 pub fn game_emulators(state: State<'_, AppState>, id: i64) -> Result<GameEmulators> {
     let conn = state.db();
+    if crate::steam::game(&conn, id)?.is_some() { return Ok(GameEmulators { default_id: "steam".into(), chosen: None, options: Vec::new() }); }
     let game = queries::game_detail(&conn, id)?;
     let cores: Option<String> = queries::get_setting(&conn, "retroarchCoresDir")?;
     let ra_console: Option<i64> =
@@ -298,8 +303,8 @@ pub fn set_game_emulator(state: State<'_, AppState>, id: i64, emulator: Option<S
 
 /// Same as the controller exit combo: close politely, then force after a grace period.
 #[tauri::command]
-pub fn exit_game(state: State<'_, AppState>) {
-    state.launcher.request_exit();
+pub fn exit_game(app: AppHandle, state: State<'_, AppState>) {
+    state.launcher.request_exit(&app);
 }
 
 #[tauri::command]
@@ -583,6 +588,40 @@ pub fn set_setting(state: State<'_, AppState>, key: String, value: serde_json::V
     };
     queries::set_setting(&state.db(), &key, &value)
 }
+
+// ---------------------------------------------------------------- Steam (explicitly connected local files)
+#[tauri::command]
+pub fn find_steam() -> Result<String> { crate::steam::find_root().map(|p| p.to_string_lossy().into_owned()) }
+
+#[tauri::command]
+pub fn connect_steam(state: State<'_, AppState>, path: Option<String>) -> Result<()> {
+    if state.scanning.load(Ordering::Acquire) || state.launcher.busy() { return Err(Error::msg("Wait for the current game and library jobs to finish before changing Steam's connection.")); }
+    let mut conn = state.db();
+    let tx = conn.transaction()?;
+    if let Some(path) = path {
+        let root = std::fs::canonicalize(path)?;
+        if !root.join("steam.exe").is_file() { return Err(Error::msg("Choose the Steam installation folder containing steam.exe.")); }
+        queries::set_setting(&tx, "steamRoot", &serde_json::Value::String(root.to_string_lossy().into_owned()))?;
+        tx.execute("UPDATE platforms SET enabled=1 WHERE id='steam'", [])?;
+    } else {
+        // Disconnection is not uninstallation: automatic removed-game cleanup must not erase these rows.
+        tx.execute("UPDATE platforms SET enabled=0 WHERE id='steam'", [])?;
+        queries::set_setting(&tx, "steamRoot", &serde_json::Value::Null)?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn steam_game(state: State<'_, AppState>, id: i64) -> Result<Option<crate::steam::Game>> { crate::steam::game(&state.db(), id) }
+
+#[tauri::command]
+pub fn set_steam_tracking(state: State<'_, AppState>, id: i64, path: Option<String>) -> Result<()> {
+    crate::steam::set_tracking(&state.db(), id, path.as_deref().map(Path::new))
+}
+
+#[tauri::command]
+pub fn cancel_steam_launch(state: State<'_, AppState>, id: i64) { state.launcher.cancel_pending(id); }
 
 // ---------------------------------------------------------------- background jobs
 //
@@ -959,7 +998,7 @@ struct FollowUp {
 fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
     let due = throttled(100);
     let result = db::open(db_path).and_then(|mut conn| {
-        let summary = scanner::run(
+        let mut summary = scanner::run(
             &mut conn,
             &|p| {
                 if due(p.phase == "done") {
@@ -968,6 +1007,21 @@ fn run_scan(app: &AppHandle, db_path: &Path, cancel: &AtomicBool) -> FollowUp {
             },
             cancel,
         )?;
+        if !summary.cancelled {
+            if let Some(root) = queries::get_setting::<String>(&conn, "steamRoot")? {
+                let _ = app.emit("scan-progress", &scanner::Progress { phase: "scanning", source: "Steam".into(), done: 0, total: 1, files_done: 0, files_total: 0 });
+                let approved = queries::get_setting::<Vec<u32>>(&conn, "steamApprovedApps")?.unwrap_or_default();
+                match crate::steam::scan(&mut conn, Path::new(&root), db_path.parent().unwrap_or(Path::new(".")), &approved, cancel) {
+                    Ok(steam) => {
+                        summary.added += steam.added; summary.updated += steam.updated; summary.missing += steam.missing;
+                        summary.cancelled |= steam.cancelled; summary.warnings.extend(steam.warnings); summary.changes.extend(steam.changes);
+                        if !steam.unknown.is_empty() { summary.warnings.push(format!("{} Steam apps need explicit selection in Settings > Library > Steam.", steam.unknown.len())); }
+                        summary.games_total = queries::count_games(&conn)?;
+                    }
+                    Err(e) => summary.warnings.push(format!("Steam scan: {e}. Previous Steam entries were kept.")),
+                }
+            }
+        }
         if !summary.cancelled {
             after_removals(&conn, db_path.parent().unwrap_or(Path::new(".")));
         }

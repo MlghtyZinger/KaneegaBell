@@ -14,10 +14,23 @@ use std::process::Child;
 use crate::error::{Error, Result};
 
 #[cfg(windows)]
-pub use windows_impl::Tracker;
+use windows_impl::Tracker as NativeTracker;
 
 #[cfg(not(windows))]
-pub use portable::Tracker;
+use portable::Tracker as NativeTracker;
+
+/// Only an emulator owned by KB may be force-terminated. Steam has no terminate operation.
+pub enum Tracker { Emulator(NativeTracker), Steam(super::steam_process::SteamTracker) }
+impl Tracker {
+    pub fn attach(child: Child) -> Result<Self> { NativeTracker::attach(child).map(Self::Emulator) }
+    pub fn wait(&self) { match self { Self::Emulator(t)=>t.wait(),Self::Steam(t)=>t.wait() } }
+    pub fn is_running(&self)->bool { match self { Self::Emulator(t)=>t.is_running(),Self::Steam(t)=>t.is_running() } }
+    pub fn windows(&self)->Vec<isize> { match self { Self::Emulator(t)=>t.windows(),Self::Steam(t)=>t.windows() } }
+    pub fn close_windows(&self)->usize { match self { Self::Emulator(t)=>t.close_windows(),Self::Steam(t)=>t.close_windows() } }
+    pub fn terminate(&self) { if let Self::Emulator(t)=self {t.terminate();} }
+    #[cfg(all(test,windows))]
+    pub fn pids(&self)->Vec<u32> { match self {Self::Emulator(t)=>t.pids(),Self::Steam(_)=>Vec::new()} }
+}
 
 #[cfg(windows)]
 mod windows_impl {

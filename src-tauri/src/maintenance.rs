@@ -483,6 +483,7 @@ mod tests {
         conn.execute("INSERT INTO rom_sources (path) VALUES ('E:\\Games')", []).unwrap();
         conn.execute("UPDATE emulators SET exe_path = 'E:\\RetroArch\\retroarch.exe'", []).unwrap();
         conn.execute("UPDATE platforms SET core_override = 'bsnes', enabled = 0 WHERE id = 'snes'", []).unwrap();
+        conn.execute("UPDATE platforms SET enabled = 1 WHERE id = 'steam'", []).unwrap();
         crate::db::queries::set_setting(&conn, "tvMode", &serde_json::json!(true)).unwrap();
         write(&data.join("art").join("t").join("1.webp"));
         write(&data.join("playlists").join("game-1.m3u"));
@@ -506,7 +507,7 @@ mod tests {
             }
         }
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM emulators WHERE exe_path IS NOT NULL"), 0);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM platforms WHERE core_override IS NOT NULL OR enabled = 0"), 0);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM platforms WHERE core_override IS NOT NULL OR enabled != (id != 'steam')"), 0);
         assert!(!data.join("art").exists() && !data.join("playlists").exists());
 
         // The backup still has the old library.

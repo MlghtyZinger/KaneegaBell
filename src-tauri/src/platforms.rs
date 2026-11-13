@@ -54,6 +54,7 @@ pub struct PlatformDef {
 }
 
 pub const EMULATORS: &[EmulatorDef] = &[
+    EmulatorDef { id: "steam", name: "Steam", template: "{emulator} {rom}", supports_m3u: false },
     EmulatorDef {
         id: "retroarch",
         name: "RetroArch",
@@ -149,6 +150,7 @@ pub const SWITCH_ALTERNATIVES: &[&str] = &["ryubing", "ryujinx", "citron", "suda
 
 /// Listed in display order.
 pub const PLATFORMS: &[PlatformDef] = &[
+    PlatformDef { id: "steam", name: "Steam", short_name: "Steam", emulator: "steam", core: None, extensions: &[], libretro: None, launchbox: Some("Windows"), wikidata: Some("Q1406"), igdb: Some(6), ra: None },
     PlatformDef {
         id: "snes",
         name: "Super Nintendo",
@@ -454,7 +456,7 @@ pub fn can_add_builtin(emulator_id: &str, platform_id: &str, platform_builtin: &
     match platform_id {
         "switch" => SWITCH_ALTERNATIVES.contains(&emulator_id),
         // PS3 games are folders; Xbox 360 has no RetroArch core.
-        "ps3" | "xbox360" => false,
+        "steam" | "ps3" | "xbox360" => false,
         _ => emulator_id == "retroarch" && platform_builtin != "retroarch",
     }
 }
@@ -539,8 +541,8 @@ pub fn seed(conn: &Connection) -> Result<()> {
 
     let mut plat = conn.prepare_cached(
         "INSERT INTO platforms (id, name, short_name, sort_order, emulator_id, default_core, extensions, libretro_system,
-                                igdb_platform, ra_console_id, launchbox_platform)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                                igdb_platform, ra_console_id, launchbox_platform, enabled)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          ON CONFLICT(id) DO UPDATE SET name = excluded.name, short_name = excluded.short_name,
              sort_order = excluded.sort_order, emulator_id = excluded.emulator_id,
              default_core = excluded.default_core, extensions = excluded.extensions,
@@ -549,7 +551,7 @@ pub fn seed(conn: &Connection) -> Result<()> {
     )?;
     for (i, p) in PLATFORMS.iter().enumerate() {
         let exts = serde_json::to_string(p.extensions)?;
-        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb, p.ra, p.launchbox])?;
+        plat.execute(params![p.id, p.name, p.short_name, i as i64, p.emulator, p.core, exts, p.libretro, p.igdb, p.ra, p.launchbox, p.id != "steam"])?;
     }
     Ok(())
 }
