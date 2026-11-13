@@ -869,6 +869,7 @@ Built in milestones. See `CLAUDE.md` for the full spec.
 ## Patch notes
 
 ### 0.7.0 (unreleased)
+- Fixed: Steam games with a packaged Unreal launcher can detect the actual game executable instead of waiting until timeout.
 - New: connect installed Steam games as a Steam platform in KB, with local cached artwork and existing metadata sources.
 - New: launch Steam games through Steam and track the actual game executable, with a cancellable 60-second wait and an explicit tracking-file fallback.
 - Changed: closing a Steam game sends a polite request only; KB never force-closes Steam or a Steam game.

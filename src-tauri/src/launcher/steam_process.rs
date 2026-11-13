@@ -14,11 +14,34 @@ pub fn candidates(game: &crate::steam::Game) -> Result<HashSet<String>> {
         )?)])
     } else {
         // Optional launch variants can disappear after an update. Never substitute for a user's chosen file.
-        game.executables
-            .iter()
-            .filter_map(|p| crate::steam::tracking_file(&game.install_dir, p).ok())
-            .map(|p| path_key(&p))
-            .collect()
+        let mut paths = HashSet::new();
+        let install = std::fs::canonicalize(&game.install_dir)?;
+        for exe in &game.executables {
+            let Ok(exe) = crate::steam::tracking_file(&install, exe) else {
+                continue;
+            };
+            paths.insert(path_key(&exe));
+            // A packaged Unreal root executable can be an invisible bootstrapper.
+            // Resolve only its exact project/architecture shipping paths, never arbitrary
+            // descendants or process names. Do this at launch so existing imports work too.
+            if exe.parent() == Some(install.as_path())
+                && crate::steam::inside(&install, "Engine").is_some_and(|p| p.is_dir())
+            {
+                let Some(project) = exe.file_stem().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                for arch in ["Win64", "Win32"] {
+                    let relative =
+                        format!("{project}/Binaries/{arch}/{project}-{arch}-Shipping.exe");
+                    if let Some(path) = crate::steam::inside(&install, &relative)
+                        .and_then(|p| crate::steam::tracking_file(&install, &p).ok())
+                    {
+                        paths.insert(path_key(&path));
+                    }
+                }
+            }
+        }
+        paths
     };
     if paths.is_empty() {
         return Err(Error::msg("Choose this Steam game's executable in its details before playing, so KB can track it safely."));
@@ -400,6 +423,36 @@ mod tests {
             .unwrap();
         assert!(err.to_string().contains("No play time was recorded"));
         assert!(started.elapsed() < Duration::from_secs(1));
+    }
+    #[test]
+    fn unreal_bootstrapper_resolves_only_its_exact_packaged_game_without_rescanning() {
+        let temp = tempfile::tempdir().unwrap();
+        let install = temp.path().join("QueensDomain");
+        let binary = install.join("QueensDomain/Binaries/Win64/QueensDomain-Win64-Shipping.exe");
+        std::fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        std::fs::create_dir(install.join("Engine")).unwrap();
+        let bootstrap = install.join("QueensDomain.exe");
+        let unrelated = binary.with_file_name("Other-Win64-Shipping.exe");
+        for file in [&bootstrap, &binary, &unrelated] {
+            std::fs::write(file, b"fixture, never executed").unwrap();
+        }
+        let mut game = crate::steam::Game {
+            app_id: 123,
+            library_path: temp.path().into(),
+            install_dir: install,
+            executables: vec![bootstrap.clone()],
+            tracking_exe: None,
+        };
+        let key = |p: &std::path::Path| path_key(&std::fs::canonicalize(p).unwrap());
+        assert_eq!(
+            candidates(&game).unwrap(),
+            HashSet::from([key(&bootstrap), key(&binary)])
+        );
+        game.tracking_exe = Some(binary.clone());
+        assert_eq!(candidates(&game).unwrap(), HashSet::from([key(&binary)]));
+        game.tracking_exe = None;
+        std::fs::remove_file(binary).unwrap();
+        assert_eq!(candidates(&game).unwrap(), HashSet::from([key(&bootstrap)]));
     }
     #[test]
     fn tracking_uses_valid_exact_paths_and_never_replaces_an_explicit_choice() {

@@ -31,3 +31,15 @@ Installed manifests and version-guarded appinfo classification; explicit selecti
 5. After verification, prepare a development executable only after checking for a running development KB process. The current executable has not been replaced. Merge/release/publish and changes to the installed copy remain outside current authorization.
 
 Local cache formats can change. Existing metadata/title fallbacks and cached Steam artwork provide coverage; no new Steam web API or SteamGridDB-ID endpoint was added. A cached executable's existence does not itself establish successful runtime tracking; one of this installation's games already needs the explicit fallback.
+
+## Owner-requested development rebuild
+
+The owner subsequently requested a rebuild to try the integration. The elevated KB process check found no running instance. The no-bundle Tauri release build passed (exit 0, optimized build 4m 12s), using the approved Steam branch and producing C:/Emulator files/src-tauri/target/release/KaneegaBell.exe. The development data directory was preserved; C:/Games/KaneegaBell was not modified. KB was not launched automatically. Log: test-output/steam-development-build.log. This supersedes the earlier statement that the development executable had not been replaced; UI, manual real-game and performance validation are still pending.
+
+## Queen's Domain bootstrapper correction
+
+The owner reported the game opening while KB still waited. The game had been closed before inspection, so no live process match was observed. Read-only inspection found the cached launch path QueensDomain.exe and the separate QueensDomain/Binaries/Win64/QueensDomain-Win64-Shipping.exe, plus an excluded prerequisite installer. The initial candidates recognized only Steam's root executable; automatic detection also required a visible window, so an invisible bootstrapper did not confirm the separate game.
+
+Candidate resolution now includes only existing, canonical, validated project/architecture Shipping.exe paths for root launchers with the packaged Engine directory. Arbitrary executables and process-name matching remain excluded. Resolution happens at launch, without requiring a rescan; explicit user choices remain exact and are never expanded. A matching fixture verifies both root and shipping paths, unrelated executables, missing variants and the explicit override. The full native suite passed: 296 tests, 0 failures, 17 ignored. Log: test-output/steam-bootstrap-fix-tests.log. The owner can also select the Shipping.exe explicitly with the current picker. A real launch confirmation is still needed.
+
+The corrected no-bundle development build passed (exit 0, optimized build 3m 04s), after an elevated process check confirmed KB was closed. Output: C:/Emulator files/src-tauri/target/release/KaneegaBell.exe. Build log: test-output/steam-bootstrap-fix-build.log. The installed copy and development library were preserved; KB and the game were not opened automatically. Native tests passed and the executable was rebuilt, but the owner's real-game retry is still pending.
