@@ -54,7 +54,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Use **Add game** beside Search, choose the original platform, and search the cached LaunchBox
 Games Database or use your own title. **Update catalogue** loads missing names through the existing
-LaunchBox worker. The platform’s configured emulator is used automatically. Enable **Launch an executable (port / recomp / decomp)** for an executable; attaching files is optional. Ports,
+LaunchBox worker. The platform’s configured emulator is used automatically. Enable **Launch from an executable** for an executable; attaching files is optional. Ports,
 recomps and decomps start the selected `.exe` directly from its own folder, without an emulator.
 Game files lets you attach a ROM or executable later, change the launch method, or remove a manually added
 entry after confirmation. Removing an entry never deletes the game's files. Scans keep manual entries.
@@ -905,7 +905,8 @@ scrolling. See docs/sidebar-icons-validation.md for the measurements.
 
 ## Patch notes
 
-### Unreleased (version undecided)
+### 0.7.1 (2026-11-14)
+- Known issue: Full animations remain costly at idle; the unresolved performance findings from 0.7.0 remain recorded below. The saved performance baseline has not been reset.
 - Fixed: executable games track the launched process and its children, including launcher handoffs and skip-launcher options. Tracking is attached before the launcher runs. Play time and controller exit follow the process tree; closing remains polite-only.
 - Fixed: sidebar family symbols are centered in their icon slots.
 - Fixed: an executable entry hides the same game’s scanned ROM inside its folder, including existing duplicates; disabling or removing the executable entry restores the ROM entry and its saved history.
@@ -913,7 +914,7 @@ scrolling. See docs/sidebar-icons-validation.md for the measurements.
 - Fixed: restored the original toolbar alignment, keeping Add game beside Search and Filter. Catalogue search prefers main-title matches over alternate-title matches at the same relevance.
 - Improved: mouse and keyboard file/folder selection opens the native Windows picker; controller navigation retains the in-app browser. Add game explains how to select an executable for a port, recomp or decomp.
 - New: Add game beside Search lets you choose a LaunchBox title or enter your own, with optional game files, and set up a port, recomp or decomp without scanning first.
-- New: Game files → Launch an executable combines ports, recomps and decomps in one option; turn it off to use the platform’s configured emulator automatically.
+- New: Game files → Launch from an executable combines ports, recomps and decomps in one option; turn it off to use the platform’s configured emulator automatically.
 
 ### 0.7.0
 - Known issue: Full desktop animations increase idle CPU. Animations Off passed the saved performance gate; Full still fails on startup and idle CPU. Both held 240 fps scrolling in the 5,000-game check.

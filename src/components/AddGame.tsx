@@ -90,7 +90,7 @@ export function AddGame(props: { onClose: () => void; onAdded: (id: number) => P
         </Show>
         <h3>{title() ? `Selected: ${title()}` : "Select a result or use your own title"}</h3>
         <div class="row" style={{ "flex-wrap": "wrap" }}>
-          <button class="btn" style={{ "white-space": "normal" }} role="switch" aria-checked={kind() !== "emulator"} onClick={() => { setKind(kind() === "emulator" ? "port" : "emulator"); setFile(""); }}>Launch an executable (port / recomp / decomp): {kind() === "emulator" ? "Off" : "On"}</button>
+          <button class="btn" style={{ "white-space": "normal" }} role="switch" aria-checked={kind() !== "emulator"} onClick={() => { setKind(kind() === "emulator" ? "port" : "emulator"); setFile(""); }}>Launch from an executable: {kind() === "emulator" ? "Off" : "On"}</button>
           <button class="btn" onClick={() => setBrowsing(true)}>{kind() === "emulator" ? "Choose game file…" : "Choose executable…"}</button>
           <Show when={file()}><button class="btn small" onClick={() => setFile("")}>Add without files</button></Show>
         </div>

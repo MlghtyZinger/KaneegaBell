@@ -46,7 +46,7 @@ export function DirectLaunchSetting(props: { id: number; launchPath: string; man
     <Show when={loadError()}><p class="warn">{loadError()}</p></Show>
     <div class="row tight" style={{ "flex-wrap": "wrap" }}>
       <button class="btn" style={{ "white-space": "normal" }} role="switch" aria-checked={kind() !== "emulator"} disabled={config.loading || !!loadError() || saving()} onClick={() => setKind(kind() === "emulator" ? config()?.kind ?? "port" : "emulator")}>
-        Launch an executable (port / recomp / decomp): {kind() === "emulator" ? "Off" : "On"}
+        Launch from an executable: {kind() === "emulator" ? "Off" : "On"}
       </button>
       <Show when={kind() !== "emulator"}>
         <button class="btn small" disabled={saving()} onClick={() => setBrowsing(true)}>Choose game executable…</button>
