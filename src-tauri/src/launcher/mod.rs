@@ -422,17 +422,22 @@ impl Launcher {
             (game, steam, other, crate::direct_launch::get(&conn, game_id)?, cores.map(PathBuf::from))
         };
         let client_name=if let Some(direct)=&direct {Some(direct.label())}else if steam.is_some(){Some("Steam")}else{other.as_ref().map(|g|crate::launchers::name(&g.provider)).transpose()?};
-        let (tracker, emulator, notice, bios) = if let Some(client_name) = client_name {
+        let (tracker, emulator, notice, bios) = if let Some(direct) = &direct {
+            let exe = direct.validate()?;
+            let paths = std::collections::HashSet::from([crate::scanner::path_key(&exe)]);
+            if !steam_process::ClientTracker::baseline(&paths)?.is_empty() {
+                return Err(Error::msg("This executable is already running. Close it normally before starting a new KB session."));
+            }
+            let mut command = Command::new(&exe);
+            command.current_dir(exe.parent().unwrap_or(Path::new(".")));
+            (Tracker::spawn_port(&mut command)?, direct.label().to_string(), None, None)
+        } else if let Some(client_name) = client_name {
             let cancelled = Arc::new(AtomicBool::new(false));
             *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some((game_id, cancelled.clone()));
             let _ = app.emit("client-launch-waiting", game_id);
             drop(slot); // Get-running and other UI queries must not wait for Steam.
             let result = (|| {
-                let (paths, require_window, action) = if let Some(direct)=&direct {
-                    let exe = direct.validate()?;
-                    let paths = std::collections::HashSet::from([crate::scanner::path_key(&direct.tracking_path()?)]);
-                    (paths, false, crate::launchers::Action::Client { exe, args: Vec::new() })
-                } else if let Some(steam)=&steam {
+                let (paths, require_window, action) = if let Some(steam)=&steam {
                     crate::steam::validate_installed(steam)?;
                     (steam_process::candidates(steam)?,steam.tracking_exe.is_none(),crate::launchers::Action::Uri(crate::steam::uri(steam.app_id)?))
                 } else {
@@ -589,7 +594,7 @@ impl Launcher {
         state.input.overlay.store(false, Ordering::Release);
         let secs = played.as_secs() as i64;
         // Closed on its own within seconds: the game never ran.
-        let failed = (played < QUICK_EXIT && !matches!(&session.tracker, Tracker::Client(_)) && !session.exiting.load(Ordering::Acquire))
+        let failed = (played < QUICK_EXIT && !session.tracker.polite_only() && !session.exiting.load(Ordering::Acquire))
             .then(|| quick_exit_message(&session.title, &session.emulator, played.as_secs(), session.bios.as_deref()));
         let recorded = match &failed {
             Some(_) => queries::cancel_session(&state.db(), session.game_id),
@@ -677,13 +682,13 @@ impl Launcher {
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
-            if matches!(&session.tracker, Tracker::Client(_)) {
+            if session.tracker.polite_only() {
                 session.exiting.store(false, Ordering::Release);
                 if let Some(w) = app.get_webview_window("main") {
                     #[cfg(windows)] { window::set_webview_suspended(&w, false); window::set_webview_low_memory(&w, false); }
                     let _ = w.unminimize(); let _ = w.show(); let _ = w.set_focus();
                 }
-                let _ = app.emit("game-close-refused", "The game is still running. Close it from its own menu, or try Close game again. KB will not force-close launcher games.");
+                let _ = app.emit("game-close-refused", "The game is still running. Close it from its own menu, or try Close game again. KB will not force-close executable or launcher games.");
                 return;
             }
             log::warn!("{} didn't close within {EXIT_GRACE:?}; terminating", session.title);

@@ -20,16 +20,18 @@ use windows_impl::Tracker as NativeTracker;
 use portable::Tracker as NativeTracker;
 
 /// Only an emulator owned by KB may be force-terminated. Steam has no terminate operation.
-pub enum Tracker { Emulator(NativeTracker), Client(super::steam_process::ClientTracker) }
+pub enum Tracker { Emulator(NativeTracker), Port(NativeTracker), Client(super::steam_process::ClientTracker) }
 impl Tracker {
     pub fn attach(child: Child) -> Result<Self> { NativeTracker::attach(child).map(Self::Emulator) }
-    pub fn wait(&self) { match self { Self::Emulator(t)=>t.wait(),Self::Client(t)=>t.wait() } }
-    pub fn is_running(&self)->bool { match self { Self::Emulator(t)=>t.is_running(),Self::Client(t)=>t.is_running() } }
-    pub fn windows(&self)->Vec<isize> { match self { Self::Emulator(t)=>t.windows(),Self::Client(t)=>t.windows() } }
-    pub fn close_windows(&self)->usize { match self { Self::Emulator(t)=>t.close_windows(),Self::Client(t)=>t.close_windows() } }
+    pub fn wait(&self) { match self { Self::Emulator(t)|Self::Port(t)=>t.wait(),Self::Client(t)=>t.wait() } }
+    pub fn is_running(&self)->bool { match self { Self::Emulator(t)|Self::Port(t)=>t.is_running(),Self::Client(t)=>t.is_running() } }
+    pub fn windows(&self)->Vec<isize> { match self { Self::Emulator(t)|Self::Port(t)=>t.windows(),Self::Client(t)=>t.windows() } }
+    pub fn close_windows(&self)->usize { match self { Self::Emulator(t)|Self::Port(t)=>t.close_windows(),Self::Client(t)=>t.close_windows() } }
+    pub fn polite_only(&self) -> bool { !matches!(self, Self::Emulator(_)) }
+    pub fn spawn_port(command: &mut std::process::Command) -> Result<Self> { NativeTracker::spawn_port(command).map(Self::Port) }
     pub fn terminate(&self) { if let Self::Emulator(t)=self {t.terminate();} }
     #[cfg(all(test,windows))]
-    pub fn pids(&self)->Vec<u32> { match self {Self::Emulator(t)=>t.pids(),Self::Client(_)=>Vec::new()} }
+    pub fn pids(&self)->Vec<u32> { match self {Self::Emulator(t)|Self::Port(t)=>t.pids(),Self::Client(_)=>Vec::new()} }
 }
 
 #[cfg(windows)]
@@ -76,6 +78,53 @@ mod windows_impl {
     }
 
     impl Tracker {
+        /// Suspend before the launcher can spawn/exit, attach its process tree,
+        /// then resume. No kill-on-close flag and no force-close capability.
+        pub fn spawn_port(command: &mut std::process::Command) -> Result<Self> {
+            use std::os::windows::process::CommandExt;
+            use windows::Win32::System::{
+                Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Thread32First, Thread32Next, THREADENTRY32, TH32CS_SNAPTHREAD},
+                Threading::{OpenThread, ResumeThread, THREAD_SUSPEND_RESUME},
+            };
+            command.creation_flags(0x00000004 | 0x08000000); // CREATE_SUSPENDED | CREATE_NO_WINDOW
+            let mut child = command.spawn()?;
+            let pid = child.id();
+            // A suspended process has exactly its initial thread. Keep its
+            // handle before attaching so every exit path resumes the launcher.
+            let thread: Result<Owned> = (|| unsafe {
+                let snapshot = Owned(CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0).map_err(win)?);
+                let mut entry = THREADENTRY32 { dwSize: std::mem::size_of::<THREADENTRY32>() as u32, ..Default::default() };
+                let mut next = Thread32First(snapshot.0, &mut entry);
+                let mut found = None;
+                while next.is_ok() {
+                    if entry.th32OwnerProcessID == pid {
+                        found = Some(Owned(OpenThread(THREAD_SUSPEND_RESUME, false, entry.th32ThreadID).map_err(win)?));
+                        break;
+                    }
+                    next = Thread32Next(snapshot.0, &mut entry);
+                }
+                found.ok_or_else(|| Error::msg("Could not find the new launcher's initial thread"))
+            })();
+            let thread = match thread {
+                Ok(thread) => thread,
+                Err(error) => {
+                    // Startup never ran: cancel this suspended creation rather than
+                    // leave an unusable suspended process behind.
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(error);
+                }
+            };
+            struct Resume(Owned);
+            impl Drop for Resume { fn drop(&mut self) { unsafe { ResumeThread(self.0.0); } } }
+            let resume = Resume(thread);
+            let tracker = Self::attach(child)?;
+            if tracker.fallback.lock().unwrap_or_else(|e| e.into_inner()).is_some() {
+                return Err(Error::msg("The launcher was started, but Windows refused process-tree tracking. Close it normally before trying again."));
+            }
+            drop(resume);
+            Ok(tracker)
+        }
         pub fn attach(child: Child) -> Result<Tracker> {
             let pid = child.id();
             unsafe {
@@ -231,6 +280,7 @@ mod portable {
     }
 
     impl Tracker {
+        pub fn spawn_port(command: &mut std::process::Command) -> Result<Self> { Self::attach(command.spawn()?) }
         pub fn attach(child: Child) -> Result<Tracker> {
             Ok(Tracker { pid: child.id(), child: Mutex::new(child) })
         }
@@ -262,6 +312,37 @@ mod tests {
     use super::*;
     use std::process::Command;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn port_follows_immediate_launcher_handoff_and_never_force_terminates() {
+        let mut command=Command::new("cmd");
+        command.args(["/C", "start", "/B", "ping", "-n", "3", "127.0.0.1", ">NUL"]);
+        let t=Tracker::spawn_port(&mut command).unwrap();
+        assert!(t.polite_only());
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(t.is_running(), "child remains after launcher exits");
+        assert!(!t.pids().is_empty());
+        t.terminate(); // Deliberately unavailable to executable games.
+        assert!(t.is_running(), "force termination must be a no-op");
+        let at=Instant::now();
+        t.wait();
+        assert!(at.elapsed()>=Duration::from_millis(1000));
+        assert!(!t.is_running());
+    }
+
+    #[test]
+    fn dropping_port_tracker_does_not_kill_its_processes() {
+        let mut command=Command::new("cmd");
+        command.args(["/C", "ping", "-n", "3", "127.0.0.1", ">NUL"]);
+        let t=Tracker::spawn_port(&mut command).unwrap();
+        let pid=t.pids()[0];
+        use windows::Win32::System::Threading::{OpenProcess,WaitForSingleObject,PROCESS_SYNCHRONIZE};
+        use windows::Win32::Foundation::{CloseHandle,WAIT_TIMEOUT};
+        let handle=unsafe { OpenProcess(PROCESS_SYNCHRONIZE,false,pid).unwrap() };
+        drop(t);
+        assert_eq!(unsafe { WaitForSingleObject(handle,0) },WAIT_TIMEOUT);
+        unsafe { WaitForSingleObject(handle,5000); let _=CloseHandle(handle); }
+    }
 
     #[test]
     fn waits_for_child_processes_spawned_by_the_launched_process() {
