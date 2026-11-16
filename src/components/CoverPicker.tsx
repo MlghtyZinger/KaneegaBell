@@ -1,0 +1,157 @@
+import { createResource, createSignal, For, Show } from "solid-js";
+import { api, errorText, type CoverCandidate } from "../api";
+import { osk } from "../state/osk";
+import { NavScope } from "./NavScope";
+import { FileBrowser } from "./FileBrowser";
+import { Hint } from "./Hints";
+
+export type PictureKind = "cover" | "hero" | "logo";
+
+const WORDS: Record<PictureKind, { title: string; noun: string; use: string }> = {
+  cover: { title: "Change cover", noun: "covers", use: "Use this cover" },
+  hero: { title: "Change background", noun: "backgrounds", use: "Use this background" },
+  logo: { title: "Change logo", noun: "logos", use: "Use this logo" },
+};
+
+/**
+ * "Change cover": pick from libretro alternatives (other regions, related
+ * titles), SteamGridDB (with a key), search by name, use the game's own icon,
+ * pick an image file, or remove the cover. With `kind` "hero" / "logo" it
+ * picks TV Mode's background or logo from SteamGridDB instead. Choices stick:
+ * automatic fetching never replaces them.
+ */
+export function CoverPicker(props: {
+  gameId: number;
+  title: string;
+  kind?: PictureKind;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const kind = () => props.kind ?? "cover";
+  const words = () => WORDS[kind()];
+  const [query, setQuery] = createSignal<string | null>(null);
+  const [candidates] = createResource(
+    () => ({ id: props.gameId, q: query(), k: kind() }),
+    ({ id, q, k }) => api.coverCandidates(id, q, k).catch((e) => Promise.reject(new Error(errorText(e)))),
+  );
+  const [busy, setBusy] = createSignal<string | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
+  const [browsing, setBrowsing] = createSignal(false);
+
+  async function choose(source: CoverCandidate["source"] | "file", name: string, url: string) {
+    setBusy(name);
+    setError(null);
+    try {
+      await api.setCover(props.gameId, source, name, url, kind());
+      props.onChanged();
+      props.onClose();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    if (kind() === "cover") await api.removeCover(props.gameId);
+    else await api.removeExtra(props.gameId, kind() as "hero" | "logo");
+    props.onChanged();
+    props.onClose();
+  }
+
+  function search() {
+    osk.open({
+      title: `Search ${words().noun} by name (e.g. the original game for a hack of ${props.title})`,
+      value: query() ?? "",
+      onDone: (v) => setQuery(v.trim() || null),
+    });
+  }
+
+  // GameTDB options are guesses per region: drop the ones whose image doesn't exist.
+  const [broken, setBroken] = createSignal<ReadonlySet<string>>(new Set());
+  const list = (): CoverCandidate[] =>
+    candidates.state === "ready" ? candidates().filter((c) => !broken().has(c.url)) : [];
+
+  return (
+    <div class="overlay" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
+      <NavScope class="panel cover-picker" modal onBack={props.onClose} onSecondary={search}>
+        <h2>{words().title}</h2>
+        <p class="dim">
+          {props.title}
+          {query() ? ` · results for “${query()}”` : ""}
+        </p>
+        <div class="row">
+          <button class="btn" onClick={search}>
+            Search {words().noun}…
+          </button>
+          <Show when={kind() === "cover"}>
+            <button class="btn" onClick={() => setBrowsing(true)}>
+              Use an image file…
+            </button>
+          </Show>
+          <button class="btn danger" onClick={() => void remove()}>
+            {kind() === "cover" ? "Remove cover" : kind() === "hero" ? "No background" : "No logo"}
+          </button>
+        </div>
+        <Show when={error()}>
+          <p class="warn">{error()}</p>
+        </Show>
+        <Show when={candidates.loading}>
+          <p class="dim">Looking for {words().noun}…</p>
+        </Show>
+        <Show when={candidates.error}>
+          <p class="warn">Couldn't load {words().noun}: {String(candidates.error?.message ?? candidates.error)}</p>
+        </Show>
+        <Show when={candidates.state === "ready" && list().length === 0}>
+          <p class="dim">No {words().noun} found. Try searching with a different name.</p>
+        </Show>
+        <div class="cover-grid" classList={{ wide: kind() === "hero", logos: kind() === "logo" }}>
+          <For each={list()}>
+            {(c, i) => (
+              <button
+                class="cover-option"
+                data-autofocus={i() === 0 ? "" : undefined}
+                disabled={busy() !== null}
+                onClick={() => void choose(c.source, c.name, c.url)}
+                title={c.label}
+              >
+                <Show when={c.preview} fallback={<div class="cover-option-icon">🎮</div>}>
+                  <img
+                    src={c.preview!}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={() => c.source === "gametdb" && setBroken((s) => new Set(s).add(c.url))}
+                  />
+                </Show>
+                <span class="cover-option-label">{busy() === c.name ? "Applying…" : c.label}</span>
+              </button>
+            )}
+          </For>
+        </div>
+        <div class="panel-actions">
+          <div class="hints-row">
+            <Hint action="select" label={words().use} />
+            <Hint action="secondary" label="Search" />
+            <Hint action="back" label="Close" />
+          </div>
+          <button class="btn" onClick={props.onClose}>
+            Close
+          </button>
+        </div>
+      </NavScope>
+      <Show when={browsing()}>
+        <FileBrowser
+          title="Choose a cover image"
+          mode="file"
+          extensions={["png", "jpg", "jpeg", "webp"]}
+          onPick={(path) => {
+            setBrowsing(false);
+            void choose("file", path, path);
+          }}
+          onClose={() => setBrowsing(false)}
+        />
+      </Show>
+    </div>
+  );
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.7.1",
+  "notes": "- Known issue: Full animations remain costly at idle; the unresolved performance findings from 0.7.0 remain recorded below. The saved performance baseline has not been reset.\n- Fixed: executable games track the launched process and its children, including launcher handoffs and skip-launcher options. Tracking is attached before the launcher runs. Play time and controller exit follow the process tree; closing remains polite-only.\n- Fixed: sidebar family symbols are centered in their icon slots.\n- Fixed: an executable entry hides the same game’s scanned ROM inside its folder, including existing duplicates; disabling or removing the executable entry restores the ROM entry and its saved history.\n- Fixed: Steam series lookup requests only installed app IDs instead of the entire Windows catalogue; optional Wikidata requests time out after 30 seconds without long automatic retry waits.\n- Fixed: restored the original toolbar alignment, keeping Add game beside Search and Filter. Catalogue search prefers main-title matches over alternate-title matches at the same relevance.\n- Improved: mouse and keyboard file/folder selection opens the native Windows picker; controller navigation retains the in-app browser. Add game explains how to select an executable for a port, recomp or decomp.\n- New: Add game beside Search lets you choose a LaunchBox title or enter your own, with optional game files, and set up a port, recomp or decomp without scanning first.\n- New: Game files → Launch from an executable combines ports, recomps and decomps in one option; turn it off to use the platform’s configured emulator automatically.",
+  "pub_date": "2026-11-16T08:27:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSUmpEYWZqU290ZVp6aEdsQkUySGN1NHlRUDU3SGhrOUVRZUdWcFhIV2JqWDNjdUJ5am9TbUZVL0YvdVdFM1QxRWs3ZjlqTVRnTWFWZFRaS1dYdVJndFJaQk1mTFNIeUE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0NjQ0NjgyCWZpbGU6S2FuZWVnYUJlbGxfMC43LjFfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjAuNy4xCndiMmFHRG5lV1JNK1E1UnJ5K2JqeXExNWk2YXZaaW84UjJkR044R3JMS1ZOMnpacnpwenl2NXFxTTRIVXRoZTcySW5GWVdHVE5seE9LQXo3MWdLNENnPT0K",
+      "url": "https://api.github.com/repos/MlghtyZinger/KaneegaBell/contents/KaneegaBell_0.7.1_x64-setup.exe?ref=updates"
+    }
+  }
+}
